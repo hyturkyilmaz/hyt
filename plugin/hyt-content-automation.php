@@ -70,10 +70,14 @@ add_action( 'plugins_loaded', function (): void {
     // Ensure DB tables exist (upgrade path)
     HYT\Database::create_tables();
 
-    // Boot services
+    // Boot cron schedules
     HYT\Scheduler::register_cron();
-    ( new HYT\Admin\Admin_Menu() )->init();
-    ( new HYT\Admin\Ajax() )->init();
+
+    // Boot admin
+    if ( is_admin() ) {
+        ( new HYT\Admin\Admin_Menu() )->init();
+        ( new HYT\Admin\Ajax() )->init();
+    }
 
     // REST endpoint for Google OAuth callback
     add_action( 'rest_api_init', function (): void {
