@@ -106,8 +106,8 @@ function hyt_queue_status_badge( string $status ): string {
                         <tr class="hyt-queue-row" id="hyt-row-<?php echo esc_attr( $item->id ); ?>" data-status="<?php echo esc_attr( $item->status ); ?>">
                             <td><?php echo esc_html( $item->id ); ?></td>
                             <td class="hyt-td-filename">
-                                <span title="<?php echo esc_attr( $item->file_name ); ?>">
-                                    <?php echo esc_html( mb_strimwidth( $item->file_name, 0, 40, '...' ) ); ?>
+                                <span title="<?php echo esc_attr( $item->file_name ?? '' ); ?>">
+                                    <?php echo esc_html( mb_strimwidth( $item->file_name ?? '', 0, 40, '...' ) ); ?>
                                 </span>
                             </td>
                             <td class="hyt-td-title">
