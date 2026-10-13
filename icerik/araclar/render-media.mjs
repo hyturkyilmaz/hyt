@@ -2,10 +2,13 @@
 // data-duration taşıyan slaytları MP4'e, diğerlerini PNG'ye çevirir.
 // Animasyonlar Web Animations API ile kare kare durdurulup çekilir; sonuç her seferinde aynıdır.
 // Gerekli: playwright, ffmpeg.
-import { chromium } from 'playwright';
+import { execSync, execFileSync } from 'node:child_process';
+// playwright yerelde yoksa global kurulumdan yükle
+const pw = await import('playwright').catch(() =>
+  import(execSync('npm root -g').toString().trim() + '/playwright/index.js'));
+const chromium = pw.chromium ?? pw.default.chromium;
 import { resolve, join } from 'node:path';
 import { mkdirSync, rmSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 
 const [, , htmlPath, outDir, fpsArg] = process.argv;
 if (!htmlPath || !outDir) {

@@ -17,6 +17,7 @@
     --muted: #6b7280;
     --line: #dddddd;
     --dark: #0f172a;
+    --brand: #2e9447; /* logo yeşili */
     --accent: var(--ecom);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -42,8 +43,8 @@
   /* ortak çerçeve */
   .top { position: absolute; top: 56px; left: 90px; right: 90px; display: flex; justify-content: space-between; align-items: center; }
   .author { display: flex; align-items: center; gap: 16px; font-size: 24px; font-weight: 600; color: var(--ink2); }
-  .mono { width: 56px; height: 56px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 20px; letter-spacing: .5px; }
-  .dark .author { color: #cbd5e1; } .dark .mono { background: #f8fafc; color: var(--dark); }
+  .mark { width: 50px; height: 56px; display: block; }
+  .dark .author { color: #cbd5e1; }
   .counter { font-size: 24px; font-weight: 600; color: var(--muted); letter-spacing: 1px; }
   .foot { position: absolute; bottom: 56px; left: 90px; right: 90px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 22px; color: var(--muted); }
   .foot .next { font-weight: 700; color: var(--ink); font-size: 26px; }
@@ -154,14 +155,14 @@
   #s7 .give b { color: #fff; }
   .chips { display: flex; gap: 14px; margin-top: 54px; animation: pop .5s 1s both; }
   .chip { font-size: 24px; font-weight: 700; padding: 14px 22px; border-radius: 999px; border: 2px solid rgba(255,255,255,.25); color: #e2e8f0; }
-  .chip.on { background: var(--seo); border-color: var(--seo); color: #fff; }
+  .chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 </style>
 </head>
 <body>
 
 <!-- 1 / Kapak (video 6 sn) -->
 <section class="slide" id="s1" data-duration="6">
-  <div class="top"><div class="author"><div class="mono">HYT</div>Hasan Yasin Türkyılmaz</div><div class="counter">1/7</div></div>
+  <div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">1/7</div></div>
   <div class="kicker"><span class="dot"></span>E-ticaret · AI ajanları</div>
   <h1>Amazon, satıcı panelini <span class="u">Claude'a<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path class="draw" d="M4 20 C 90 8, 200 6, 396 14"/></svg></span> açtı.</h1>
   <p class="lead">Türkiye'de satış yapıyorsan bu hafta başlaman gereken <b>3 hazırlık</b>.</p>
@@ -177,7 +178,7 @@
 
 <!-- 2 / Sohbet ekranı (video 8 sn) -->
 <section class="slide" id="s2" data-duration="8">
-  <div class="top"><div class="author"><div class="mono">HYT</div>Hasan Yasin Türkyılmaz</div><div class="counter">2/7</div></div>
+  <div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">2/7</div></div>
   <div class="kicker"><span class="dot"></span>Ne değişti?</div>
   <h2>Menü yerine <span class="u">tek cümle.<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path class="draw" d="M4 18 C 120 10, 260 8, 396 16"/></svg></span></h2>
   <div class="window">
@@ -202,7 +203,7 @@
 
 <!-- 3 / İş akışı (video 6 sn) -->
 <section class="slide" id="s3" data-duration="6">
-  <div class="top"><div class="author"><div class="mono">HYT</div>Hasan Yasin Türkyılmaz</div><div class="counter">3/7</div></div>
+  <div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">3/7</div></div>
   <div class="kicker"><span class="dot" style="background:var(--ai)"></span>Nasıl çalışıyor?</div>
   <h2>Ajanın iş akışı</h2>
   <div class="flow">
@@ -231,7 +232,7 @@
 
 <!-- 4 / Hazırlık 01 (görsel) -->
 <section class="slide" id="s4">
-  <div class="top"><div class="author"><div class="mono">HYT</div>Hasan Yasin Türkyılmaz</div><div class="counter">4/7</div></div>
+  <div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">4/7</div></div>
   <div class="kicker"><span class="num">01</span>Hazırlık</div>
   <h2>Ürün verini <span class="u">tek dile<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path d="M4 18 C 120 10, 260 8, 396 16"/></svg></span> çevir.</h2>
   <div class="sheets">
@@ -259,7 +260,7 @@
 
 <!-- 5 / Hazırlık 02 (görsel) -->
 <section class="slide" id="s5">
-  <div class="top"><div class="author"><div class="mono">HYT</div>Hasan Yasin Türkyılmaz</div><div class="counter">5/7</div></div>
+  <div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">5/7</div></div>
   <div class="kicker"><span class="num">02</span>Hazırlık</div>
   <h2>Kafandaki kuralı <span class="u">yazıya<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path d="M4 18 C 120 10, 260 8, 396 16"/></svg></span> dök.</h2>
   <p class="lead" style="margin-bottom:34px">Ajan sezgiyi uygulayamaz. Kuralı uygular.</p>
@@ -279,7 +280,7 @@
 
 <!-- 6 / Hazırlık 03 (görsel) -->
 <section class="slide" id="s6">
-  <div class="top"><div class="author"><div class="mono">HYT</div>Hasan Yasin Türkyılmaz</div><div class="counter">6/7</div></div>
+  <div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">6/7</div></div>
   <div class="kicker"><span class="num">03</span>Hazırlık</div>
   <h2>Onay zincirini <span class="u">şimdiden<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path d="M4 18 C 120 10, 260 8, 396 16"/></svg></span> kur.</h2>
   <p class="lead" style="margin-bottom:40px">Amazon bile her adımda onay istiyor. Senin mağazanda kim onaylayacak?</p>
@@ -295,7 +296,7 @@
 
 <!-- 7 / CTA (video 5 sn) -->
 <section class="slide dark" id="s7" data-duration="5">
-  <div class="top"><div class="author"><div class="mono">HYT</div>Hasan Yasin Türkyılmaz</div><div class="counter">7/7</div></div>
+  <div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">7/7</div></div>
   <div class="say">Yorumlara yaz:</div>
   <div><span class="kw">AJAN</span></div>
   <p class="give">10 maddelik <b>"Ajana Hazır Mağaza"</b> kontrol listesini DM'den göndereyim.</p>

@@ -1,6 +1,10 @@
 // Kullanım: node icerik/araclar/render.mjs <slaytlar.html> <cikti-klasoru>
 // Her <section class="slide"> öğesini 1080x1350 PNG olarak kaydeder.
-import { chromium } from 'playwright';
+import { execSync } from 'node:child_process';
+// playwright yerelde yoksa global kurulumdan yükle
+const pw = await import('playwright').catch(() =>
+  import(execSync('npm root -g').toString().trim() + '/playwright/index.js'));
+const chromium = pw.chromium ?? pw.default.chromium;
 import { resolve } from 'node:path';
 import { mkdirSync } from 'node:fs';
 
