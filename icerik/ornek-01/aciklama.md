@@ -6,8 +6,9 @@
 |---|---|
 | Format | Carousel, 7 slayt, 1080×1350 |
 | Sütun | AI haberi → pratik etki |
-| Önerilen yayın | Çarşamba 14 Ekim 2026, 20:50 TRT |
-| Yedek pencere | Perşembe 15 Ekim 2026, 09:10 TRT |
+| Carousel | Çarşamba 14 Ekim 2026, 09:10 TRT (7 günlük plan, `icerik/plan/7-gun-2026-10-14.md`) |
+| Story | 14 Ekim 13:10 · `v2/medya/story.mp4` |
+| Reels | 14 Ekim 20:50 · `v2/medya/reels-altyazili-onizleme.mp4` |
 | Anahtar kelime | AJAN |
 | Lead magnet | "Ajana Hazır Mağaza" kontrol listesi (`lead-magnet-kontrol-listesi.md`) |
 | Medya (v2) | `v2/medya/` — yükleme sırası aşağıda |

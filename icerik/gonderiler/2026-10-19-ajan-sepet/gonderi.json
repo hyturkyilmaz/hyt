@@ -1,0 +1,134 @@
+{
+  "id": "2026-10-19-ajan-sepet",
+  "tarih": "2026-10-19",
+  "gun": "Pazartesi",
+  "sutun": "ecom",
+  "anahtar": "SEPET",
+  "muzik_tohum": 14,
+  "slaytlar": [
+    {
+      "tip": "kapak",
+      "kicker": "E-ticaret · Ajan alışverişi",
+      "baslik": "Ajanlar artık _sepeti_ kendisi tamamlıyor.",
+      "alt": "Shopify kapıyı açtı, Amazon kapattı. **Senin mağazan hangi tarafta?**",
+      "zaman": [
+        {"t": "21 Eylül", "s": "Shop Pay varsayılan", "renk": "ecom"},
+        {"t": "28 Eylül", "s": "Ajan ödeme adımı", "renk": "ai"},
+        {"t": "Amazon", "s": "Ajanı engelledi*", "renk": "ads"},
+        {"t": "Sen", "s": "Karar ver", "renk": "seo"}
+      ],
+      "kaynak": "Kaynak: TechCrunch, 28 Eylül 2026 · PYMNTS · *bildirildi"
+    },
+    {
+      "tip": "akis",
+      "kicker": "Nasıl çalışıyor?",
+      "renk": "ecom",
+      "baslik": "Ajanlı _ödeme_ akışı",
+      "satirlar": [
+        [{"ad": "Alıcı", "alt": "Ajana görev verir", "ikon": "kisi", "renk": "ink"},
+         {"ad": "Ajan", "alt": "Ürünü bulur", "ikon": "sohbet", "renk": "ai"},
+         {"ad": "Mağaza", "alt": "Sepet bilgisini verir", "ikon": "magaza", "renk": "ecom"}],
+        [{"ad": "Sepet", "alt": "Ajan günceller", "ikon": "sepet", "renk": "seo"},
+         {"ad": "Alıcı onayı", "alt": "Ödemeye izin", "ikon": "onay", "renk": "ads", "insan": true}],
+        [{"ad": "Ödeme", "alt": "Sipariş tamamlanır", "ikon": "kalkan", "renk": "ink"}]
+      ],
+      "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+      "kaynak": "Araçlar: get_checkout · update_checkout · complete_checkout"
+    },
+    {
+      "tip": "matris",
+      "kicker": "Kim ne yaptı?",
+      "baslik": "Aç mı, _kapat_ mı?",
+      "basliklar": ["Taraf", "Tutum", "Not"],
+      "satirlar": [
+        [["ecom", "Shopify"], "Açtı", "Alıcı onayıyla ödeme"],
+        [["ads", "Amazon"], "Kapattı*", "Meta ajanını engellediği bildirildi"],
+        [["seo", "Adidas"], "Kapatıyor*", "Ajan alımlarına karşı adım"],
+        [["ai", "Sorumluluk"], "Belirsiz", "Ajan yanlış alırsa kim?"]
+      ],
+      "kaynak": "Kaynak: The AI Insider, 30 Eylül 2026 · *basında bildirildi"
+    },
+    {
+      "tip": "oncesonra",
+      "num": "01",
+      "kicker": "Hazırlık",
+      "baslik": "Fiyat ve stok _her yerde_ aynı.",
+      "once": {"dosya": "kanal_fiyatlari", "etiket": "Ajan şüphelenir", "basliklar": ["Kanal", "Fiyat", "Stok"],
+               "satirlar": [["Site", "₺1.290", "Var"], ["Pazaryeri", "₺1.190", "Var"], ["Sosyal mağaza", "₺1.350", "?"]]},
+      "sonra": {"dosya": "tek_kaynak.csv", "etiket": "Tutarlı", "basliklar": ["Kanal", "Fiyat", "Stok"],
+                "satirlar": [["Site", "₺1.290", "12"], ["Pazaryeri", "₺1.290", "12"], ["Sosyal mağaza", "₺1.290", "12"]]},
+      "kaynak": "Ajanlar fiyatları karşılaştırır; tutarsızlık güveni düşürür. Örnek değerler."
+    },
+    {
+      "tip": "kural",
+      "num": "02",
+      "kicker": "Hazırlık",
+      "baslik": "Politikanı _makine_ okusun.",
+      "alt": "İade, kargo, garanti: ajan cevabı sayfanda bulmalı.",
+      "kod": [
+        "<span class=\"c\"># politika özeti · yapısal</span>",
+        "<span class=\"k\">iade</span>: 14 gün cayma hakkı",
+        "<span class=\"k\">kargo</span>: 1-3 iş günü",
+        "<span class=\"k\">garanti</span>: 2 yıl",
+        "<span class=\"g\">→</span> ürün sayfasında + yapısal veri"
+      ],
+      "prompt": "İade ve kargo sayfamı oku. Bir alışveriş ajanının sorabileceği 10 soruyu yaz ve sayfamda cevabı olmayanları işaretle.",
+      "kaynak": "Örnek değerler. 14 günlük cayma hakkı mesafeli satışta yasal zorunluluk."
+    },
+    {
+      "tip": "ekran",
+      "num": "03",
+      "kicker": "Hazırlık",
+      "baslik": "Mağazanı _ajan gibi_ sına.",
+      "pencere": "Claude · mağaza testi · temsili",
+      "istek": "Bu mağazada 2 günde gelen keten gömlek bul.",
+      "yanit": "**Buldum, ama 3 sorun var.**",
+      "tablo": {
+        "basliklar": ["Kontrol", "Sonuç", "Not"],
+        "satirlar": [["Ürün bulundu", "Evet", "—"], ["Kargo süresi", "Belirsiz", "Sayfada yok"], ["İade koşulu", "Eksik", "Sadece PDF'te"], ["Fiyat", "Tutarsız", "Pazaryeri farklı"]],
+        "vurgu_sutun": 1
+      },
+      "evet": "Düzelt",
+      "hayir": "Atla",
+      "aksiyon": "Bu testi her ay tekrarla.",
+      "kaynak": "Temsili test"
+    },
+    {
+      "tip": "cta",
+      "anahtar": "SEPET",
+      "vaat": "**\"Ajan alışverişine hazırlık\"** kontrol listesini DM'den göndereyim."
+    }
+  ],
+  "aciklama": "Ajanlar artık sepeti kendisi tamamlıyor. Shopify kapıyı açtı, Amazon kapattı.\n\n28 Eylül'de Shopify, tarayıcıda çalışan yapay zekâ ajanlarının alıcı onayıyla ödemeyi tamamlamasına izin verdi. Aynı günlerde Amazon'un Meta'nın alışveriş ajanını engellediği, Adidas'ın da benzer bir adım attığı bildirildi.\n\nTürkiye'de bu kararı vermek için erken olabilir ama hazırlığa başlamak için değil. Ajan mağazana geldiğinde fiyatın her kanalda aynı mı, iade politkasını sayfada okuyabiliyor mu, buna bakacak.\n\nİnsan alışverişte güveni yüzden okur, ajan ise tutarlılıktan. İkisine de aynı dürüstlükle hazırlanmak gerekiyor.\n\nKaydırınca ödeme akışını, aç/kapat tablosunu ve mağazanı ajan gibi test etmenin yolunu göreceksin.\n\nYorumlara SEPET yaz, \"Ajan alışverişine hazırlık\" listesini DM'den göndereyim.\n\n#eticaret #shopify #yapayzeka #pazaryeri #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "politkasını", "dogrusu": "politikasını", "paragraf": 3},
+  "dogrulama": ["TechCrunch, 28 Eylül 2026", "PYMNTS", "The Paypers", "The AI Insider, 30 Eylül 2026"],
+  "senaryo": [
+    {"tts": "Ajanlar artık sepeti kendisi tamamlıyor. Şopifay kapıyı açtı, Amazon kapattı.", "altyazi": "Ajanlar artık sepeti kendisi tamamlıyor. Shopify kapıyı açtı, Amazon kapattı."},
+    {"tts": "Alıcı görevi veriyor, ajan ürünü buluyor, sepeti güncelliyor. Ödeme yine alıcının onayıyla.", "altyazi": "Alıcı görevi veriyor, ajan ürünü buluyor, sepeti güncelliyor. Ödeme yine alıcının onayıyla."},
+    {"tts": "Kimi açıyor, kimi kapatıyor. Ajan yanlış alırsa kim sorumlu, henüz belli değil.", "altyazi": "Kimi açıyor, kimi kapatıyor. Ajan yanlış alırsa kim sorumlu, henüz belli değil."},
+    {"tts": "Bir. Fiyat ve stok her kanalda aynı olsun. Ajan karşılaştırır.", "altyazi": "1. Fiyat ve stok her kanalda aynı olsun. Ajan karşılaştırır."},
+    {"tts": "İki. İade ve kargo politikanı makine okuyabilsin.", "altyazi": "2. İade ve kargo politikanı makine okuyabilsin."},
+    {"tts": "Üç. Mağazanı her ay bir ajan gibi test et.", "altyazi": "3. Mağazanı her ay bir ajan gibi test et."},
+    {"tts": "Hazırlık listesini istiyorsan yorumlara sepet yaz. Di emden göndereyim.", "altyazi": "Hazırlık listesini istiyorsan yorumlara SEPET yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Ajan Alışverişine _Hazırlık_",
+    "kicker": "Kontrol listesi · E-ticaret · Ödeme",
+    "giris": "Alışveriş ajanları sepete ve ödemeye geliyor. Mağazanı açmak ya da kapatmak senin kararın; bu liste iki durumda da hazırlıklı olman için.",
+    "bolumler": [
+      {"ad": "Tutarlılık", "renk": "ecom", "maddeler": [
+        ["Tek fiyat kaynağı", "Site, pazaryeri ve sosyal mağazada fiyat aynı tablodan beslenir."],
+        ["Canlı stok", "Stok her kanalda aynı anda güncellenir; 'var' yerine adet."],
+        ["Kargo süresi ürün sayfasında", "1-3 iş günü gibi net ifade; PDF'te değil."]]},
+      {"ad": "Okunabilirlik", "renk": "seo", "maddeler": [
+        ["Politika özeti sayfada", "İade (14 gün cayma hakkı), kargo, garanti tek blokta."],
+        ["Yapısal veri", "Ürün, fiyat, stok, iade bilgisi şema işaretlemesiyle."],
+        ["Ajan sorusu testi", "Bir asistana mağazanda alışveriş yaptır, cevapsız kalan soruları not et."]]},
+      {"ad": "Karar ve güvenlik", "renk": "ai", "maddeler": [
+        ["Aç / kapat kararı yazılı", "Hangi ajanlara izin verildiği ve neden."],
+        ["Alıcı onayı zorunlu", "Ödeme her zaman alıcının açık onayıyla tamamlanır."],
+        ["Sipariş izleme", "Ajan kaynaklı siparişler ayrı etiketle izlenir, iade oranı karşılaştırılır."],
+        ["Sorumluluk metni", "Mesafeli satış sözleşmesi ve SSS'de ajan siparişleri için açıklama."]]}
+    ]
+  }
+}

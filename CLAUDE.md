@@ -19,7 +19,10 @@ Hasan Yasin Türkyılmaz (hyturkyilmaz.com) için içerik ve otomasyon deposu.
 - Tek yazım hatası kuralı: yalnız açıklama gövdesinde, klavye kayması, yeri üretim notunda.
 - Ses: klon yalnız Hasan Yasin'in kendi sesi. Chatterbox Multilingual (MIT) Colab'da; XTTS-v2 (CPML) ticari işte kullanılmaz. Müzik konuşmanın %8-10'u.
 - Lead: yorum anahtar kelimesi → DM → kontrol listesi + WhatsApp Topluluğu (https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh).
-- Takvim aşamaları: örnek → 7 gün → 14 gün → 30 gün → günlük 1. Sıradaki adım: 7 günlük plan (onay bekliyor).
+- Takvim aşamaları: örnek → 7 gün → 14 gün → 30 gün → günlük 1. 7 günlük plan hazır (`icerik/plan/7-gun-2026-10-14.md`, 14-20 Ekim). Sıradaki: 14 günlük plan (21 Ekim - 3 Kasım).
+- Günde 3 paylaşım: 09:10 carousel · 13:10 story · 20:50 reels (kullanıcı isteği, 13 Ekim).
+- Tek komut: `python3 icerik/araclar/gonderi-uret.py icerik/gonderiler/<id>/gonderi.json`.
+- Instagram'a doğrudan erişim yok (bulut oturumu kullanıcının Chrome'una bağlanamaz); yayın Meta Business Suite Planlayıcı ile kullanıcıda.
 
 ## Ortam notları
 - Bulut oturumunda instagram.com, hyturkyilmaz.com, huggingface.co kapalı olabilir.

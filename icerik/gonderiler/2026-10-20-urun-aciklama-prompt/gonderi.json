@@ -1,0 +1,132 @@
+{
+  "id": "2026-10-20-urun-aciklama-prompt",
+  "tarih": "2026-10-20",
+  "gun": "Salı",
+  "sutun": "ai",
+  "anahtar": "PROMPT",
+  "muzik_tohum": 21,
+  "slaytlar": [
+    {
+      "tip": "kapak",
+      "kicker": "AI · Prompt",
+      "baslik": "Ürün açıklamasını _3 dakikada_ yazdıran prompt.",
+      "alt": "Kopyala, kendi ürününle doldur, **kaydet.**",
+      "zaman": [
+        {"t": "1. dakika", "s": "Ürün bilgisini ver", "renk": "ecom"},
+        {"t": "2. dakika", "s": "Prompt'u çalıştır", "renk": "ai"},
+        {"t": "3. dakika", "s": "Sen kontrol et", "renk": "ads"}
+      ],
+      "kaynak": "Kendi kullandığım şablon, Ekim 2026"
+    },
+    {
+      "tip": "oncesonra",
+      "kicker": "Fark",
+      "baslik": "Aynı ürün, _iki_ açıklama",
+      "once": {"dosya": "eski_aciklama.txt", "etiket": "Genel", "basliklar": ["Alan", "İçerik"],
+               "satirlar": [["Başlık", "Keten Gömlek"], ["Açıklama", "Kaliteli ve şık gömlek."], ["Bilgi", "—"]]},
+      "sonra": {"dosya": "yeni_aciklama.txt", "etiket": "Satışa hazır", "basliklar": ["Alan", "İçerik"],
+                "satirlar": [["Başlık", "Keten Gömlek, Beyaz, Rahat Kesim"], ["Açıklama", "Nefes alan keten, yazın serin tutar"], ["Bilgi", "%100 keten · 30°C yıkama · M-XL"]]},
+      "kaynak": "Örnek ürün"
+    },
+    {
+      "tip": "kural",
+      "num": "01",
+      "kicker": "İskelet",
+      "baslik": "Prompt'un _iskeleti_",
+      "alt": "Köşeli parantezleri kendi ürününle doldur.",
+      "kod": [
+        "<span class=\"k\">ROL</span> e-ticaret metin yazarı",
+        "<span class=\"k\">ÜRÜN</span> [ad, malzeme, ölçü, renk]",
+        "<span class=\"k\">KİTLE</span> [kime, hangi ihtiyaç]",
+        "<span class=\"k\">KURAL</span> 80-120 kelime, abartı yok",
+        "<span class=\"k\">ÇIKTI</span> başlık + 3 madde + bakım"
+      ],
+      "prompt": "Deneyimli bir e-ticaret metin yazarı gibi davran. Ürün bilgilerine göre 80-120 kelimelik açıklama, aramaya uygun bir başlık ve 3 maddelik özellik listesi yaz. Abartılı sıfat kullanma, bilmediğin bilgiyi uydurma; eksikse sor.",
+      "kaynak": "Claude, ChatGPT veya Gemini'de çalışır."
+    },
+    {
+      "tip": "ekran",
+      "kicker": "Çalıştır",
+      "baslik": "Sonuç _tablo_ halinde",
+      "pencere": "Claude · ürün metni · temsili",
+      "istek": "Bu 3 ürün için açıklama ve başlık yaz.",
+      "yanit": "**3 ürün hazır.** Eksik bilgisi olanları işaretledim.",
+      "tablo": {
+        "basliklar": ["Ürün", "Başlık", "Kelime", "Eksik"],
+        "satirlar": [["Keten gömlek", "Hazır", "104", "—"], ["Pamuk şort", "Hazır", "96", "Ölçü"], ["Hasır şapka", "Hazır", "88", "Malzeme"]],
+        "vurgu_sutun": 3
+      },
+      "evet": "Kaydet",
+      "hayir": "Yeniden yaz",
+      "aksiyon": "Eksik bilgiyi uydurmaz, sorar.",
+      "kaynak": "Örnek ürünler"
+    },
+    {
+      "tip": "akis",
+      "kicker": "Toplu iş",
+      "renk": "ai",
+      "baslik": "100 ürün için _akış_",
+      "satirlar": [
+        [{"ad": "Ürün tablosu", "alt": "CSV", "ikon": "veri", "renk": "ecom"},
+         {"ad": "Prompt", "alt": "Şablon", "ikon": "kod", "renk": "ai"},
+         {"ad": "Model", "alt": "Toplu çalıştır", "ikon": "sohbet", "renk": "ai"}],
+        [{"ad": "Eksik bilgi", "alt": "İşaretli satırlar", "ikon": "arama", "renk": "seo"},
+         {"ad": "Senin kontrolün", "alt": "Örnekleme", "ikon": "onay", "renk": "ads", "insan": true}],
+        [{"ad": "Mağaza", "alt": "Yayına al", "ikon": "magaza", "renk": "ink"}]
+      ],
+      "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+      "kaynak": "Toplu işte ucuz model yeterli (bkz. 15 Ekim, MODEL)."
+    },
+    {
+      "tip": "matris",
+      "num": "02",
+      "kicker": "Kontrol",
+      "baslik": "Yayından önce _4 kontrol_",
+      "basliklar": ["Kontrol", "Neden"],
+      "satirlar": [
+        [["ads", "Uydurma bilgi"], "İade ve şikâyet riski"],
+        [["seo", "Anahtar kelime"], "Başlıkta doğal geçiyor mu"],
+        [["ecom", "Ölçü ve malzeme"], "Müşteri de ajan da arar"],
+        [["ai", "Ses tonu"], "Marka diliyle uyumlu mu"]
+      ],
+      "kaynak": "Her 10 üründen 1'ini satır satır oku."
+    },
+    {
+      "tip": "cta",
+      "anahtar": "PROMPT",
+      "vaat": "**Ürün açıklaması prompt setini** (tekli + toplu + kontrol) DM'den göndereyim."
+    }
+  ],
+  "aciklama": "Ürün açıklamasını 3 dakikada yazdıran prompt. Kopyala, kendi ürününle doldur.\n\nBu hafta konuştuğumuz her şeyin ortak noktası aynıydı: ajanlar da müşteriler de düzenli ürün bilgisi istiyor. Bunun en hızlı başlangıcı açıklamalar.\n\nDanışmanlık verdiğim mağazalarda en sık gördüğüm sorun, ürün açıklamlarını tedarikçiden kopyalamak. Aynı metin yüzlerce sitede var; ne Google'a ne müşteriye bir şey anlatıyor.\n\nİnsanlar ürüne dokunamadan alıyor, dokunmanın yerini tutan şey kelimeler. O yüzden \"kaliteli ve şık\" yazmak yerine kumaşı, ölçüyü, bakımı anlatmak gerekiyor.\n\nKaydırınca prompt'un iskeletini, örnek sonucu ve 100 ürün için akışı göreceksin. Prompt bilmediği bilgiyi uydurmaz, eksik olanı işaretler.\n\nYorumlara PROMPT yaz, ürün açıklaması prompt setini DM'den göndereyim.\n\n#yapayzeka #claude #eticaret #prompt #urunaciklamasi",
+  "yazim_hatasi": {"kelime": "açıklamlarını", "dogrusu": "açıklamalarını", "paragraf": 3},
+  "dogrulama": ["Haber içermez; kendi prompt şablonu"],
+  "senaryo": [
+    {"tts": "Ürün açıklamasını üç dakikada yazdıran prompt. Kopyala, kendi ürününle doldur.", "altyazi": "Ürün açıklamasını 3 dakikada yazdıran prompt. Kopyala, kendi ürününle doldur."},
+    {"tts": "Aynı ürün, iki açıklama. Biri genel, diğeri satışa hazır.", "altyazi": "Aynı ürün, iki açıklama. Biri genel, diğeri satışa hazır."},
+    {"tts": "Promptun iskeleti: rol, ürün, kitle, kural, çıktı.", "altyazi": "Prompt'un iskeleti: rol, ürün, kitle, kural, çıktı."},
+    {"tts": "Sonuç tablo halinde geliyor. Eksik bilgiyi uydurmuyor, işaretliyor.", "altyazi": "Sonuç tablo halinde geliyor. Eksik bilgiyi uydurmuyor, işaretliyor."},
+    {"tts": "Yüz ürün için de aynı akış: tablo, prompt, kontrol, yayın.", "altyazi": "100 ürün için de aynı akış: tablo, prompt, kontrol, yayın."},
+    {"tts": "Yayından önce dört şeyi kontrol et: uydurma bilgi, anahtar kelime, ölçü, ses tonu.", "altyazi": "Yayından önce 4 şeyi kontrol et: uydurma bilgi, anahtar kelime, ölçü, ses tonu."},
+    {"tts": "Prompt setini istiyorsan yorumlara prompt yaz. Di emden göndereyim.", "altyazi": "Prompt setini istiyorsan yorumlara PROMPT yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Ürün Açıklaması _Prompt Seti_",
+    "kicker": "Prompt seti · AI · E-ticaret",
+    "giris": "Tekli ürün, toplu iş ve kontrol için hazır promptlar. Köşeli parantezleri doldur, kopyala, çalıştır.",
+    "bolumler": [
+      {"ad": "Tekli ürün", "renk": "ai", "maddeler": [
+        ["Açıklama", "Deneyimli bir e-ticaret metin yazarı gibi davran. [ürün bilgisi] için 80-120 kelimelik açıklama yaz; abartı yok, bilmediğini uydurma, eksikse sor."],
+        ["Başlık", "Aynı ürün için arama niyetine uygun, 60 karakteri geçmeyen 3 başlık öner."],
+        ["Özellik maddeleri", "Ürünü 3 maddede anlat: malzeme, kullanım, bakım."]]},
+      {"ad": "Toplu iş", "renk": "ecom", "maddeler": [
+        ["Tablo girdisi", "Ekteki CSV'nin her satırı için açıklama + başlık üret; çıktıyı aynı sütun düzeninde ver."],
+        ["Eksik işaretleme", "Bilgisi eksik satırları 'EKSİK: alan adı' diye işaretle, metin yazma."],
+        ["Ses tonu", "Önce şu 3 örnek açıklamanın tonunu analiz et, sonra tüm ürünleri aynı tonda yaz."]]},
+      {"ad": "Kontrol", "renk": "ads", "maddeler": [
+        ["Uydurma kontrolü", "Açıklamadaki her iddianın ürün bilgisinde karşılığı var mı, tablo halinde göster."],
+        ["Tekrar kontrolü", "Birbirine %80'den fazla benzeyen açıklamaları listele."],
+        ["Örnekleme", "Her 10 üründen 1'ini insan okusun; hata oranı %5'i geçerse toplu işi durdur."],
+        ["Arama uyumu", "Başlıkta ana anahtar kelime doğal geçiyor mu, evet/hayır tablosu."]]}
+    ]
+  }
+}

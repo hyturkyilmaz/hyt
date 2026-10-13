@@ -1,0 +1,131 @@
+{
+  "id": "2026-10-16-chatgpt-reklam-olcum",
+  "tarih": "2026-10-16",
+  "gun": "Cuma",
+  "sutun": "ads",
+  "anahtar": "REKLAM",
+  "muzik_tohum": 3,
+  "slaytlar": [
+    {
+      "tip": "kapak",
+      "kicker": "Reklam · ChatGPT Ads",
+      "baslik": "ChatGPT reklamları artık _ölçülebiliyor._",
+      "alt": "Bütçe ayırmadan önce kurman gereken **3 ölçüm katmanı**.",
+      "zaman": [
+        {"t": "24 Eylül", "s": "Branch: uygulama + web", "renk": "seo"},
+        {"t": "5 Ekim", "s": "DoubleVerify: atıf", "renk": "ads"},
+        {"t": "Ekim sonu", "s": "Görsel reklam testi", "renk": "ecom"},
+        {"t": "Sen", "s": "Ölçüm hazır mı?", "renk": "ai"}
+      ],
+      "kaynak": "Kaynak: DoubleVerify, 5 Ekim 2026 · Marketing Brew"
+    },
+    {
+      "tip": "akis",
+      "kicker": "Nasıl ölçülüyor?",
+      "renk": "ads",
+      "baslik": "Reklamdan satışa _iz_",
+      "satirlar": [
+        [{"ad": "Kullanıcı", "alt": "ChatGPT'de soru sorar", "ikon": "kisi", "renk": "ink"},
+         {"ad": "Reklam", "alt": "Sponsorlu öneri", "ikon": "hoparlor", "renk": "ads"},
+         {"ad": "Tıklama", "alt": "UTM'li bağlantı", "ikon": "arama", "renk": "seo"}],
+        [{"ad": "Site", "alt": "Piksel + sunucu olayı", "ikon": "magaza", "renk": "ink"},
+         {"ad": "Dönüşüm API", "alt": "Satış verisi geri döner", "ikon": "veri", "renk": "ai"}],
+        [{"ad": "Atıf aracı", "alt": "ROAS içinde bir temas", "ikon": "grafik", "renk": "ecom"},
+         {"ad": "Senin kararın", "alt": "Bütçe artır / kes", "ikon": "onay", "renk": "ads", "insan": true}]
+      ],
+      "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]],
+      "kaynak": "Şema: OpenAI ölçüm ortakları duyurularından sadeleştirildi"
+    },
+    {
+      "tip": "grafik",
+      "kicker": "İlk vaka",
+      "renk": "ads",
+      "baslik": "Edinme maliyeti _endeksi_",
+      "barlar": [
+        {"ad": "Markanın yerleşik kanalları", "etiket": "100", "deger": 100, "renk": "ink", "alt": "Karşılaştırma tabanı"},
+        {"ad": "ChatGPT reklamları", "etiket": "84,7", "deger": 84.7, "renk": "ads", "alt": "%15,3 daha düşük CPA"}
+      ],
+      "not": "Tek vaka, ölçüm şirketinin paylaştığı veri. Genelleme yapma; kendi testini kur.",
+      "kaynak": "Kaynak: DoubleVerify, 5 Ekim 2026 (WeightWatchers vakası)"
+    },
+    {
+      "tip": "kural",
+      "num": "01",
+      "kicker": "Katman",
+      "baslik": "UTM'yi _standart_ yap.",
+      "alt": "Kaynak adı tutarsızsa atıf aracı ChatGPT'yi göremez.",
+      "kod": [
+        "<span class=\"c\"># utm kuralı · v1</span>",
+        "utm_source=<span class=\"k\">chatgpt</span>",
+        "utm_medium=<span class=\"k\">cpc</span>",
+        "utm_campaign=<span class=\"g\">2026-10_urun-adi</span>",
+        "<span class=\"c\"># küçük harf, tire, Türkçe karakter yok</span>"
+      ],
+      "prompt": "Ekteki kampanya listesine bu UTM kuralına göre bağlantı üret. Türkçe karakterleri dönüştür, eksik alan varsa bana sor.",
+      "kaynak": "Aynı kuralı Google, Meta ve e-posta için de kullan."
+    },
+    {
+      "tip": "oncesonra",
+      "num": "02",
+      "kicker": "Katman",
+      "baslik": "Sunucu tarafı _olayları_ aç.",
+      "once": {"dosya": "sadece_piksel", "etiket": "Kayıp veri", "basliklar": ["Olay", "Kaynak", "Durum"],
+               "satirlar": [["Satın alma", "Tarayıcı pikseli", "Engellenebilir"], ["Sepete ekleme", "Tarayıcı pikseli", "Eksik"], ["Form", "—", "Ölçülmüyor"]]},
+      "sonra": {"dosya": "piksel_ve_sunucu", "etiket": "Eşleşen veri", "basliklar": ["Olay", "Kaynak", "Durum"],
+                "satirlar": [["Satın alma", "Piksel + Conversions API", "Eşleşti"], ["Sepete ekleme", "Piksel + API", "Eşleşti"], ["Form", "Sunucu olayı", "Eşleşti"]]},
+      "kaynak": "Bu hafta: Conversions API veya sunucu tarafı etiketlemeyi kontrol et."
+    },
+    {
+      "tip": "matris",
+      "num": "03",
+      "kicker": "Katman",
+      "baslik": "Küçük bütçeyle _artış testi_ yap.",
+      "alt": "Atıf, satışı reklama yazar. Artış testi, reklam olmasa da gelir miydi diye sorar.",
+      "basliklar": ["Adım", "Ne yapılır", "Süre"],
+      "satirlar": [
+        [["seo", "Bölge seç"], "Test ve kontrol bölgesi", "1 gün"],
+        [["ads", "Bütçe aç"], "Yalnız test bölgesinde", "2-4 hafta"],
+        [["ecom", "Karşılaştır"], "Satış farkı", "1 gün"],
+        [["ink", "Karar"], "Artış yoksa kes", "—"]
+      ],
+      "kaynak": "Örnek plan. Artış testi araçları ChatGPT reklamlarında henüz erken aşamada."
+    },
+    {
+      "tip": "cta",
+      "anahtar": "REKLAM",
+      "vaat": "**\"AI reklam ölçüm hazırlığı\"** kontrol listesini DM'den göndereyim."
+    }
+  ],
+  "aciklama": "ChatGPT reklamları artık ölçülebiliyor. Bütçe açmadan önce bunu bilmen gerekiyor.\n\n5 Ekim'de DoubleVerify, ChatGPT reklamları için atıf ölçümünü açtı. Branch, Tealium, Triple Whale gibi ortaklar da listede. OpenAI ayrıca piksel ve Conversions API desteği ekliyor.\n\nYeni bir kanal açıldığında ilk refleks bütçe ayırmak oluyor. Ben tersini öneriyorum: önce ölçüm. Yeni kanallarla yaptığımız kampanyalrda en çok zaman, dağınık UTM'leri toplamaya gitti.\n\nİnsanlar yeni platforma heyecanla girer, raporlamaya hep sonra döner. O sonra çoğu zaman hiç gelmez.\n\nKaydırınca 3 ölçüm katmanını göreceksin: UTM standardı, sunucu tarafı olaylar, artış testi.\n\nYorumlara REKLAM yaz, \"AI reklam ölçüm hazırlığı\" kontrol listesini DM'den göndereyim.\n\n#dijitalpazarlama #chatgpt #performanspazarlama #reklam #eticaret",
+  "yazim_hatasi": {"kelime": "kampanyalrda", "dogrusu": "kampanyalarda", "paragraf": 3},
+  "dogrulama": ["DoubleVerify basın bülteni, 5 Ekim 2026", "Adweek", "Marketing Brew", "Branch / PR Newswire, 24 Eylül 2026"],
+  "senaryo": [
+    {"tts": "Çet Ci Pi Ti reklamları artık ölçülebiliyor. Bütçe ayırmadan önce kurman gereken üç ölçüm katmanı var.", "altyazi": "ChatGPT reklamları artık ölçülebiliyor. Bütçe ayırmadan önce kurman gereken 3 ölçüm katmanı var."},
+    {"tts": "Kullanıcı soruyor, reklam öneri olarak çıkıyor, tıklama sitene geliyor, satış verisi atıf aracına dönüyor.", "altyazi": "Kullanıcı soruyor, reklam öneri olarak çıkıyor, tıklama sitene geliyor, satış verisi atıf aracına dönüyor."},
+    {"tts": "Paylaşılan ilk vakada edinme maliyeti yüzde on beş daha düşük çıktı. Ama bu tek vaka, genelleme yapma.", "altyazi": "Paylaşılan ilk vakada edinme maliyeti %15 daha düşük çıktı. Ama bu tek vaka, genelleme yapma."},
+    {"tts": "Bir. UTM'yi standart yap. Kaynak adı tutarsızsa raporda görünmez.", "altyazi": "1. UTM'yi standart yap. Kaynak adı tutarsızsa raporda görünmez."},
+    {"tts": "İki. Sunucu tarafı olayları aç. Piksel tek başına eksik kalıyor.", "altyazi": "2. Sunucu tarafı olayları aç. Piksel tek başına eksik kalıyor."},
+    {"tts": "Üç. Küçük bütçeyle artış testi yap. Reklam olmasa da satış gelir miydi, bunu ölç.", "altyazi": "3. Küçük bütçeyle artış testi yap. Reklam olmasa da satış gelir miydi, bunu ölç."},
+    {"tts": "Kontrol listesini istiyorsan yorumlara reklam yaz. Di emden göndereyim.", "altyazi": "Kontrol listesini istiyorsan yorumlara REKLAM yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "AI Reklam _Ölçüm Hazırlığı_",
+    "kicker": "Kontrol listesi · Reklam · ChatGPT Ads",
+    "giris": "Yeni bir reklam kanalına bütçe açmadan önce ölçümü kur. Bu liste ChatGPT reklamları için hazırlandı, her yeni kanalda işe yarar.",
+    "bolumler": [
+      {"ad": "UTM ve adlandırma", "renk": "seo", "maddeler": [
+        ["Tek UTM kuralı yazılı", "Kaynak, ortam, kampanya alanları; küçük harf, tire, Türkçe karakter yok."],
+        ["Kampanya adı şablonu", "yyyy-aa_urun-adi_hedef biçimi tüm kanallarda aynı."],
+        ["UTM üretimi otomatik", "Elle yazılmıyor; tablo veya prompt ile üretiliyor."],
+        ["GA4'te kanal grubu", "AI kaynakları için ayrı kanal grubu tanımlı."]]},
+      {"ad": "Olay ve dönüşüm", "renk": "ads", "maddeler": [
+        ["Satın alma olayı iki yoldan", "Tarayıcı pikseli + sunucu tarafı (Conversions API)."],
+        ["Olay eşleştirme", "event_id ile tekrar sayım engelli."],
+        ["Çevrimdışı dönüşüm", "Telefon, mağaza ve WhatsApp satışları sisteme geri yükleniyor."]]},
+      {"ad": "Test ve karar", "renk": "ecom", "maddeler": [
+        ["Artış testi planı", "Test ve kontrol bölgesi, 2-4 hafta, tek değişken."],
+        ["Başarı eşiği önceden yazılı", "Hangi CPA veya ROAS'ta devam, hangisinde kes."],
+        ["Haftalık rapor", "Atıf + artış birlikte okunuyor; tek vaka ile karar verilmiyor."]]}
+    ]
+  }
+}

@@ -21,7 +21,23 @@ oku, sonra araçları çalıştır, en sonda **Kalite kapısı**ndan geçmeyen h
 - Hiçbir veri silinmez. Kullanıcının dosyalarının üzerine yazmadan önce yedek veya yeni sürüm.
 - Duygusal ve finansal zarar verecek öneri yok. Doğrulanmamış haber yok.
 
-## Hat (her gönderi)
+## Hızlı yol (tek komut)
+
+1. `icerik/gonderiler/<tarih>-<slug>/gonderi.json` yaz (örnek: `icerik/gonderiler/2026-10-15-gpt6-model/gonderi.json`).
+   İçerik: slaytlar (tipler: kapak, ekran, akis, grafik, oncesonra, kural, matris, cta), açıklama, yazım hatası,
+   doğrulama kaynakları, seslendirme senaryosu, lead magnet.
+2. `python3 icerik/araclar/gonderi-uret.py icerik/gonderiler/<id>/gonderi.json`
+   → slaytlar.html, medya (PNG+MP4), reels-altyazili.mp4, story.mp4, aciklama.md, dm.md, senaryo.json, lead PDF.
+3. `python3 .claude/skills/hyt-instagram-icerik/scripts/kontrol.py icerik/gonderiler/<id>`
+4. Günde 3 paylaşım: 09:10 carousel · 13:10 story · 20:50 reels. Plan örneği: `icerik/plan/7-gun-2026-10-14.md`.
+   Reels açıklaması da tek yazım hatası taşır (plan tablosunda).
+
+Metinde `_kelime_` el çizimi alt çizgi, `**kelime**` kalın. Ekran slaytında `istek` ≤ 45 karakter (tek satır).
+Kullanılan anahtar kelimeler: AJAN, MODEL, REKLAM, INDEKS, AKIŞ, SEPET, PROMPT.
+Kullanılan yazım hataları: müşterilerimzin, hesapaldım, kampanyalrda, sayfalrın, mesajlşama, politkasını, açıklamlarını,
+hazırlk, antlatıyorum, açmdan, müdahle, Kurlumu, hazr, Kopayla. Tekrar etme.
+
+## Hat (her gönderi, ayrıntılı)
 
 | # | Adım | Araç / referans |
 |---|---|---|

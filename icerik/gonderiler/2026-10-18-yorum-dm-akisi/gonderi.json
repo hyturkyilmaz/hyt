@@ -1,0 +1,135 @@
+{
+  "id": "2026-10-18-yorum-dm-akisi",
+  "tarih": "2026-10-18",
+  "gun": "Pazar",
+  "sutun": "ads",
+  "anahtar": "AKIŞ",
+  "muzik_tohum": 8,
+  "slaytlar": [
+    {
+      "tip": "kapak",
+      "kicker": "Reklam · Instagram",
+      "baslik": "Reklama yorum yazana _otomatik DM._",
+      "alt": "Meta bunu test ediyor. Organik gönderide **bugün kurabilirsin.**",
+      "zaman": [
+        {"t": "Ağustos sonu", "s": "Test görüldü", "renk": "ads"},
+        {"t": "5 kelime", "s": "Reklam başına", "renk": "seo"},
+        {"t": "Bugün", "s": "Organikte mümkün", "renk": "ecom"},
+        {"t": "Sen", "s": "Akışın hazır mı?", "renk": "ai"}
+      ],
+      "kaynak": "Kaynak: Social Media Today · Jon Loomer, Ağustos 2026"
+    },
+    {
+      "tip": "akis",
+      "kicker": "Akış nasıl?",
+      "renk": "ads",
+      "baslik": "Yorumdan _müşteriye_",
+      "satirlar": [
+        [{"ad": "Gönderi", "alt": "Reklam veya organik", "ikon": "belge", "renk": "ink"},
+         {"ad": "Yorum", "alt": "Anahtar kelime", "ikon": "sohbet", "renk": "ads"},
+         {"ad": "Otomatik DM", "alt": "Bağlantı + değer", "ikon": "hoparlor", "renk": "seo"}],
+        [{"ad": "Kontrol listesi", "alt": "Söz verilen içerik", "ikon": "kutu", "renk": "ecom"},
+         {"ad": "Topluluk", "alt": "WhatsApp grupları", "ikon": "kisi", "renk": "brand"}],
+        [{"ad": "Sen", "alt": "Kişisel bir cümle", "ikon": "onay", "renk": "ads", "insan": true}]
+      ],
+      "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+      "kaynak": "Şema: bu hesaptaki AJAN akışı"
+    },
+    {
+      "tip": "ekran",
+      "kicker": "Kurulum",
+      "baslik": "Kurulum _5 dakika._",
+      "pencere": "Otomasyon kuralı · temsili",
+      "istek": "Yorumda AJAN geçerse DM gönder.",
+      "yanit": "**Kural hazır.** Test için ikinci hesaptan yorum yaz.",
+      "tablo": {
+        "basliklar": ["Alan", "Değer"],
+        "satirlar": [["Tetikleyici", "Gönderi yorumu"], ["Anahtar kelime", "AJAN, ajan, Ajan"], ["Herkese açık yanıt", "5 varyant, sırayla"], ["DM", "Liste + topluluk daveti"]],
+        "vurgu_sutun": -1
+      },
+      "evet": "Yayınla",
+      "hayir": "Taslak",
+      "aksiyon": "Resmi API kullanan araç. Şifre isteyen bot değil.",
+      "kaynak": "Kurulum: Meta Business Suite veya ManyChat"
+    },
+    {
+      "tip": "matris",
+      "num": "01",
+      "kicker": "Kelime",
+      "baslik": "Anahtar kelime _seçimi_",
+      "alt": "Tek kelime, büyük harf, konuya bağlı.",
+      "basliklar": ["Kelime", "Neden iyi", "Risk"],
+      "satirlar": [
+        [["ads", "AJAN"], "Kısa, konuya bağlı", "Yok"],
+        [["ecom", "LİSTE"], "Anlaşılır", "Genel, karışır"],
+        [["seo", "EVET"], "Kolay", "Spam algısı"],
+        [["ai", "İNDİR"], "Net", "Türkçe karakter"]
+      ],
+      "kaynak": "Türkçe karakterli kelimelerde iki yazımı da tanımla (AKIŞ / AKIS)."
+    },
+    {
+      "tip": "kural",
+      "num": "02",
+      "kicker": "Mesaj",
+      "baslik": "DM metni _değer_ versin.",
+      "kod": [
+        "<span class=\"c\"># DM şablonu</span>",
+        "<span class=\"k\">1</span> selam + kim olduğun",
+        "<span class=\"k\">2</span> söz verilen içerik (bağlantı)",
+        "<span class=\"k\">3</span> tek cümle ipucu",
+        "<span class=\"k\">4</span> topluluk daveti",
+        "<span class=\"g\">→</span> soru sormaya alan bırak"
+      ],
+      "prompt": "Bu gönderinin konusu ve lead magnet'ime göre 3 farklı DM metni yaz. 60 kelimeyi geçmesin, satış dili kullanma, bir soru ile bitir.",
+      "kaynak": "Meta, özel yanıta yalnız yorumdan sonra ve sınırlı süre içinde izin veriyor."
+    },
+    {
+      "tip": "oncesonra",
+      "num": "03",
+      "kicker": "Ölçüm",
+      "baslik": "Akışı _ölç_",
+      "once": {"dosya": "yorumlar.txt", "etiket": "Ölçümsüz", "basliklar": ["Metrik", "Hedef", "Kaynak"],
+               "satirlar": [["Kelime yorumu", "—", "—"], ["DM tıklama", "—", "—"], ["Topluluk katılımı", "—", "—"]]},
+      "sonra": {"dosya": "akis_raporu.csv", "etiket": "Ölçülüyor", "basliklar": ["Metrik", "Hedef", "Kaynak"],
+                "satirlar": [["Kelime yorumu", "20+", "Instagram"], ["DM tıklama", "%50", "UTM"], ["Topluluk katılımı", "%20", "WhatsApp"]]},
+      "kaynak": "Hedefler başlangıç değeri. İki hafta sonra kendi verinle güncelle."
+    },
+    {
+      "tip": "cta",
+      "anahtar": "AKIŞ",
+      "vaat": "**Yorum → DM akış şablonunu** (metinler + kurulum adımları) DM'den göndereyim."
+    }
+  ],
+  "aciklama": "Instagram reklamına yorum yazana otomatik DM gidecek. Meta bunu test ediyor.\n\nAğustos sonunda görülen \"Reply to Keywords\" seçeneğiyle reklamveren beş anahtar kelime belirliyor; o kelimeyle yorum yapan kişiye bağlantı içeren bir mesaj otomatik gidiyor. Şimdilik sınırlı bir test.\n\nOrganik gönderilerde bu akışı bugün kurabiliyorsun. Bu hesapta AJAN kelimesiyle kurdum; yorum yazana kontrol listesi ve WhatsApp topluluğumuzun daveti gidiyor.\n\nİnsanlar form doldurmaktan sıkılıyor ama tek kelime yazmaya üşenmiyor. Sohbet başlatmak, form istemekten daha az yoruyor.\n\nKaydırınca akışı, kurulum ekranını ve mesajlşama şablonunu göreceksin.\n\nYorumlara AKIŞ yaz, yorum → DM akış şablonunu DM'den göndereyim.\n\n#instagrampazarlama #dijitalpazarlama #metaads #leadgeneration #otomasyon",
+  "yazim_hatasi": {"kelime": "mesajlşama", "dogrusu": "mesajlaşma", "paragraf": 5},
+  "dogrulama": ["Social Media Today, Ağustos 2026", "Jon Loomer Digital", "WERSM"],
+  "senaryo": [
+    {"tts": "Instagram reklamına yorum yazana otomatik di em gidecek. Meta bunu test ediyor.", "altyazi": "Instagram reklamına yorum yazana otomatik DM gidecek. Meta bunu test ediyor."},
+    {"tts": "Akış şöyle: gönderi, anahtar kelimeli yorum, otomatik mesaj. Sonra kontrol listesi ve topluluk.", "altyazi": "Akış şöyle: gönderi, anahtar kelimeli yorum, otomatik mesaj. Sonra kontrol listesi ve topluluk."},
+    {"tts": "Kurulum beş dakika. Ama şifre isteyen botlarla değil, resmi araçla.", "altyazi": "Kurulum 5 dakika. Ama şifre isteyen botlarla değil, resmi araçla."},
+    {"tts": "Bir. Kelimeyi seç. Kısa, konuya bağlı, tek kelime.", "altyazi": "1. Kelimeyi seç. Kısa, konuya bağlı, tek kelime."},
+    {"tts": "İki. Mesaj değer versin. Söz verdiğin içerik, tek ipucu, topluluk daveti.", "altyazi": "2. Mesaj değer versin. Söz verdiğin içerik, tek ipucu, topluluk daveti."},
+    {"tts": "Üç. Ölç. Yorum, tıklama, topluluğa katılım.", "altyazi": "3. Ölç. Yorum, tıklama, topluluğa katılım."},
+    {"tts": "Şablonu istiyorsan yorumlara akış yaz. Di emden göndereyim.", "altyazi": "Şablonu istiyorsan yorumlara AKIŞ yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Yorum → DM _Akış Şablonu_",
+    "kicker": "Şablon · Instagram · Lead",
+    "giris": "Tek kelimelik yorumdan müşteriye giden akışın tamamı: kelime, yanıt, mesaj, kurulum ve ölçüm.",
+    "bolumler": [
+      {"ad": "Hazırlık", "renk": "ads", "maddeler": [
+        ["Anahtar kelime", "Tek kelime, büyük harf, konuya bağlı; Türkçe karakterliyse iki yazımı da tanımla."],
+        ["Söz verilen içerik", "Kontrol listesi, prompt seti veya tablo; tek sayfa, bağlantıyla açılır."],
+        ["Herkese açık 5 yanıt", "Aynı yanıtı tekrar etme; sırayla dönen 5 varyant."]]},
+      {"ad": "Mesaj", "renk": "seo", "maddeler": [
+        ["DM iskeleti", "Selam + kim olduğun + bağlantı + tek ipucu + topluluk daveti + soru."],
+        ["60 kelime sınırı", "Satış dili yok, değer önce."],
+        ["Kişisel veri istenmez", "Bülten için ayrı, KVKK onaylı form; ticari ileti için İYS."]]},
+      {"ad": "Kurulum ve ölçüm", "renk": "ecom", "maddeler": [
+        ["Araç", "Meta Business Suite (ücretsiz) veya ManyChat (resmi ortak). Şifre isteyen bot yok."],
+        ["Test", "İkinci hesaptan yorum yaz, DM'in geldiğini ve bağlantının açıldığını kontrol et."],
+        ["Metrikler", "Kelime yorumu, DM tıklama (UTM), topluluk katılımı; iki haftada bir gözden geçir."],
+        ["İlk saat", "Otomasyon mesajı gönderir; sen yorumlara kişisel bir cümle ekle."]]}
+    ]
+  }
+}
