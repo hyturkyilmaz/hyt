@@ -73,12 +73,14 @@ Seçim puanı (her biri 1-3): Türk izleyiciye yakınlık, bu hafta uygulanabili
 
 ## 5. Görsel kimlik
 
-- Ölçü: 1080×1350 (4:5). Reels kapağı 1080×1920, güvenli alan ortadaki 1080×1350.
-- Zemin: koyu lacivert #0E1A2B. Vurgu: turuncu #FF7A1A. Metin: kırık beyaz #F4F1EA.
-- Font: Inter. Başlık 88-110 px ExtraBold, gövde 40-44 px Medium.
-- Her slaytta sağ üstte sayfa sayacı (2/7), sol altta @hyturkyilmaz.
-- Yüz fotoğrafı: ilk slaytta küçük daire, güven sinyali için.
-- Üretim: `icerik/araclar/render.mjs` HTML slaytları PNG'ye çevirir.
+Ayrıntı: `icerik/rehber/gorsel-stil-rehberi.md` (v2).
+
+- Ölçü: 1080×1350 (4:5). Reels 1080×1920.
+- Zemin: kâğıt #f5f7fa + ince ızgara. CTA slaydı koyu #0f172a.
+- Renk: hyturkyilmaz.com sütun renkleri (SEO #1a73e8, Reklam #34a853, E-ticaret #f29900, AI #7b1fa2).
+- Her gönderide en az 2 hareketli slayt (MP4), en az 1 ekran / tablo / akış şeması.
+- Her slaytta sol üstte isim, sağ üstte sayaç, altta kaynak veya uygulama satırı.
+- Üretim: `icerik/araclar/render-media.mjs` HTML slaytları PNG ve MP4'e çevirir.
 
 ## 6. Açıklama (caption) kalıbı
 

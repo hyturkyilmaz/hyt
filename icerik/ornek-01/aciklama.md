@@ -10,7 +10,30 @@
 | Yedek pencere | Perşembe 15 Ekim 2026, 09:10 TRT |
 | Anahtar kelime | AJAN |
 | Lead magnet | "Ajana Hazır Mağaza" kontrol listesi (`lead-magnet-kontrol-listesi.md`) |
-| Görseller | `gorseller/slayt-01.png` … `slayt-07.png` |
+| Medya (v2) | `v2/medya/` — yükleme sırası aşağıda |
+
+## Yükleme sırası (v2, karışık carousel)
+
+| # | Dosya | Tür |
+|---|---|---|
+| 1 | `slayt-01.mp4` | Video 6 sn — kapak, alt çizgi ve zaman çizgisi animasyonu |
+| 2 | `slayt-02.mp4` | Video 8 sn — sohbet ekranı, istek yazılıyor, tablo geliyor |
+| 3 | `slayt-03.mp4` | Video 6 sn — ajan iş akışı, akan bağlantılar |
+| 4 | `slayt-04.png` | Görsel — önce/sonra katalog tablosu |
+| 5 | `slayt-05.png` | Görsel — kural bloğu + Claude prompt'u |
+| 6 | `slayt-06.png` | Görsel — onay matrisi |
+| 7 | `slayt-07.mp4` | Video 5 sn — AJAN çağrısı |
+
+- Reels: `reels-1080x1920.mp4` (35 sn, sessiz). Perşembe yayınlanır, ses uygulama içinden eklenir.
+- GIF: `onizleme-sohbet.gif` — LinkedIn, site ve WhatsApp paylaşımı için.
+- Her PNG'nin bir de statik hali var (`slayt-0X.png`); video yüklenemezse onlar kullanılır.
+
+Reels ve GIF üretimi:
+
+```
+ffmpeg -i slayt-0X.mp4 -vf "pad=1080:1920:0:285:color=0xf5f7fa" ... (bkz. gorsel-stil-rehberi.md)
+ffmpeg -i slayt-02.mp4 -vf "fps=15,scale=540:-1,split[a][b];[a]palettegen[p];[b][p]paletteuse" onizleme-sohbet.gif
+```
 
 ## Açıklama metni (kopyala-yapıştır)
 
