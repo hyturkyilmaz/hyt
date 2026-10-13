@@ -1,0 +1,48 @@
+{
+ "id": "2026-10-19-ajan-sepet",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Ajanlar artık sepeti kendisi tamamlıyor. Şopifay kapıyı açtı, Amazon kapattı.",
+   "altyazi": "Ajanlar artık sepeti kendisi tamamlıyor. Shopify kapıyı açtı, Amazon kapattı."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Alıcı görevi veriyor, ajan ürünü buluyor, sepeti güncelliyor. Ödeme yine alıcının onayıyla.",
+   "altyazi": "Alıcı görevi veriyor, ajan ürünü buluyor, sepeti güncelliyor. Ödeme yine alıcının onayıyla."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Kimi açıyor, kimi kapatıyor. Ajan yanlış alırsa kim sorumlu, henüz belli değil.",
+   "altyazi": "Kimi açıyor, kimi kapatıyor. Ajan yanlış alırsa kim sorumlu, henüz belli değil."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Bir. Fiyat ve stok her kanalda aynı olsun. Ajan karşılaştırır.",
+   "altyazi": "1. Fiyat ve stok her kanalda aynı olsun. Ajan karşılaştırır."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. İade ve kargo politikanı makine okuyabilsin.",
+   "altyazi": "2. İade ve kargo politikanı makine okuyabilsin."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Mağazanı her ay bir ajan gibi test et.",
+   "altyazi": "3. Mağazanı her ay bir ajan gibi test et."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Hazırlık listesini istiyorsan yorumlara sepet yaz. Di emden göndereyim.",
+   "altyazi": "Hazırlık listesini istiyorsan yorumlara SEPET yaz. DM'den göndereyim."
+  }
+ ]
+}
