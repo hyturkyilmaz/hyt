@@ -1,0 +1,207 @@
+{
+  "imza": {
+    "isim": "Hasan Yasin Türkyılmaz",
+    "unvan": "AI · Pazarlama · Reklam · E-ticaret",
+    "cta": "AI, pazarlama, reklam ve e-ticaret danışmanlığı için iletişime geçin.",
+    "avatar": "../_assets/avatar.jpg",
+    "bas_harfler": "HYT"
+  },
+  "postlar": [
+    {
+      "id": "01-meta-yerlesim-haric-tutma",
+      "etiket": "META ADS · EKİM 2026",
+      "slaytlar": [
+        {
+          "tip": "kapak",
+          "baslik": "Meta yerleşim hariç tutmayı kaldırıyor.",
+          "vurgu": "Bütçeniz nereye akacak?",
+          "metin": "Satış, lead, etkileşim ve uygulama kampanyalarında reklam seti düzeyinde yerleşim seçimi gidiyor."
+        },
+        {
+          "tip": "icerik",
+          "baslik": "Ne değişti?",
+          "maddeler": [
+            "Bu dört hedefte yerleşimleri reklam seti içinden kapatamıyorsunuz.",
+            "Bilinirlik ve trafik kampanyaları manuel yerleşimi koruyor.",
+            "Değişiklik kademeli geliyor. Bazı hesaplarda eski ekran hâlâ duruyor olabilir.",
+            "Risk: sistem en ucuz sonucu arar. Ucuz tıklama, kaliteli müşteri anlamına gelmez."
+          ],
+          "kaynak": "Social Media Today, 12.10.2026; Meta İşletme Yardım Merkezi"
+        },
+        {
+          "tip": "icerik",
+          "baslik": "1. Hesap düzeyinde kapatın",
+          "maddeler": [
+            "Reklam Ayarları > Hesap Kontrolleri > Yerleşim kontrolleri.",
+            "Hedef bazında engelleme yapılabiliyor (ör. satışta Audience Network kapalı).",
+            "\"Performansı artıracaksa her hariç yerleşime bütçenin %5'ine kadar harca\" kutusu varsayılan açık. Tam engel istiyorsanız kapatın.",
+            "Not: Ayar tüm hesaba uygulanır. Farklı ihtiyaçları farklı hesaplara ayırın."
+          ],
+          "kaynak": "TheOptimizer, 2026; Relevant Audience, 2026"
+        },
+        {
+          "tip": "icerik",
+          "baslik": "2. Değer kuralı + ölçüm",
+          "maddeler": [
+            "Değer kuralları ile zayıf yerleşimde teklifi %90'a kadar düşürün. Tamamen engellemez, en fazla 10 kural.",
+            "Her yerleşime ayrı kreatif verin. Reels'e kare görsel gitmesin.",
+            "Marka güvenliği: engelleme listeleri ve envanter filtresi.",
+            "Haftalık kırılım: yerleşim başına harcama, CPA, ROAS ve CRM'den lead kalitesi."
+          ],
+          "kaynak": "Gromerce, 2026; Meta yardım sayfaları"
+        },
+        {
+          "tip": "cta",
+          "ozet": "Kontrol reklam setinden hesaba taşındı. Ayarı bilen kazanır, bilmeyen öder."
+        }
+      ]
+    },
+    {
+      "id": "02-google-kanal-onceligi",
+      "etiket": "GOOGLE ADS · EKİM 2026",
+      "slaytlar": [
+        {
+          "tip": "kapak",
+          "baslik": "Google Ads'te bütçeyi artık kanal kanal yönetiyorsunuz.",
+          "vurgu": "Kanal önceliği ve bütçe dağılımı geldi.",
+          "metin": "Search, Shopping, Performance Max ve Demand Gen'de kademeli açılıyor."
+        },
+        {
+          "tip": "icerik",
+          "baslik": "Öncelik: Yüksek / Düşük",
+          "maddeler": [
+            "Her kanal varsayılan olarak Yüksek önceliğe ayarlı.",
+            "Google, hedef CPA veya ROAS sınırı içinde önce Yüksek kanalları besler.",
+            "Kalan bütçe Düşük önceliğe ayrılan kanallara gider.",
+            "Pratikte: kârlı kanalı önde tutar, deneme kanalını arkaya alırsınız."
+          ],
+          "kaynak": "Search Engine Roundtable, 14.10.2026"
+        },
+        {
+          "tip": "icerik",
+          "baslik": "Bütçe dağılımı: tavan koyun",
+          "maddeler": [
+            "Düşük kanallara günlük bütçenin yüzdesi kadar tavan konuyor.",
+            "%0 o kanalı kapatır. 1.000 TL bütçede %5, yaklaşık 50 TL demek.",
+            "Kesin limit değil, \"en iyi çaba\". Bazı günler aşabilir.",
+            "Demand Gen'de öncelik var, bütçe dağılımı yok."
+          ],
+          "kaynak": "TechWyse, 2026; Relevant Audience, 2026"
+        },
+        {
+          "tip": "icerik",
+          "baslik": "PMax'te dikkat",
+          "maddeler": [
+            "Search, YouTube, Maps, Gmail ve Discover tek blok: \"Google kanalları\". Birbirinden ayrılamıyor.",
+            "Arama ağı iş ortakları ve Display ayrı ayarlanabiliyor. Düşük kaliteli trafik riski genelde bu ikisinde.",
+            "Kasım için öneri: Display ve iş ortakları Düşük, tavan %10-15. Sonra veriye bakın.",
+            "Şubat 2027: Display Expansion geçişi. Bugünkü davranış için Display Düşük + %50."
+          ],
+          "kaynak": "Limelight Marketing, 2026; Common Thread Co., 2026"
+        },
+        {
+          "tip": "cta",
+          "ozet": "Otomasyon kalıyor, ama dümen biraz daha sizde. Black Friday'den önce ayarlayın."
+        }
+      ]
+    },
+    {
+      "id": "03-shopify-agentic-commerce",
+      "etiket": "E-TİCARET · AGENTIC COMMERCE",
+      "slaytlar": [
+        {
+          "tip": "kapak",
+          "baslik": "Mağazanız ChatGPT'de satıyor olabilir.",
+          "vurgu": "Haberiniz var mı?",
+          "metin": "Shopify, AI kanallarını uygun mağazalarda varsayılan olarak açık getiriyor."
+        },
+        {
+          "tip": "icerik",
+          "baslik": "Shopify kapıyı açtı",
+          "maddeler": [
+            "Agentic Storefronts: ürünler Shopify Catalog üzerinden AI kanallarına gidiyor.",
+            "Kanallar: ChatGPT, Microsoft Copilot, Google AI Mode ve Gemini. Meta kademeli.",
+            "28 Eylül'den beri tarayıcı tabanlı AI ajanları Shopify ödeme sayfasını tamamlayabiliyor.",
+            "Ayar: Shopify Admin > satış kanalları. Varsayılan açık olabilir, kontrol edin."
+          ],
+          "kaynak": "TechCrunch, 28.09.2026; Shopify, 2026"
+        },
+        {
+          "tip": "icerik",
+          "baslik": "Amazon kapıyı kapattı",
+          "maddeler": [
+            "Amazon dış ajanları engelliyor. Meta'nın Muse ajanının engellendiği bildiriliyor.",
+            "Kendi ajanı (Alexa, Buy for Me) içeride kalıyor.",
+            "İki model var: açık vitrin ve duvarlı bahçe.",
+            "Marka için soru: müşteriniz hangi ajanla alışveriş yapacak?"
+          ],
+          "kaynak": "Brain & Code, 2026; Weaverse, 2026"
+        },
+        {
+          "tip": "icerik",
+          "baslik": "Türkiye'den bakınca",
+          "maddeler": [
+            "AI üzerinden ödeme şimdilik büyük ölçüde ABD mağazalarında.",
+            "Katalog görünürlüğü ise ülke sınırı tanımıyor. Ajan önce ürün verinizi okur.",
+            "Şimdi yapın: başlık, özellik, GTIN, stok, kargo ve iade bilgisi eksiksiz olsun.",
+            "Analitikte AI kaynaklı trafiği ayrı izleyin. Ölçemediğinizi yönetemezsiniz."
+          ],
+          "kaynak": "Craftshift, 2026; DEV Community, 2026"
+        },
+        {
+          "tip": "cta",
+          "ozet": "Vitrin artık sadece sitenizde değil. Ajanın okuduğu veri, yeni vitrininiz."
+        }
+      ]
+    },
+    {
+      "id": "04-ai-arastirma-vs-ajan-satin-alma",
+      "etiket": "VERİ · AGENTIC COMMERCE",
+      "slaytlar": [
+        {
+          "tip": "kapak",
+          "baslik": "%61,4 AI ile araştırıyor.",
+          "vurgu": "Sadece %6,8 ajana satın aldırıyor.",
+          "metin": "ABD'de online alışveriş yapanlar arasında. Konuşulan ile olan arasında büyük fark var."
+        },
+        {
+          "tip": "icerik",
+          "baslik": "Fark nereden geliyor?",
+          "maddeler": [
+            "İnsanlar AI'a soru soruyor ama kartını vermiyor. Konu güven.",
+            "Ajanın tamamladığı siparişler toplam siparişin %0,27'sinden %0,68'ine çıktı (2026 2. → 3. çeyrek).",
+            "Oran küçük, artış hızı büyük. Bir çeyrekte 2,5 kat.",
+            "Bugün asıl savaş araştırma aşamasında."
+          ],
+          "kaynak": "FirstPageSage, Ekim 2026 (4.936 kişilik panel)"
+        },
+        {
+          "tip": "icerik",
+          "baslik": "Sohbet başka, satış başka",
+          "maddeler": [
+            "AI destekli alışveriş oturumlarının %41,3'ü ChatGPT'de.",
+            "Ama ajanla tamamlanan satın almaların sadece %9,4'ü orada.",
+            "Alexa for Shopping ve Meta Muse birlikte %61,5.",
+            "Ajanla ödeme ortaklığı olan mağazalarda tamamlanma 1,4 ile 3,8 kat yüksek."
+          ],
+          "kaynak": "FirstPageSage, Ekim 2026"
+        },
+        {
+          "tip": "icerik",
+          "baslik": "Marka ne yapmalı?",
+          "maddeler": [
+            "Önce araştırma aşamasını kazanın: net ürün verisi, gerçek yorumlar, karşılaştırma içerikleri.",
+            "AI aramalarında markanızın nasıl anlatıldığını düzenli test edin.",
+            "Ajan ödemesini izleyin ama bütçeyi bugünden oraya kaydırmayın.",
+            "Not: Veri tek araştırma şirketinden. Bağımsız teyit yok, yön gösterici okuyun."
+          ],
+          "kaynak": "FirstPageSage, 13.07–16.10.2026"
+        },
+        {
+          "tip": "cta",
+          "ozet": "Müşteri önce AI'a soruyor. Cevapta siz yoksanız, sepette de olmazsınız."
+        }
+      ]
+    }
+  ]
+}
