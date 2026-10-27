@@ -197,7 +197,9 @@ def matris(s, i, n):
 
 
 def cta(s, i, n):
-    return (f'{ust(i, n)}<div class="say">Yorumlara yaz:</div><div><span class="kw">{esc(s["anahtar"])}</span></div>'
+    # 190 px'de 6 harf sığar; uzun kelimede yazı küçülür
+    boyut = f' style="font-size:{190 * 6 // len(s["anahtar"])}px"' if len(s["anahtar"]) > 6 else ""
+    return (f'{ust(i, n)}<div class="say">Yorumlara yaz:</div><div><span class="kw"{boyut}>{esc(s["anahtar"])}</span></div>'
             f'<p class="give">{zengin(s["vaat"])}</p><div class="chips"><span class="chip">Kaydet</span>'
             f'<span class="chip">Ekibinle paylaş</span><span class="chip on">Takip et</span></div>'
             f'<div class="foot" style="color:#94a3b8"><span>@hyturkyilmaz · hyturkyilmaz.com</span></div>')
