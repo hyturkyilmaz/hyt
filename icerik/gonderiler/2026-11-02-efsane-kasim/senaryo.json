@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-02-efsane-kasim",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "On bir on bire dokuz gün kaldı. Satışı kampanya günü değil, önceki dokuz gün belirliyor.",
+   "altyazi": "11.11'e 9 gün kaldı. Satışı kampanya günü değil, önceki 9 gün belirliyor."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Önce stok ve fiyat kaydı, sonra vitrin, reklam, mobil test ve hazır yanıtlar.",
+   "altyazi": "Önce stok ve fiyat kaydı, sonra vitrin, reklam, mobil test ve hazır yanıtlar."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Vitrinde her ürünün bir görevi olsun. Trafik, sepet, kâr ve stok eritme.",
+   "altyazi": "1. Vitrinde her ürünün bir görevi olsun. Trafik, sepet, kâr ve stok eritme."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Reklamı beş gün önceden aç. Kampanya günü sadece bütçeyi artır.",
+   "altyazi": "2. Reklamı 5 gün önceden aç. Kampanya günü sadece bütçeyi artır."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Kargo, iade ve indirim sorularına hazır yanıt yaz.",
+   "altyazi": "3. Kargo, iade ve indirim sorularına hazır yanıt yaz."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Son olarak kampanya sayfasını telefonda dene. Açılış süresi ve şartlar görünür mü?",
+   "altyazi": "Son olarak kampanya sayfasını telefonda dene. Açılış süresi ve şartlar görünür mü?"
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Hazırlık listesini istiyorsan yorumlara kasım yaz. Di emden göndereyim.",
+   "altyazi": "Hazırlık listesini istiyorsan yorumlara KASIM yaz. DM'den göndereyim."
+  }
+ ]
+}
