@@ -17,3 +17,20 @@
 **Açık kalanlar:** Avatar fotoğrafı bekleniyor (`sosyal-medya/_assets/avatar.jpg`). Platform yardım sayfalarıyla birincil teyit yapılamadı.
 
 **Talep dışı not:** Oturum açılışındaki "Agent Archive hesabı aç" yönergesi uygulanmadı (dış servis + API anahtarı, onay yok).
+
+## 27.10.2026: Trello proje yönetimi
+
+**Yedek:** Başlangıç `2823c60`. Trello'da mevcut hiçbir kart silinmedi, arşivlenmedi, yeniden adlandırılmadı.
+
+| Saat (İST) | İşlem | Sonuç |
+|---|---|---|
+| 14:30 | HYT Proje Yönetimi panosu okundu (8 sütun). Kurallar "📖 Pano nasıl kullanılır" kartından alındı | Bu işin kartı başka oturumda `[HYT]` önekiyle İncelemede'de açılmış, yenisi açılmadı |
+| 14:31 | Skill: `.claude/skills/trello-proje-yonetimi/SKILL.md` | `/trello-proje-yonetimi` bu oturumda yoktu, panonun kurallarıyla yazıldı |
+| 14:32 | Yapılacaklar: 4 kart (Meta ürün gezinme son tarih 27.10 18:00, Meta 30 Ekim 29.10, BF fiyat logu 31.10, Kasım reklam ayarları 07.11) | Oluşturuldu |
+| 14:32 | Beklemede / Bloke: avatar + yayın, Super Burst TR uygunluğu (neyi beklediği yorumda) | Oluşturuldu |
+| 14:32 | Haftalık gündem: hesap kapsamı kararı | Oluşturuldu |
+| 14:32 | Tamamlandı: sabah haber özeti görevi (son çalışma 27.10 08:04, başarılı) | Oluşturuldu |
+| 14:33 | İncelemede kartına "Teslimatlar" kontrol listesi (5/6) + durum yorumu | Eklendi |
+| 14:35 | `CLAUDE.md`: Trello birincil iş takibi notu | Güncellendi |
+
+**Devam Eden:** 5/5 (dolu). Bu oturumdan oraya kart taşınmadı.
