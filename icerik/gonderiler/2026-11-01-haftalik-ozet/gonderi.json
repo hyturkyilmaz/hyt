@@ -12,7 +12,7 @@
      "kaynak": "Kaynak: bu haftanın gönderileri (28-31 Ekim)"},
     {"tip": "matris", "num": "01", "kicker": "Gelişme → aksiyon", "baslik": "Her gelişmeye _tek_ iş",
      "basliklar": ["Gelişme", "Aksiyon (süre)"],
-     "satirlar": [[["ads", "Meta AI şartları"], "Yaratıcı ayarları tek tek kontrol et (20 dk)"], [["seo", "Google AI cevapları"], "Ana sayfalarda net cevap ilk 100 kelimede (1 saat)"], [["ai", "Claude Duet"], "Devredilecek 2 rutin işi yaz (15 dk)"], [["ecom", "10 gün kuralı"], "Fiyat geçmişini kaydetmeye başla (30 dk)"], [["ink", "11.11 takvimi"], "Vitrin ürünlerini seç (45 dk)"]],
+     "satirlar": [[["ads", "Meta AI şartları"], "Yaratıcı ayarları tek tek kontrol et (20 dk)"], [["seo", "Google AI cevapları"], "Ana sayfalarda net cevap ilk 100 kelimede (1 saat)"], [["ai", "Claude Duet"], "Devredilecek 2 rutin işi yaz (15 dk)"], [["ecom", "10 gün kuralı"], "Fiyat kaydını başlat (30 dk)"], [["ink", "11.11 takvimi"], "Vitrin ürünlerini seç (45 dk)"]],
      "kaynak": "Süreler tahmini; ekip büyüklüğüne göre değişir."},
     {"tip": "grafik", "kicker": "Takvim", "renk": "ecom", "baslik": "Kampanyalara _kalan_ gün",
      "barlar": [{"ad": "11.11", "etiket": "10 gün", "deger": 10, "renk": "ecom", "alt": "11 Kasım Çarşamba"}, {"ad": "Efsane Cuma", "etiket": "26 gün", "deger": 26, "renk": "ads", "alt": "27 Kasım"}, {"ad": "Siber Pazartesi", "etiket": "29 gün", "deger": 29, "renk": "seo", "alt": "30 Kasım"}],
