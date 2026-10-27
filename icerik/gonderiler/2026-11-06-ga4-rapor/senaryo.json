@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-06-ga4-rapor",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Ce a dört raporu kırk sayfa olunca kimse okumuyor. Haftalık bir sayfa yeter.",
+   "altyazi": "GA4 raporu 40 sayfa olunca kimse okumuyor. Haftalık 1 sayfa yeter."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Prompt'un iskeleti: veri, odak, neden, karar ve yasak.",
+   "altyazi": "Prompt'un iskeleti: veri, odak, neden, karar ve yasak."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Toplu tabloyu dışa aktar, kişisel veri olmadığını kontrol et.",
+   "altyazi": "1. Toplu tabloyu dışa aktar, kişisel veri olmadığını kontrol et."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Klod iki haftayı karşılaştırsın. Yüzde ondan büyük değişimleri ve nedenlerini yazsın.",
+   "altyazi": "2. Claude iki haftayı karşılaştırsın. %10'dan büyük değişimleri ve nedenlerini yazsın."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Örnek: mobil dönüşüm yüzde on sekiz düştü, organik yüzde on iki arttı.",
+   "altyazi": "Örnek: mobil dönüşüm %18 düştü, organik %12 arttı."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. En fazla üç karar. E-posta, telefon ve kullanıcı kimliği asla modele gitmez.",
+   "altyazi": "3. En fazla 3 karar. E-posta, telefon ve kullanıcı kimliği asla modele gitmez."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Rapor prompt'unu istiyorsan yorumlara rapor yaz. Di emden göndereyim.",
+   "altyazi": "Rapor prompt'unu istiyorsan yorumlara RAPOR yaz. DM'den göndereyim."
+  }
+ ]
+}
