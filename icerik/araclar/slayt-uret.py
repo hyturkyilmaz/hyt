@@ -91,13 +91,17 @@ def kapak(s, i, n):
             f'<p class="lead">{zengin(s["alt"])}</p>{zaman}{alt(s["kaynak"], "Kaydır →")}')
 
 
+NOTR = {"Yok", "Uygun", "Normal", "-"}  # vurgu sütununda kırmızı gösterilmeyen olumlu değerler
+
+
 def tablo(t, cls="t", animasyon=False):
     bas = "".join(f"<th>{esc(h)}</th>" for h in t["basliklar"])
     vurgu = t.get("vurgu_sutun", -1)
     satir = ""
     for r in t["satirlar"]:
         satir += "<tr>" + "".join(
-            f'<td{" class=low" if c == vurgu else ""}>{esc(str(v))}</td>' for c, v in enumerate(r)) + "</tr>"
+            f'<td{" class=low" if c == vurgu and str(v) not in NOTR else ""}>{esc(str(v))}</td>'
+            for c, v in enumerate(r)) + "</tr>"
     govde = f'<tbody class="rows">{satir}</tbody>' if animasyon else satir
     return f'<table class="{cls}"><thead><tr>{bas}</tr></thead>{govde}</table>'
 
