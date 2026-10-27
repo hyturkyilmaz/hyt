@@ -19,7 +19,8 @@ Hasan Yasin Türkyılmaz (hyturkyilmaz.com) için içerik ve otomasyon deposu.
 - Tek yazım hatası kuralı: yalnız açıklama gövdesinde, klavye kayması, yeri üretim notunda.
 - Ses: klon yalnız Hasan Yasin'in kendi sesi. Chatterbox Multilingual (MIT) Colab'da; XTTS-v2 (CPML) ticari işte kullanılmaz. Müzik konuşmanın %8-10'u.
 - Lead: yorum anahtar kelimesi → DM → kontrol listesi + WhatsApp Topluluğu (https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh).
-- Takvim aşamaları: örnek → 7 gün → 14 gün → 30 gün → günlük 1. 7 günlük plan hazır (`icerik/plan/7-gun-2026-10-14.md`, 14-20 Ekim). Sıradaki: 14 günlük plan (21 Ekim - 3 Kasım).
+- Takvim aşamaları: örnek → 7 gün → 14 gün → 30 gün → günlük 1. 7 günlük plan hazır (`icerik/plan/7-gun-2026-10-14.md`, 14-20 Ekim). 14 günlük plan hazır (`icerik/plan/14-gun-2026-10-28.md`, 28 Ekim - 10 Kasım, 42 paylaşım). Sıradaki: 30 günlük plan (11 Kasım - 10 Aralık, Efsane Cuma 27 Kasım ve Siber Pazartesi 30 Kasım dahil).
+- Proje yönetimi: Trello "HYT Proje Yönetimi" panosu (https://trello.com/b/sCt5VDnm). Kart adı `[HYT Marka] (P1) İş (S/M/L)`, açıklamada "Bitti kriteri". Akış: Yapılacaklar → Devam Eden → İncelemede → Tamamlandı. `/trello-proje-yonetimi` becerisi bu ortamda yüklü değil; panonun kendi kuralları uygulanıyor.
 - Günde 3 paylaşım: 09:10 carousel · 13:10 story · 20:50 reels (kullanıcı isteği, 13 Ekim).
 - Tek komut: `python3 icerik/araclar/gonderi-uret.py icerik/gonderiler/<id>/gonderi.json`.
 - Instagram'a doğrudan erişim yok (bulut oturumu kullanıcının Chrome'una bağlanamaz); yayın Meta Business Suite Planlayıcı ile kullanıcıda.

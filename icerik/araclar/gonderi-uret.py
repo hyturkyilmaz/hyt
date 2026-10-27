@@ -70,7 +70,7 @@ def story(medya, cikti):
 def aciklama_md(g, yol):
     yh = g["yazim_hatasi"]
     ilk = g["slaytlar"][0]
-    md = f"""# {g['tarih']} {g['gun']} — {re.sub(r'[_*]', '', ilk['baslik'])}
+    md = f"""# {g['tarih']} {g['gun']}: {re.sub(r'[_*]', '', ilk['baslik'])}
 
 | Alan | Değer |
 |---|---|

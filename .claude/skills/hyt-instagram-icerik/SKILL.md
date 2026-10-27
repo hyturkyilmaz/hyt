@@ -33,9 +33,15 @@ oku, sonra araçları çalıştır, en sonda **Kalite kapısı**ndan geçmeyen h
    Reels açıklaması da tek yazım hatası taşır (plan tablosunda).
 
 Metinde `_kelime_` el çizimi alt çizgi, `**kelime**` kalın. Ekran slaytında `istek` ≤ 45 karakter (tek satır).
-Kullanılan anahtar kelimeler: AJAN, MODEL, REKLAM, INDEKS, AKIŞ, SEPET, PROMPT.
+Kullanılan anahtar kelimeler: AJAN, MODEL, REKLAM, INDEKS, AKIŞ, SEPET, PROMPT, META, GOOGLE, DUET, FIYAT, HAFTA,
+KASIM, VITRIN, METIN, KAYDIR, RAPOR, GEO, TOPLULUK, PLAN, TERK.
 Kullanılan yazım hataları: müşterilerimzin, hesapaldım, kampanyalrda, sayfalrın, mesajlşama, politkasını, açıklamlarını,
-hazırlk, antlatıyorum, açmdan, müdahle, Kurlumu, hazr, Kopayla. Tekrar etme.
+hazırlk, antlatıyorum, açmdan, müdahle, Kurlumu, hazr, Kopayla,
+yayınlanmdan, reklamveern, çalışmya, Uyguladğın, gelişmelri, lojistk, kıyaslanbilir, varyasyonlrı, etkileşmi,
+karşılaştırp, Asistanlrda, konuşmlar, sorumlulk, Hatırlatmlar (carousel, 14 gün),
+kontol, bağlanatılar, onaylamdan, indirm, haftlık, Kampanyya, öneriyr, metinlerni, slaytlrı, toplantısnda,
+ölçebilrsin, toplulğa, dakikda, unutlan (Reels, 14 gün). Tekrar etme.
+Müzik tohumları 31-44 kullanıldı; 30 günlük plan 45'ten başlar.
 
 ## Hat (her gönderi, ayrıntılı)
 

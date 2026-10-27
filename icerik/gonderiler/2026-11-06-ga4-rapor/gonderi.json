@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-06-ga4-rapor",
+  "tarih": "2026-11-06",
+  "gun": "Cuma",
+  "sutun": "ai",
+  "anahtar": "RAPOR",
+  "muzik_tohum": 40,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "AI · Analitik", "baslik": "GA4 raporunu _3 karara_ indir.",
+     "alt": "40 sayfalık rapor yerine **Claude ile haftalık 1 sayfa**.",
+     "zaman": [{"t": "Pazartesi", "s": "Veriyi dışa aktar", "renk": "seo"}, {"t": "10 dk", "s": "Anonimleştir", "renk": "ink"}, {"t": "15 dk", "s": "Claude ile özet", "renk": "ai"}, {"t": "Sen", "s": "En fazla 3 karar", "renk": "ads"}],
+     "kaynak": "Danışmanlıkta kullandığım haftalık rapor yöntemi"},
+    {"tip": "kural", "num": "01", "kicker": "İskelet", "baslik": "Prompt'un _iskeleti_",
+     "alt": "Modele ne bulacağını değil, neye bakacağını söyle.",
+     "kod": ["<span class=\"k\">VERİ</span> bu hafta + geçen hafta, kanal ve cihaz kırılımı", "<span class=\"k\">ODAK</span> %10'dan büyük değişimler", "<span class=\"k\">NEDEN</span> her değişim için 2 olası neden", "<span class=\"k\">KARAR</span> en fazla 3, sahibi belli", "<span class=\"k\">YASAK</span> veride olmayan sayı uydurma"],
+     "prompt": "Ekteki iki haftalık GA4 tablosunu karşılaştır. %10'dan büyük değişimleri listele, her biri için 2 olası neden yaz. En fazla 3 karar öner. Veride olmayan sayı kullanma.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "akis", "kicker": "Akış", "renk": "ai", "baslik": "Veriden _karara_",
+     "satirlar": [[{"ad": "GA4", "alt": "Keşif tablosu", "ikon": "grafik", "renk": "seo"}, {"ad": "Dışa aktar", "alt": "CSV, toplu veri", "ikon": "belge", "renk": "ink"}, {"ad": "Anonim", "alt": "Kişisel veri yok", "ikon": "kalkan", "renk": "ecom"}],
+                   [{"ad": "Claude", "alt": "Karşılaştırma", "ikon": "sohbet", "renk": "ai"}, {"ad": "1 sayfa", "alt": "Değişim + neden", "ikon": "belge", "renk": "seo"}],
+                   [{"ad": "3 karar", "alt": "Ekip toplantısı", "ikon": "onay", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Toplu (agregat) veriyle çalışır; kullanıcı düzeyinde veri gerekmez."},
+    {"tip": "ekran", "kicker": "Örnek çıktı", "baslik": "Haftalık özet _böyle_ görünür.",
+     "pencere": "Claude · haftalık GA4 özeti", "istek": "Bu haftayı geçen haftayla karşılaştır.",
+     "yanit": "**3 önemli değişim var.** Biri acil.",
+     "tablo": {"basliklar": ["Metrik", "Değişim", "Olası neden"], "satirlar": [["Mobil dönüşüm", "-%18", "Ödeme sayfası hızı"], ["Organik oturum", "+%12", "Yeni kategori yazısı"], ["Reklam CPA", "+%14", "Kampanya öncesi rekabet"]], "vurgu_sutun": 1},
+     "evet": "Karar yaz", "hayir": "İzle", "aksiyon": "Mobil ödeme sayfasını bugün test et.", "kaynak": "Örnek veri"},
+    {"tip": "matris", "num": "02", "kicker": "Veri güvenliği", "baslik": "Modele _ne_ gider?",
+     "basliklar": ["Veri", "Paylaşılır mı?", "Not"],
+     "satirlar": [[["ads", "Toplu metrikler"], "Evet", "Oturum, dönüşüm, gelir"], [["seo", "Kanal ve cihaz"], "Evet", "Kırılım yeterli"], [["ecom", "E-posta, telefon"], "Hayır", "Kişisel veri"], [["ai", "Kullanıcı kimliği"], "Hayır", "Client ID, user ID"]],
+     "kaynak": "KVKK: kişisel veri aktarımı için hukuki dayanak gerekir. Hukuki görüş değildir."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Fark", "baslik": "Rapor değil, _karar._",
+     "once": {"dosya": "rapor_40_sayfa", "etiket": "Okunmuyor", "basliklar": ["Bölüm", "Durum"], "satirlar": [["Genel bakış", "12 grafik"], ["Kanallar", "18 tablo"], ["Karar", "Yok"]]},
+     "sonra": {"dosya": "ozet_1_sayfa", "etiket": "Uygulanıyor", "basliklar": ["Karar", "Sahibi"], "satirlar": [["Mobil ödeme testi", "Geliştirici"], ["Kategori yazısı +1", "İçerik"], ["CPA sınırı", "Reklam"]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "cta", "anahtar": "RAPOR", "vaat": "**Haftalık GA4 rapor prompt'unu** ve tablo şablonunu DM'den göndereyim."}
+  ],
+  "aciklama": "GA4 raporu 40 sayfa olunca kimse okumuyor. Haftalık 1 sayfa ve en fazla 3 karar yeterli.\n\nBen müşterilerimde şöyle çalışıyorum: pazartesi sabahı GA4'ten iki haftalık toplu tabloyu dışa aktarıyorum, kişisel veri içermediğini kontrol ediyorum ve Claude'a sabit bir iskeletle veriyorum. Model iki haftayı karşılaştırp yüzde 10'dan büyük değişimleri ve olası nedenlerini listeliyor. Kararı ekip veriyor.\n\nBurada iki kural önemli. Modele veride olmayan sayı uydurmamasını açıkça yaz. E-posta, telefon ve kullanıcı kimliği gibi kişisel verileri ise hiç paylaşma; toplu metrikler yeterli.\n\nRapor okumak bir iş, karar vermek başka bir iş. Ekipler çoğu zaman ilkinde yoruluyor.\n\nKaydırınca prompt iskeletini, örnek özeti ve modele hangi verinin gidip gitmeyeceğini göreceksin.\n\nYorumlara RAPOR yaz, haftalık GA4 prompt'unu ve tablo şablonunu DM'den göndereyim.\n\n#ga4 #yapayzeka #claude #dijitalpazarlama #analitik",
+  "yazim_hatasi": {"kelime": "karşılaştırp", "dogrusu": "karşılaştırıp", "paragraf": 2},
+  "dogrulama": ["Google Analytics Yardım (keşifler ve dışa aktarma)", "6698 sayılı KVKK", "Anthropic kullanım koşulları"],
+  "senaryo": [
+    {"tts": "Ce a dört raporu kırk sayfa olunca kimse okumuyor. Haftalık bir sayfa yeter.", "altyazi": "GA4 raporu 40 sayfa olunca kimse okumuyor. Haftalık 1 sayfa yeter."},
+    {"tts": "Prompt'un iskeleti: veri, odak, neden, karar ve yasak.", "altyazi": "Prompt'un iskeleti: veri, odak, neden, karar ve yasak."},
+    {"tts": "Bir. Toplu tabloyu dışa aktar, kişisel veri olmadığını kontrol et.", "altyazi": "1. Toplu tabloyu dışa aktar, kişisel veri olmadığını kontrol et."},
+    {"tts": "İki. Klod iki haftayı karşılaştırsın. Yüzde ondan büyük değişimleri ve nedenlerini yazsın.", "altyazi": "2. Claude iki haftayı karşılaştırsın. %10'dan büyük değişimleri ve nedenlerini yazsın."},
+    {"tts": "Örnek: mobil dönüşüm yüzde on sekiz düştü, organik yüzde on iki arttı.", "altyazi": "Örnek: mobil dönüşüm %18 düştü, organik %12 arttı."},
+    {"tts": "Üç. En fazla üç karar. E-posta, telefon ve kullanıcı kimliği asla modele gitmez.", "altyazi": "3. En fazla 3 karar. E-posta, telefon ve kullanıcı kimliği asla modele gitmez."},
+    {"tts": "Rapor prompt'unu istiyorsan yorumlara rapor yaz. Di emden göndereyim.", "altyazi": "Rapor prompt'unu istiyorsan yorumlara RAPOR yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Haftalık _GA4 Raporu_", "kicker": "Şablon · AI · Analitik",
+    "giris": "Her pazartesi 30 dakikada GA4 verisini 1 sayfalık özete ve en fazla 3 karara çevir. Yalnızca toplu veriyle çalışır.",
+    "bolumler": [
+      {"ad": "Veri", "renk": "seo", "maddeler": [["İki hafta", "Bu hafta ve geçen hafta, aynı tarih aralığı uzunluğu."], ["Kırılım", "Kanal, cihaz ve açılış sayfası yeterli."], ["Toplu tablo", "Keşifler bölümünden CSV olarak dışa aktar."]]},
+      {"ad": "Prompt", "renk": "ai", "maddeler": [["ODAK", "Yalnızca %10'dan büyük değişimler."], ["NEDEN", "Her değişim için 2 olası neden, kesin hüküm değil."], ["KARAR", "En fazla 3 karar, her birinin sahibi belli."], ["YASAK", "Veride olmayan sayı kullanılmaz."]]},
+      {"ad": "Güvenlik", "renk": "ecom", "maddeler": [["Kişisel veri yok", "E-posta, telefon, ad, adres ve kullanıcı kimliği tabloda olmaz."], ["Hesap ayarı", "Kurumsal planda veri eğitim ayarlarını kontrol et."], ["Kayıt", "Özetleri ve alınan kararları tarihleriyle sakla."]]}
+    ]
+  }
+}
