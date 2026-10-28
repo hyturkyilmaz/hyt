@@ -1,0 +1,61 @@
+{
+  "id": "2026-11-03-chatgpt-vitrin",
+  "tarih": "2026-11-03",
+  "gun": "Salı",
+  "sutun": "ecom",
+  "anahtar": "VITRIN",
+  "muzik_tohum": 37,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · ChatGPT alışveriş", "baslik": "ChatGPT ürün öneriyor, _satış sitende_ bitiyor.",
+     "alt": "OpenAI ödemeyi satıcının kendi sitesine bırakıyor. **Ürün bilgin hazır mı?**",
+     "zaman": [{"t": "Mart 2026", "s": "Instant Checkout geri planda", "renk": "ink"}, {"t": "Bugün", "s": "Keşif ChatGPT'de", "renk": "ai"}, {"t": "Ödeme", "s": "Satıcının sitesinde", "renk": "ecom"}, {"t": "Sen", "s": "Ürün kartın okunuyor mu?", "renk": "seo"}],
+     "kaynak": "Kaynak: OpenAI satıcı sayfası · basın özetleri, 2026"},
+    {"tip": "akis", "kicker": "Yolculuk", "renk": "ecom", "baslik": "Sorudan _siparişe_",
+     "satirlar": [[{"ad": "Soru", "alt": "300 TL altı keten gömlek", "ikon": "arama", "renk": "ink"}, {"ad": "ChatGPT", "alt": "Ürünleri kıyaslar", "ikon": "sohbet", "renk": "ai"}, {"ad": "Ürün kartı", "alt": "Fiyat, görsel, yorum", "ikon": "etiket", "renk": "ecom"}],
+                   [{"ad": "Senin siten", "alt": "Ödeme burada", "ikon": "magaza", "renk": "ads"}, {"ad": "Ölçüm", "alt": "GA4'te kaynak", "ikon": "grafik", "renk": "seo"}],
+                   [{"ad": "Sipariş", "alt": "Müşteri karar verir", "ikon": "sepet", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [3, 5]],
+     "kaynak": "Şema: OpenAI satıcı sayfasından sadeleştirildi"},
+    {"tip": "matris", "num": "01", "kicker": "Ürün bilgisi", "baslik": "Asistan _neyi_ okuyor?",
+     "alt": "Belirsiz bilgi, kıyas tablosunda elenen ürün demek.",
+     "basliklar": ["Alan", "Zayıf", "Güçlü"],
+     "satirlar": [[["ecom", "Başlık"], "Gömlek", "Keten gömlek, erkek, bej"], [["ads", "Fiyat ve stok"], "Sayfada yok", "Güncel, yapısal veride"], [["seo", "Özellik"], "Uzun paragraf", "Kumaş, kalıp, beden tablosu"], [["ai", "Yorum"], "Yok", "Puan ve yorum sayısı"]],
+     "kaynak": "Garanti değil; seçilme olasılığını artırır."},
+    {"tip": "oncesonra", "num": "02", "kicker": "Ürün kartı", "baslik": "Kartı _kıyaslanabilir_ yaz.",
+     "once": {"dosya": "urun_eski", "etiket": "Belirsiz", "basliklar": ["Alan", "Değer"], "satirlar": [["Başlık", "Yazlık gömlek"], ["Kumaş", "Doğal"], ["Beden", "Standart"]]},
+     "sonra": {"dosya": "urun_yeni", "etiket": "Net", "basliklar": ["Alan", "Değer"], "satirlar": [["Başlık", "Erkek keten gömlek, bej"], ["Kumaş", "%100 keten"], ["Beden", "S-XXL, tablo ekli"]]},
+     "kaynak": "Örnek ürün"},
+    {"tip": "kural", "num": "03", "kicker": "Ölçüm", "baslik": "AI trafiğini _ayrı_ ölç.",
+     "alt": "ChatGPT'den gelen ziyaretçi, organik içinde kaybolmasın.",
+     "kod": ["<span class=\"c\"># GA4 · özel kanal grubu</span>", "<span class=\"k\">KANAL</span> AI asistanlar", "<span class=\"k\">KOŞUL</span> kaynak şunu içeriyor:", "&nbsp;&nbsp;<span class=\"g\">chatgpt.com|perplexity|gemini|claude.ai</span>", "<span class=\"g\">→</span> bu kanalı Organik Arama'nın üstüne taşı"],
+     "prompt": "Ekteki ürün sayfası metnini incele. Bir alışveriş asistanının fiyat, kumaş, beden ve kullanım alanını net okuyup okuyamayacağını kontrol et; eksikleri tablo halinde yaz.",
+     "kaynak": "Kanal sırası önemli: GA4 ilk eşleşen kuralı uygular."},
+    {"tip": "ekran", "kicker": "Test", "baslik": "Kendi ürününü _ara._",
+     "pencere": "ChatGPT · alışveriş araması", "istek": "300 TL altı keten gömlek önerir misin?",
+     "yanit": "**3 ürün buldum.** Kumaş ve beden bilgisi net olanları öne aldım.",
+     "tablo": {"basliklar": ["Ürün", "Fiyat", "Neden seçildi"], "satirlar": [["Keten gömlek A", "279 TL", "%100 keten, beden tablosu"], ["Keten gömlek B", "295 TL", "4,6 puan, 120 yorum"], ["Senin ürünün", "-", "Kumaş bilgisi yok"]], "vurgu_sutun": 2},
+     "evet": "Kartı düzelt", "hayir": "Sonra", "aksiyon": "Ayda bir aynı soruyu sor, sonucu kaydet.", "kaynak": "Temsili ekran"},
+    {"tip": "cta", "anahtar": "VITRIN", "vaat": "**AI alışverişe hazır ürün kartı şablonunu** DM'den göndereyim."}
+  ],
+  "aciklama": "ChatGPT ürün öneriyor, satış senin sitende bitiyor.\n\nOpenAI'ın satıcı sayfasına göre şirket, ChatGPT içinde ayrı bir ödeme deneyimi yerine alışveriş keşfini ve satıcının kendi ödeme sayfasını öne alıyor. Yani asistan kıyaslıyor, müşteri karar verince senin sitene geliyor. Satıcı başvurusu şimdilik ABD odaklı; Türkiye'deki mağazalar için asıl iş ürün bilgisini hazırlamak.\n\nAsistanlar belirsiz ürün kartını kıyas tablosuna koyamıyor. Kumaş, beden, fiyat ve yorum bilgisi net ve kıyaslanbilir değilse ürün listeye girmiyor.\n\nİnsanlar artık mağaza gezmeden önce soru soruyor. Vitrin, sorunun cevabında başlıyor.\n\nKaydırınca asistanın okuduğu alanları, ürün kartı örneğini ve GA4'te AI trafiğini ayırmayı göreceksin.\n\nYorumlara VITRIN yaz, AI alışverişe hazır ürün kartı şablonunu DM'den göndereyim.\n\n#eticaret #chatgpt #yapayzeka #urunsayfasi #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "kıyaslanbilir", "dogrusu": "kıyaslanabilir", "paragraf": 3},
+  "dogrulama": ["OpenAI satıcı sayfası (ChatGPT merchants)", "Basın özetleri, Mart-Ekim 2026", "Google Analytics Yardım: özel kanal grupları"],
+  "senaryo": [
+    {"tts": "Çet Ci Pi Ti ürün öneriyor, satış senin sitende bitiyor.", "altyazi": "ChatGPT ürün öneriyor, satış senin sitende bitiyor."},
+    {"tts": "Müşteri soruyor, asistan kıyaslıyor, ödeme senin sitende yapılıyor.", "altyazi": "Müşteri soruyor, asistan kıyaslıyor, ödeme senin sitende yapılıyor."},
+    {"tts": "Bir. Asistan başlığı, fiyatı, özellikleri ve yorumları okuyor. Belirsiz bilgi elenir.", "altyazi": "1. Asistan başlığı, fiyatı, özellikleri ve yorumları okuyor. Belirsiz bilgi elenir."},
+    {"tts": "İki. Ürün kartını kıyaslanabilir yaz. Yüzde yüz keten, beden tablosu ekli.", "altyazi": "2. Ürün kartını kıyaslanabilir yaz. %100 keten, beden tablosu ekli."},
+    {"tts": "Üç. Ce a dört'te yapay zekâ trafiğini ayrı bir kanalda ölç.", "altyazi": "3. GA4'te AI trafiğini ayrı bir kanalda ölç."},
+    {"tts": "Ayda bir kendi ürününü sor ve sonucu kaydet.", "altyazi": "Ayda bir kendi ürününü sor ve sonucu kaydet."},
+    {"tts": "Ürün kartı şablonunu istiyorsan yorumlara vitrin yaz. Di emden göndereyim.", "altyazi": "Ürün kartı şablonunu istiyorsan yorumlara VITRIN yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "AI Alışverişe Hazır _Ürün Kartı_", "kicker": "Şablon · E-ticaret · AI asistanlar",
+    "giris": "ChatGPT ve benzeri asistanlar ürünleri kıyaslarken net bilgiye bakıyor. Bu şablon, ürün sayfanı okunur ve kıyaslanabilir yapmak için.",
+    "bolumler": [
+      {"ad": "Ürün bilgisi", "renk": "ecom", "maddeler": [["Açık başlık", "Ürün tipi, cinsiyet veya kullanım, renk ve ana malzeme başlıkta."], ["Ölçülebilir özellik", "Kumaş oranı, ölçü, ağırlık gibi değerler sayıyla."], ["Beden ve kullanım", "Beden tablosu ve kullanım alanı ayrı bölümde."], ["Fiyat ve stok", "Sayfada ve yapısal veride güncel."]]},
+      {"ad": "Güven", "renk": "ads", "maddeler": [["Yorumlar", "Puan ve yorum sayısı görünür, yapısal veride işaretli."], ["İade ve kargo", "Teslim süresi ve 14 gün cayma hakkı net yazılı."], ["Gerçek görsel", "Ürünün kendisi; yapay görselse belirtilir."]]},
+      {"ad": "Ölçüm", "renk": "seo", "maddeler": [["AI kanalı", "GA4'te chatgpt.com, perplexity, gemini, claude.ai için ayrı kanal."], ["Aylık test", "En çok satan 5 ürünü asistanlara sor, sonucu tabloya yaz."], ["Değişiklik günlüğü", "Hangi kartı ne zaman düzelttiğini kaydet."]]}
+    ]
+  }
+}

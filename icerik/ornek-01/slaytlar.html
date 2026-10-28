@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Ornek 01 - Amazon x Claude</title>
+<style>
+  :root {
+    --bg: #0E1A2B;
+    --bg2: #13233A;
+    --accent: #FF7A1A;
+    --text: #F4F1EA;
+    --muted: #A9B4C4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #222; font-family: "Inter", sans-serif; }
+  .slide {
+    width: 1080px; height: 1350px; position: relative; overflow: hidden;
+    background: radial-gradient(120% 80% at 100% 0%, var(--bg2) 0%, var(--bg) 60%);
+    color: var(--text); padding: 120px 96px 140px; display: flex; flex-direction: column;
+    margin-bottom: 20px;
+  }
+  .counter { position: absolute; top: 56px; right: 72px; font-size: 30px; font-weight: 600; color: var(--muted); letter-spacing: 1px; }
+  .handle { position: absolute; bottom: 56px; left: 96px; font-size: 30px; font-weight: 600; color: var(--muted); }
+  .swipe { position: absolute; bottom: 56px; right: 72px; font-size: 30px; font-weight: 700; color: var(--accent); }
+  .tag { display: inline-block; align-self: flex-start; background: var(--accent); color: var(--bg); font-weight: 800; font-size: 28px; letter-spacing: 2px; padding: 12px 22px; border-radius: 8px; margin-bottom: 48px; text-transform: uppercase; }
+  h1 { font-size: 108px; line-height: 1.04; font-weight: 800; letter-spacing: -2px; }
+  h2 { font-size: 84px; line-height: 1.08; font-weight: 800; letter-spacing: -1.5px; margin-bottom: 48px; }
+  .accent { color: var(--accent); }
+  p { font-size: 42px; line-height: 1.4; font-weight: 500; color: var(--text); margin-bottom: 30px; }
+  p.muted { color: var(--muted); }
+  .big-num { font-size: 260px; font-weight: 900; line-height: 0.9; color: var(--accent); letter-spacing: -8px; margin-bottom: 24px; }
+  .box { background: rgba(255,255,255,0.05); border-left: 8px solid var(--accent); padding: 34px 40px; border-radius: 0 16px 16px 0; margin-top: 18px; }
+  .box p { margin-bottom: 0; font-size: 38px; }
+  .box .label { font-size: 26px; font-weight: 800; color: var(--accent); letter-spacing: 2px; margin-bottom: 12px; text-transform: uppercase; }
+  ul.list { list-style: none; margin-top: 8px; }
+  ul.list li { font-size: 42px; line-height: 1.35; font-weight: 600; padding: 22px 0 22px 64px; position: relative; border-bottom: 2px solid rgba(255,255,255,0.08); }
+  ul.list li::before { content: ""; position: absolute; left: 0; top: 36px; width: 30px; height: 30px; border-radius: 50%; border: 5px solid var(--accent); }
+  .center { justify-content: center; }
+  .keyword { display: inline-block; font-size: 150px; font-weight: 900; color: var(--bg); background: var(--accent); padding: 10px 50px 20px; border-radius: 22px; letter-spacing: 4px; margin: 30px 0 50px; }
+  .avatar { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #FFB37A); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 46px; color: var(--bg); margin-bottom: 56px; }
+</style>
+</head>
+<body>
+
+<!-- 1 / Kanca -->
+<section class="slide" id="s1">
+  <div class="counter">1/7</div>
+  <div class="avatar">HYT</div>
+  <span class="tag">E-ticaret · AI</span>
+  <h1>Amazon, satıcı panelini <span class="accent">Claude'a</span> açtı.</h1>
+  <p style="margin-top:56px; font-size:48px;">Türkiye'de satış yapıyorsan bu hafta başlaman gereken <b>3 hazırlık</b>.</p>
+  <div class="handle">@hyturkyilmaz</div>
+  <div class="swipe">Kaydır →</div>
+</section>
+
+<!-- 2 / Ne oldu -->
+<section class="slide" id="s2">
+  <div class="counter">2/7</div>
+  <span class="tag">Ne oldu?</span>
+  <h2>23 Eylül 2026,<br>Amazon Accelerate.</h2>
+  <p>Seller Assistant artık Claude'un içinden çalışıyor.</p>
+  <ul class="list">
+    <li>Stok kontrolü</li>
+    <li>Fiyat değişikliği</li>
+    <li>Ürün sayfası düzenleme</li>
+  </ul>
+  <div class="box" style="margin-top:44px;">
+    <p>Her işlem satıcının onayıyla. Şimdilik ABD'de, beta ve ücretsiz.</p>
+  </div>
+  <div class="handle">@hyturkyilmaz</div>
+</section>
+
+<!-- 3 / Neden önemli -->
+<section class="slide" id="s3">
+  <div class="counter">3/7</div>
+  <span class="tag">Neden önemli?</span>
+  <h2>Panel gidiyor,<br><span class="accent">sohbet</span> geliyor.</h2>
+  <p>Satıcı artık menü menü gezmeyecek. "Stokta 5'in altına düşenleri göster" diyecek.</p>
+  <p class="muted">Bu düzende paneli iyi bilen değil, verisi düzenli olan kazanır.</p>
+  <div class="box">
+    <div class="label">Benim notum</div>
+    <p>Alışkanlık yavaş değişir. Değişimi ilk benimseyen çoğu zaman en küçük satıcı olur.</p>
+  </div>
+  <div class="handle">@hyturkyilmaz</div>
+</section>
+
+<!-- 4 / Hazırlık 1 -->
+<section class="slide" id="s4">
+  <div class="counter">4/7</div>
+  <div class="big-num">01</div>
+  <h2>Ürün verini<br>tek dile çevir.</h2>
+  <p>Aynı ürün üç farklı adla kayıtlıysa ajan onu üç ürün sanar.</p>
+  <div class="box">
+    <div class="label">Bu hafta</div>
+    <p>Başlık, renk, beden, malzeme alanlarını tek formatta topla. Varyantları ana ürüne bağla.</p>
+  </div>
+  <div class="handle">@hyturkyilmaz</div>
+</section>
+
+<!-- 5 / Hazırlık 2 -->
+<section class="slide" id="s5">
+  <div class="counter">5/7</div>
+  <div class="big-num">02</div>
+  <h2>Kafandaki kuralı<br>yazıya dök.</h2>
+  <p>Ajan sezgiyi uygulayamaz, kuralı uygular.</p>
+  <div class="box">
+    <div class="label">Örnek kural</div>
+    <p>"Stok 5'in altına inerse reklamı durdur, tedarikçiye sipariş taslağı hazırla."</p>
+  </div>
+  <p class="muted" style="margin-top:36px;">Fiyat, stok, iade için 3'er kural yeter.</p>
+  <div class="handle">@hyturkyilmaz</div>
+</section>
+
+<!-- 6 / Hazırlık 3 -->
+<section class="slide" id="s6">
+  <div class="counter">6/7</div>
+  <div class="big-num">03</div>
+  <h2>Onay zincirini<br>şimdiden kur.</h2>
+  <p>Amazon bile her adımda onay istiyor. Senin mağazanda kim onaylayacak?</p>
+  <ul class="list">
+    <li>Fiyat: kim, hangi sınıra kadar?</li>
+    <li>Stok: kim, hangi tutara kadar?</li>
+    <li>İçerik: kim son kontrolü yapar?</li>
+  </ul>
+  <div class="handle">@hyturkyilmaz</div>
+</section>
+
+<!-- 7 / CTA -->
+<section class="slide center" id="s7">
+  <div class="counter">7/7</div>
+  <p style="font-size:52px; font-weight:700;">Yorumlara yaz:</p>
+  <div><span class="keyword">AJAN</span></div>
+  <p style="font-size:46px;">10 maddelik <b class="accent">"Ajana Hazır Mağaza"</b> kontrol listesini DM'den göndereyim.</p>
+  <p class="muted" style="font-size:36px; margin-top:24px;">Kaydet, ekibinle paylaş.</p>
+  <div class="handle">@hyturkyilmaz · hyturkyilmaz.com</div>
+</section>
+
+</body>
+</html>

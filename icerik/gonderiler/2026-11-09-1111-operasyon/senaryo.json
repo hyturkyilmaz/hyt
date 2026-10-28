@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-09-1111-operasyon",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "On bir on bir günü sorun çıkacak. Önemli olan kimin, hangi eşikte müdahale edeceği.",
+   "altyazi": "11.11 günü sorun çıkacak. Önemli olan kimin, hangi eşikte müdahale edeceği."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Dört rol: reklam, stok, site ve müşteri hizmetleri. Her birine tek ekran.",
+   "altyazi": "4 rol: reklam, stok, site ve müşteri hizmetleri. Her birine tek ekran."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Günü saatlere böl: dokuzda özet, on üçte bütçe, on sekizde stok ve kargo.",
+   "altyazi": "1. Günü saatlere böl: 09.00 özet, 13.00 bütçe, 18.00 stok ve kargo."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Saatlik özet tek mesaj olsun. Örnek: CPA yüzde otuz dört arttı, stok sekize düştü.",
+   "altyazi": "2. Saatlik özet tek mesaj olsun. Örnek: CPA %34 arttı, stok 8'e düştü."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Kararı önceden yaz. Stok ondan azsa reklam durur.",
+   "altyazi": "3. Kararı önceden yaz. Stok 10'dan azsa reklam durur."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Ertesi gün değerlendirmeyi yazılı yap. Efsane Cuma'ya o notla gir.",
+   "altyazi": "Ertesi gün değerlendirmeyi yazılı yap. Efsane Cuma'ya o notla gir."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Rol ve eşik planını istiyorsan yorumlara plan yaz. Di emden göndereyim.",
+   "altyazi": "Rol ve eşik planını istiyorsan yorumlara PLAN yaz. DM'den göndereyim."
+  }
+ ]
+}

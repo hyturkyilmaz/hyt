@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-01-haftalik-ozet",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Ekim bitti. Son iki haftada beş gelişme var. Her biri için tek bir iş yeter.",
+   "altyazi": "Ekim bitti. Son iki haftada 5 gelişme var. Her biri için tek bir iş yeter."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Meta, Google, Klod, on gün kuralı ve on bir on bir takvimi.",
+   "altyazi": "Meta, Google, Claude, 10 gün kuralı ve 11.11 takvimi."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "On bir on bire on gün, Efsane Cuma'ya yirmi altı gün kaldı.",
+   "altyazi": "11.11'e 10 gün, Efsane Cuma'ya 26 gün kaldı."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Bir. Her pazar akşamı otuz dakika ayır. Kaydettiklerini filtrele.",
+   "altyazi": "1. Her pazar akşamı 30 dakika ayır. Kaydettiklerini filtrele."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. En fazla üç aksiyon seç. Her birinin sahibi ve günü belli olsun.",
+   "altyazi": "2. En fazla 3 aksiyon seç. Her birinin sahibi ve günü belli olsun."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Kaydedilenler arşiv olarak kalmasın, plana dönsün.",
+   "altyazi": "3. Kaydedilenler arşiv olarak kalmasın, plana dönsün."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Gündem şablonunu istiyorsan yorumlara hafta yaz. Di emden göndereyim.",
+   "altyazi": "Gündem şablonunu istiyorsan yorumlara HAFTA yaz. DM'den göndereyim."
+  }
+ ]
+}

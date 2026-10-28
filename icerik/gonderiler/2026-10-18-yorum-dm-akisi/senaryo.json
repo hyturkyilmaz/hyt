@@ -1,0 +1,48 @@
+{
+ "id": "2026-10-18-yorum-dm-akisi",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Instagram reklamına yorum yazana otomatik di em gidecek. Meta bunu test ediyor.",
+   "altyazi": "Instagram reklamına yorum yazana otomatik DM gidecek. Meta bunu test ediyor."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Akış şöyle: gönderi, anahtar kelimeli yorum, otomatik mesaj. Sonra kontrol listesi ve topluluk.",
+   "altyazi": "Akış şöyle: gönderi, anahtar kelimeli yorum, otomatik mesaj. Sonra kontrol listesi ve topluluk."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Kurulum beş dakika. Ama şifre isteyen botlarla değil, resmi araçla.",
+   "altyazi": "Kurulum 5 dakika. Ama şifre isteyen botlarla değil, resmi araçla."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Bir. Kelimeyi seç. Kısa, konuya bağlı, tek kelime.",
+   "altyazi": "1. Kelimeyi seç. Kısa, konuya bağlı, tek kelime."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. Mesaj değer versin. Söz verdiğin içerik, tek ipucu, topluluk daveti.",
+   "altyazi": "2. Mesaj değer versin. Söz verdiğin içerik, tek ipucu, topluluk daveti."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Ölç. Yorum, tıklama, topluluğa katılım.",
+   "altyazi": "3. Ölç. Yorum, tıklama, topluluğa katılım."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Şablonu istiyorsan yorumlara akış yaz. Di emden göndereyim.",
+   "altyazi": "Şablonu istiyorsan yorumlara AKIŞ yaz. DM'den göndereyim."
+  }
+ ]
+}

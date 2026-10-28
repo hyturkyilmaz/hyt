@@ -1,0 +1,32 @@
+# hyt — proje hafızası
+
+Hasan Yasin Türkyılmaz (hyturkyilmaz.com) için içerik ve otomasyon deposu.
+
+## Kullanıcı
+- Sosyolog, full stack developer, dijital ve performans pazarlama direktörü, e-ticaret pazarlama uzmanı.
+- Yanıt düzeni: Durum → Yapılanlar → Senin yapacakların → Öneri. Yalın, havacılık dili gibi.
+- Yeni işte önce 3-5 maddelik taslak. Kaynakça en sonda APA. Metinlerde AI işareti yok.
+- Hanefi; finans önerileri faizsiz/katılım. KVKK, GDPR, TR mevzuatı izinsiz ihlal edilmez.
+- Hiçbir veri silinmez; dosyanın üzerine yazmadan önce yeni sürüm.
+
+## Instagram içerik sistemi (Ekim 2026)
+- Beceri: `.claude/skills/hyt-instagram-icerik/` — günlük gönderi hattı, kalite kapısı, şablon.
+- Rehberler: `icerik/rehber/instagram-icerik-rehberi.md`, `icerik/rehber/gorsel-stil-rehberi.md`.
+- Araçlar: `icerik/araclar/` — render-media.mjs (PNG+MP4), build-reels.py (ses+müzik+altyazı), muzik-uret.py (telifsiz), render-altyazi.mjs.
+- Örnek 01 (Amazon × Claude, AJAN): `icerik/ornek-01/` — v2 onaylandı ("bu stil güzel, koruyalım").
+- Stil: kâğıt zemin + ızgara, el çizimi alt çizgi, renkli zaman çizgisi, iş akışı şemaları, koyu CTA slaydı. Her gönderide ≥ 2 hareketli slayt.
+- Renk: logo yeşili #2e9447; sütunlar SEO #1a73e8, Reklam #34a853, E-ticaret #f29900, AI #7b1fa2.
+- Tek yazım hatası kuralı: yalnız açıklama gövdesinde, klavye kayması, yeri üretim notunda.
+- Ses: klon yalnız Hasan Yasin'in kendi sesi. Chatterbox Multilingual (MIT) Colab'da; XTTS-v2 (CPML) ticari işte kullanılmaz. Müzik konuşmanın %8-10'u.
+- Lead: yorum anahtar kelimesi → DM → kontrol listesi + WhatsApp Topluluğu (https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh).
+- Takvim aşamaları: örnek → 7 gün → 14 gün → 30 gün → günlük 1. 7 günlük plan hazır (`icerik/plan/7-gun-2026-10-14.md`, 14-20 Ekim). 14 günlük plan hazır (`icerik/plan/14-gun-2026-10-28.md`, 28 Ekim - 10 Kasım, 42 paylaşım). Sıradaki: 30 günlük plan (11 Kasım - 10 Aralık, Efsane Cuma 27 Kasım ve Siber Pazartesi 30 Kasım dahil).
+- Proje yönetimi: Trello "HYT Proje Yönetimi" panosu (https://trello.com/b/sCt5VDnm). Kart adı `[HYT Marka] (P1) İş (S/M/L)`, açıklamada "Bitti kriteri". Akış: Yapılacaklar → Devam Eden → İncelemede → Tamamlandı. `/trello-proje-yonetimi` becerisi bu ortamda yüklü değil; panonun kendi kuralları uygulanıyor.
+- Günde 3 paylaşım: 09:10 carousel · 13:10 story · 20:50 reels (kullanıcı isteği, 13 Ekim).
+- Reels günde 1, en yüksek etkileşim saatinde (kullanıcı isteği, 28 Ekim): hafta içi ve pazar 20:50, perşembe 08:50, cuma-cumartesi 21:20 TRT. Kaynak Buffer 2026 + Türkiye akşam verisi; ilk 7 günden sonra Instagram İstatistikleri ile doğrulanır. Takvim: `icerik/plan/reels-gunluk-2026-10-28.md`. Resmi anma saatlerinde (10 Kasım sabahı) ticari paylaşım yok.
+- Tek komut: `python3 icerik/araclar/gonderi-uret.py icerik/gonderiler/<id>/gonderi.json`.
+- Instagram'a doğrudan erişim yok (bulut oturumu kullanıcının Chrome'una bağlanamaz); yayın Meta Business Suite Planlayıcı ile kullanıcıda.
+
+## Ortam notları
+- Bulut oturumunda instagram.com, hyturkyilmaz.com, huggingface.co kapalı olabilir.
+- GitHub push 403 → kullanıcı claude.ai/connect-github ile bağlantıyı yeniler.
+- Drive ses hattı: `MyDrive/Claude/Projects/hyt growth/video-klon/` (ref, senaryo, cikti, yuz).

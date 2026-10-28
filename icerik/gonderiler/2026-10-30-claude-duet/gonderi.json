@@ -1,0 +1,60 @@
+{
+  "id": "2026-10-30-claude-duet",
+  "tarih": "2026-10-30",
+  "gun": "Cuma",
+  "sutun": "ai",
+  "anahtar": "DUET",
+  "muzik_tohum": 33,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "AI · Claude", "baslik": "Claude artık sen _yokken_ de çalışıyor.",
+     "alt": "Claude Duet: işi kendisi takip eden, **önce sana soran** ajan.",
+     "zaman": [{"t": "21 Ekim", "s": "Araştırma önizlemesi", "renk": "ai"}, {"t": "ABD", "s": "Pro ve Max, bekleme listesi", "renk": "seo"}, {"t": "Her sabah", "s": "Kısa özet", "renk": "ecom"}, {"t": "Sen", "s": "Hangi işi devredersin?", "renk": "ads"}],
+     "kaynak": "Kaynak: Anthropic · SiliconANGLE, Ekim 2026"},
+    {"tip": "akis", "kicker": "Nasıl çalışıyor?", "renk": "ai", "baslik": "Proaktif ajan _döngüsü_",
+     "satirlar": [[{"ad": "Bağlı uygulamalar", "alt": "E-posta, takvim, dosya", "ikon": "veri", "renk": "ink"}, {"ad": "Duet", "alt": "Önemli olanı bulur", "ikon": "sohbet", "renk": "ai"}, {"ad": "Sabah özeti", "alt": "Ne bekliyor?", "ikon": "belge", "renk": "seo"}],
+                   [{"ad": "Görev", "alt": "Sen verirsin", "ikon": "kutu", "renk": "ecom"}, {"ad": "Onay", "alt": "Yapmadan önce sorar", "ikon": "onay", "renk": "ads", "insan": true}],
+                   [{"ad": "İş tamamlanır", "alt": "Sen yokken de", "ikon": "magaza", "renk": "ink"}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Şema: Anthropic'in açıklamasından sadeleştirildi"},
+    {"tip": "matris", "kicker": "Sınırlar", "baslik": "Neyi _sormadan_ yapmaz?",
+     "basliklar": ["İşlem", "Onay", "Not"],
+     "satirlar": [[["ads", "Mesaj gönderme"], "Gerekli", "Önce sana sorar"], [["ecom", "Ödeme"], "Gerekli", "Onaysız ödeme yok"], [["seo", "Belge imzalama"], "Gerekli", "-"], [["ai", "Silme"], "Gerekli", "Geri alınamaz işler"]],
+     "kaynak": "Kaynak: Technology.org · BetaNews, Ekim 2026"},
+    {"tip": "kural", "num": "01", "kicker": "Kural", "baslik": "Devredeceğin işi _tarif et._",
+     "alt": "Proaktif ajan, ne zaman rahatsız edeceğini senin kuralından öğrenir.",
+     "kod": ["<span class=\"c\"># devir kuralı · v1</span>", "<span class=\"k\">ACİL</span> müşteri şikâyeti, ödeme sorunu", "&nbsp;&nbsp;<span class=\"g\">→</span> hemen haber ver", "<span class=\"k\">RUTİN</span> rapor, takip e-postası", "&nbsp;&nbsp;<span class=\"g\">→</span> taslak hazırla, sabaha bırak", "<span class=\"k\">ASLA</span> onaysız gönderim, ödeme"],
+     "prompt": "Bir haftalık işlerimi listele: tekrar eden, onay gerektiren, sadece benim yapabileceğim. Her biri bir ajana devredilebilir mi, gerekçesiyle yaz.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "02", "kicker": "Özet", "baslik": "Sabah özeti _böyle_ olsun.",
+     "once": {"dosya": "gelen_kutusu", "etiket": "Dağınık", "basliklar": ["Kaynak", "Durum"], "satirlar": [["E-posta", "142 okunmamış"], ["Takvim", "3 çakışma"], ["Görev", "Belirsiz"]]},
+     "sonra": {"dosya": "sabah_ozeti", "etiket": "Öncelikli", "basliklar": ["Öncelik", "İş"], "satirlar": [["Acil", "2 müşteri yanıtı"], ["Bugün", "1 toplantı, 1 teklif"], ["Taslak", "3 takip e-postası hazır"]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "ekran", "kicker": "Örnek gün", "baslik": "Pazarlama ekibinde _bir sabah_",
+     "pencere": "Ajan özeti", "istek": "Bugün neye bakmam gerekiyor?",
+     "yanit": "**3 iş öncelikli.** İkisi için taslak hazır.",
+     "tablo": {"basliklar": ["İş", "Durum", "Senin işin"], "satirlar": [["Kampanya bütçesi", "%90 harcandı", "Karar ver"], ["Müşteri yorumu", "Olumsuz", "Yanıtı onayla"], ["Haftalık rapor", "Taslak hazır", "Oku, gönder"]], "vurgu_sutun": -1},
+     "evet": "Onayla", "hayir": "Sonra", "aksiyon": "Göndermeden önce sorar.", "kaynak": "Temsili ekran"},
+    {"tip": "cta", "anahtar": "DUET", "vaat": "**Ajana devir şablonunu** (iş listesi + kural seti) DM'den göndereyim."}
+  ],
+  "aciklama": "Claude artık sen yokken de çalışıyor. Ama bir şartla: önce sana soruyor.\n\n21 Ekim'de Anthropic, Claude Duet'i araştırma önizlemesi olarak açtı. Bağlı uygulamalardaki önemli işleri buluyor, verdiğin görevleri tamamlıyor, sen ayrıldığında çalışmya devam ediyor ve senin adına bir şey yapmadan önce onay istiyor. Şimdilik ABD'de, Pro ve Max planlarında bekleme listesiyle.\n\nBu tür ajanlarda asıl iş kurulumda değil, tarifte. Hangi iş acil, hangisi sabaha kalabilir; bunu yazmayan ekip ajanın her bildirimini acil sanıyor.\n\nİnsan, işini devrettiği kişiye güvenmeyi zamanla öğrenir. Ajana güven de aynı yoldan geçiyor: küçük işlerle başlayarak.\n\nKaydırınca ajanın döngüsünü, onaysız yapmadığı işleri ve devir kuralını göreceksin.\n\nYorumlara DUET yaz, ajana devir şablonunu DM'den göndereyim.\n\n#claude #yapayzeka #verimlilik #dijitalpazarlama #ajan",
+  "yazim_hatasi": {"kelime": "çalışmya", "dogrusu": "çalışmaya", "paragraf": 2},
+  "dogrulama": ["Anthropic (Claude hesabı duyurusu), 21 Ekim 2026", "SiliconANGLE, 22 Ekim 2026", "Technology.org", "BetaNews"],
+  "senaryo": [
+    {"tts": "Klod artık sen yokken de çalışıyor. Ama önce sana soruyor.", "altyazi": "Claude artık sen yokken de çalışıyor. Ama önce sana soruyor."},
+    {"tts": "Bağlı uygulamalardaki önemli işleri buluyor, sabah özet çıkarıyor, yapmadan önce onay istiyor.", "altyazi": "Bağlı uygulamalardaki önemli işleri buluyor, sabah özet çıkarıyor, yapmadan önce onay istiyor."},
+    {"tts": "Mesaj göndermek, ödeme, imza ve silme senin onayın olmadan yapılmıyor.", "altyazi": "Mesaj göndermek, ödeme, imza ve silme senin onayın olmadan yapılmıyor."},
+    {"tts": "Bir. Devredeceğin işi tarif et. Neyin acil olduğunu ajana sen öğret.", "altyazi": "1. Devredeceğin işi tarif et. Neyin acil olduğunu ajana sen öğret."},
+    {"tts": "İki. Sabah özeti öncelik sırasıyla gelsin, gelen kutusu kalabalığıyla değil.", "altyazi": "2. Sabah özeti öncelik sırasıyla gelsin, gelen kutusu kalabalığıyla değil."},
+    {"tts": "Bir pazarlama ekibi için sabah: üç öncelikli iş, ikisinin taslağı hazır.", "altyazi": "Bir pazarlama ekibi için sabah: 3 öncelikli iş, ikisinin taslağı hazır."},
+    {"tts": "Devir şablonunu istiyorsan yorumlara düet yaz. Di emden göndereyim.", "altyazi": "Devir şablonunu istiyorsan yorumlara DUET yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Ajana Devir _Şablonu_", "kicker": "Şablon · AI · Proaktif ajan",
+    "giris": "Proaktif bir ajana iş devretmeden önce neyi devredeceğini, neyin acil olduğunu ve neyin asla onaysız yapılmayacağını yaz.",
+    "bolumler": [
+      {"ad": "İş envanteri", "renk": "ai", "maddeler": [["Haftalık iş listesi", "Bir haftada yaptığın tüm işleri tek tabloda topla."], ["Üç sınıf", "Tekrar eden, onay gerektiren, sadece senin yapabileceğin."], ["İlk devir", "Riski en düşük 2 tekrar eden işle başla."]]},
+      {"ad": "Kurallar", "renk": "ads", "maddeler": [["Acil tanımı", "Hangi durumda hemen haber verilir; en fazla 3 madde."], ["Rutin akış", "Taslak hazırlanır, sabah özetine eklenir."], ["Asla listesi", "Onaysız mesaj, ödeme, imza ve silme yok."], ["Haftalık gözden geçirme", "Ajanın yanlış önceliklendirdiği işleri not et, kuralı güncelle."]]},
+      {"ad": "Güvenlik", "renk": "seo", "maddeler": [["En az yetki", "Uygulamaları yalnızca gereken izinlerle bağla."], ["Şifre paylaşma", "Şifre veya kod sohbete yazılmaz."], ["Kişisel veri", "Müşteri verisi içeren uygulamaları bağlamadan önce KVKK aydınlatma ve aktarım koşullarını kontrol et."]]}
+    ]
+  }
+}

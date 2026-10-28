@@ -1,0 +1,48 @@
+{
+ "id": "2026-10-20-urun-aciklama-prompt",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Ürün açıklamasını üç dakikada yazdıran prompt. Kopyala, kendi ürününle doldur.",
+   "altyazi": "Ürün açıklamasını 3 dakikada yazdıran prompt. Kopyala, kendi ürününle doldur."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Aynı ürün, iki açıklama. Biri genel, diğeri satışa hazır.",
+   "altyazi": "Aynı ürün, iki açıklama. Biri genel, diğeri satışa hazır."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Promptun iskeleti: rol, ürün, kitle, kural, çıktı.",
+   "altyazi": "Prompt'un iskeleti: rol, ürün, kitle, kural, çıktı."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Sonuç tablo halinde geliyor. Eksik bilgiyi uydurmuyor, işaretliyor.",
+   "altyazi": "Sonuç tablo halinde geliyor. Eksik bilgiyi uydurmuyor, işaretliyor."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Yüz ürün için de aynı akış: tablo, prompt, kontrol, yayın.",
+   "altyazi": "100 ürün için de aynı akış: tablo, prompt, kontrol, yayın."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Yayından önce dört şeyi kontrol et: uydurma bilgi, anahtar kelime, ölçü, ses tonu.",
+   "altyazi": "Yayından önce 4 şeyi kontrol et: uydurma bilgi, anahtar kelime, ölçü, ses tonu."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Prompt setini istiyorsan yorumlara prompt yaz. Di emden göndereyim.",
+   "altyazi": "Prompt setini istiyorsan yorumlara PROMPT yaz. DM'den göndereyim."
+  }
+ ]
+}

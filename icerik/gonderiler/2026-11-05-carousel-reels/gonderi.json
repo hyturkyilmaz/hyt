@@ -1,0 +1,59 @@
+{
+  "id": "2026-11-05-carousel-reels",
+  "tarih": "2026-11-05",
+  "gun": "Perşembe",
+  "sutun": "ads",
+  "anahtar": "KAYDIR",
+  "muzik_tohum": 39,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Sosyal medya · Instagram", "baslik": "Carousel _geri döndü_ mü?",
+     "alt": "Takipçi etkileşiminde carousel, Reels'in **önünde** çıktı. Peki ne yapmalı?",
+     "zaman": [{"t": "20 slayt", "s": "Carousel sınırı", "renk": "ads"}, {"t": "Q2 2026", "s": "Carousel %0,50", "renk": "seo"}, {"t": "Müzik", "s": "Reels akışında da görünebilir", "renk": "ai"}, {"t": "Sen", "s": "Kapak slaydın durduruyor mu?", "renk": "ecom"}],
+     "kaynak": "Kaynak: Socialinsider Q2 2026 · Instagram yardım sayfaları"},
+    {"tip": "grafik", "kicker": "Etkileşim oranı", "renk": "ads", "baslik": "Takipçi başına _etkileşim_",
+     "barlar": [{"ad": "Carousel", "etiket": "%0,50", "deger": 50, "renk": "ads"}, {"ad": "Reels", "etiket": "%0,48", "deger": 48, "renk": "ai"}, {"ad": "Tek görsel", "etiket": "%0,33", "deger": 33, "renk": "ink"}],
+     "not": "Ortalama değerler. Erişimde Reels hâlâ önde; carousel kaydetme ve paylaşımda güçlü.",
+     "kaynak": "Kaynak: Socialinsider, Q2 2026 Instagram karşılaştırması"},
+    {"tip": "akis", "kicker": "Dağıtım", "renk": "ads", "baslik": "Bir carousel, _iki şans_",
+     "satirlar": [[{"ad": "Carousel", "alt": "Müzik eklenmiş", "ikon": "belge", "renk": "ink"}, {"ad": "Ana akış", "alt": "Takipçiler görür", "ikon": "kisi", "renk": "ads"}, {"ad": "İkinci gösterim", "alt": "Kaydırmayan görür", "ikon": "saat", "renk": "seo"}],
+                   [{"ad": "Reels akışı", "alt": "Yeni kitle (bazı hesaplar)", "ikon": "hoparlor", "renk": "ai"}, {"ad": "Kaydet / paylaş", "alt": "Asıl sinyal", "ikon": "onay", "renk": "ecom"}],
+                   [{"ad": "Profil ziyareti", "alt": "Takip kararı", "ikon": "kisi", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [0, 3], [2, 4], [3, 4], [4, 5]],
+     "kaynak": "Şema: Instagram'ın açıklamaları ve sektör raporlarından sadeleştirildi"},
+    {"tip": "kural", "num": "01", "kicker": "Kapak", "baslik": "Kapak tek iş _yapar._",
+     "alt": "Durdurur ve ikinci slayda geçirir. Gerisi içerik slaytlarının işi.",
+     "kod": ["<span class=\"c\"># kapak kuralı</span>", "<span class=\"k\">BAŞLIK</span> en fazla 8 kelime, bir rakam", "<span class=\"k\">VAAT</span> kaydırınca ne kazanacak", "<span class=\"k\">GÖRSEL</span> tek odak, telefonda okunur", "<span class=\"g\">→</span> \"Kaydır\" işareti sağ altta"],
+     "prompt": "Bu carousel'in konusu ekte. 8 kelimeyi geçmeyen, içinde bir rakam olan 10 kapak başlığı yaz. Her birinin altına kaydırınca ne öğreneceğini tek cümleyle ekle.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "02", "kicker": "Özgünlük", "baslik": "Kopya değil, _kendi verin._",
+     "once": {"dosya": "kopya_icerik", "etiket": "Sıradan", "basliklar": ["Slayt", "İçerik"], "satirlar": [["1", "Genel ipucu"], ["2-6", "Başkasının listesi"], ["7", "Takip et"]]},
+     "sonra": {"dosya": "ozgun_icerik", "etiket": "Özgün", "basliklar": ["Slayt", "İçerik"], "satirlar": [["1", "Rakamlı kapak"], ["2-6", "Kendi örneğin, ekran görüntüsü"], ["7", "Yorumla al"]]},
+     "kaynak": "Instagram, özgün içeriği öne çıkardığını açıkladı."},
+    {"tip": "matris", "num": "03", "kicker": "Kontrol", "baslik": "Paylaşmadan önce _5 kontrol_",
+     "basliklar": ["Kontrol", "Soru", "Hedef"],
+     "satirlar": [[["ads", "Kapak"], "Durduruyor mu?", "8 kelime, 1 rakam"], [["seo", "Akış"], "Her slayt bir sonrakine bağlı mı?", "Tek fikir / slayt"], [["ai", "Okunurluk"], "Telefonda okunuyor mu?", "En az 32 px yazı"], [["ecom", "Müzik"], "Telifsiz mi?", "Kendi kütüphanen"], [["ink", "Çağrı"], "Tek eylem mi?", "Yorum veya kaydet"]],
+     "kaynak": "Danışmanlıkta kullandığım kontrol listesi"},
+    {"tip": "cta", "anahtar": "KAYDIR", "vaat": "**Carousel kontrol listesini ve kapak şablonunu** DM'den göndereyim."}
+  ],
+  "aciklama": "Carousel geri döndü mü? Takipçi etkileşimi verisine bakınca cevap evet gibi.\n\nSocialinsider'ın 2026 ikinci çeyrek karşılaştırmasında takipçi başına etkileşim carousel'de %0,50, Reels'te %0,48, tek görselde %0,33 çıktı. Erişimde Reels hâlâ önde ama kaydetme ve paylaşmada carousel güçlü. Bir carousel'e 20 slayt eklenebiliyor; müzik eklenen carousel'ler bazı hesaplarda Reels akışında da gösterilebiliyor.\n\nYine de etkileşmi belirleyen format değil, kapak. İlk slayt durdurmuyorsa geri kalan 19 slaydı kimse görmüyor.\n\nİnsanlar uzun içeriği sevmiyor değil; neden okumaları gerektiğini ilk saniyede bilmek istiyor.\n\nKaydırınca etkileşim oranlarını, kapak kuralını ve paylaşım öncesi 5 kontrolü göreceksin.\n\nYorumlara KAYDIR yaz, carousel kontrol listesini ve kapak şablonunu DM'den göndereyim.\n\n#instagram #icerikpazarlamasi #sosyalmedya #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "etkileşmi", "dogrusu": "etkileşimi", "paragraf": 3},
+  "dogrulama": ["Socialinsider, Q2 2026 Instagram benchmarks", "Instagram Yardım Merkezi (carousel slayt sınırı)", "Instagram açıklamaları (özgün içerik)"],
+  "senaryo": [
+    {"tts": "Karusel geri döndü mü? Takipçi etkileşimine bakınca cevap evet gibi.", "altyazi": "Carousel geri döndü mü? Takipçi etkileşimine bakınca cevap evet gibi."},
+    {"tts": "Karusel yüzde sıfır virgül elli, Rils yüzde sıfır virgül kırk sekiz, tek görsel yüzde sıfır virgül otuz üç.", "altyazi": "Carousel %0,50, Reels %0,48, tek görsel %0,33."},
+    {"tts": "Müzik eklenen karuseller bazı hesaplarda Rils akışında da görünebiliyor.", "altyazi": "Müzik eklenen carousel'ler bazı hesaplarda Reels akışında da görünebiliyor."},
+    {"tts": "Bir. Kapak tek iş yapar: durdurur. En fazla sekiz kelime, bir rakam.", "altyazi": "1. Kapak tek iş yapar: durdurur. En fazla 8 kelime, 1 rakam."},
+    {"tts": "İki. Başkasının listesini değil, kendi örneğini ve ekran görüntünü kullan.", "altyazi": "2. Başkasının listesini değil, kendi örneğini ve ekran görüntünü kullan."},
+    {"tts": "Üç. Paylaşmadan önce beş kontrol: kapak, akış, okunurluk, müzik ve çağrı.", "altyazi": "3. Paylaşmadan önce 5 kontrol: kapak, akış, okunurluk, müzik ve çağrı."},
+    {"tts": "Kontrol listesini istiyorsan yorumlara kaydır yaz. Di emden göndereyim.", "altyazi": "Kontrol listesini istiyorsan yorumlara KAYDIR yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Carousel _Kontrol Listesi_", "kicker": "Kontrol listesi · Instagram · Carousel",
+    "giris": "Carousel'de etkileşimi format değil kapak ve akış belirliyor. Paylaşmadan önce bu listeden geç.",
+    "bolumler": [
+      {"ad": "Kapak", "renk": "ads", "maddeler": [["8 kelime, 1 rakam", "Başlık kısa ve somut."], ["Vaat", "Kaydırınca ne kazanacağı tek cümlede."], ["Tek odak", "Telefonda ilk bakışta okunan tek görsel öğe."], ["Kaydır işareti", "Sağ altta, küçük ama görünür."]]},
+      {"ad": "İçerik", "renk": "seo", "maddeler": [["Tek fikir / slayt", "Her slayt bir şey anlatır, bir sonrakine bağlanır."], ["Kendi örneğin", "Ekran görüntüsü, kendi verin, kendi deneyimin."], ["Okunur yazı", "En az 32 piksel, yüksek kontrast."]]},
+      {"ad": "Yayın", "renk": "ai", "maddeler": [["Telifsiz müzik", "Kendi kütüphanen ya da lisanslı ses."], ["Tek çağrı", "Yorum, kaydet ya da paylaş; üçü birden değil."], ["İlk saat", "Paylaştıktan sonraki ilk saatte yorumlara yanıt ver."]]}
+    ]
+  }
+}
