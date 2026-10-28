@@ -3,9 +3,9 @@
 | Alan | Değer |
 |---|---|
 | Sütun | ads |
-| Carousel | 2026-11-05 09:10 TRT |
+| Carousel | 2026-11-05 20:50 TRT |
 | Story | 2026-11-05 13:10 TRT |
-| Reels | 2026-11-05 20:50 TRT |
+| Reels | 2026-11-05 08:50 TRT |
 | Anahtar kelime | KAYDIR |
 | Lead magnet | `lead/2026-11-05-carousel-reels.pdf` |
 

@@ -5,7 +5,7 @@
 | Sütun | ai |
 | Carousel | 2026-11-06 09:10 TRT |
 | Story | 2026-11-06 13:10 TRT |
-| Reels | 2026-11-06 20:50 TRT |
+| Reels | 2026-11-06 21:20 TRT |
 | Anahtar kelime | RAPOR |
 | Lead magnet | `lead/2026-11-06-ga4-rapor.pdf` |
 

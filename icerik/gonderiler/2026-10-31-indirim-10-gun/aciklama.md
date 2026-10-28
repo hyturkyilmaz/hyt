@@ -5,7 +5,7 @@
 | Sütun | ecom |
 | Carousel | 2026-10-31 09:10 TRT |
 | Story | 2026-10-31 13:10 TRT |
-| Reels | 2026-10-31 20:50 TRT |
+| Reels | 2026-10-31 21:20 TRT |
 | Anahtar kelime | FIYAT |
 | Lead magnet | `lead/2026-10-31-indirim-10-gun.pdf` |
 

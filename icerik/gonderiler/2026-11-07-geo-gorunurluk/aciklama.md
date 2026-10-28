@@ -5,7 +5,7 @@
 | Sütun | seo |
 | Carousel | 2026-11-07 09:10 TRT |
 | Story | 2026-11-07 13:10 TRT |
-| Reels | 2026-11-07 20:50 TRT |
+| Reels | 2026-11-07 21:20 TRT |
 | Anahtar kelime | GEO |
 | Lead magnet | `lead/2026-11-07-geo-gorunurluk.pdf` |
 

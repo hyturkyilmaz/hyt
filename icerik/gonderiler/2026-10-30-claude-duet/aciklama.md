@@ -5,7 +5,7 @@
 | Sütun | ai |
 | Carousel | 2026-10-30 09:10 TRT |
 | Story | 2026-10-30 13:10 TRT |
-| Reels | 2026-10-30 20:50 TRT |
+| Reels | 2026-10-30 21:20 TRT |
 | Anahtar kelime | DUET |
 | Lead magnet | `lead/2026-10-30-claude-duet.pdf` |
 

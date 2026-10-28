@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Sütun | ecom |
-| Carousel | 2026-11-10 09:10 TRT |
+| Carousel | 2026-11-10 12:10 TRT |
 | Story | 2026-11-10 13:10 TRT |
 | Reels | 2026-11-10 20:50 TRT |
 | Anahtar kelime | TERK |
