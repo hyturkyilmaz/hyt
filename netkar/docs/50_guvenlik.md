@@ -1,6 +1,6 @@
 # NetKâr · Güvenlik ve Uyum Gereksinimleri (v0.1)
 
-Hedef: OWASP ASVS 4.0.3 Seviye 2. Eşleme: OWASP Top 10 (2021) ve API Security Top 10 (2023), ISO/IEC 27001:2022 Ek A, NIST CSF 2.0, CIS Controls v8 IG1, PCI DSS 4.0 (SAQ-A kapsamında kalmak), KVKK. Sertifika bu aşamada hedef değil; politika ve kanıt klasörü (`docs/security/kanit/`) tutulur.
+Hedef: OWASP ASVS 5.0.0 (30 Mayıs 2025) Seviye 2. Bölüm numaraları 4.0.3'ten farklıdır; aşağıdaki "ASVS Vx" eşlemeleri S1'de 5.0 numaralarına güncellenecek (research/03 notu). Eşleme: OWASP Top 10 (2021) ve API Security Top 10 (2023), ISO/IEC 27001:2022 Ek A, NIST CSF 2.0, CIS Controls v8 IG1, PCI DSS 4.0 (SAQ-A kapsamında kalmak), KVKK. Sertifika bu aşamada hedef değil; politika ve kanıt klasörü (`docs/security/kanit/`) tutulur.
 
 ## 1. MVP öncesi zorunlu kontroller (merge engeli)
 
