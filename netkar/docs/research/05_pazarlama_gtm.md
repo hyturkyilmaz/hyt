@@ -20,7 +20,7 @@
 
 ### Durum
 
-- Türkiye'de e-ticaret hacmi 2025'te bir önceki yıla göre %52,2 artarak 4,57 trilyon TL'yi aştı. En büyük pay 428,7 milyar TL ile giyim, ayakkabı ve aksesuarda (Ticaret Bakanlığı, 2026).
+- Türkiye'de e-ticaret hacmi 2025'te bir önceki yıla göre %52,2 artarak 4,57 trilyon TL'yi aştı. En büyük pay 428,7 milyar TL ile giyim, ayakkabı ve aksesuarda (Ticaret Bakanlığı, 2026a).
 - Trendyol'un 2025 Sosyoekonomik Etki Raporu'na göre platform 250 binden fazla iş ortağıyla çalışıyor. Satıcıların %50'si Marmara'da, %15'i İç Anadolu'da, %13'ü Ege'de (Anadolu Ajansı, t.y.). "İş ortağı" sayısı satıcı sayısıyla birebir aynı olmayabilir.
 - Hepsiburada'nın aktif satıcı sayısı 30 Haziran 2025 itibarıyla 100,3 bin (Hepsiburada, 2025). İkinci pazar için ciddi bir havuz.
 - Talep ölçülebilir ve yüksek: "trendyol komisyon hesaplama" ayda 18.100, "desi hesaplama" 14.800, "trendyol kar hesaplama" 6.600, "trendyol komisyon oranları" 2.900 arama alıyor. Anahtar kelime zorluğu (KD) 0 ile 15 arasında (OpenSEO/DataForSEO, 2026).
@@ -72,7 +72,7 @@ Sipariş hacmi sınırları ve oranlar varsayımdır. Trendyol satıcı büyükl
 
 ### 2.2 Kategori önceliği
 
-- **Giyim, ayakkabı, aksesuar:** e-ticaretin en büyük sektörü (Ticaret Bakanlığı, 2026). İade oranının yüksek olduğu bir kategori olduğu yaygın kabul görüyor ancak Trendyol'a özel iade oranı verisi bulunamadı (varsayım). İade maliyeti mesajı en güçlü burada.
+- **Giyim, ayakkabı, aksesuar:** e-ticaretin en büyük sektörü (Ticaret Bakanlığı, 2026a). İade oranının yüksek olduğu bir kategori olduğu yaygın kabul görüyor ancak Trendyol'a özel iade oranı verisi bulunamadı (varsayım). İade maliyeti mesajı en güçlü burada.
 - **Ev ve yaşam, kozmetik, anne-bebek:** Düşük birim fiyat ve desi etkisi nedeniyle kargo payı yüksek (varsayım).
 - **Elektronik aksesuar:** Buybox rekabeti ve düşük marj (varsayım). Buybox ve fiyat uyarıları burada değerli.
 
@@ -192,7 +192,7 @@ Beklenen sonuç aralıkları, benzer çalışmalara dair Türkiye'ye özel veri 
 |---|---|---|---|---|---|---|---|
 | A | Ücretsiz araçlar + SEO | 5 hesaplayıcı (komisyon, net kâr, desi-kargo, iade maliyeti, başabaş ROAS), "Trendyol komisyon oranları" güncel tablo sayfası. Her araçta "sonucu e-postana gönder" ve "gerçek verinle karşılaştır" adımı. | 0,25 (onay) | Sayfa taslakları, oran tablosu güncelleme ajanı (haftalık kontrol, değişiklik varsa Hasan'a bildirim), SERP izleme | Arama hacmi: komisyon 18.100, desi 14.800, kâr 6.600, komisyon oranları 2.900/ay. 90. günde ilk 10'a girmek iddialı, kalabalık SERP. Hedef: ayda 1.500-4.000 organik ziyaret, araçtan e-posta bırakma %3-6, kayıt %1-2 | Geliştirme zamanı, 0 TL medya | GSC gösterim/tık/sıra, calculator_used, waitlist_joined, signup (utm_source=google, medium=organic) |
 | B | Rehber kümesi (blog) | NetKâr sitesinde 4 küme: komisyon ve kesintiler, kargo-desi-iade, reklam ve ROAS, hakediş ve muhasebe. hyturkyilmaz.com'da kurucu bakışlı yorum yazıları ve NetKâr araçlarına bağlam içi bağlantı. | 0,25 | Taslak, iç bağlantı, şema, güncelleme. hyturkyilmaz.com mevcut günlük içerik otomasyonuna "e-ticaret kârlılığı" teması eklenir | Ayda 8 rehber (Hasan onaylı). Uzun vadeli, 90 günde sınırlı trafik | 0 TL | Organik oturum, rehber→araç tıklaması, rehber kaynaklı signup |
-| C | LinkedIn kurucu içeriği | Haftada 3 gönderi: (1) gerçek hesap örneği "600 TL'lik ürün sana ne bırakıyor", (2) beta'dan anonim bulgu, (3) kurucu günlüğü. Ayda 1 karusel. Mevcut ağdaki marka, ajans ve ekosistem kişilerine kişisel DM. | 1,5 | Gönderi taslağı Hasan'ın sesinde, görsel/karusel üretimi, yorum özetleri, DM listesi hazırlama | 20-60 bekleme listesi/ay, 5-15 ortak adayı, 1-3 basın/podcast daveti | 0 TL | Gösterim, profil ziyareti, link tıklaması (utm_source=linkedin), DM→görüşme oranı |
+| C | LinkedIn kurucu içeriği | Türkiye'de LinkedIn kullanıcı sayısı Aralık 2025'te 19,02 milyon, nüfusun yaklaşık %22'si (NapoleonCat, 2025). Haftada 3 gönderi: (1) gerçek hesap örneği "600 TL'lik ürün sana ne bırakıyor", (2) beta'dan anonim bulgu, (3) kurucu günlüğü. Ayda 1 karusel. Mevcut ağdaki marka, ajans ve ekosistem kişilerine kişisel DM. | 1,5 | Gönderi taslağı Hasan'ın sesinde, görsel/karusel üretimi, yorum özetleri, DM listesi hazırlama | 20-60 bekleme listesi/ay, 5-15 ortak adayı, 1-3 basın/podcast daveti | 0 TL | Gösterim, profil ziyareti, link tıklaması (utm_source=linkedin), DM→görüşme oranı |
 | D | Topluluklar | Facebook satıcı grupları, Telegram/WhatsApp satıcı toplulukları, r10.net e-ticaret başlıkları (Trendyol komisyon başlıkları mevcut: R10.net, t.y.). Kural: önce soruya cevap, link yalnız izin verilirse. Ayda 1 "canlı kâr kliniği" (grup yöneticisi izniyle). | 0,75 | Hangi grupta hangi sorunun sorulduğunun izlenmesi (manuel dışa aktarılan içerikten), cevap taslakları | 30-80 bekleme listesi, 10-20 beta adayı | 0 TL | utm_source=facebook_grup / telegram / whatsapp / r10, grup bazında kayıt |
 | E | Ortaklık (mali müşavir, eğitmen, entegratör, kargo/fulfillment) | Bölüm 4.4 | 1,0 | Aday listesi, kişiselleştirilmiş e-posta taslağı, ortak paneli raporları, ortak içerik kiti | 5-10 aktif ortak, ortak kaynaklı 15-30 kayıt | Komisyon (gelirden), 0 TL peşin | partner_id, ref kodu, ortak bazında MRR |
 | F | Ürün içi viral döngüler | Kâr Karnesi görseli, rozetli PDF, iki taraflı davet ödülü, muhasebeci/ekip koltuğu (Bölüm 4.5) | 0 | Tamamen ürün içi | Kayıtların %10-20'si davet veya paylaşım kaynaklı | Davet ödülü maliyeti (1 ay ücretsiz) | report_shared, referral_invite_sent, referral_signup, viral katsayı |
@@ -227,7 +227,7 @@ Beklenen sonuç aralıkları, benzer çalışmalara dair Türkiye'ye özel veri 
 
 | Ortak tipi | Havuz | Teklif | İlk adım |
 |---|---|---|---|
-| Mali müşavirler | TÜRMOB'a kayıtlı 136.685 meslek mensubu, bunların 59.958'i bağımsız çalışan SM/SMMM (Alomaliye, 2026). E-ticaret müşterisi olan oran bilinmiyor (varsayım). | Müşterilerine ücretsiz "muhasebeci koltuğu" (salt okuma), aylık PDF raporlar, getirdiği her ödeyen mağazadan 12 ay %25 komisyon veya kendi müşterilerine %10 indirim. Kendi ofisi için ücretsiz panel. | Hasan'ın ağındaki 10 e-ticaret odaklı müşavirle görüşme, 1 webinar ("Pazaryeri satıcısının hakedişini 15 dakikada kontrol etmek") |
+| Mali müşavirler | TÜRMOB'a kayıtlı 136.685 meslek mensubu, bunların 59.958'i bağımsız çalışan SM/SMMM (Alomaliye, 2026a). E-ticaret müşterisi olan oran bilinmiyor (varsayım). | Müşterilerine ücretsiz "muhasebeci koltuğu" (salt okuma), aylık PDF raporlar, getirdiği her ödeyen mağazadan 12 ay %25 komisyon veya kendi müşterilerine %10 indirim. Kendi ofisi için ücretsiz panel. | Hasan'ın ağındaki 10 e-ticaret odaklı müşavirle görüşme, 1 webinar ("Pazaryeri satıcısının hakedişini 15 dakikada kontrol etmek") |
 | E-ticaret eğitmenleri ve akademiler | YouTube'da Trendyol eğitimi veren çok sayıda kanal var (ör. "A'dan Z'ye Trendyol Eğitimi" videoları) (YouTube, t.y.). Kanal listesinin büyüklüğü doğrulanmadı. | Öğrencilerine 30 gün deneme + %15 indirim kodu, eğitmene 12 ay %25 komisyon, derslerinde kullanacakları demo mağaza verisi | 15 eğitmen listesi, 5 görüşme, 2 ortak |
 | Entegratörler | Pazaryeri entegrasyon firmaları (BirFatura, Sentos, Tam Entegre, Sopyo vb.) (KOBİTime, t.y.) | Rakip değil tamamlayıcı konumlama, karşılıklı listeleme, ortak webinar, gelir paylaşımı. Uzun vadede API ile veri alışverişi | 3 entegratörle görüşme, 1 ortak içerik |
 | Kargo ve fulfillment | Kargo ve depo firmaları | Desi-kargo hesaplayıcısında "fulfillment teklifi al" bağlantısı karşılığında karşılıklı tanıtım | 6. aydan sonra |
@@ -558,6 +558,8 @@ Latka. (t.y.). *SellerBoard revenue and company data*. https://getlatka.com/comp
 
 [Melontik. (t.y.). *Trendyol ve Hepsiburada net kâr analizi*. https://melontik.com/]
 
+NapoleonCat. (2025). *Social media users in Turkey, December 2025*. https://napoleoncat.com/stats/social-media-users-in-turkey/2025/
+
 OpenSEO / DataForSEO. (2026, 5 Kasım). *Anahtar kelime metrikleri (35 kelime) ve Google SERP okumaları (5 sorgu), Türkiye, Türkçe, masaüstü* [Yayımlanmamış veri seti, hyturkyilmaz.com projesi]. https://app.openseo.so/p/d90cd6a0-e282-4737-8d23-f23016fd6e8e/keywords
 
 [Pazaryeri Komisyon. (t.y.). *Trendyol komisyon hesaplama*. https://pazaryerikomisyon.com/]
@@ -580,9 +582,9 @@ Shopify App Store. (t.y.-b). *BeProfit: Profit Analytics, reviews*. https://apps
 
 Şikayetvar. (t.y.-b). *Trendyol satıcı paneli reklam bakiye iadesi yapmıyorlar*. https://www.sikayetvar.com/trendyol/trendyol-satici-paneli-reklam-bakiye-iadesi-yapmiyorlar
 
-Ticaret Bakanlığı. (2026). *Türkiye'de e-ticaret hacmi 2025'te 4,6 trilyon liraya ulaştı*. https://ticaret.gov.tr/haberler/turkiyede-e-ticaret-hacmi-2025te-4-6-trilyon-liraya-ulasti
+Ticaret Bakanlığı. (2026a). *Türkiye'de e-ticaret hacmi 2025'te 4,6 trilyon liraya ulaştı*. https://ticaret.gov.tr/haberler/turkiyede-e-ticaret-hacmi-2025te-4-6-trilyon-liraya-ulasti
 
-Ticaret Bakanlığı. (2026, 12 Mayıs). *Türkiye'de e-ticaretin görünümü raporu yayınlandı*. https://ticaret.gov.tr/duyurular/turkiyede-e-ticaretin-gorunumu-raporu-yayinlandi-12-05-2026
+Ticaret Bakanlığı. (2026b, 12 Mayıs). *Türkiye'de e-ticaretin görünümü raporu yayınlandı*. https://ticaret.gov.tr/duyurular/turkiyede-e-ticaretin-gorunumu-raporu-yayinlandi-12-05-2026
 
 [TrendHesap. (t.y.). *E-ticaret kâr ve finans analiz platformu*. https://trendhesap.net/]
 
