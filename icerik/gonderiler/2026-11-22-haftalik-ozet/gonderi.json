@@ -1,0 +1,59 @@
+{
+  "id": "2026-11-22-haftalik-ozet",
+  "tarih": "2026-11-22",
+  "gun": "Pazar",
+  "sutun": "ads",
+  "anahtar": "GÜNDEM",
+  "muzik_tohum": 56,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Haftalık özet · Kasım 3", "baslik": "Efsane hafta _yarın_ başlıyor.",
+     "alt": "Bu haftanın 5 konusu, **bu gece kontrol edeceğin 5 madde.**",
+     "zaman": [{"t": "23 Kasım", "s": "Efsane hafta", "renk": "ecom"}, {"t": "27 Kasım", "s": "Efsane Cuma", "renk": "ads"}, {"t": "30 Kasım", "s": "Siber Pazartesi", "renk": "seo"}, {"t": "Sen", "s": "Son kontrol bu gece", "renk": "ai"}],
+     "kaynak": "Kaynak: bu haftanın gönderileri (16-21 Kasım)"},
+    {"tip": "matris", "num": "01", "kicker": "Bu gece", "baslik": "5 konu, _5 kontrol_",
+     "basliklar": ["Konu", "Kontrol (süre)"],
+     "satirlar": [[["ecom", "Stok ve kargo"], "Kargo kapasitesi yazılı mı? (10 dk)"], [["ads", "Yorumlar"], "Yanıt şablonları hazır mı? (10 dk)"], [["ai", "E-posta serisi"], "5 e-posta zamanlandı mı? (15 dk)"], [["seo", "Ürün sayfası"], "İlk 10 üründe 5 soru var mı? (20 dk)"], [["ink", "DM"], "Hazır yanıtlar kayıtlı mı? (10 dk)"]],
+     "kaynak": "Süreler tahmini"},
+    {"tip": "grafik", "kicker": "Takvim", "renk": "ecom", "baslik": "Kampanyalara _kalan_ gün",
+     "barlar": [{"ad": "Efsane Cuma", "etiket": "5 gün", "deger": 5, "renk": "ads", "alt": "27 Kasım"}, {"ad": "Siber Pazartesi", "etiket": "8 gün", "deger": 8, "renk": "seo", "alt": "30 Kasım"}, {"ad": "Yılbaşı", "etiket": "39 gün", "deger": 39, "renk": "ecom", "alt": "Hediye kampanyası Aralık başında"}],
+     "not": "Yılbaşı hazırlığını 1 Aralık'ta kampanya analiziyle birlikte başlat.",
+     "kaynak": "22 Kasım 2026 itibarıyla"},
+    {"tip": "akis", "kicker": "Efsane hafta", "renk": "ecom", "baslik": "Haftanın _ritmi_",
+     "satirlar": [[{"ad": "Pazartesi", "alt": "Açılış, e-posta 1", "ikon": "hoparlor", "renk": "ink"}, {"ad": "Salı-Çarşamba", "alt": "Bütçe ısınma", "ikon": "grafik", "renk": "ads"}, {"ad": "Perşembe", "alt": "Son kontrol", "ikon": "kalkan", "renk": "seo"}],
+                   [{"ad": "Cuma", "alt": "Canlı izleme", "ikon": "saat", "renk": "ecom"}, {"ad": "Hafta sonu", "alt": "Kargo ve yorum", "ikon": "kutu", "renk": "ai"}],
+                   [{"ad": "Pazartesi", "alt": "Siber + kapanış", "ikon": "onay", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Örnek hafta planı"},
+    {"tip": "kural", "num": "02", "kicker": "İlke", "baslik": "Kampanya haftasında _yeni şey_ deneme.",
+     "alt": "Test zamanı geçti. Bu hafta hazırladığını uygula, ölç, not al.",
+     "kod": ["<span class=\"c\"># efsane hafta kuralı</span>", "<span class=\"k\">YOK</span> yeni kampanya yapısı", "<span class=\"k\">YOK</span> yeni ölçüm kurulumu", "<span class=\"k\">EVET</span> bütçe ayarı, kreatif değişimi", "<span class=\"k\">EVET</span> her akşam 15 dk not"],
+     "prompt": "Efsane Cuma haftası için her gün akşam dolduracağım 5 soruluk kısa bir değerlendirme formu hazırla: ne iyi gitti, ne aksadı, hangi rakam beklenmedikti, yarın neyi değiştirmeliyim, kime haber vermeliyim.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Not", "baslik": "Hafızaya değil, _deftere_ güven.",
+     "once": {"dosya": "hafiza", "etiket": "Unutulur", "basliklar": ["Gün", "Not"], "satirlar": [["Pazartesi", "İyi gitti galiba"], ["Çarşamba", "-"], ["Cuma", "Çok yoğundu"]]},
+     "sonra": {"dosya": "gunluk_not", "etiket": "Ders olur", "basliklar": ["Gün", "Not"], "satirlar": [["Pazartesi", "E-posta açılma %31"], ["Çarşamba", "CPA +%22, bütçe -%15"], ["Cuma", "14.00'te 2 ürün bitti"]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "cta", "anahtar": "GÜNDEM", "vaat": "**Efsane hafta günlük değerlendirme formunu** DM'den göndereyim."}
+  ],
+  "aciklama": "Efsane hafta yarın başlıyor. Bu gece yapman gereken tek şey, bu hafta hazırladıklarını beş maddede kontrol etmek.\n\nBu hafta stok ve kargo planını, olumsuz yorum kurallarını, beş e-postalık kampanya serisini, Instagram DM araçlarını, animasyonlu reklamları ve ürün sayfasındaki beş soruyu konuştuk. Kargo kapasitesi yazılı mı, yanıt şablonları hazır mı, e-postalar zamanlandı mı, ilk 10 ürün sayfasında sorular var mı, DM hazır yanıtları kayıtlı mı? Hazırlklarını bu gece bitir.\n\nKampanya haftasında yeni bir şey denemek cazip geliyor ama test zamanı geçti. Bu hafta hazırladığını uygula, ölç ve her akşam 15 dakika not al. Gelecek yılın planı bu notlardan çıkacak.\n\nYoğun haftalarda en çok kaybettiğimiz şey zaman değil, öğrendiklerimizi hatırlamak.\n\nKaydırınca beş kontrolü, haftanın ritmini ve not şablonunu göreceksin.\n\nYorumlara GÜNDEM yaz, günlük değerlendirme formunu DM'den göndereyim.\n\n#efsanecuma #eticaret #dijitalpazarlama #kasimindirimi",
+  "yazim_hatasi": {"kelime": "Hazırlklarını", "dogrusu": "Hazırlıklarını", "paragraf": 2},
+  "dogrulama": ["Bu haftanın gönderilerinin kaynakları", "Takvim: Kasım 2026"],
+  "senaryo": [
+    {"tts": "Efsane hafta yarın başlıyor. Bu gece beş maddeyi kontrol et.", "altyazi": "Efsane hafta yarın başlıyor. Bu gece 5 maddeyi kontrol et."},
+    {"tts": "Kargo kapasitesi, yorum şablonları, e-posta serisi, ürün sayfası soruları ve DM yanıtları.", "altyazi": "Kargo kapasitesi, yorum şablonları, e-posta serisi, ürün sayfası soruları ve DM yanıtları."},
+    {"tts": "Efsane Cuma'ya beş, Siber Pazartesi'ye sekiz gün kaldı.", "altyazi": "Efsane Cuma'ya 5, Siber Pazartesi'ye 8 gün kaldı."},
+    {"tts": "Bir. Haftanın ritmini yaz: açılış, ısınma, son kontrol, canlı izleme, kapanış.", "altyazi": "1. Haftanın ritmini yaz: açılış, ısınma, son kontrol, canlı izleme, kapanış."},
+    {"tts": "İki. Kampanya haftasında yeni şey deneme. Hazırladığını uygula.", "altyazi": "2. Kampanya haftasında yeni şey deneme. Hazırladığını uygula."},
+    {"tts": "Üç. Her akşam on beş dakika not al. Gelecek yılın planı buradan çıkacak.", "altyazi": "3. Her akşam 15 dakika not al. Gelecek yılın planı buradan çıkacak."},
+    {"tts": "Değerlendirme formunu istiyorsan yorumlara gündem yaz. Di emden göndereyim.", "altyazi": "Değerlendirme formunu istiyorsan yorumlara GÜNDEM yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Efsane Hafta _Günlük Formu_", "kicker": "Form · E-ticaret · Kampanya haftası",
+    "giris": "Efsane Cuma haftasında her akşam 15 dakikada doldur. Gelecek yılın kampanya planı bu notlardan çıkar.",
+    "bolumler": [
+      {"ad": "Her akşam", "renk": "ecom", "maddeler": [["Ne iyi gitti?", "Tek cümle, rakamla."], ["Ne aksadı?", "Tek cümle, saatle."], ["Beklenmedik rakam", "Hangi metrik, ne kadar sapma."], ["Yarın değişecek", "En fazla 1 değişiklik."], ["Haber verilecek", "Kime, hangi kanaldan."]]},
+      {"ad": "Bu gece kontrol", "renk": "ads", "maddeler": [["Kargo", "Kapasite ve yedek firma yazılı."], ["Yorum", "Yanıt şablonları hazır."], ["E-posta", "Seri zamanlandı, ret bağlantıları var."]]},
+      {"ad": "Kural", "renk": "seo", "maddeler": [["Yeni yapı yok", "Kampanya haftasında yeni ölçüm ya da kampanya yapısı kurulmaz."], ["Not", "Notlar ortak bir dosyada, tarihli."]]}
+    ]
+  }
+}

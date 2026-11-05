@@ -197,8 +197,9 @@ def matris(s, i, n):
 
 
 def cta(s, i, n):
-    # 190 px'de 6 harf sığar; uzun kelimede yazı küçülür
-    boyut = f' style="font-size:{190 * 6 // len(s["anahtar"])}px"' if len(s["anahtar"]) > 6 else ""
+    # 190 px'de yaklaşık 5,9 harf genişliği sığar; geniş harf (M, W) fazla, dar harf (I, İ) az sayılır
+    genislik = sum(1.35 if h in "MW" else 0.45 if h in "Iİ" else 1 for h in s["anahtar"])
+    boyut = f' style="font-size:{int(190 * 5.9 / genislik)}px"' if genislik > 5.9 else ""
     return (f'{ust(i, n)}<div class="say">Yorumlara yaz:</div><div><span class="kw"{boyut}>{esc(s["anahtar"])}</span></div>'
             f'<p class="give">{zengin(s["vaat"])}</p><div class="chips"><span class="chip">Kaydet</span>'
             f'<span class="chip">Ekibinle paylaş</span><span class="chip on">Takip et</span></div>'

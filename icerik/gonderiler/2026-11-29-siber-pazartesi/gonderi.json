@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-29-siber-pazartesi",
+  "tarih": "2026-11-29",
+  "gun": "Pazar",
+  "sutun": "ads",
+  "anahtar": "SİBER",
+  "muzik_tohum": 63,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Reklam · Siber Pazartesi", "baslik": "Siber Pazartesi'yi _cumanın verisiyle_ kur.",
+     "alt": "Yarın tahminle değil, **iki günlük gerçek veriyle** çalış.",
+     "zaman": [{"t": "27 Kasım", "s": "Efsane Cuma verisi", "renk": "ecom"}, {"t": "Bugün", "s": "4 ayar", "renk": "ads"}, {"t": "30 Kasım", "s": "Siber Pazartesi", "renk": "seo"}, {"t": "Sen", "s": "Kazananlar belli mi?", "renk": "ai"}],
+     "kaynak": "Takvim: Kasım 2026"},
+    {"tip": "matris", "num": "01", "kicker": "Bugün", "baslik": "Cumadan _4 ders_, 4 ayar",
+     "basliklar": ["Veri", "Ayar"],
+     "satirlar": [[["ecom", "En çok satan 10 ürün"], "Vitrinin başına al, stoğu güncelle"], [["ads", "Kazanan 3 reklam"], "Bütçeyi bunlara kaydır"], [["seo", "Sepet terk kitlesi"], "Hatırlatma reklamı, onaylıya e-posta"], [["ai", "Biten ürünler"], "Reklamları kapat, sayfayı güncelle"]],
+     "kaynak": "Örnek ayar listesi"},
+    {"tip": "grafik", "kicker": "Örnek", "renk": "ads", "baslik": "Bütçe _kazanana_ akar",
+     "barlar": [{"ad": "Kazanan 3 reklam", "etiket": "%70", "deger": 70, "renk": "ads", "alt": "Cuma CPA hedefin altında"}, {"ad": "Sepet terk hatırlatma", "etiket": "%20", "deger": 20, "renk": "seo"}, {"ad": "Diğerleri", "etiket": "%10", "deger": 10, "renk": "ink", "alt": "Kapat ya da kıs"}],
+     "not": "Örnek dağılım. Kararı gerçek siparişe göre ver, platform raporuna göre değil.",
+     "kaynak": "Temsili plan"},
+    {"tip": "kural", "num": "02", "kicker": "Kampanya", "baslik": "Siber Pazartesi _ayrı kampanya_ ise ayrı yaz.",
+     "alt": "Efsane Cuma'yı gizlice uzatmak değil, kendi tarihi ve oranı olan kampanya.",
+     "kod": ["<span class=\"c\"># siber pazartesi metni</span>", "<span class=\"k\">TARİH</span> 30 Kasım 00:00 - 23:59", "<span class=\"k\">ORAN</span> son 10 günün en düşük fiyatına göre", "<span class=\"k\">ÜRÜN</span> kapsam listesi açık", "<span class=\"g\">→</span> cuma metnini kopyalama, yeniden yaz"],
+     "prompt": "Efsane Cuma'daki ürün bazında satış ve reklam tablosunu ekte veriyorum. Siber Pazartesi için vitrinin başına alınacak 10 ürünü, kapatılacak reklamları ve bütçe kaydırma önerisini tablo olarak ver.",
+     "kaynak": "Hukuki görüş değildir; referans fiyat kuralı için Bakanlık duyurusuna bak."},
+    {"tip": "akis", "kicker": "Bu akşam", "renk": "ads", "baslik": "Pazar akşamı _45 dakika_",
+     "satirlar": [[{"ad": "Cuma verisi", "alt": "Panel + reklam", "ikon": "veri", "renk": "ink"}, {"ad": "Kazananlar", "alt": "Ürün ve reklam", "ikon": "grafik", "renk": "ads"}, {"ad": "Kaybedenler", "alt": "Kapat", "ikon": "kalkan", "renk": "ecom"}],
+                   [{"ad": "Vitrin", "alt": "Sıra ve stok", "ikon": "magaza", "renk": "seo"}, {"ad": "Metin", "alt": "Tarih ve oran", "ikon": "belge", "renk": "ai"}],
+                   [{"ad": "Zamanla", "alt": "00:00'da yayın", "ikon": "saat", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [1, 3], [3, 4], [4, 5]],
+     "kaynak": "Örnek hazırlık akışı"},
+    {"tip": "ekran", "kicker": "Analiz", "baslik": "Cumanın _kazananları_",
+     "pencere": "Claude · Efsane Cuma analizi", "istek": "Cuma verisinden Siber Pazartesi planı çıkar.",
+     "yanit": "**3 reklam satışın %64'ünü getirdi.**",
+     "tablo": {"basliklar": ["Reklam", "Satış payı", "Karar"], "satirlar": [["Keten gömlek video", "%31", "Bütçe +%20"], ["Kupa seti carousel", "%19", "Bütçe +%20"], ["Genel marka", "%4", "Kıs"]], "vurgu_sutun": 2},
+     "evet": "Uygula", "hayir": "Bekle", "aksiyon": "Gerçek siparişle doğrula.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "SİBER", "vaat": "**Siber Pazartesi hazırlık listesini** ve analiz prompt'unu DM'den göndereyim."}
+  ],
+  "aciklama": "Siber Pazartesi'yi tahminle değil, Efsane Cuma'nın gerçek verisiyle kur. Bu akşam 45 dakika yeter.\n\nCumanın verisinden dört ders çıkar: en çok satan 10 ürün, kazanan üç reklam, sepetini bırakanlar ve stoğu biten ürünler. Kazananlrı vitrinin başına al ve bütçeyi onlara kaydır; sepet terk kitlesine hatırlatma reklamı aç, yalnızca onaylı listeye e-posta gönder; biten ürünlerin reklamlarını kapat ve sayfasını güncelle.\n\nSiber Pazartesi ayrı bir kampanyaysa ayrı yazılmalı: kendi başlangıç ve bitiş saati, son 10 günün en düşük fiyatına dayanan kendi oranı ve açık ürün listesi. Cuma metnini kopyalayıp tarihini değiştirmek, hem müşteriyi hem seni zor durumda bırakabilir. Bu not hukuki görüş değildir.\n\nİyi bir kampanya haftası, her günün bir öncekinden öğrendiği haftadır.\n\nKaydırınca dört ayarı, bütçe dağılımını ve bu akşamın akışını göreceksin.\n\nYorumlara SİBER yaz, Siber Pazartesi hazırlık listesini DM'den göndereyim.\n\n#siberpazartesi #efsanecuma #performanspazarlama #eticaret",
+  "yazim_hatasi": {"kelime": "Kazananlrı", "dogrusu": "Kazananları", "paragraf": 2},
+  "dogrulama": ["Takvim: Kasım 2026", "Ticaret Bakanlığı 10 gün kuralı (AA)", "Danışmanlık kampanya notları"],
+  "senaryo": [
+    {"tts": "Siber Pazartesi'yi tahminle değil, Efsane Cuma'nın gerçek verisiyle kur.", "altyazi": "Siber Pazartesi'yi tahminle değil, Efsane Cuma'nın gerçek verisiyle kur."},
+    {"tts": "Dört ders: en çok satan ürünler, kazanan reklamlar, sepet terk ve biten stok.", "altyazi": "4 ders: en çok satan ürünler, kazanan reklamlar, sepet terk ve biten stok."},
+    {"tts": "Bir. Bütçeyi kazanan üç reklama kaydır. Diğerlerini kıs.", "altyazi": "1. Bütçeyi kazanan 3 reklama kaydır. Diğerlerini kıs."},
+    {"tts": "İki. Siber Pazartesi ayrı kampanyaysa kendi tarihi, kendi oranı ve kendi ürün listesi olsun.", "altyazi": "2. Siber Pazartesi ayrı kampanyaysa kendi tarihi, kendi oranı ve kendi ürün listesi olsun."},
+    {"tts": "Üç. Bu akşam kırk beş dakika: veri, kazananlar, vitrin, metin ve zamanlama.", "altyazi": "3. Bu akşam 45 dakika: veri, kazananlar, vitrin, metin ve zamanlama."},
+    {"tts": "Kararı gerçek siparişe göre ver, platform raporuna göre değil.", "altyazi": "Kararı gerçek siparişe göre ver, platform raporuna göre değil."},
+    {"tts": "Hazırlık listesini istiyorsan yorumlara siber yaz. Di emden göndereyim.", "altyazi": "Hazırlık listesini istiyorsan yorumlara SİBER yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Siber Pazartesi _Hazırlık Listesi_", "kicker": "Kontrol listesi · Reklam · Siber Pazartesi",
+    "giris": "Efsane Cuma verisini kullanarak Siber Pazartesi'yi bir akşamda kur. Hukuki görüş değildir.",
+    "bolumler": [
+      {"ad": "Veri", "renk": "ecom", "maddeler": [["En çok satan 10 ürün", "Ürün bazında satış ve stok."], ["Kazanan reklamlar", "Gerçek siparişe göre CPA sıralaması."], ["Sepet terk", "Hatırlatma kitlesi boyutu."]]},
+      {"ad": "Ayar", "renk": "ads", "maddeler": [["Vitrin", "Kazanan ürünler başta, stok güncel."], ["Bütçe", "Kazanan reklamlara kaydırılır."], ["Kapatma", "Biten ürün reklamları kapatılır."], ["Hatırlatma", "Reklam herkese, e-posta yalnız onaylıya."]]},
+      {"ad": "Metin", "renk": "seo", "maddeler": [["Tarih", "30 Kasım başlangıç ve bitiş saati."], ["Oran", "Son 10 günün en düşük fiyatına göre."], ["Kapsam", "Ürün listesi erişilebilir."]]}
+    ]
+  }
+}

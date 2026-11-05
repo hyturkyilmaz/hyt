@@ -1,0 +1,58 @@
+{
+  "id": "2026-12-07-2027-hedef",
+  "tarih": "2026-12-07",
+  "gun": "Pazartesi",
+  "sutun": "ads",
+  "anahtar": "HEDEF",
+  "muzik_tohum": 71,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Reklam · 2027 planı", "baslik": "2027 bütçesini _hedeften geriye_ kur.",
+     "alt": "\"Geçen yıl + %20\" bir plan değil. **Hedef, sipariş, trafik, bütçe.**",
+     "zaman": [{"t": "Hedef", "s": "Gelir ve kâr", "renk": "ink"}, {"t": "Sipariş", "s": "Ortalama sepetle", "renk": "ecom"}, {"t": "Trafik", "s": "Dönüşüm oranıyla", "renk": "seo"}, {"t": "Bütçe", "s": "Kanal maliyetiyle", "renk": "ads"}],
+     "kaynak": "Danışmanlıkta kullandığım planlama yöntemi"},
+    {"tip": "kural", "num": "01", "kicker": "Hesap", "baslik": "Dört satırlık _plan_",
+     "alt": "Her satır bir öncekinden türetilir; tahmin değil, 2026 verisi.",
+     "kod": ["<span class=\"k\">SİPARİŞ</span> gelir hedefi ÷ ortalama sepet", "<span class=\"k\">ZİYARET</span> sipariş ÷ dönüşüm oranı", "<span class=\"k\">ÜCRETLİ PAY</span> ziyaretin reklamdan gelen kısmı", "<span class=\"k\">BÜTÇE</span> ücretli ziyaret × tıklama maliyeti", "<span class=\"g\">→</span> sonra katkı payıyla kontrol et"],
+     "prompt": "2026'nın aylık gelir, sipariş, ortalama sepet, dönüşüm oranı ve kanal maliyetlerini ekte veriyorum. 2027 gelir hedefine ulaşmak için gereken aylık reklam bütçesini hedeften geriye hesapla ve katkı payını kontrol et.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "grafik", "kicker": "Dağılım", "renk": "ads", "baslik": "Bütçenin _70/20/10_ kuralı",
+     "barlar": [{"ad": "Kanıtlanmış kanallar", "etiket": "%70", "deger": 70, "renk": "ads", "alt": "Meta, Google Arama ve Shopping"}, {"ad": "Büyüyen kanallar", "etiket": "%20", "deger": 20, "renk": "seo", "alt": "Video, içerik, topluluk"}, {"ad": "Test", "etiket": "%10", "deger": 10, "renk": "ai", "alt": "ChatGPT ve yeni formatlar"}],
+     "not": "Sık kullanılan bir başlangıç oranı; kendi kâr marjına ve riskine göre değiştir.",
+     "kaynak": "Temsili plan"},
+    {"tip": "matris", "num": "02", "kicker": "Takvim", "baslik": "Bütçe _yıla_ eşit dağılmaz",
+     "basliklar": ["Dönem", "Pay (örnek)", "Neden"],
+     "satirlar": [[["ink", "Ocak-Şubat"], "%12", "Yıl başı durgunluğu, test zamanı"], [["ecom", "Mart-Ağustos"], "%45", "Sezon geçişleri, bayramlar"], [["seo", "Eylül-Ekim"], "%18", "Okul ve sezon başı"], [["ads", "Kasım-Aralık"], "%25", "Kampanya dönemi"]],
+     "kaynak": "Örnek dağılım; kendi sezonuna göre ayarla."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Plan", "baslik": "Yüzde artış değil, _hesap_",
+     "once": {"dosya": "plan_eski", "etiket": "Tahmin", "basliklar": ["Kalem", "2027"], "satirlar": [["Bütçe", "Geçen yıl + %20"], ["Hedef", "Daha çok satış"], ["Ölçü", "ROAS"]]},
+     "sonra": {"dosya": "plan_yeni", "etiket": "Hesap", "basliklar": ["Kalem", "2027"], "satirlar": [["Bütçe", "Hedeften geriye, aylık"], ["Hedef", "Gelir + katkı payı"], ["Ölçü", "Gerçek sipariş başı maliyet"]]},
+     "kaynak": "Örnek yapı"},
+    {"tip": "ekran", "kicker": "Hesap", "baslik": "Hedefin _bütçe karşılığı_",
+     "pencere": "Claude · 2027 bütçe hesabı", "istek": "2027 hedefini aylık bütçeye çevir.",
+     "yanit": "**Hedef için aylık ortalama bütçe hesaplandı.**",
+     "tablo": {"basliklar": ["Kalem", "2026", "2027 hedef"], "satirlar": [["Ortalama sepet", "1.250 TL", "1.350 TL"], ["Dönüşüm oranı", "%1,6", "%1,8"], ["Gerçek CPA", "310 TL", "290 TL"]], "vurgu_sutun": 2},
+     "evet": "Planla", "hayir": "Sonra", "aksiyon": "Her çeyrek başında yeniden hesapla.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "HEDEF", "vaat": "**2027 hedeften geriye bütçe tablosunu** DM'den göndereyim."}
+  ],
+  "aciklama": "2027 bütçesini \"geçen yıl artı yüzde 20\" diye kurmak bir plan değil. Hedeften geriye gitmek gerekiyor.\n\nDört satır yeterli: gelir hedefini ortalama sepete böl, sipariş sayısını bul; siparişi dönüşüm oranına böl, gereken ziyareti bul; bu ziyaretin ne kadarının reklamdan gelmesi gerektiğini belirle; sonra tıklama maliyetiyle çarparak bütçeyi bul. Her rakam 2026 verisinden gelsin. En sonunda bütçeyi katkı payıyla kontrol et; ciroyu büyütüp kârı küçülten bir plan, plan değil.\n\nBütçeyi kanallara 70/20/10 gibi bir oranla dağıt: kanıtlanmış kanallar, büyüyen kanallar ve test. Yıla da eşit yayma; Ocak sakin, Kasım yoğun. Hesaplmak bir öğleden sonra sürer ama bütün yılı daha sakin geçirtir.\n\nHedefi büyük koymak cesaret ister. Onu hesaba dökmek ise disiplin.\n\nKaydırınca dört satırlık hesabı, bütçe dağılımını ve takvim örneğini göreceksin.\n\nYorumlara HEDEF yaz, 2027 bütçe tablosunu DM'den göndereyim.\n\n#dijitalpazarlama #performanspazarlama #butceplanlama #eticaret",
+  "yazim_hatasi": {"kelime": "Hesaplmak", "dogrusu": "Hesaplamak", "paragraf": 3},
+  "dogrulama": ["Danışmanlık bütçe planlama notları"],
+  "senaryo": [
+    {"tts": "İki bin yirmi yedi bütçesini geçen yıl artı yüzde yirmi diye kurma. Hedeften geriye git.", "altyazi": "2027 bütçesini \"geçen yıl + %20\" diye kurma. Hedeften geriye git."},
+    {"tts": "Bir. Dört satır: sipariş, ziyaret, ücretli pay ve bütçe.", "altyazi": "1. Dört satır: sipariş, ziyaret, ücretli pay ve bütçe."},
+    {"tts": "Her rakam bu yılın verisinden gelsin. Sonra katkı payıyla kontrol et.", "altyazi": "Her rakam bu yılın verisinden gelsin. Sonra katkı payıyla kontrol et."},
+    {"tts": "İki. Bütçeyi yüzde yetmiş, yirmi, on diye dağıt: kanıtlanmış, büyüyen, test.", "altyazi": "2. Bütçeyi %70, %20, %10 diye dağıt: kanıtlanmış, büyüyen, test."},
+    {"tts": "Üç. Bütçe yıla eşit dağılmaz. Ocak sakin, Kasım yoğun.", "altyazi": "3. Bütçe yıla eşit dağılmaz. Ocak sakin, Kasım yoğun."},
+    {"tts": "Her çeyrek başında yeniden hesapla.", "altyazi": "Her çeyrek başında yeniden hesapla."},
+    {"tts": "Bütçe tablosunu istiyorsan yorumlara hedef yaz. Di emden göndereyim.", "altyazi": "Bütçe tablosunu istiyorsan yorumlara HEDEF yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "2027 _Hedeften Geriye_ Bütçe", "kicker": "Tablo · Reklam · Yıllık plan",
+    "giris": "Yıllık reklam bütçesini gelir hedefinden geriye hesapla, kanallara ve aylara dağıt, katkı payıyla kontrol et.",
+    "bolumler": [
+      {"ad": "Hesap", "renk": "ads", "maddeler": [["Sipariş", "Gelir hedefi ÷ ortalama sepet."], ["Ziyaret", "Sipariş ÷ dönüşüm oranı."], ["Ücretli pay", "Ziyaretin reklamdan gelmesi gereken kısmı."], ["Bütçe", "Ücretli ziyaret × tıklama maliyeti."]]},
+      {"ad": "Dağılım", "renk": "seo", "maddeler": [["Kanal", "Kanıtlanmış %70, büyüyen %20, test %10 (örnek)."], ["Ay", "Sezona göre; kampanya ayları daha yüksek."], ["Yedek", "Beklenmeyen fırsat için küçük pay."]]},
+      {"ad": "Kontrol", "renk": "ecom", "maddeler": [["Katkı payı", "Bütçe sonrası ürün bazında kâr pozitif."], ["Çeyrek gözden geçirme", "Her çeyrek başında yeniden hesap."], ["Gerçek sipariş", "Ölçü platform raporu değil, panel siparişi."]]}
+    ]
+  }
+}

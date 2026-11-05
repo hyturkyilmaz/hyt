@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-14-chatgpt-teklif",
+  "tarih": "2026-11-14",
+  "gun": "Cumartesi",
+  "sutun": "ai",
+  "anahtar": "TEKLIF",
+  "muzik_tohum": 48,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "AI · ChatGPT reklamları", "baslik": "ChatGPT reklamında teklif _değişti._",
+     "alt": "Türkiye listede. 9 Kasım'dan beri **hedef CPC ve hedef CPA** var.",
+     "zaman": [{"t": "Eylül", "s": "Türkiye listede", "renk": "ai"}, {"t": "21 Ekim", "s": "89 ülke", "renk": "seo"}, {"t": "9 Kasım", "s": "Yeni teklif türleri", "renk": "ads"}, {"t": "Sen", "s": "Test bütçen hazır mı?", "renk": "ecom"}],
+     "kaynak": "Kaynak: Search Engine Land · Search Engine Roundtable, Kasım 2026"},
+    {"tip": "matris", "num": "01", "kicker": "Ne değişti?", "baslik": "Eski teklif, _yeni_ teklif",
+     "basliklar": ["Kampanya", "Eskisi", "Yenisi"],
+     "satirlar": [[["ai", "Tıklama"], "Maks. CPC", "Hedef CPC"], [["ads", "Dönüşüm"], "Maks. teklif", "Hedef CPA"], [["seo", "Mevcut kampanya"], "Çalışmaya devam", "Yeni kampanyada geçerli"], [["ecom", "Görsel"], "Tek görsel", "Çoklu görsel (beta)"]],
+     "kaynak": "Kaynak: Search Engine Land, 5 Kasım 2026"},
+    {"tip": "akis", "kicker": "İlk test", "renk": "ai", "baslik": "Küçük, _ölçülebilir_ test",
+     "satirlar": [[{"ad": "Kategori kontrolü", "alt": "İzinli mi?", "ikon": "kalkan", "renk": "ink"}, {"ad": "Ölçüm", "alt": "Dönüşüm etiketi", "ikon": "grafik", "renk": "seo"}, {"ad": "Hedef CPC", "alt": "Önce trafik", "ikon": "hoparlor", "renk": "ai"}],
+                   [{"ad": "14 gün veri", "alt": "Yeterli dönüşüm", "ikon": "saat", "renk": "ecom"}, {"ad": "Hedef CPA", "alt": "Sonra satış", "ikon": "sepet", "renk": "ads"}],
+                   [{"ad": "Karar", "alt": "Devam ya da dur", "ikon": "onay", "renk": "ai", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım test sırası"},
+    {"tip": "kural", "num": "02", "kicker": "Bütçe", "baslik": "Test bütçesini _baştan_ yaz.",
+     "alt": "Yeni kanalda kayıp sınırı, kazanç hedefinden önce gelir.",
+     "kod": ["<span class=\"c\"># chatgpt reklam testi · v1</span>", "<span class=\"k\">BÜTÇE</span> aylık reklam bütçesinin en fazla %5'i", "<span class=\"k\">SÜRE</span> 14 gün, değişiklik yok", "<span class=\"k\">DUR</span> CPA hedefin 2 katıysa", "<span class=\"k\">DEVAM</span> CPA hedefe yakınsa, bütçe kademeli"],
+     "prompt": "Ürünlerimi ve hedef kitlemi ekte paylaşıyorum. Bir alışveriş asistanına sorulabilecek 20 soruyu yaz ve hangi ürünümün hangi soruya cevap olduğunu eşleştir.",
+     "kaynak": "Oranlar örnek; kendi kâr marjına göre belirle."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Reklam metni", "baslik": "Soruya _cevap_ gibi yaz.",
+     "once": {"dosya": "klasik_reklam", "etiket": "Slogan", "basliklar": ["Alan", "Metin"], "satirlar": [["Başlık", "En iyi montlar burada"], ["Açıklama", "Hemen al, kaçırma"], ["Görsel", "Logo"]]},
+     "sonra": {"dosya": "cevap_reklam", "etiket": "Cevap", "basliklar": ["Alan", "Metin"], "satirlar": [["Başlık", "Su geçirmez kış montu, 2.450 TL"], ["Açıklama", "Kaz tüyü dolgu, 2 yıl garanti"], ["Görsel", "Ürün, 3 açı"]]},
+     "kaynak": "Örnek ürün"},
+    {"tip": "ekran", "kicker": "Uygunluk", "baslik": "Önce _kategorini_ kontrol et.",
+     "pencere": "ChatGPT Ads · hesap kontrolü", "istek": "Kategorim reklama uygun mu?",
+     "yanit": "**Bazı kategoriler sınırlı.** Politika sayfasına bak.",
+     "tablo": {"basliklar": ["Kategori", "Durum", "Not"], "satirlar": [["Giyim, ev, elektronik", "Uygun", "Standart inceleme"], ["Sağlık hizmeti", "Sınırlı", "Politikaya bak"], ["Finans, hukuk", "Sınırlı", "Politikaya bak"]], "vurgu_sutun": 1},
+     "evet": "Teste başla", "hayir": "Bekle", "aksiyon": "Kimlik doğrulamasını önceden tamamla.", "kaynak": "Temsili ekran; güncel liste OpenAI politika sayfasında."},
+    {"tip": "cta", "anahtar": "TEKLIF", "vaat": "**ChatGPT reklam test planını** (bütçe + durma kuralı) DM'den göndereyim."}
+  ],
+  "aciklama": "ChatGPT reklamlarında teklif mantığı değişti. Türkiye de reklam verilebilen ülkeler listesinde.\n\nOpenAI 9 Kasım'dan itibaren yeni tıklama kampanyalarında maksimum CPC yerine hedef CPC, yeni dönüşüm kampanyalarında maksimum teklif yerine hedef CPA kullanıyor. Çoklu görselli reklamlar açık betada. Basına göre ChatGPT reklamları 89 ülkede; Türkiye Eylül'de listeye eklendi, ancak bazı kategoriler sınırlı ve kimlik doğrulaması gerekiyor.\n\nYeni bir kanalda ilk iş kazanç hedefi değil, kayıp sınırı. Aylık bütçenin küçük bir kısmıyla 14 gün test, önce hedef CPC ile trafik, yeterli veri geldikten sonra hedef CPA. Durma kuralını baştan yazmazsan testi bitirmek zorlşıyor.\n\nMerak bir pazarlamacının en değerli özelliği. Disiplin ise merakın bütçeyi yakmasını engelliyor.\n\nKaydırınca teklif değişikliğini, test sırasını ve reklam metni örneğini göreceksin.\n\nYorumlara TEKLIF yaz, ChatGPT reklam test planını DM'den göndereyim.\n\n#chatgpt #yapayzeka #performanspazarlama #reklam #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "zorlşıyor", "dogrusu": "zorlaşıyor", "paragraf": 3},
+  "dogrulama": ["Search Engine Land, 5 Kasım 2026", "Search Engine Roundtable", "OpenAI (89 ülke duyurusu)", "Soku.ai (Türkiye listede)"],
+  "senaryo": [
+    {"tts": "Çet Ci Pi Ti reklamlarında teklif mantığı değişti. Türkiye de listede.", "altyazi": "ChatGPT reklamlarında teklif mantığı değişti. Türkiye de listede."},
+    {"tts": "Tıklamada maksimum CPC yerine hedef CPC, dönüşümde hedef CPA geldi.", "altyazi": "Tıklamada maksimum CPC yerine hedef CPC, dönüşümde hedef CPA geldi."},
+    {"tts": "Bir. İlk test küçük olsun: kategori kontrolü, ölçüm, sonra hedef CPC.", "altyazi": "1. İlk test küçük olsun: kategori kontrolü, ölçüm, sonra hedef CPC."},
+    {"tts": "İki. Test bütçesini baştan yaz. En fazla yüzde beş, on dört gün, durma kuralı belli.", "altyazi": "2. Test bütçesini baştan yaz. En fazla %5, 14 gün, durma kuralı belli."},
+    {"tts": "Üç. Reklamı slogan gibi değil, soruya cevap gibi yaz.", "altyazi": "3. Reklamı slogan gibi değil, soruya cevap gibi yaz."},
+    {"tts": "Başlamadan önce kategorini ve kimlik doğrulamasını kontrol et.", "altyazi": "Başlamadan önce kategorini ve kimlik doğrulamasını kontrol et."},
+    {"tts": "Test planını istiyorsan yorumlara teklif yaz. Di emden göndereyim.", "altyazi": "Test planını istiyorsan yorumlara TEKLIF yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "ChatGPT Reklam _Test Planı_", "kicker": "Plan · AI · ChatGPT Ads",
+    "giris": "ChatGPT reklamlarında 9 Kasım 2026'dan itibaren yeni kampanyalarda hedef CPC ve hedef CPA kullanılıyor. Bu plan, ilk testi kontrollü yapman için.",
+    "bolumler": [
+      {"ad": "Hazırlık", "renk": "ai", "maddeler": [["Kategori", "Ürün kategorinin reklam politikasına uygunluğu."], ["Kimlik doğrulama", "Hesap ve ödeme bilgileri önceden tamam."], ["Ölçüm", "Dönüşüm etiketi kurulu, test siparişiyle doğrulandı."], ["Ürün eşleştirme", "20 soru ve her soruya cevap olan ürün."]]},
+      {"ad": "Test", "renk": "ads", "maddeler": [["Bütçe", "Aylık reklam bütçesinin en fazla %5'i."], ["Süre", "14 gün, test boyunca ayar değişmez."], ["Teklif sırası", "Önce hedef CPC, veri gelince hedef CPA."]]},
+      {"ad": "Karar", "renk": "seo", "maddeler": [["Durma kuralı", "CPA hedefin 2 katıysa test durur."], ["Devam kuralı", "CPA hedefe yakınsa bütçe kademeli artar."], ["Kayıt", "Sonuçlar ve karar tarihleriyle not edilir."]]}
+    ]
+  }
+}

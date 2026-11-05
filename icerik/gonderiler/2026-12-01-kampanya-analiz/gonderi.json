@@ -1,0 +1,58 @@
+{
+  "id": "2026-12-01-kampanya-analiz",
+  "tarih": "2026-12-01",
+  "gun": "Salı",
+  "sutun": "ai",
+  "anahtar": "ANALİZ",
+  "muzik_tohum": 65,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "AI · Kampanya analizi", "baslik": "Ciro rekor kırdı. _Kâr_ ne durumda?",
+     "alt": "Kampanya analizini ciroyla değil, **ürün bazında katkı payıyla** yap.",
+     "zaman": [{"t": "Ciro", "s": "Panel", "renk": "ink"}, {"t": "Maliyet", "s": "Ürün, kargo, komisyon", "renk": "ecom"}, {"t": "Reklam", "s": "Gerçek harcama", "renk": "ads"}, {"t": "Kâr", "s": "Ürün bazında", "renk": "seo"}],
+     "kaynak": "Danışmanlıkta kullandığım analiz yöntemi"},
+    {"tip": "kural", "num": "01", "kicker": "Formül", "baslik": "Ürün başına _katkı payı_",
+     "alt": "Bir ürün çok satıp para kaybettirebilir.",
+     "kod": ["<span class=\"c\"># katkı payı</span>", "<span class=\"k\">GELİR</span> net satış (iade tahmini düşülmüş)", "<span class=\"k\">EKSİ</span> ürün maliyeti + kargo + komisyon", "<span class=\"k\">EKSİ</span> ürüne düşen reklam harcaması", "<span class=\"g\">→</span> katkı payı ÷ net satış = katkı oranı"],
+     "prompt": "Ekteki tabloda ürün bazında satış, ürün maliyeti, kargo, komisyon ve reklam harcaması var. Her ürünün katkı payını ve oranını hesapla; zarar eden ürünleri işaretle ve iade oranı %15 olursa sonucun nasıl değiştiğini göster.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır. Toplu veri kullan; kişisel veri gerekmez."},
+    {"tip": "grafik", "kicker": "Örnek", "renk": "ecom", "baslik": "Çok satan, _az kazandıran_",
+     "barlar": [{"ad": "Keten gömlek", "etiket": "%22 katkı", "deger": 22, "renk": "ads", "alt": "Satış: 640 adet"}, {"ad": "Kupa seti", "etiket": "%31 katkı", "deger": 31, "renk": "seo", "alt": "Satış: 210 adet"}, {"ad": "Kulaklık", "etiket": "-%4 katkı", "deger": 1, "renk": "ecom", "alt": "Satış: 980 adet, zarar"}],
+     "not": "Örnek değerler. En çok satan ürün, reklam ve indirim yüzünden zarar ettirebilir.",
+     "kaynak": "Temsili veri"},
+    {"tip": "matris", "num": "02", "kicker": "Okuma", "baslik": "Analizin _4 sorusu_",
+     "basliklar": ["Soru", "Neden önemli"],
+     "satirlar": [[["ecom", "Hangi ürün zarar etti?"], "Gelecek yıl indirimi ya da reklamı değişir"], [["ads", "Yeni müşteri kaç?"], "Ciro tek seferlik mi, kalıcı mı?"], [["seo", "İade oranı ne olacak?"], "Kâr 14 gün sonra netleşir"], [["ai", "Hangi kanal kârlı?"], "Bütçe kanala göre değil kâra göre"]],
+     "kaynak": "Örnek analiz çerçevesi"},
+    {"tip": "ekran", "kicker": "Claude ile", "baslik": "Analiz _bir saatte_",
+     "pencere": "Claude · kampanya kâr analizi", "istek": "Ürün bazında katkı payını hesapla.",
+     "yanit": "**42 üründen 6'sı zarar etti.** En büyük kayıp kulaklıkta.",
+     "tablo": {"basliklar": ["Ürün", "Satış", "Katkı", "Durum"], "satirlar": [["Kupa seti", "210", "%31", "Kârlı"], ["Keten gömlek", "640", "%22", "Kârlı"], ["Kulaklık", "980", "-%4", "Zarar"]], "vurgu_sutun": 3},
+     "evet": "Rapor yaz", "hayir": "Sonra", "aksiyon": "İade süresi bitince (14 gün) tekrar hesapla.", "kaynak": "Örnek veri"},
+    {"tip": "oncesonra", "num": "03", "kicker": "Rapor", "baslik": "Ciro raporu değil, _karar_ raporu",
+     "once": {"dosya": "ciro_raporu", "etiket": "Alkış", "basliklar": ["Başlık", "Değer"], "satirlar": [["Ciro", "Rekor"], ["Sipariş", "+%180"], ["Karar", "-"]]},
+     "sonra": {"dosya": "karar_raporu", "etiket": "Ders", "basliklar": ["Başlık", "Değer"], "satirlar": [["Katkı payı", "%17"], ["Zarar eden ürün", "6"], ["Karar", "Kulaklıkta indirim yok"]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "cta", "anahtar": "ANALİZ", "vaat": "**Kampanya kâr analizi tablosunu** ve prompt'u DM'den göndereyim."}
+  ],
+  "aciklama": "Kampanya bitti ve ciro rekor kırdı. Peki kâr ne durumda?\n\nKampanya analizini ciroyla değil, ürün bazında katkı payıyla yapmak gerekiyor: net satıştan ürün maliyeti, kargo, komisyon ve o ürüne düşen reklam harcaması çıkınca geriye kalan. En çok satan ürün, indirim ve reklam yüzünden para kaybettirmiş olabilir. Claude'a toplu ürün tablosunu verince bu hesap bir saatte çıkıyor; müşteri verisine gerek yok.\n\nDört soru sor: hangi ürün zarar etti, kaç yeni müşteri geldi, iade oranı ne olacak ve hangi kanal gerçekten kârlı. Kâr ancak 14 günlük cayma süresi bitince netleşiyor, o yüzden aynı hesabı iade süresi dolduğunda tekrar yap. Rapordaki her rakam bir kararla bitsin; yoksa analz sadece bir alkış listesi olur.\n\nRekor ciro sevindirir. Ama işi büyüten, rekorun içinde neyin para kaybettirdiğini görebilmek.\n\nKaydırınca formülü, örnek analizi ve dört soruyu göreceksin.\n\nYorumlara ANALİZ yaz, kampanya kâr analizi tablosunu DM'den göndereyim.\n\n#eticaret #yapayzeka #claude #analitik #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "analz", "dogrusu": "analiz", "paragraf": 3},
+  "dogrulama": ["Danışmanlık kârlılık analizi notları", "Mesafeli Sözleşmeler Yönetmeliği (14 gün cayma)"],
+  "senaryo": [
+    {"tts": "Kampanya bitti, ciro rekor kırdı. Peki kâr ne durumda?", "altyazi": "Kampanya bitti, ciro rekor kırdı. Peki kâr ne durumda?"},
+    {"tts": "Bir. Ürün başına katkı payını hesapla: net satış eksi maliyet, kargo, komisyon ve reklam.", "altyazi": "1. Ürün başına katkı payını hesapla: net satış eksi maliyet, kargo, komisyon ve reklam."},
+    {"tts": "Örnek: en çok satan kulaklık zarar ettirmiş, az satan kupa seti en kârlı.", "altyazi": "Örnek: en çok satan kulaklık zarar ettirmiş, az satan kupa seti en kârlı."},
+    {"tts": "İki. Dört soru: zarar eden ürün, yeni müşteri, iade oranı, kârlı kanal.", "altyazi": "2. 4 soru: zarar eden ürün, yeni müşteri, iade oranı, kârlı kanal."},
+    {"tts": "Klod'a toplu tabloyu ver, hesap bir saatte çıkar. Kişisel veri gerekmez.", "altyazi": "Claude'a toplu tabloyu ver, hesap bir saatte çıkar. Kişisel veri gerekmez."},
+    {"tts": "Üç. Rapordaki her rakam bir kararla bitsin. İade süresi bitince tekrar hesapla.", "altyazi": "3. Rapordaki her rakam bir kararla bitsin. İade süresi bitince tekrar hesapla."},
+    {"tts": "Analiz tablosunu istiyorsan yorumlara analiz yaz. Di emden göndereyim.", "altyazi": "Analiz tablosunu istiyorsan yorumlara ANALİZ yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Kampanya _Kâr Analizi_", "kicker": "Tablo + prompt · AI · Analiz",
+    "giris": "Kampanya sonrası ürün bazında katkı payını hesapla. Toplu veriyle çalışır, kişisel veri gerekmez.",
+    "bolumler": [
+      {"ad": "Veri", "renk": "ecom", "maddeler": [["Satış", "Ürün bazında adet ve net tutar."], ["Maliyet", "Ürün maliyeti, kargo, pazaryeri komisyonu."], ["Reklam", "Ürüne düşen reklam harcaması."], ["İade tahmini", "Geçen yılın kampanya iade oranı."]]},
+      {"ad": "Hesap", "renk": "ai", "maddeler": [["Katkı payı", "Net satış eksi tüm değişken maliyetler."], ["Katkı oranı", "Katkı payı ÷ net satış."], ["Senaryo", "İade oranı %15 olursa sonuç."]]},
+      {"ad": "Karar", "renk": "seo", "maddeler": [["Zarar eden ürün", "Gelecek kampanyada indirim ya da reklam değişir."], ["Kârlı kanal", "Bütçe kâra göre dağıtılır."], ["Tekrar", "14 günlük cayma süresi bitince yeniden hesapla."]]}
+    ]
+  }
+}

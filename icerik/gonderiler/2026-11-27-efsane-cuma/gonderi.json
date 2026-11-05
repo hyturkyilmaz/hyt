@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-27-efsane-cuma",
+  "tarih": "2026-11-27",
+  "gun": "Cuma",
+  "sutun": "ecom",
+  "anahtar": "CANLI",
+  "muzik_tohum": 61,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Efsane Cuma", "baslik": "Bugün _5 rakama_ bak, gerisini kapat.",
+     "alt": "Efsane Cuma'da her şeyi izlemeye çalışan hiçbir şeyi görmez. **Saatlik 5 metrik.**",
+     "zaman": [{"t": "09.00", "s": "İlk okuma", "renk": "ink"}, {"t": "13.00", "s": "Bütçe kararı", "renk": "ads"}, {"t": "18.00", "s": "Stok ve kargo", "renk": "ecom"}, {"t": "23.00", "s": "Gün özeti", "renk": "seo"}],
+     "kaynak": "Danışmanlıkta kullandığım kampanya günü paneli"},
+    {"tip": "matris", "num": "01", "kicker": "Panel", "baslik": "Saatlik _5 metrik_",
+     "basliklar": ["Metrik", "Nereden", "Eşik (örnek)"],
+     "satirlar": [[["ecom", "Sipariş"], "Panel", "Saatlik hedefin %70'i"], [["seo", "Dönüşüm oranı"], "GA4", "Dünün %80'i"], [["ads", "Gerçek CPA"], "Harcama ÷ panel sipariş", "Hedef × 1,3"], [["ai", "Vitrin stoku"], "Panel", "10 adet"], [["ink", "Destek kuyruğu"], "DM + e-posta", "1 saat bekleme"]],
+     "kaynak": "Eşikler örnek; kendi verine göre belirle."},
+    {"tip": "ekran", "kicker": "13.00 okuması", "baslik": "Saatlik özet _tek mesaj_",
+     "pencere": "Claude · 13.00 panel özeti", "istek": "13.00 verisini eşiklere göre özetle.",
+     "yanit": "**2 eşik aşıldı.** İkisi de karar bekliyor.",
+     "tablo": {"basliklar": ["Metrik", "Değer", "Eşik", "Durum"], "satirlar": [["Sipariş", "%92", "%70", "Normal"], ["Gerçek CPA", "+%36", "+%30", "Aşıldı"], ["Vitrin stoku", "7", "10", "Aşıldı"], ["Destek", "35 dk", "60 dk", "Normal"]], "vurgu_sutun": 3},
+     "evet": "Karar ver", "hayir": "İzle", "aksiyon": "Stoku biten ürünün reklamını durdur.", "kaynak": "Örnek veri"},
+    {"tip": "akis", "kicker": "Karar", "renk": "ecom", "baslik": "Eşik aşılınca _ne olur?_",
+     "satirlar": [[{"ad": "Eşik aşıldı", "alt": "Panel uyarısı", "ikon": "grafik", "renk": "ink"}, {"ad": "Rol sahibi", "alt": "Kim karar verir?", "ikon": "kisi", "renk": "ads"}, {"ad": "Kural", "alt": "Önceden yazılı", "ikon": "belge", "renk": "seo"}],
+                   [{"ad": "Uygula", "alt": "15 dakika içinde", "ikon": "saat", "renk": "ecom"}, {"ad": "Haber ver", "alt": "Ekip kanalı", "ikon": "sohbet", "renk": "ai"}],
+                   [{"ad": "Not", "alt": "Saat ve neden", "ikon": "onay", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Örnek karar akışı"},
+    {"tip": "kural", "num": "02", "kicker": "Kural", "baslik": "Kampanya günü _yasaklar_",
+     "alt": "Bugün yapılan acele değişiklik, haftanın verisini bozar.",
+     "kod": ["<span class=\"c\"># efsane cuma kuralları</span>", "<span class=\"k\">YOK</span> fiyatı gün içinde yükseltmek", "<span class=\"k\">YOK</span> yeni kampanya açmak", "<span class=\"k\">YOK</span> \"son 1 saat\" deyip uzatmak", "<span class=\"k\">EVET</span> kazanan reklama kademeli bütçe"],
+     "prompt": "Saatlik panel tablosunu her saat başı ekte vereceğim. Yalnızca eşiği aşan metrikleri, ilgili rolü ve önceden yazılı kuraldaki aksiyonu tek mesajda yaz.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Gün sonu", "baslik": "Bu gecenin _notu_",
+     "once": {"dosya": "yorgun_not", "etiket": "Eksik", "basliklar": ["Konu", "Not"], "satirlar": [["Satış", "İyiydi"], ["Sorun", "Bir şeyler oldu"], ["Yarın", "-"]]},
+     "sonra": {"dosya": "gun_ozeti", "etiket": "Tam", "basliklar": ["Konu", "Not"], "satirlar": [["Satış", "Hedefin %108'i"], ["Sorun", "14.10'da 2 ürün bitti"], ["Yarın", "Kargo mesajı sabah 9'da"]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "cta", "anahtar": "CANLI", "vaat": "**Kampanya günü saatlik panel şablonunu** DM'den göndereyim."}
+  ],
+  "aciklama": "Bugün Efsane Cuma. Her şeyi izlemeye çalışan hiçbir şeyi görmüyor; bugün beş rakama bak, gerisini kapat.\n\nSaatlik beş metrik yeterli: sipariş, dönşüm oranı, gerçek CPA, vitrin ürünlerinin stoku ve destek kuyruğu. Her birinin eşiği önceden yazılı olsun. Eşik aşılınca kimin karar vereceği ve ne yapılacağı da belli olsun: stok 10'un altına inerse o ürünün reklamı durur, CPA hedefin 1,3 katını geçerse bütçe kısılır.\n\nKampanya günü bazı şeyler yasak: fiyatı gün içinde yükseltmek, yeni kampanya açmak ve \"son 1 saat\" deyip uzatmak. Hem verini hem müşterinin güvenini bozar. Gece 23.00'te üç satırlık bir not yaz: satış, sorun ve yarının ilk işi.\n\nKampanya gününü sakin geçiren ekip şanslı değil, kararlarını önceden vermiş ekip.\n\nKaydırınca beş metriği, saatlik özet örneğini ve kampanya günü kurallarını göreceksin.\n\nYorumlara CANLI yaz, saatlik panel şablonunu DM'den göndereyim.\n\n#efsanecuma #eticaret #blackfriday #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "dönşüm", "dogrusu": "dönüşüm", "paragraf": 2},
+  "dogrulama": ["Danışmanlık kampanya günü notları", "Ticaret Bakanlığı kampanya süresi ve 10 gün kuralı (AA)"],
+  "senaryo": [
+    {"tts": "Bugün Efsane Cuma. Beş rakama bak, gerisini kapat.", "altyazi": "Bugün Efsane Cuma. 5 rakama bak, gerisini kapat."},
+    {"tts": "Sipariş, dönüşüm oranı, gerçek CPA, vitrin stoku ve destek kuyruğu.", "altyazi": "Sipariş, dönüşüm oranı, gerçek CPA, vitrin stoku ve destek kuyruğu."},
+    {"tts": "Bir. Her saat tek mesaj. Yalnız eşiği aşan metrikler.", "altyazi": "1. Her saat tek mesaj. Yalnız eşiği aşan metrikler."},
+    {"tts": "İki. Eşik aşılınca rol sahibi on beş dakika içinde kuralı uygular.", "altyazi": "2. Eşik aşılınca rol sahibi 15 dakika içinde kuralı uygular."},
+    {"tts": "Üç. Bugün fiyat yükseltmek, yeni kampanya açmak ve son bir saat deyip uzatmak yok.", "altyazi": "3. Bugün fiyat yükseltmek, yeni kampanya açmak ve \"son 1 saat\" deyip uzatmak yok."},
+    {"tts": "Gece üç satırlık not: satış, sorun, yarının ilk işi.", "altyazi": "Gece 3 satırlık not: satış, sorun, yarının ilk işi."},
+    {"tts": "Panel şablonunu istiyorsan yorumlara canlı yaz. Di emden göndereyim.", "altyazi": "Panel şablonunu istiyorsan yorumlara CANLI yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Kampanya Günü _Saatlik Panel_", "kicker": "Şablon · E-ticaret · Efsane Cuma",
+    "giris": "Kampanya gününde saatlik izlenecek beş metrik, eşikleri ve karar kuralları. Eşikler örnektir; kendi verine göre belirle.",
+    "bolumler": [
+      {"ad": "Metrikler", "renk": "ecom", "maddeler": [["Sipariş", "Saatlik hedefin %70'inin altı uyarı."], ["Dönüşüm oranı", "Dünün %80'inin altı uyarı."], ["Gerçek CPA", "Harcama ÷ panel siparişi; hedef × 1,3 eşik."], ["Vitrin stoku", "10 adedin altı uyarı."], ["Destek kuyruğu", "1 saatten uzun bekleme uyarı."]]},
+      {"ad": "Kararlar", "renk": "ads", "maddeler": [["Stok", "Eşik altı: ürünün reklamı durur."], ["CPA", "Eşik üstü: bütçe %20 azalır."], ["Destek", "Eşik üstü: hazır yanıt + ek kişi."]]},
+      {"ad": "Yasaklar", "renk": "seo", "maddeler": [["Fiyat", "Gün içinde fiyat yükseltilmez."], ["Süre", "Duyurulan bitiş saati değiştirilmez."]]}
+    ]
+  }
+}

@@ -34,14 +34,18 @@ oku, sonra araçları çalıştır, en sonda **Kalite kapısı**ndan geçmeyen h
 
 Metinde `_kelime_` el çizimi alt çizgi, `**kelime**` kalın. Ekran slaytında `istek` ≤ 45 karakter (tek satır).
 Kullanılan anahtar kelimeler: AJAN, MODEL, REKLAM, INDEKS, AKIŞ, SEPET, PROMPT, META, GOOGLE, DUET, FIYAT, HAFTA,
-KASIM, VITRIN, METIN, KAYDIR, RAPOR, GEO, TOPLULUK, PLAN, TERK.
+KASIM, VITRIN, METIN, KAYDIR, RAPOR, GEO, TOPLULUK, PLAN, TERK,
+PIKSEL, ARAMA, ETIKET, TEKLIF, ÖZET, STOK, YORUM, EPOSTA, MESAJ, VIDEO, SSS, GÜNDEM, HAZIR, BÜTÇE, DESTEK, GÜVEN, CANLI, KARGO, SİBER, UZATMA, ANALİZ, İADE, İKİNCİ, HEDİYE, GÜNCEL, DERS, HEDEF, ÖLÇÜM, TAKVİM, RUTİN.
 Kullanılan yazım hataları: müşterilerimzin, hesapaldım, kampanyalrda, sayfalrın, mesajlşama, politkasını, açıklamlarını,
 hazırlk, antlatıyorum, açmdan, müdahle, Kurlumu, hazr, Kopayla,
 yayınlanmdan, reklamveern, çalışmya, Uyguladğın, gelişmelri, lojistk, kıyaslanbilir, varyasyonlrı, etkileşmi,
 karşılaştırp, Asistanlrda, konuşmlar, sorumlulk, Hatırlatmlar (carousel, 14 gün),
 kontol, bağlanatılar, onaylamdan, indirm, haftlık, Kampanyya, öneriyr, metinlerni, slaytlrı, toplantısnda,
-ölçebilrsin, toplulğa, dakikda, unutlan (Reels, 14 gün). Tekrar etme.
-Müzik tohumları 31-44 kullanıldı; 30 günlük plan 45'ten başlar.
+ölçebilrsin, toplulğa, dakikda, unutlan (Reels, 14 gün),
+kalmş, gitmesni, arşivlemk, zorlşıyor, erteldi, yaramıyr, cevaplamk, satırlrı, zamanlanmş, önizlemey, sayfalarndan, Hazırlklarını, ödmeyi, artrmak, müşterilrin, müşterilerni, dönşüm, Gecikmyi, Kazananlrı, güvenni, analz, nedenlrini, müşteryi, teslmat, güncellemyi, notlarnı, Hesaplmak, saklma, takvimni, rutinlri (carousel, 30 gün),
+kayet, terimlernde, kontrl, kuralnı, güvni, teslm, cevaplayablirsin, listye, yetişmz, kapt, sayfsında, madeyi, bugn, dağt, göndesin, duyr, öncedn, gecikrse, kaydr, kampnya, hesapl, bildirmi, belirleyci, tarihni, eskisni, karr ver, gerye, verilrle, tebrk, sabahnı (Reels, 30 gün). Tekrar etme.
+Müzik tohumları 31-74 kullanıldı; günlük plan 75'ten başlar.
+CTA kelimesi geniş harfliyse (M, W) yazı otomatik küçülür; 6 harften uzun kelime de kullanılabilir.
 
 ## Hat (her gönderi, ayrıntılı)
 
