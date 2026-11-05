@@ -48,15 +48,16 @@
 | DB | PostgreSQL 16 + RLS | Kiracı izolasyonu veritabanı seviyesinde | Kiracı başına DB (erken aşamada gereksiz) |
 | Mobil | Faz 1 PWA, Faz 2 Expo | Mağaza onayı ve %15-30 komisyon olmadan hızlı çıkış; ödeme web'de | İlk günden native (2x iş) |
 | Deploy | Docker Compose + Coolify/Dokploy, tek VM | Aylık maliyet düşük, tek komutla geri dönüş | Kubernetes (erken) |
-| Barındırma yeri | **Karar bekliyor (K-N02):** Türkiye'de VPS veya AB (Hetzner) + KVKK m.9 standart sözleşme | KVKK yurt dışı aktarım yükü vs maliyet/kalite | |
+| Barındırma yeri | **Öneri: Türkiye'de VPS** (karar K-N02). AB seçilirse KVKK m.9 standart sözleşme + 5 iş günü içinde Kurum'a bildirim | KVKK ve Trendyol EK-6 riski; maliyet farkı ayda ~1.550 TL | Yurt dışı yönetilen bulut (aktarım yükü, ölçekte pahalı) |
 
 ## 3. Veri akışı ve senkron stratejisi
 
 1. **Bağlantı:** Satıcı panelde Satıcı ID, API Key, API Secret girer. API bir test çağrısıyla doğrular. Anahtar AES-256-GCM ile zarf şifreleme yapılarak saklanır (veri anahtarı başına KEK; KEK ortam değişkeninde, faz 2'de KMS). Düz metin anahtar hiçbir log'a yazılmaz.
-2. **İlk yükleme (backfill):** Son 90 gün (Trendyol tarih aralığı limitleri ve rate limit'e uyarak) parça parça. İlerleme çubuğu kullanıcıya gösterilir. İlk "aha anı": ilk 10 dakikada en çok satan 20 ürünün tahmini kârı.
-3. **Artımlı senkron:** Siparişler ve iadeler 15 dakikada bir (plan bazlı); finans ekstresi günde 2 kez; ürün kataloğu ve komisyon oranları günde 1 kez. Webhook varsa (araştırma 01) polling yerine geçer.
-4. **Rate limit yönetimi:** Satıcı başına ve endpoint başına token bucket; 429 alınca üstel geri çekilme + jitter; tüm çağrılar `api_call_log` tablosuna (gövdesiz, yalnız meta) yazılır.
-5. **Veri minimizasyonu (KVKK):** Sipariş yanıtındaki son müşteri adı, adresi, telefonu, e-postası **veritabanına yazılmaz**. Yalnız il (bölgesel analiz için) ve anonim müşteri anahtarı (tuzlu hash) tutulur.
+2. **İlk yükleme (backfill):** Siparişler `orders/stream` (cursor, son 3 ay, 14 günlük pencereler); ekstre `settlements` ve `otherfinancials` (15 günlük pencereler, kayıt teslimattan sonra oluşur); kargo faturası kalemleri `cargo-invoice/{seri}/items`. İlerleme çubuğu kullanıcıya gösterilir. İlk "aha anı": ilk 10 dakikada en çok satan 20 ürünün tahmini kârı.
+3. **Artımlı senkron:** Sipariş paketi statüleri webhook ile (satıcı başına en fazla 15 webhook, en az bir kez teslim → işlem idempotent olmalı), yedek olarak 15 dakikada bir `v2/orders` polling; iadeler (`claims`) 15 dakikada bir; ekstre günde 2 kez; ürün kataloğu ve komisyon oranları günde 1 kez; sorular (faz 2) 10 dakikada bir.
+4. **Trendyol istemci kuralları (research/01):** Taban URL `https://apigw.trendyol.com` (eski `api.trendyol.com/sapigw` kapandı); stage `stageapigw.trendyol.com` (IP whitelist ister). Basic Auth (API Key:Secret). Zorunlu `User-Agent: "{sellerId} - <ÜrünAdı>"` (en fazla 30 alfanümerik, aksi 403). Rate limit: aynı uç noktaya 10 sn'de 50 istek; finans 100/dk, iade 1000/dk, sipariş 30-100/dk (listeleme seviyesine göre). Satıcı + uç nokta başına token bucket; 429'da üstel geri çekilme + jitter; tüm çağrılar `api_call_log` tablosuna (gövdesiz, yalnız meta).
+5. **Veri minimizasyonu (KVKK + Trendyol sözleşmesi EK-6):** Sipariş yanıtındaki son müşteri adı, soyadı, açık adresi, telefonu, TCKN'si ve relay e-postası **ilk alım anında atılır, hiçbir yere yazılmaz** (log dahil). EK-6 müşteri verisiyle veri tabanı oluşturmayı yasaklıyor. Yalnız il ve takma adlı müşteri anahtarı (tuzlu HMAC; anonim değil, takma adlı veri sayılır) tutulur.
+5a. **Reklam ve fatura düzeyi kesintiler:** API'de reklam harcaması yok. Satıcı panelden indirdiği reklam raporunu (Excel) yükler; ürün bazında eşlenir, eşlenemeyen kısım satış oranıyla dağıtılır ve "tahmini" etiketiyle gösterilir. Panel kazıma (scraping) yapılmaz.
 6. **Mutabakat:** Her sipariş satırı `estimated` durumda başlar; finans ekstresinde eşleşen kayıtlar gelince `settled` olur. Fark > eşik ise uyarı üretilir ("Bu siparişte 37 TL beklenmeyen kesinti").
 
 ## 4. Kâr motoru (özet; ayrıntı `12_kar_motoru.md`)
