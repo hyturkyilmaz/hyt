@@ -1,0 +1,48 @@
+{
+ "id": "2026-12-07-2027-hedef",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "İki bin yirmi yedi bütçesini geçen yıl artı yüzde yirmi diye kurma. Hedeften geriye git.",
+   "altyazi": "2027 bütçesini \"geçen yıl + %20\" diye kurma. Hedeften geriye git."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Bir. Dört satır: sipariş, ziyaret, ücretli pay ve bütçe.",
+   "altyazi": "1. Dört satır: sipariş, ziyaret, ücretli pay ve bütçe."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Her rakam bu yılın verisinden gelsin. Sonra katkı payıyla kontrol et.",
+   "altyazi": "Her rakam bu yılın verisinden gelsin. Sonra katkı payıyla kontrol et."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Bütçeyi yüzde yetmiş, yirmi, on diye dağıt: kanıtlanmış, büyüyen, test.",
+   "altyazi": "2. Bütçeyi %70, %20, %10 diye dağıt: kanıtlanmış, büyüyen, test."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Bütçe yıla eşit dağılmaz. Ocak sakin, Kasım yoğun.",
+   "altyazi": "3. Bütçe yıla eşit dağılmaz. Ocak sakin, Kasım yoğun."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Her çeyrek başında yeniden hesapla.",
+   "altyazi": "Her çeyrek başında yeniden hesapla."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Bütçe tablosunu istiyorsan yorumlara hedef yaz. Di emden göndereyim.",
+   "altyazi": "Bütçe tablosunu istiyorsan yorumlara HEDEF yaz. DM'den göndereyim."
+  }
+ ]
+}
