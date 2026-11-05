@@ -30,7 +30,7 @@
     {"tip": "ekran", "kicker": "Hesap", "baslik": "Hedefin _bütçe karşılığı_",
      "pencere": "Claude · 2027 bütçe hesabı", "istek": "2027 hedefini aylık bütçeye çevir.",
      "yanit": "**Hedef için aylık ortalama bütçe hesaplandı.**",
-     "tablo": {"basliklar": ["Kalem", "2026", "2027 hedef"], "satirlar": [["Ortalama sepet", "1.250 TL", "1.350 TL"], ["Dönüşüm oranı", "%1,6", "%1,8"], ["Gerçek CPA", "310 TL", "290 TL"]], "vurgu_sutun": 2},
+     "tablo": {"basliklar": ["Kalem", "2026", "2027 hedef"], "satirlar": [["Ortalama sepet", "1.250 TL", "1.350 TL"], ["Dönüşüm oranı", "%1,6", "%1,8"], ["Gerçek CPA", "310 TL", "290 TL"]], "vurgu_sutun": -1},
      "evet": "Planla", "hayir": "Sonra", "aksiyon": "Her çeyrek başında yeniden hesapla.", "kaynak": "Örnek veri"},
     {"tip": "cta", "anahtar": "HEDEF", "vaat": "**2027 hedeften geriye bütçe tablosunu** DM'den göndereyim."}
   ],

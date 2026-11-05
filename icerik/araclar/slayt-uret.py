@@ -91,7 +91,7 @@ def kapak(s, i, n):
             f'<p class="lead">{zengin(s["alt"])}</p>{zaman}{alt(s["kaynak"], "Kaydır →")}')
 
 
-NOTR = {"Yok", "Uygun", "Normal", "-"}  # vurgu sütununda kırmızı gösterilmeyen olumlu değerler
+NOTR = {"Yok", "Uygun", "Normal", "-", "Geçti", "Döndü", "Durdu", "Kârlı", "Yayında"}  # vurgu sütununda kırmızı gösterilmeyen olumlu değerler
 
 
 def tablo(t, cls="t", animasyon=False):
