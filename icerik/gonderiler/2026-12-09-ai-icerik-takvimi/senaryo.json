@@ -1,0 +1,48 @@
+{
+ "id": "2026-12-09-ai-icerik-takvimi",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "İki bin yirmi yedinin ilk doksan gününü bir saatte planla.",
+   "altyazi": "2027'nin ilk 90 gününü bir saatte planla."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Bir. Klod'a dört bilgi ver: marka, sütunlar, tarihler ve formatlar.",
+   "altyazi": "1. Claude'a 4 bilgi ver: marka, sütunlar, tarihler ve formatlar."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Çıktıyı tablo olarak iste: tarih, sütun, konu, format ve hedef.",
+   "altyazi": "Çıktıyı tablo olarak iste: tarih, sütun, konu, format ve hedef."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. İçeriği dört sütuna böl: e-ticaret, reklam, yapay zekâ ve SEO.",
+   "altyazi": "2. İçeriği 4 sütuna böl: e-ticaret, reklam, AI ve SEO."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Her özel gün satış günü değildir. Ramazan ve bayramda kısa bir tebrik yeter.",
+   "altyazi": "3. Her özel gün satış günü değildir. Ramazan ve bayramda kısa bir tebrik yeter."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Tarihleri ve hassas günleri bir kez de sen kontrol et.",
+   "altyazi": "Tarihleri ve hassas günleri bir kez de sen kontrol et."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Takvim prompt'unu istiyorsan yorumlara takvim yaz. Di emden göndereyim.",
+   "altyazi": "Takvim prompt'unu istiyorsan yorumlara TAKVİM yaz. DM'den göndereyim."
+  }
+ ]
+}

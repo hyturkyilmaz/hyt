@@ -1,0 +1,48 @@
+{
+ "id": "2026-12-05-icerik-guncelleme",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Sitende hâlâ başlığında iki bin yirmi beş yazan sayfa var mı?",
+   "altyazi": "Sitende hâlâ başlığında 2025 yazan sayfa var mı?"
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Yeni içerikten önce eskisini güncelle. Bir günde yapılır.",
+   "altyazi": "Yeni içerikten önce eskisini güncelle. Bir günde yapılır."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Trafiği düşen ve tarihli sayfaları listele, öncelik sırasına koy.",
+   "altyazi": "1. Trafiği düşen ve tarihli sayfaları listele, öncelik sırasına koy."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Her sayfaya tek karar: güncelle, birleştir, dokunma ya da yönlendir. Silme yok.",
+   "altyazi": "2. Her sayfaya tek karar: güncelle, birleştir, dokunma ya da yönlendir. Silme yok."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Sadece tarihi değiştirmek güncelleme değildir. Yeni rakam, yeni kaynak.",
+   "altyazi": "3. Sadece tarihi değiştirmek güncelleme değildir. Yeni rakam, yeni kaynak."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Her değişikliği günlüğe yaz.",
+   "altyazi": "Her değişikliği günlüğe yaz."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Bakım listesini istiyorsan yorumlara güncel yaz. Di emden göndereyim.",
+   "altyazi": "Bakım listesini istiyorsan yorumlara GÜNCEL yaz. DM'den göndereyim."
+  }
+ ]
+}
