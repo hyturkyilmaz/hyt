@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+# Yerel ortam ve sırlar
+.env
+infra/.env
+services/api/var/
+# Node
+node_modules/
+.next/
