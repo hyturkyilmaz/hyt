@@ -56,18 +56,24 @@ def test_module_level_app_is_built_from_environment(worker_env: None) -> None:
 
 
 async def test_worker_runs_job_on_real_database_with_app_role(
-    settings: Settings, admin_conn: psycopg.Connection
+    settings: Settings, admin_conn: psycopg.Connection, worker_env: None
 ) -> None:
-    """Gerçek PostgreSQL: procrastinate şeması ve netkar_app yetkileri iş çalıştırmaya yeter."""
+    """Gerçek PostgreSQL: procrastinate şeması ve netkar_app yetkileri iş çalıştırmaya yeter.
+
+    Periyodik görevler (ör. saatlik prune) worker başlarken saate bağlı olarak kuyruğa
+    girebilir; bu yüzden ayarlar ortamdan da okunabilir olmalı (worker_env) ve prune
+    görevi saatten bağımsız, açıkça çalıştırılıp doğrulanır.
+    """
     worker = procrastinate.App(connector=procrastinate.PsycopgConnector(conninfo=settings.libpq_url))
     register_tasks(worker)
     try:
         async with worker.open_async():
             await worker.tasks["netkar.heartbeat"].defer_async(timestamp=1)
+            await worker.tasks["netkar.prune_rate_limits"].defer_async(timestamp=1)
             await worker.run_worker_async(wait=False)
-        # Periyodik görev de başlangıçta kuyruğa girer; yalnız başarı/başarısızlık durumuna bakılır.
         rows = admin_conn.execute("SELECT task_name, status FROM procrastinate_jobs").fetchall()
         assert ("netkar.heartbeat", "succeeded") in rows
+        assert ("netkar.prune_rate_limits", "succeeded") in rows
         assert all(status != "failed" for _, status in rows)
     finally:
         admin_conn.execute("TRUNCATE procrastinate_jobs CASCADE")
