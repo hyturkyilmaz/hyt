@@ -83,7 +83,7 @@ Seçenekler: (a) süreç içi sabit pencere, (b) PostgreSQL tablosu, (c) Redis. 
 - Sayaç kendi bağlantısında ve autocommit ile yazılır; isteğin işlemi geri alınsa bile deneme sayılır.
 - Eşikler ayarlanabilirdir (`RATE_LIMIT_*`). Aşımda 429 + `Retry-After` (RFC 9457 gövdesiyle).
 - Eski pencereler `netkar.prune_rate_limits` periyodik görevi ile 24 saat sonra silinir (operasyonel sayaç, kullanıcı verisi değil).
-- IP, `TRUST_PROXY_HEADERS=true` değilse bağlantının kendisinden alınır; true ise `X-Forwarded-For`'un en sağdaki girdisi (güvenilir vekilin eklediği) kullanılır.
+- İstemci IP'si: güvenilir vekil yapılandırması yoksa bağlantının eş adresi; vardır ise `X-Forwarded-For` sağdan sola güvenilir vekiller atlanarak okunur. (İlk sürümün `TRUST_PROXY_HEADERS` varsayımı BFF topolojisinde yanlış çıktı; bkz. ADR-0002, denetim Y-01.) IP sınırları gövde ayrıştırılmadan önce ASGI ara katmanında uygulanır.
 - Her istek bir yazma demektir; MVP ölçeğinde (yüzlerce satıcı) kabul edilebilir. Ölçek tetiği: giriş uç noktalarında DB yazma gecikmesi veya Cloudflare/WAF önünde hız sınırlama devreye alınır (mimari §2 Cloudflare).
 
 ## 5. Hesap varlığını sızdırmama
@@ -97,6 +97,7 @@ Seçenekler: (a) süreç içi sabit pencere, (b) PostgreSQL tablosu, (c) Redis. 
 - Yeni kiracı tablosu eklerken migrasyon, RLS + politika + yetki üçlüsünü içermek zorundadır; koruyucu test vardır.
 - `auth_gate` işlevleri güvenlik açısından kritik koddur; değişiklikleri güvenlik denetçisi incelemelidir.
 - E-posta doğrulaması S1'de yoktur (`email_verified_at` boş kalır). Başkasının e-postasıyla önceden hesap açma (pre-hijack) riski vardır; doğrulama akışı S2 işi olarak önerilir.
-- TOTP kod tekrar kullanımı (replay) aynı 30 sn penceresinde engellenmez; `totp:user` rate limit'i riski azaltır. Son kullanılan adımı saklayan sütun sonraki sürümde eklenebilir.
+- TOTP kod tekrar kullanımı: `users.totp_last_step` (migrasyon 0003) son başarılı zaman adımını saklar; aynı veya eski adım atomik `UPDATE ... WHERE totp_last_step < :step` ile reddedilir. Kaba kuvvet: ardışık 5 hatada hesap 15 dk TOTP girişine kapanır (`totp_failed_count`, `totp_locked_until`), her başarısızlık/kilit `audit_log`'a yazılır (denetim O-01, O-02).
+- RLS (GUC bağlamı) SQL enjeksiyonuna karşı değil, uygulama mantığı hatalarına (unutulmuş `WHERE`) karşı ikinci kilittir; SQLi altında bağlam taklit edilebilir (denetim B-01). SQLi bulunmadı; tüm sorgular parametrelidir.
 - Parola özeti parametreleri kütüphane varsayılanıdır; üretimde barındırma donanımına göre ayarlanıp yük testiyle doğrulanmalıdır.
 - Kullanıcı birden çok kiracıya üye olursa giriş en eski üyeliği seçer; kiracı değiştirme (yeni oturum) ayrı bir özelliktir.

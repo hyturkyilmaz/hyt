@@ -48,6 +48,9 @@ export default defineConfig({
       env: {
         API_BASE_URL: `http://127.0.0.1:${API_PORT}`,
         NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${WEB_PORT}`,
+        // Cloudflare arkasındaki üretim topolojisinin benzeri: istemci kimliği yalnız
+        // CF-Connecting-IP'den alınır, istemcinin yazdığı X-Forwarded-For atılır (ADR-0002).
+        CLIENT_IP_SOURCE: 'cf-connecting-ip',
       },
     },
   ],

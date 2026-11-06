@@ -49,7 +49,7 @@ migrate:
 	$(LOAD_ENV) cd $(API) && uv run alembic upgrade head
 
 dev:
-	$(LOAD_ENV) cd $(API) && uv run uvicorn app.main:create_app --factory --reload --port 8000
+	$(LOAD_ENV) cd $(API) && uv run uvicorn app.main:create_app --factory --reload --port 8000 --no-proxy-headers
 
 worker:
 	$(LOAD_ENV) cd $(API) && uv run procrastinate --app=app.worker.app.app worker

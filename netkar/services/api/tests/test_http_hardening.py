@@ -92,19 +92,3 @@ def test_docs_ui_disabled_and_openapi_hidden_in_prod(make_api: Callable[..., Api
     assert dev.get("/v1/openapi.json").status_code == 200
     prod = make_api(environment="prod")
     assert prod.get("/v1/openapi.json").status_code == 404
-
-
-def test_proxy_headers_trusted_only_when_enabled(make_api: Callable[..., Api]) -> None:
-    body = {"email": "a@example.com", "password": "x"}
-
-    def attempt(api: Api, forwarded: str) -> int:
-        return int(api.post("/v1/auth/login", body, headers={"X-Forwarded-For": forwarded}).status_code)
-
-    trusted = make_api(trust_proxy_headers=True, rate_limit_login_ip=1)
-    assert attempt(trusted, "9.9.9.9, 1.1.1.1") == 401
-    assert attempt(trusted, "9.9.9.9, 2.2.2.2") == 401  # en sağdaki (proxy'nin eklediği) değer esas
-    assert attempt(trusted, "8.8.8.8, 1.1.1.1") == 429
-
-    untrusted = make_api(rate_limit_login_ip=1)
-    assert attempt(untrusted, "9.9.9.9, 1.1.1.1") == 401
-    assert attempt(untrusted, "9.9.9.9, 2.2.2.2") == 429  # başlık yok sayılır, gerçek bağlantı IP'si

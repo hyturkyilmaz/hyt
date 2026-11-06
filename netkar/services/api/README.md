@@ -12,7 +12,7 @@ make setup      # uv sync
 make env        # infra/.env üretir (rastgele parolalar ve DATA_ENCRYPTION_KEY)
 make db-up      # PostgreSQL 16 (roller 01-roles.sh ile kurulur)
 make migrate    # alembic upgrade head (netkar_owner rolüyle)
-make dev        # http://127.0.0.1:8000  (OpenAPI: /v1/openapi.json, prod'da kapalı)
+make dev        # http://127.0.0.1:8000  (OpenAPI: /v1/openapi.json, prod'da kapalı; uvicorn --no-proxy-headers)
 make worker     # procrastinate worker (heartbeat ve rate limit temizliği)
 ```
 
@@ -33,7 +33,7 @@ Testler gerçek PostgreSQL 16 kullanır:
 - `TEST_DATABASE_URL` verilirse (CI) bu bir **yönetici (superuser)** bağlantısı olmalıdır, örn. `postgresql://postgres:...@localhost:5432/postgres`. Testler rastgele adlı bir veritabanı ve `netkar_*` rolleri kurar, migrasyonları çalıştırır, bitince veritabanını düşürür.
 - Uygulama testlerde de `netkar_app` rolüyle (superuser olmayan, RLS'ye tabi) bağlanır; tablo temizliği ve doğrulama için ayrı yönetici bağlantısı kullanılır.
 
-Önemli test dosyaları: `tests/test_rls_idor.py` (kiracı izolasyonu: uç noktalar ve doğrudan SQL), `tests/test_auth_flow.py`, `tests/test_totp.py`, `tests/test_password_reset.py`, `tests/test_rate_limit.py`, `tests/test_logging.py` (maskeleme), `tests/test_http_hardening.py` (güvenlik başlıkları, RFC 9457), `tests/test_migrations.py` (geri alınabilirlik).
+Önemli test dosyaları: `tests/test_rls_idor.py` (kiracı izolasyonu: uç noktalar ve doğrudan SQL), `tests/test_auth_flow.py`, `tests/test_totp.py`, `tests/test_password_reset.py`, `tests/test_rate_limit.py`, `tests/test_logging.py` (maskeleme), `tests/test_http_hardening.py` (güvenlik başlıkları, RFC 9457), `tests/test_migrations.py` (geri alınabilirlik), `tests/test_client_ip.py` ve `tests/test_limits.py` (istemci IP çözümleyici, gövde sınırı), `tests/test_denetim_s1_regression.py` (S1 güvenlik denetimi PoC'lerinin tersine çevrilmiş regresyon testleri).
 
 ## Ortam değişkenleri
 
@@ -48,7 +48,13 @@ Testler gerçek PostgreSQL 16 kullanır:
 | `ENVIRONMENT` | hayır | `dev` | `dev`, `test`, `prod`. `prod`'da OpenAPI belgesi kapalıdır. |
 | `LOG_LEVEL` | hayır | `INFO` | JSON log seviyesi. |
 | `PWNED_CHECK_ENABLED` | hayır | `false` | HIBP k-anonimlik kontrolü (dış ağ çağrısı yapar). |
-| `TRUST_PROXY_HEADERS` | hayır | `false` | `true` ise `X-Forwarded-For`'un en sağdaki değeri istemci IP'si sayılır. Yalnız güvenilir vekil arkasında açın. |
+| `TRUSTED_PROXY_CIDRS` | hayır | boş | Güvenilir vekil ağları (virgülle ayrılmış CIDR, örn. web konteyner ağı). Eş adres bu listedeyse `X-Forwarded-For` sağdan sola okunur, listedeki adresler atlanır. Boşsa başlık yok sayılır ([ADR-0002](../../docs/adr/0002-istemci-ip-ve-vekil-guveni.md)). |
+| `TRUSTED_PROXY_HOPS` | hayır | `0` | Sağdan sayılan güvenilir vekil sayısı (eş adres dahil). BFF arkasında tek vekil için `1`. CIDR ile birlikte de kullanılabilir. |
+| `DEBUG` | hayır | `false` | Yalnız geliştirme. `ENVIRONMENT=prod` iken açıksa (veya `EMAIL_BACKEND=file/memory` ise) uygulama başlamaz. |
+| `RATE_LIMIT_TOTP_IP` | hayır | 30 | 15 dakikada TOTP doğrulama denemesi (IP başına). |
+| `TOTP_MAX_FAILURES` / `TOTP_LOCK_SECONDS` | hayır | 5 / 900 | Ardışık hatalı TOTP kodunda hesabın geçici kilit eşiği ve süresi (429 `totp-locked`). |
+| `MAX_REQUEST_BODY_BYTES` / `MAX_AUTH_BODY_BYTES` | hayır | 1 MiB / 64 KiB | İstek gövdesi üst sınırı (genel / `/v1/auth/*`). Aşımda 413 problem+json, işleyici çağrılmaz. |
+| `PASSWORD_HASH_CONCURRENCY` | hayır | min(4, CPU) | Aynı anda çalışan argon2 özet sayısı (her biri ~64 MiB). Özetler iş parçacığı havuzunda çalışır, olay döngüsünü bloklamaz. |
 | `EMAIL_BACKEND` | hayır | `file` | `file` (JSONL) veya `memory` (test). Gerçek servis yok. |
 | `EMAIL_DEV_OUTBOX_PATH` | hayır | `var/outbox.jsonl` | `file` arka ucunun yazdığı dosya. |
 | `WEB_BASE_URL` | hayır | `http://localhost:3000` | Sıfırlama bağlantılarındaki web adresi. |
@@ -80,15 +86,23 @@ Durum değiştiren her istek `X-CSRF-Token` başlığı ve `__Host-nk_csrf` çer
 
 ```
 app/main.py            create_app fabrikası
-app/core/              config, security, crypto, logging, errors, middleware, ratelimit, email, pwned
+app/core/              config, security, crypto, logging, errors, middleware, limits (gövde sınırı, IP rate limit), clientip, clock, ratelimit, email, pwned
 app/db/                session, base, rls (bağlam), provision (rol kurulumu)
 app/models/            ORM modelleri
 app/api/v1/            auth, me, tenant, health
 app/services/          auth (auth_gate çağrıları, oturum), audit
 app/worker/            procrastinate App ve görevler (heartbeat, rate limit temizliği)
-migrations/            Alembic (0001 şema + RLS + auth_gate, 0002 procrastinate)
+migrations/            Alembic (0001 şema + RLS + auth_gate, 0002 procrastinate, 0003 TOTP tekrar kullanım + kilit)
 ```
 
 ## Kiracı bağlamı kuralı
 
 Kiracı verisine dokunan her kod `app.db.rls.set_rls_context` ile bağlam kurulmuş bir işlemde çalışır ve sorguda yine de açık `tenant_id` süzgeci kullanır (çift kilit). Yeni kiracı tablosu: `tenant_id` sütunu + `ENABLE`/`FORCE ROW LEVEL SECURITY` + politika + `netkar_app` için en az yetki. `test_every_tenant_table_has_forced_rls` kuralı otomatik doğrular.
+
+## İstemci IP'si, vekil güveni ve istek sınırları
+
+- Varsayılan: hiçbir vekile güvenilmez; `X-Forwarded-For` yok sayılır, bağlantının eş adresi kullanılır. BFF (Next.js) arkasında `TRUSTED_PROXY_CIDRS` (web konteyner ağı) ve/veya `TRUSTED_PROXY_HOPS=1` verin; web tarafı `CLIENT_IP_SOURCE` ile istemci başlıklarını temizler ve tek bir doğrulanmış XFF iletir. API yalnız web ağından erişilebilir olmalıdır. Ayrıntı ve güven zinciri: ADR-0002.
+- uvicorn her zaman `--no-proxy-headers` ile çalıştırılır (Dockerfile, `make dev`); IP kararını yalnız uygulama verir.
+- Sıra (dıştan içe): güvenlik başlıkları, istek bağlamı, gövde boyut sınırı, IP rate limit, CSRF, uygulama. IP sınırı ve gövde sınırı gövde ayrıştırılmadan önce çalışır.
+- TOTP: son başarılı zaman adımı saklanır (`users.totp_last_step`); aynı veya eski adım reddedilir. Ardışık hatada hesap geçici kilitlenir ve `audit_log`'a (`auth.totp_failed`, `auth.totp_replay`, `auth.totp_locked`) yazılır.
+- Hata metninde bağlı SQL parametreleri yazılmaz (`hide_parameters`); log maskeleme argon2 özeti, 64 haneli hex özet ve Unicode e-postayı da kapsar.

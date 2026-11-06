@@ -6,9 +6,10 @@ import logging
 
 import procrastinate
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.core.config import get_settings
+from app.db.session import create_engine
 
 logger = logging.getLogger("netkar.worker")
 
@@ -43,7 +44,7 @@ def register_tasks(app: procrastinate.App) -> None:
     @app.periodic(cron="17 * * * *")
     @app.task(name="netkar.prune_rate_limits")
     async def _prune(timestamp: int) -> int:
-        engine = create_async_engine(get_settings().database_url)
+        engine = create_engine(get_settings().database_url)
         try:
             return await prune_rate_limits(engine)
         finally:

@@ -6,17 +6,18 @@ import base64
 import uuid
 
 import psycopg
-import pyotp
 
 from app.core.security import sign_pending_token
-from tests.conftest import TEST_KEY, Api
+from tests.conftest import TEST_KEY, Api, FakeClock
 
 
-def _enable_totp(api: Api) -> str:
+def _enable_totp(api: Api, clock: FakeClock) -> str:
+    """TOTP'yi etkinleştirir; kullanılan zaman adımı tüketilir, sonraki giriş için saat ilerletilir."""
     setup = api.post("/v1/auth/totp/setup")
     assert setup.status_code == 200
     secret = setup.json()["secret"]
-    assert api.post("/v1/auth/totp/enable", {"code": pyotp.TOTP(secret).now()}).status_code == 204
+    assert api.post("/v1/auth/totp/enable", {"code": clock.code(secret)}).status_code == 204
+    clock.advance(30)
     return str(secret)
 
 
@@ -31,18 +32,18 @@ def test_totp_setup_returns_uri_and_stores_encrypted(api: Api, admin_conn: psyco
     assert stored[1] is False
 
 
-def test_totp_enable_requires_valid_code_and_setup(api: Api) -> None:
+def test_totp_enable_requires_valid_code_and_setup(api: Api, clock: FakeClock) -> None:
     api.signup_and_login("t@example.com")
     assert api.post("/v1/auth/totp/enable", {"code": "123456"}).status_code == 409  # kurulum yok
     secret = api.post("/v1/auth/totp/setup").json()["secret"]
-    wrong = "000000" if pyotp.TOTP(secret).now() != "000000" else "111111"
+    wrong = "000000" if clock.code(secret) != "000000" else "111111"
     r = api.post("/v1/auth/totp/enable", {"code": wrong})
     assert r.status_code == 400
     assert api.post("/v1/auth/totp/enable", {"code": "abc"}).status_code == 422
-    assert api.post("/v1/auth/totp/enable", {"code": pyotp.TOTP(secret).now()}).status_code == 204
+    assert api.post("/v1/auth/totp/enable", {"code": clock.code(secret)}).status_code == 204
     assert api.get("/v1/me").json()["totp_enabled"] is True
     assert api.post("/v1/auth/totp/setup").status_code == 409  # zaten etkin
-    assert api.post("/v1/auth/totp/enable", {"code": pyotp.TOTP(secret).now()}).status_code == 409
+    assert api.post("/v1/auth/totp/enable", {"code": clock.code(secret)}).status_code == 409
 
 
 def test_totp_setup_requires_authentication(api: Api) -> None:
@@ -50,10 +51,10 @@ def test_totp_setup_requires_authentication(api: Api) -> None:
     assert api.post("/v1/auth/totp/enable", {"code": "123456"}).status_code == 401
 
 
-def test_login_with_totp_second_step(make_api) -> None:  # type: ignore[no-untyped-def]
+def test_login_with_totp_second_step(make_api, clock: FakeClock) -> None:  # type: ignore[no-untyped-def]
     first: Api = make_api()
     first.signup_and_login("t2@example.com")
-    secret = _enable_totp(first)
+    secret = _enable_totp(first, clock)
     first.post("/v1/auth/logout")
 
     second: Api = make_api()
@@ -65,7 +66,7 @@ def test_login_with_totp_second_step(make_api) -> None:  # type: ignore[no-untyp
 
     bad = second.post("/v1/auth/totp/verify", {"code": "000000"})
     assert bad.status_code == 401
-    ok = second.post("/v1/auth/totp/verify", {"code": pyotp.TOTP(secret).now()})
+    ok = second.post("/v1/auth/totp/verify", {"code": clock.code(secret)})
     assert ok.status_code == 200
     me = second.get("/v1/me")
     assert me.status_code == 200 and me.json()["totp_enabled"] is True
@@ -77,10 +78,10 @@ def test_totp_verify_without_or_with_forged_pending_cookie(api: Api, make_api) -
     assert api.post("/v1/auth/totp/verify", {"code": "123456"}).status_code == 401
 
 
-def test_totp_verify_rejects_expired_pending_token(make_api) -> None:  # type: ignore[no-untyped-def]
+def test_totp_verify_rejects_expired_pending_token(make_api, clock: FakeClock) -> None:  # type: ignore[no-untyped-def]
     api: Api = make_api()
     api.signup_and_login("t3@example.com")
-    secret = _enable_totp(api)
+    secret = _enable_totp(api, clock)
     me = api.get("/v1/me").json()
     api.post("/v1/auth/logout")
     master = base64.b64decode(TEST_KEY)
@@ -88,15 +89,25 @@ def test_totp_verify_rejects_expired_pending_token(make_api) -> None:  # type: i
         master, uuid.UUID(me["user_id"]), uuid.UUID(me["tenant"]["id"]), 300, now=1.0
     )
     api.client.cookies.set("__Host-nk_pending", expired)
-    r = api.post("/v1/auth/totp/verify", {"code": pyotp.TOTP(secret).now()})
+    r = api.post("/v1/auth/totp/verify", {"code": clock.code(secret)})
     assert r.status_code == 401
 
 
-def test_totp_verify_is_rate_limited(make_api) -> None:  # type: ignore[no-untyped-def]
-    api: Api = make_api(rate_limit_totp_user=3)
+def test_totp_verify_is_rate_limited(make_api, clock: FakeClock) -> None:  # type: ignore[no-untyped-def]
+    api: Api = make_api(rate_limit_totp_user=3, totp_max_failures=100)
     api.signup_and_login("t4@example.com")
-    _enable_totp(api)
+    _enable_totp(api, clock)
     api.post("/v1/auth/logout")
     api.login("t4@example.com")
     codes = [api.post("/v1/auth/totp/verify", {"code": "000000"}).status_code for _ in range(5)]
     assert codes == [401, 401, 401, 429, 429]
+
+
+def test_totp_verify_is_rate_limited_per_ip(make_api, clock: FakeClock) -> None:  # type: ignore[no-untyped-def]
+    api: Api = make_api(rate_limit_totp_ip=2, totp_max_failures=100)
+    api.signup_and_login("t5@example.com")
+    _enable_totp(api, clock)
+    api.post("/v1/auth/logout")
+    api.login("t5@example.com")
+    codes = [api.post("/v1/auth/totp/verify", {"code": "000000"}).status_code for _ in range(4)]
+    assert codes == [401, 401, 429, 429]

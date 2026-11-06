@@ -9,6 +9,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clientip import ClientIpResolver
 from app.core.config import Settings
 from app.core.cookies import SESSION_COOKIE
 from app.core.crypto import FieldCipher, hmac_hex
@@ -16,6 +17,7 @@ from app.core.email import EmailSender
 from app.core.errors import ProblemError
 from app.core.pwned import PwnedPasswordChecker
 from app.core.ratelimit import RateLimiter
+from app.core.security import PasswordWorker
 from app.db.rls import set_rls_context
 from app.models import Role
 from app.services.auth import TOUCH_INTERVAL_SECONDS, AuthContext, lookup_session, touch_session
@@ -62,24 +64,29 @@ def get_cipher(request: Request) -> FieldCipher:
     return cipher
 
 
+def get_password_worker(request: Request) -> PasswordWorker:
+    worker: PasswordWorker = request.app.state.password_worker
+    return worker
+
+
+PasswordsDep = Annotated[PasswordWorker, Depends(get_password_worker)]
 RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 EmailSenderDep = Annotated[EmailSender, Depends(get_email_sender)]
 PwnedDep = Annotated[PwnedPasswordChecker, Depends(get_pwned_checker)]
 CipherDep = Annotated[FieldCipher, Depends(get_cipher)]
 
 
-def client_ip(request: Request, settings: Settings) -> str:
-    """İstemci IP'si. Proxy başlığına yalnız TRUST_PROXY_HEADERS açıksa güvenilir (en sağdaki değer)."""
-    if settings.trust_proxy_headers:
-        forwarded = request.headers.get("x-forwarded-for")
-        if forwarded:
-            return forwarded.split(",")[-1].strip()
-    return request.client.host if request.client else "unknown"
+def client_ip(request: Request) -> str:
+    """İstemci IP'si (kova anahtarı). X-Forwarded-For yalnız güvenilir vekilden gelirse okunur (ADR-0002)."""
+    resolver: ClientIpResolver = request.app.state.client_ip_resolver
+    return resolver.resolve(
+        request.client.host if request.client else None, request.headers.get("x-forwarded-for")
+    )
 
 
 def ip_hash_for(request: Request, settings: Settings) -> str:
     """Ham IP saklanmaz; anahtarlı HMAC özetinin ilk 32 hanesi saklanır."""
-    return hmac_hex(settings.master_key, "ip-hash", client_ip(request, settings))[:32]
+    return hmac_hex(settings.master_key, "ip-hash", client_ip(request))[:32]
 
 
 async def get_auth_context(request: Request, db: DbDep, settings: SettingsDep) -> AuthContext:

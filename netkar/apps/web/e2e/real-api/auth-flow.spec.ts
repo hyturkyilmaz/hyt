@@ -179,10 +179,19 @@ test('TOTP: etkinleştir, çıkış yap, ikinci adımla giriş yap', async ({ pa
   await page.getByRole('button', { name: 'Doğrula' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Kod hatalı' })).toBeVisible();
 
-  // Doğru kod
-  await page.getByLabel('Doğrulama kodu').fill(totpCode(secret));
+  // Doğru kod. Etkinleştirmede kullanılan zaman adımı tüketildi (tekrar kullanım koruması,
+  // denetim O-01); bu yüzden bir sonraki adımın kodu girilir (sunucu +1 adımı kabul eder).
+  const nextStepCode = totpCode(secret, Date.now() + 30_000);
+  await page.getByLabel('Doğrulama kodu').fill(nextStepCode);
   await page.getByRole('button', { name: 'Doğrula' }).click();
   await expect(page).toHaveURL(/\/panel\/urunler$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Ürünler' })).toBeVisible();
   await logout(page);
+
+  // Aynı kod ikinci kez kullanılamaz (replay)
+  await login(page, '/panel/urunler');
+  await expect(page).toHaveURL(/\/iki-adim\?sonra=%2Fpanel%2Furunler$/);
+  await page.getByLabel('Doğrulama kodu').fill(nextStepCode);
+  await page.getByRole('button', { name: 'Doğrula' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Kod hatalı' })).toBeVisible();
 });

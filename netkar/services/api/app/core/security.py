@@ -12,10 +12,13 @@ from functools import lru_cache
 from typing import Any
 from uuid import UUID
 
+import anyio
 import pyotp
+from anyio import to_thread
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
+from app.core import clock
 from app.core.crypto import derive_key
 
 PASSWORD_MIN_LENGTH = 12
@@ -49,6 +52,29 @@ def burn_password_verification(password: str) -> None:
     verify_password(_dummy_hash(), password)
 
 
+class PasswordWorker:
+    """argon2 işlemlerini olay döngüsünün dışında, sınırlı eşzamanlılıkla çalıştırır (denetim O-03).
+
+    Özet hesabı CPU ve bellek (64 MiB) yoğundur; olay döngüsünde çalışırsa tüm istekleri bekletir.
+    İş parçacığı havuzuna taşınır ve `CapacityLimiter` ile aynı anda en fazla `concurrency` özet
+    çalışır; fazlası sırada bekler (bellek tavanı, DoS'a karşı). Limiter olay döngüsüne bağlı
+    olduğundan örnek uygulama açılışında (lifespan) üretilir.
+    """
+
+    def __init__(self, concurrency: int) -> None:
+        self._limiter = anyio.CapacityLimiter(concurrency)
+
+    async def hash(self, password: str) -> str:
+        return await to_thread.run_sync(hash_password, password, limiter=self._limiter)
+
+    async def verify(self, password_hash: str, password: str) -> bool:
+        return await to_thread.run_sync(verify_password, password_hash, password, limiter=self._limiter)
+
+    async def burn(self, password: str) -> None:
+        """Kullanıcı yokken de aynı maliyeti ödeyerek zamanlama farkını gizler."""
+        await to_thread.run_sync(burn_password_verification, password, limiter=self._limiter)
+
+
 def generate_token() -> str:
     """256 bitlik rastgele, URL güvenli token."""
     return secrets.token_urlsafe(32)
@@ -74,11 +100,30 @@ def totp_uri(secret: str, account: str, issuer: str) -> str:
     return pyotp.TOTP(secret).provisioning_uri(name=account, issuer_name=issuer)
 
 
+TOTP_INTERVAL_SECONDS = 30
+TOTP_WINDOW_STEPS = 1
+
+
+def verify_totp_step(secret: str, code: str, now: float | None = None) -> int | None:
+    """TOTP kodunu doğrular ve eşleşen zaman adımını döndürür (yoksa None).
+
+    Önceki ve sonraki 30 sn pencere kabul edilir. Dönen adım, tekrar kullanımı (replay) engellemek
+    için `users.totp_last_step` ile karşılaştırılır (denetim O-01). Tüm pencere sabit zamanlı taranır.
+    """
+    if not (code.isdigit() and code.isascii() and len(code) == 6):
+        return None
+    current_step = int((now if now is not None else clock.unix_time()) // TOTP_INTERVAL_SECONDS)
+    totp = pyotp.TOTP(secret, interval=TOTP_INTERVAL_SECONDS)
+    matched: int | None = None
+    for step in range(current_step - TOTP_WINDOW_STEPS, current_step + TOTP_WINDOW_STEPS + 1):
+        if hmac.compare_digest(totp.generate_otp(step), code):
+            matched = step
+    return matched
+
+
 def verify_totp(secret: str, code: str) -> bool:
-    """TOTP kodunu doğrular (önceki ve sonraki 30 sn pencere kabul edilir)."""
-    if not (code.isdigit() and len(code) == 6):
-        return False
-    return bool(pyotp.TOTP(secret).verify(code, valid_window=1))
+    """Yalnız kod geçerli mi (adım bilgisi olmadan)."""
+    return verify_totp_step(secret, code) is not None
 
 
 def _b64(data: bytes) -> str:

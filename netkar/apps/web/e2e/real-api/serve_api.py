@@ -12,6 +12,7 @@ Süreç SIGTERM ile durunca PostgreSQL kümesi kapatılır ve tmp dizin silinir.
 from __future__ import annotations
 
 import base64
+import ipaddress
 import os
 import pwd
 import secrets
@@ -109,10 +110,14 @@ def main() -> None:
             email_backend="memory",
             log_level="WARNING",
             web_base_url="http://127.0.0.1:3101",
+            # Web (Next.js BFF) bu makinede loopback'ten bağlanır: yalnız ondan gelen X-Forwarded-For
+            # okunur (ADR-0002). Web tarafında CLIENT_IP_SOURCE=cf-connecting-ip seçilidir.
+            trusted_proxy_cidrs=[ipaddress.ip_network("127.0.0.0/8")],
         )
         app = create_app(settings, email_sender=InMemoryOutbox())
         print(f"gecici API hazir: http://127.0.0.1:{PORT}", flush=True)
-        uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="warning")
+        # proxy_headers=False: istemci IP'sini yalnız uygulama (TRUSTED_PROXY_CIDRS) çözer.
+        uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="warning", proxy_headers=False)
     finally:
         cleanup()
 

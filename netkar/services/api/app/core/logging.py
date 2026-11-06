@@ -32,7 +32,11 @@ _SENSITIVE_KEY_PARTS = (
     "private_key",
 )
 
-_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-']+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+# Unicode yerel kısım ve alan adı (ör. çağrı@örnek.com.tr) dahil: boşluk ve ayraçlar dışında her şey.
+_EMAIL_RE = re.compile(r"[^\s@<>()\[\]{}\"',;:|\\]+@[^\s@<>()\[\]{}\"',;|\\]+\.[^\s@<>()\[\]{}\"',;|\\.]{2,}")
+# argon2 parola özeti ve 64 haneli hex özetler (token SHA-256) metinde görünürse maskelenir.
+_ARGON2_RE = re.compile(r"\$argon2[a-z]*\$[A-Za-z0-9+/=,$.\-]+")
+_HEX_DIGEST_RE = re.compile(r"\b[0-9a-fA-F]{64}\b")
 _AUTH_SCHEME_RE = re.compile(r"\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=\-]+", re.IGNORECASE)
 _HOST_COOKIE_RE = re.compile(r"(__Host-|__Secure-)[\w\-]+=[^;\s,]+")
 _COOKIE_HEADER_RE = re.compile(r"(?i)\b(set-cookie|cookie)(\s*[=:]\s*)[^\r\n]+")
@@ -59,6 +63,8 @@ def mask_text(text: str) -> str:
     text = _AUTH_SCHEME_RE.sub(lambda m: f"{m.group(1)} {MASK}", text)
     text = _KV_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{MASK}", text)
     text = _HOST_COOKIE_RE.sub(lambda m: f"{m.group(1)}{MASK}", text)
+    text = _ARGON2_RE.sub(MASK, text)
+    text = _HEX_DIGEST_RE.sub(MASK, text)
     return _EMAIL_RE.sub(MASK, text)
 
 
@@ -120,3 +126,8 @@ def configure_logging(level: str = "INFO") -> None:
     root.setLevel(level.upper())
     # uvicorn erişim logu sorgu dizesi taşıyabilir; kendi ara katmanımız yazar.
     logging.getLogger("uvicorn.access").disabled = True
+    # uvicorn kendi işleyicileriyle yazıyordu (maskeleme dışında kalıyordu): kök işleyiciye akıtılır.
+    for name in ("uvicorn", "uvicorn.error"):
+        uvicorn_logger = logging.getLogger(name)
+        uvicorn_logger.handlers = []
+        uvicorn_logger.propagate = True

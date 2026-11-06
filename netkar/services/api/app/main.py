@@ -8,15 +8,34 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.v1.router import api_router
+from app.core.clientip import ClientIpResolver
 from app.core.config import Settings, get_settings
 from app.core.crypto import FieldCipher
 from app.core.email import EmailSender, FileEmailSender, InMemoryOutbox
 from app.core.errors import install_error_handlers
+from app.core.limits import BodyLimitMiddleware, IpRateLimitMiddleware, IpRule
 from app.core.logging import configure_logging
 from app.core.middleware import CsrfMiddleware, RequestContextMiddleware, SecurityHeadersMiddleware
 from app.core.pwned import HibpPwnedChecker, NullPwnedChecker, PwnedPasswordChecker
 from app.core.ratelimit import RateLimiter
+from app.core.security import PasswordWorker
 from app.db.session import create_engine, create_sessionmaker
+
+_WINDOW_LOGIN = 15 * 60
+_WINDOW_HOURLY = 60 * 60
+
+
+def _ip_rate_rules(settings: Settings) -> dict[str, IpRule]:
+    """IP başına sınırlar (anahtar öneki ve eşikler eskiyle aynıdır)."""
+    return {
+        "/v1/auth/login": IpRule("login", settings.rate_limit_login_ip, _WINDOW_LOGIN),
+        "/v1/auth/register": IpRule("register", settings.rate_limit_register_ip, _WINDOW_HOURLY),
+        "/v1/auth/password-reset/request": IpRule("reset", settings.rate_limit_reset_ip, _WINDOW_HOURLY),
+        "/v1/auth/password-reset/confirm": IpRule(
+            "reset-confirm", settings.rate_limit_reset_ip * 2, _WINDOW_HOURLY
+        ),
+        "/v1/auth/totp/verify": IpRule("totp", settings.rate_limit_totp_ip, _WINDOW_LOGIN),
+    }
 
 
 def create_app(
@@ -34,6 +53,8 @@ def create_app(
         app.state.engine = engine
         app.state.sessionmaker = create_sessionmaker(engine)
         app.state.rate_limiter = RateLimiter(engine)
+        # CapacityLimiter olay döngüsüne bağlıdır; bu yüzden lifespan içinde üretilir.
+        app.state.password_worker = PasswordWorker(settings.password_hash_concurrency)
         try:
             yield
         finally:
@@ -43,11 +64,13 @@ def create_app(
         title=settings.product_name,
         version="0.1.0",
         lifespan=lifespan,
+        debug=settings.debug,
         docs_url=None,
         redoc_url=None,
         openapi_url=None if settings.environment == "prod" else "/v1/openapi.json",
     )
     app.state.settings = settings
+    app.state.client_ip_resolver = ClientIpResolver(settings.trusted_proxy_cidrs, settings.trusted_proxy_hops)
     app.state.cipher = FieldCipher(settings.master_key)
     if email_sender is None:
         email_sender = (
@@ -60,8 +83,16 @@ def create_app(
         pwned_checker = HibpPwnedChecker() if settings.pwned_check_enabled else NullPwnedChecker()
     app.state.pwned_checker = pwned_checker
 
-    # Ekleme sırasının tersi çalışır: en dışta güvenlik başlıkları, sonra istek bağlamı, en içte CSRF.
+    # Ekleme sırasının tersi çalışır. Dıştan içe: güvenlik başlıkları, istek bağlamı, gövde boyut
+    # sınırı, IP rate limit, CSRF. Gövde sınırı ve IP sınırı FastAPI gövdeyi ayrıştırmadan önce
+    # çalışır (denetim O-04); 429 alacak istekler gövdesi okunmadan reddedilir.
     app.add_middleware(CsrfMiddleware)
+    app.add_middleware(IpRateLimitMiddleware, rules=_ip_rate_rules(settings))
+    app.add_middleware(
+        BodyLimitMiddleware,
+        default_limit=settings.max_request_body_bytes,
+        prefix_limits={"/v1/auth/": settings.max_auth_body_bytes},
+    )
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     install_error_handlers(app)

@@ -10,12 +10,14 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import psycopg
+import pyotp
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -23,6 +25,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import URL, make_url
 
+from app.core import clock as clock_module
 from app.core.config import Settings
 from app.core.email import InMemoryOutbox
 from app.db.provision import provision_roles
@@ -236,8 +239,9 @@ def make_app(settings: Settings, outbox: InMemoryOutbox, fake_pwned: FakePwned) 
 def make_api(make_app: Callable[..., FastAPI]) -> Iterator[Callable[..., Api]]:
     clients: list[TestClient] = []
 
-    def _make(**overrides: Any) -> Api:
-        client = TestClient(make_app(**overrides), base_url="https://testserver")
+    def _make(peer: str = "testclient", **overrides: Any) -> Api:
+        """`peer`: bağlantının eş adresi (güvenilir vekil testlerinde vekil adresi gibi davranır)."""
+        client = TestClient(make_app(**overrides), base_url="https://testserver", client=(peer, 50000))
         client.__enter__()
         clients.append(client)
         return Api(client)
@@ -245,6 +249,28 @@ def make_api(make_app: Callable[..., FastAPI]) -> Iterator[Callable[..., Api]]:
     yield _make
     for c in clients:
         c.__exit__(None, None, None)
+
+
+class FakeClock:
+    """Dondurulmuş zaman: TOTP zaman adımları testte deterministik olur (sınır yarışı yok)."""
+
+    def __init__(self) -> None:
+        # Adım ortasında bir an; böylece +-1 adım penceresi kenarına denk gelmez.
+        self.now = float(int(time.time()) // 30 * 30 + 10)
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+    def code(self, secret: str, steps: int = 0) -> str:
+        """Şu anki (veya `steps` adım ilerisi) için geçerli TOTP kodu."""
+        return pyotp.TOTP(secret).at(int(self.now) + steps * 30)
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> FakeClock:
+    fake = FakeClock()
+    monkeypatch.setattr(clock_module, "unix_time", lambda: fake.now)
+    return fake
 
 
 @pytest.fixture

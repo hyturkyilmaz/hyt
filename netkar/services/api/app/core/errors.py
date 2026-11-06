@@ -67,6 +67,7 @@ _STATUS_TITLES = {
     404: ("Bulunamadı", "not-found"),
     405: ("Yöntem desteklenmiyor", "method-not-allowed"),
     409: ("Çakışma", "conflict"),
+    413: ("İstek gövdesi çok büyük", "payload-too-large"),
     429: ("Çok fazla istek", "rate-limited"),
 }
 

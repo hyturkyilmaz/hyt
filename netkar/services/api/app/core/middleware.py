@@ -11,6 +11,7 @@ import uuid
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.errors import problem_response
 from app.core.security import constant_time_equals
@@ -78,22 +79,32 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class CsrfMiddleware(BaseHTTPMiddleware):
-    """Çift gönderim (double submit): durum değiştiren isteklerde çerez ile başlık eşleşmeli."""
+class CsrfMiddleware:
+    """Çift gönderim (double submit): durum değiştiren isteklerde çerez ile başlık eşleşmeli.
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        if request.method not in SAFE_METHODS:
+    Saf ASGI olarak yazılmıştır: BaseHTTPMiddleware gövde akışındaki istisnaları (ör. gövde sınırı
+    aşımı) ExceptionGroup içine sarıp anlamını bozar; bu katman gövdeye hiç dokunmaz.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["method"] not in SAFE_METHODS:
+            request = Request(scope)
             cookie = request.cookies.get(CSRF_COOKIE, "")
             header = request.headers.get(CSRF_HEADER, "")
             if not (cookie and header and constant_time_equals(cookie, header)):
-                return problem_response(
+                response = problem_response(
                     request,
                     403,
                     "CSRF doğrulaması başarısız",
                     "csrf-failed",
                     "Geçerli bir X-CSRF-Token başlığı ve çerezi gerekli.",
                 )
-        return await call_next(request)
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
 
 
 def new_csrf_token() -> str:

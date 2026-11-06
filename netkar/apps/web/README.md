@@ -12,7 +12,7 @@ npm ci
 npm run dev        # http://localhost:3000
 ```
 
-Ortam değişkenleri `src/config/env.ts` içinde Zod ile doğrulanır: `API_BASE_URL` (sunucu), `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_PRODUCT_NAME`.
+Ortam değişkenleri `src/config/env.ts` içinde Zod ile doğrulanır: `API_BASE_URL` (sunucu), `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_PRODUCT_NAME`, `CLIENT_IP_SOURCE` (`none` | `cf-connecting-ip` | `x-forwarded-for`, varsayılan `none`), `CLIENT_IP_TRUSTED_HOPS` (yalnız `x-forwarded-for` için, varsayılan 1). İstemci IP kaynağı seçimi ve güven koşulları: `../../docs/adr/0002-istemci-ip-ve-vekil-guveni.md`.
 
 ## Betikler
 
@@ -38,7 +38,8 @@ src/components/ui     shadcn/ui tabanlı bileşenler
 src/lib/api           fetch sarmalayıcı (CSRF), uç nokta tanımları, server.ts (GET /v1/me ile oturum doğrulama)
 src/lib/auth          çerez adları, güvenli yönlendirme (safeNextPath)
 src/lib/format.ts     formatTRY, formatPercent
-src/middleware.ts     nonce tabanlı CSP + /panel için oturum çerezi kapısı
+src/middleware.ts     nonce tabanlı CSP + /panel için oturum çerezi kapısı + /api için istemci IP başlıklarının temizlenmesi
+src/lib/client-ip.ts  IP kaynağı seçimi, doğrulama, başlık temizleme (ADR-0002)
 ```
 
 ## API sözleşmesi
@@ -59,6 +60,10 @@ Kaynak: `services/api/app/api/v1/{auth,me,schemas}.py` ve `app/core/{cookies,mid
 - **Hatalar:** `application/problem+json`; makine kodu `type` alanındaki `urn:netkar:problem:<slug>` sonekidir (`invalid-credentials`, `weak-password`, `invalid-code`, `invalid-reset-token`, `rate-limited`, `validation-error` ...). 422'de `errors: [{field, code}]` gelir. Arayüz sunucu `detail` metnini göstermez.
 - **Backend e-postaları** `WEB_BASE_URL` + `/login`, `/forgot-password`, `/reset-password?token=` bağlantıları üretir; web bunları `/giris` ve `/sifre-sifirla` adreslerine yönlendirir (`next.config.ts` redirects).
 
+## İstemci IP'si (rate limit)
+
+`/api/v1/*` istekleri rewrites ile API'ye vekillenir ve Next.js istemcinin yazdığı `X-Forwarded-For`/`X-Real-IP` başlıklarını olduğu gibi geçirir. Bu yüzden `src/middleware.ts` `/api/*` isteklerinde (eşleyici prefetch başlığıyla atlatılamaz) tüm IP başlıklarını siler ve `CLIENT_IP_SOURCE` ile seçilen tek kaynaktan doğrulanan IP'yi tek bir `X-Forwarded-For` olarak yazar. Canlı (Cloudflare arkasında): `CLIENT_IP_SOURCE=cf-connecting-ip`, köken yalnız Cloudflare aralıklarına açık, API'de `TRUSTED_PROXY_CIDRS` = web ağı. Varsayılan `none`: API'ye IP iletilmez (tek kova, güvenli).
+
 ## Oturum koruması
 
 1. `src/middleware.ts`: `/panel` ve altında `__Host-nk_session` çerezi yoksa `/giris?sonra=<yol>` adresine yönlendirir (kaba kapı).
@@ -68,7 +73,7 @@ Kaynak: `services/api/app/api/v1/{auth,me,schemas}.py` ve `app/core/{cookies,mid
 
 ## Gerçek API ile uçtan uca test
 
-`npm run e2e:gercek-api`: `e2e/real-api/serve_api.py` geçici bir PostgreSQL 16 kümesi kurar (`services/api/tests/conftest.py` mantığı: initdb, yalnız unix socket, tmp dizin), roller ve migrasyonlar çalışır, `services/api` uvicorn ile `127.0.0.1:8100` üzerinde başlar; web `127.0.0.1:3101` üzerinde ona bağlanır. Gereksinim: `uv` (`services/api` ortamı kurulu), `/usr/lib/postgresql/16/bin` (`PG_BIN`), Chromium. Süreç bitince küme ve tmp dizin silinir. Senaryo: kayıt, yanlış parola, giriş, panel, çerez bayrakları, çıkış, `sonra` yönlendirmesi (dış adres reddi), TOTP etkinleştirme (arayüzde kurulum ekranı henüz yok, API sayfa bağlamından çağrılır) ve ikinci adımla giriş. Varsayılan `npm run e2e` sahte API (`e2e/fake-api.mjs`, yalnız `/v1/me` ve `/v1/auth/csrf`) kullanır.
+`npm run e2e:gercek-api`: `e2e/real-api/serve_api.py` geçici bir PostgreSQL 16 kümesi kurar (`services/api/tests/conftest.py` mantığı: initdb, yalnız unix socket, tmp dizin), roller ve migrasyonlar çalışır, `services/api` uvicorn ile `127.0.0.1:8100` üzerinde başlar; web `127.0.0.1:3101` üzerinde ona bağlanır. Gereksinim: `uv` (`services/api` ortamı kurulu), `/usr/lib/postgresql/16/bin` (`PG_BIN`), Chromium. Süreç bitince küme ve tmp dizin silinir. Senaryo: kayıt, yanlış parola, giriş, panel, çerez bayrakları, çıkış, `sonra` yönlendirmesi (dış adres reddi), TOTP etkinleştirme (arayüzde kurulum ekranı henüz yok, API sayfa bağlamından çağrılır), ikinci adımla giriş ve aynı kodun yeniden kullanımının reddi. `rate-limit.spec.ts` (web `CLIENT_IP_SOURCE=cf-connecting-ip`, API `TRUSTED_PROXY_CIDRS=127.0.0.0/8`): sahte `X-Forwarded-For`/`X-Real-IP` ile IP sınırı aşılamaz, farklı gerçek istemciler birbirinin sınırını tüketmez. Varsayılan `npm run e2e` sahte API (`e2e/fake-api.mjs`, yalnız `/v1/me` ve `/v1/auth/csrf`) kullanır.
 
 ## Bilinen sınırlar
 

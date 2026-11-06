@@ -44,6 +44,10 @@ class User(Base):
     totp_enabled: Mapped[bool] = mapped_column(Boolean, server_default="false")
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
+    # Son başarılı TOTP zaman adımı (tekrar kullanım koruması) ve kaba kuvvet kilidi.
+    totp_last_step: Mapped[int | None] = mapped_column(BigInteger)
+    totp_failed_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    totp_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Membership(Base):

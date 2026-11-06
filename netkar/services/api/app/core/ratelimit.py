@@ -11,6 +11,7 @@ import time
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from app.core.crypto import hmac_hex
 from app.core.errors import ProblemError
 
 _UPSERT = text(
@@ -21,6 +22,11 @@ _UPSERT = text(
     RETURNING count
     """
 )
+
+
+def digest(master: bytes, purpose: str, value: str) -> str:
+    """Sayaç anahtarlarında ham IP/e-posta yerine kullanılan anahtarlı özet (ilk 32 hane)."""
+    return hmac_hex(master, purpose, value)[:32]
 
 
 class RateLimiter:

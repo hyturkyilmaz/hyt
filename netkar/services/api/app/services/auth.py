@@ -6,12 +6,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import text, update
+from sqlalchemy import or_, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.security import generate_token, hash_token
-from app.models import Role, SessionRecord
+from app.models import Role, SessionRecord, User
 
 # last_seen_at her istekte yazılmaz; bu kadar saniyeden eskiyse tazelenir.
 TOUCH_INTERVAL_SECONDS = 60
@@ -178,3 +178,57 @@ async def consume_password_reset(
     if row is None:
         return None
     return row["reset_user_id"], row["reset_tenant_id"]
+
+
+async def consume_totp_step(db: AsyncSession, user_id: UUID, step: int) -> bool:
+    """Eşleşen TOTP zaman adımını atomik olarak tüketir (denetim O-01).
+
+    Yalnız saklı son adımdan DAHA YENİ bir adım kabul edilir; aynı veya eski adım (tekrar kullanım)
+    ve eşzamanlı yarış kaybedenleri False alır. Başarıda kaba kuvvet sayacı da sıfırlanır.
+    RLS bağlamında app.user_id ayarlı olmalı.
+    """
+    row = await db.execute(
+        update(User)
+        .where(User.id == user_id, or_(User.totp_last_step.is_(None), User.totp_last_step < step))
+        .values(totp_last_step=step, totp_failed_count=0, totp_locked_until=None)
+        .returning(User.id)
+    )
+    return row.first() is not None
+
+
+_REGISTER_TOTP_FAILURE = text(
+    """
+    UPDATE users SET
+        totp_failed_count = CASE
+            WHEN totp_locked_until IS NOT NULL AND totp_locked_until <= now() THEN 1
+            ELSE totp_failed_count + 1 END,
+        totp_locked_until = CASE
+            WHEN (CASE WHEN totp_locked_until IS NOT NULL AND totp_locked_until <= now() THEN 1
+                       ELSE totp_failed_count + 1 END) >= :max_failures
+            THEN now() + make_interval(secs => :lock_seconds)
+            ELSE NULL END
+    WHERE id = :user_id
+    RETURNING totp_failed_count, totp_locked_until
+    """
+)
+
+
+async def register_totp_failure(
+    db: AsyncSession, user_id: UUID, max_failures: int, lock_seconds: int
+) -> tuple[int, datetime | None]:
+    """Başarısız TOTP denemesini sayar; eşik aşılırsa hesabı geçici kilitler (denetim O-02).
+
+    Dönüş: (ardışık hata sayısı, kilit bitişi veya None). Güncelleme tek ifadedir (satır kilidi),
+    eşzamanlı denemeler sayacı kaçıramaz. Süresi dolmuş kilitten sonra sayaç 1'den başlar.
+    """
+    row = (
+        (
+            await db.execute(
+                _REGISTER_TOTP_FAILURE,
+                {"user_id": user_id, "max_failures": max_failures, "lock_seconds": lock_seconds},
+            )
+        )
+        .mappings()
+        .one()
+    )
+    return int(row["totp_failed_count"]), row["totp_locked_until"]

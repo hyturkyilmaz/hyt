@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response
@@ -13,10 +14,10 @@ from app.api.deps import (
     CipherDep,
     DbDep,
     EmailSenderDep,
+    PasswordsDep,
     PwnedDep,
     RateLimiterDep,
     SettingsDep,
-    client_ip,
     ip_hash_for,
 )
 from app.api.v1.schemas import (
@@ -38,19 +39,17 @@ from app.core.cookies import (
     set_pending_cookie,
     set_session_cookie,
 )
-from app.core.crypto import DecryptionError, FieldCipher, hmac_hex
+from app.core.crypto import DecryptionError, FieldCipher
 from app.core.email import EmailMessage
 from app.core.errors import ProblemError
 from app.core.middleware import CSRF_COOKIE, is_valid_csrf_format, new_csrf_token
+from app.core.ratelimit import digest
 from app.core.security import (
-    burn_password_verification,
-    hash_password,
     new_totp_secret,
     read_pending_token,
     sign_pending_token,
     totp_uri,
-    verify_password,
-    verify_totp,
+    verify_totp_step,
 )
 from app.db.rls import set_rls_context
 from app.models import User
@@ -64,7 +63,7 @@ _WINDOW_HOURLY = 60 * 60
 
 
 def _digest(settings: Settings, purpose: str, value: str) -> str:
-    return hmac_hex(settings.master_key, purpose, value)[:32]
+    return digest(settings.master_key, purpose, value)
 
 
 def _invalid_credentials() -> ProblemError:
@@ -97,20 +96,17 @@ async def register(
     request: Request,
     db: DbDep,
     settings: SettingsDep,
-    limiter: RateLimiterDep,
     pwned: PwnedDep,
+    passwords: PasswordsDep,
     sender: EmailSenderDep,
     background: BackgroundTasks,
 ) -> StatusResponse:
-    """Hesap varlığını sızdırmayan kayıt: her durumda aynı 202 yanıtı döner."""
-    ip = client_ip(request, settings)
-    await limiter.hit(
-        f"register:ip:{_digest(settings, 'rl-ip', ip)}",
-        settings.rate_limit_register_ip,
-        _WINDOW_HOURLY,
-    )
-    # Zamanlama farkını gizlemek için özet her durumda hesaplanır.
-    password_hash = hash_password(body.password)
+    """Hesap varlığını sızdırmayan kayıt: her durumda aynı 202 yanıtı döner.
+
+    IP sınırı gövde ayrıştırılmadan önce `IpRateLimitMiddleware` içinde uygulanır.
+    """
+    # Zamanlama farkını gizlemek için özet her durumda hesaplanır (iş parçacığı havuzunda).
+    password_hash = await passwords.hash(body.password)
     if await pwned.is_pwned(body.password):
         raise _weak_password()
     created = await auth_service.register_account(
@@ -184,12 +180,12 @@ async def login(
     db: DbDep,
     settings: SettingsDep,
     limiter: RateLimiterDep,
+    passwords: PasswordsDep,
 ) -> StatusResponse:
-    """Parola doğrular; TOTP açıksa ikinci adım için bekleyen çerez verir."""
-    ip = client_ip(request, settings)
-    await limiter.hit(
-        f"login:ip:{_digest(settings, 'rl-ip', ip)}", settings.rate_limit_login_ip, _WINDOW_LOGIN
-    )
+    """Parola doğrular; TOTP açıksa ikinci adım için bekleyen çerez verir.
+
+    IP sınırı gövde ayrıştırılmadan önce `IpRateLimitMiddleware` içinde uygulanır.
+    """
     await limiter.hit(
         f"login:email:{_digest(settings, 'rl-email', body.email)}",
         settings.rate_limit_login_email,
@@ -198,9 +194,9 @@ async def login(
     candidate = await auth_service.find_user_for_login(db, body.email)
     if candidate is None or candidate.tenant_id is None:
         await db.rollback()
-        burn_password_verification(body.password)
+        await passwords.burn(body.password)
         raise _invalid_credentials()
-    if not verify_password(candidate.password_hash, body.password):
+    if not await passwords.verify(candidate.password_hash, body.password):
         await set_rls_context(db, candidate.tenant_id, candidate.user_id)
         await record_audit(
             db,
@@ -234,7 +230,11 @@ async def totp_verify(
     limiter: RateLimiterDep,
     cipher: CipherDep,
 ) -> StatusResponse:
-    """Girişte ikinci adım: bekleyen çerez + 6 haneli TOTP kodu."""
+    """Girişte ikinci adım: bekleyen çerez + 6 haneli TOTP kodu.
+
+    Korumalar: IP sınırı (ara katman), kullanıcı başına sınır, ardışık hatada geçici kilit (O-02)
+    ve aynı zaman adımının tekrar kullanımının reddi (O-01).
+    """
     pending = request.cookies.get(PENDING_COOKIE)
     identity = read_pending_token(settings.master_key, pending) if pending else None
     if identity is None:
@@ -247,11 +247,47 @@ async def totp_verify(
     )
     await set_rls_context(db, tenant_id, user_id)
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is not None and user.totp_locked_until is not None:
+        remaining = (user.totp_locked_until - datetime.now(UTC)).total_seconds()
+        if remaining > 0:
+            await db.rollback()
+            raise ProblemError(
+                429,
+                "Çok fazla istek",
+                "totp-locked",
+                "Çok fazla hatalı kod girildi. Lütfen daha sonra tekrar deneyin.",
+                headers={"Retry-After": str(max(1, int(remaining)))},
+            )
     secret = _decrypt_secret(cipher, user)
-    if user is None or secret is None or not user.totp_enabled or not verify_totp(secret, body.code):
-        await record_audit(
-            db, tenant_id, "auth.totp_failed", user_id=user_id, ip_hash=ip_hash_for(request, settings)
-        )
+    step = (
+        verify_totp_step(secret, body.code)
+        if user is not None and user.totp_enabled and secret is not None
+        else None
+    )
+    ip_hash = ip_hash_for(request, settings)
+    failure_action: str | None = None
+    if user is None or step is None:
+        failure_action = "auth.totp_failed"
+    elif not await auth_service.consume_totp_step(db, user_id, step):
+        # Aynı veya daha eski zaman adımı: kod daha önce kullanılmış (tekrar oynatma).
+        failure_action = "auth.totp_replay"
+    if failure_action is not None:
+        meta: dict[str, object] = {}
+        if user is not None:
+            count, locked_until = await auth_service.register_totp_failure(
+                db, user_id, settings.totp_max_failures, settings.totp_lock_seconds
+            )
+            meta = {"failures": count}
+            if locked_until is not None:
+                await record_audit(
+                    db,
+                    tenant_id,
+                    "auth.totp_locked",
+                    user_id=user_id,
+                    ip_hash=ip_hash,
+                    meta={"lock_seconds": settings.totp_lock_seconds},
+                )
+        await record_audit(db, tenant_id, failure_action, user_id=user_id, ip_hash=ip_hash, meta=meta)
         await db.commit()
         raise ProblemError(401, "Geçersiz kod", "invalid-code", "Doğrulama kodu hatalı.")
     await _start_session(request, response, db, settings, user_id, tenant_id, "auth.login_totp")
@@ -296,7 +332,14 @@ async def totp_setup(
         raise ProblemError(409, "Çakışma", "totp-already-enabled", "TOTP zaten etkin.")
     secret = new_totp_secret()
     encrypted = cipher.encrypt(secret, user.id.bytes)
-    await db.execute(update(User).where(User.id == ctx.user_id).values(totp_secret_encrypted=encrypted))
+    # Yeni sır: önceki sırra ait zaman adımı ve hata sayacı sıfırlanır.
+    await db.execute(
+        update(User)
+        .where(User.id == ctx.user_id)
+        .values(
+            totp_secret_encrypted=encrypted, totp_last_step=None, totp_failed_count=0, totp_locked_until=None
+        )
+    )
     await record_audit(
         db, ctx.tenant_id, "auth.totp_setup", user_id=ctx.user_id, ip_hash=ip_hash_for(request, settings)
     )
@@ -315,9 +358,13 @@ async def totp_enable(
     secret = _decrypt_secret(cipher, user)
     if secret is None:
         raise ProblemError(409, "Çakışma", "totp-not-set-up", "Önce /v1/auth/totp/setup çağrılmalı.")
-    if not verify_totp(secret, body.code):
+    step = verify_totp_step(secret, body.code)
+    if step is None:
         raise ProblemError(400, "Geçersiz kod", "invalid-code", "Doğrulama kodu hatalı.")
-    await db.execute(update(User).where(User.id == ctx.user_id).values(totp_enabled=True))
+    # Etkinleştirmede kullanılan adım da tüketilir: aynı kodla hemen giriş yapılamaz.
+    await db.execute(
+        update(User).where(User.id == ctx.user_id).values(totp_enabled=True, totp_last_step=step)
+    )
     await record_audit(
         db, ctx.tenant_id, "auth.totp_enabled", user_id=ctx.user_id, ip_hash=ip_hash_for(request, settings)
     )
@@ -336,10 +383,6 @@ async def password_reset_request(
     background: BackgroundTasks,
 ) -> StatusResponse:
     """Hesap varlığını sızdırmaz: her durumda 202. E-posta yalnız hesap varsa gider."""
-    ip = client_ip(request, settings)
-    await limiter.hit(
-        f"reset:ip:{_digest(settings, 'rl-ip', ip)}", settings.rate_limit_reset_ip, _WINDOW_HOURLY
-    )
     await limiter.hit(
         f"reset:email:{_digest(settings, 'rl-email', body.email)}",
         settings.rate_limit_reset_email,
@@ -370,17 +413,18 @@ async def password_reset_confirm(
     request: Request,
     db: DbDep,
     settings: SettingsDep,
-    limiter: RateLimiterDep,
     pwned: PwnedDep,
+    passwords: PasswordsDep,
 ) -> Response:
-    """Token tek kullanımlık ve süreli; başarıda tüm oturumlar iptal edilir."""
-    ip = client_ip(request, settings)
-    await limiter.hit(
-        f"reset-confirm:ip:{_digest(settings, 'rl-ip', ip)}", settings.rate_limit_reset_ip * 2, _WINDOW_HOURLY
-    )
+    """Token tek kullanımlık ve süreli; başarıda tüm oturumlar iptal edilir.
+
+    IP sınırı gövde ayrıştırılmadan önce `IpRateLimitMiddleware` içinde uygulanır.
+    """
     if await pwned.is_pwned(body.new_password):
         raise _weak_password()
-    result = await auth_service.consume_password_reset(db, body.token, hash_password(body.new_password))
+    result = await auth_service.consume_password_reset(
+        db, body.token, await passwords.hash(body.new_password)
+    )
     if result is None:
         await db.rollback()
         raise ProblemError(
