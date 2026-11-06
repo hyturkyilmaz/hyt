@@ -34,7 +34,10 @@ class HibpPwnedChecker:
         self._timeout = timeout
 
     async def is_pwned(self, password: str) -> bool:
-        digest = hashlib.sha1(password.encode(), usedforsecurity=False).hexdigest().upper()
+        # SHA-1, HIBP Pwned Passwords k-anonimlik protokolünün zorunlu biçimidir; parola
+        # saklama veya imza için kullanılmaz (parola özeti argon2id). Bu satırda Semgrep
+        # kuralı insecure-hash-algorithm-sha1 bilinçli olarak muaf tutulur.
+        digest = hashlib.sha1(password.encode(), usedforsecurity=False).hexdigest().upper()  # nosemgrep
         prefix, suffix = digest[:5], digest[5:]
         try:
             client = self._client or httpx.AsyncClient(timeout=self._timeout)
