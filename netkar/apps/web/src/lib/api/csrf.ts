@@ -1,6 +1,8 @@
-// Çift gönderim (double submit) CSRF: API `csrf_token` çerezini (JS ile okunabilir) set eder,
-// biz aynı değeri X-CSRF-Token başlığında geri yollarız. Oturum çerezi HttpOnly'dir.
-export const CSRF_COOKIE_NAME = 'csrf_token';
+// Çift gönderim (double submit) CSRF: API `GET /v1/auth/csrf` ile `__Host-nk_csrf` çerezini
+// (JS ile okunabilir, HttpOnly değil) set eder; biz aynı değeri X-CSRF-Token başlığında geri
+// yollarız. Oturum çerezi (`__Host-nk_session`) HttpOnly'dir ve JS tarafından okunamaz.
+// Adlar backend'deki services/api/app/core/middleware.py ve cookies.py ile birebir aynıdır.
+export const CSRF_COOKIE_NAME = '__Host-nk_csrf';
 export const CSRF_HEADER_NAME = 'X-CSRF-Token';
 
 export function readCookie(name: string, cookieString?: string): string | undefined {

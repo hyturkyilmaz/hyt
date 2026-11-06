@@ -23,7 +23,7 @@ import { ApiError, describeApiError } from '@/lib/api/client';
 import { authApi } from '@/lib/api/endpoints';
 import { twoFactorSchema, type TwoFactorValues } from '@/lib/validation/auth';
 
-export function TwoFactorForm() {
+export function TwoFactorForm({ next = '/panel' }: { next?: string }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<TwoFactorValues>({
@@ -35,13 +35,18 @@ export function TwoFactorForm() {
   async function onSubmit(values: TwoFactorValues) {
     setServerError(null);
     try {
-      await authApi.verifyTwoFactor({ code: values.code });
-      router.push('/panel');
+      await authApi.verifyTotp({ code: values.code });
+      router.replace(next);
+      router.refresh();
     } catch (error) {
+      // 401 "invalid-code": kod yanlış; 401 "unauthorized": bekleyen giriş çerezi yok veya süresi
+      // doldu (5 dakika), yeniden parola ile giriş gerekir.
       const fallback =
-        error instanceof ApiError && (error.status === 401 || error.status === 400)
-          ? 'Kod hatalı veya süresi dolmuş. Doğrulama uygulamanızdaki güncel kodu yazın.'
-          : 'Kod doğrulanamadı. Lütfen tekrar deneyin.';
+        error instanceof ApiError && error.code === 'unauthorized'
+          ? 'Doğrulama süresi doldu. Girişe dönüp parolanızı yeniden yazın.'
+          : error instanceof ApiError && error.status === 401
+            ? 'Kod hatalı. Doğrulama uygulamanızdaki güncel kodu yazın.'
+            : 'Kod doğrulanamadı. Lütfen tekrar deneyin.';
       setServerError(describeApiError(error, fallback));
     }
   }

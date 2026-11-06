@@ -11,7 +11,9 @@ import { RegisterForm } from '@/components/auth/register-form';
 import { TwoFactorForm } from '@/components/auth/two-factor-form';
 
 const push = vi.fn();
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
+const replace = vi.fn();
+const refresh = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace, refresh }) }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 function mockFetch(status: number, body: unknown = {}) {
@@ -29,11 +31,13 @@ function lastRequest(fn: ReturnType<typeof vi.fn>) {
 
 beforeEach(() => {
   push.mockReset();
-  document.cookie = 'csrf_token=tok-test; path=/';
+  replace.mockReset();
+  refresh.mockReset();
+  document.cookie = '__Host-nk_csrf=tok-test; path=/; Secure';
 });
 afterEach(() => {
   vi.unstubAllGlobals();
-  document.cookie = 'csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+  document.cookie = '__Host-nk_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; Secure';
 });
 
 describe('LoginForm', () => {
@@ -83,7 +87,7 @@ describe('LoginForm', () => {
   });
 
   it('geçerli girişte /api/v1/auth/login a CSRF başlığıyla gönderir ve panele yönlendirir', async () => {
-    const fetchMock = mockFetch(200, {});
+    const fetchMock = mockFetch(200, { status: 'ok' });
     const user = userEvent.setup();
     render(<LoginForm />);
 
@@ -91,7 +95,8 @@ describe('LoginForm', () => {
     await user.type(screen.getByLabelText('Parola'), 'gizli-parola');
     await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/panel'));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/panel'));
+    expect(refresh).toHaveBeenCalled();
     const { url, init, body } = lastRequest(fetchMock);
     expect(url).toBe('/api/v1/auth/login');
     expect(init.method).toBe('POST');
@@ -100,13 +105,37 @@ describe('LoginForm', () => {
   });
 
   it('ikinci adım gerekiyorsa /iki-adim a yönlendirir', async () => {
-    mockFetch(200, { two_factor_required: true });
+    mockFetch(200, { status: 'totp_required' });
     const user = userEvent.setup();
     render(<LoginForm />);
     await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
     await user.type(screen.getByLabelText('Parola'), 'gizli-parola');
     await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
     await waitFor(() => expect(push).toHaveBeenCalledWith('/iki-adim'));
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('sonra hedefini giriş sonrası kullanır ve ikinci adıma taşır', async () => {
+    mockFetch(200, { status: 'ok' });
+    const user = userEvent.setup();
+    const { unmount } = render(<LoginForm next="/panel/urunler" />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'gizli-parola');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/panel/urunler'));
+    unmount();
+
+    mockFetch(200, { status: 'totp_required' });
+    render(<LoginForm next="/panel/urunler" />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'gizli-parola');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/iki-adim?sonra=%2Fpanel%2Furunler'));
+  });
+
+  it('kayıttan gelindiğinde bilgi notu gösterir', () => {
+    render(<LoginForm registered />);
+    expect(screen.getByRole('status')).toHaveTextContent('Kaydınız alındı');
   });
 
   it('yükleniyor durumunda düğmeyi kilitler ve metni değiştirir', async () => {
@@ -123,8 +152,8 @@ describe('LoginForm', () => {
 
     const busy = await screen.findByRole('button', { name: 'Giriş yapılıyor' });
     expect(busy).toBeDisabled();
-    release(new Response('{}', { status: 200 }));
-    await waitFor(() => expect(push).toHaveBeenCalled());
+    release(new Response('{"status":"ok"}', { status: 200 }));
+    await waitFor(() => expect(replace).toHaveBeenCalled());
   });
 
   it('401 yanıtında hesap var mı yok mu belli etmeyen tek mesaj gösterir', async () => {
@@ -175,40 +204,57 @@ describe('RegisterForm', () => {
     await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
 
     expect(await screen.findByText('Parola en az 12 karakter olmalı.')).toBeInTheDocument();
+    expect(screen.getByText('İşletme veya mağaza adınızı yazın.')).toBeInTheDocument();
     expect(
       screen.getByText('Devam etmek için kullanım koşullarını kabul etmelisiniz.'),
     ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('geçerli girdiyi gönderir', async () => {
-    const fetchMock = mockFetch(201);
+  it('geçerli girdiyi API şemasıyla gönderir ve girişe yönlendirir', async () => {
+    const fetchMock = mockFetch(202, { status: 'accepted' });
     const user = userEvent.setup();
     render(<RegisterForm />);
     await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), '  Örnek Mağaza ');
     await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/panel'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/giris?kayit=1'));
     const { url, body } = lastRequest(fetchMock);
     expect(url).toBe('/api/v1/auth/register');
+    // Backend gövdesi extra="forbid": accept_terms gibi alanlar gönderilmez.
     expect(body).toEqual({
       email: 'ad@ornek.com',
       password: 'uzun bir parola cümlesi',
-      accept_terms: true,
+      tenant_name: 'Örnek Mağaza',
     });
   });
 
-  it('kayıt çakışmasında e-posta var mı yok mu açıkça söylemez', async () => {
-    mockFetch(409);
+  it('sızmış parola (422 weak-password) için anlaşılır mesaj gösterir', async () => {
+    mockFetch(422, { type: 'urn:netkar:problem:weak-password', status: 422 });
     const user = userEvent.setup();
     render(<RegisterForm />);
     await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
     await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
-    expect(await screen.findByText(/kayıt tamamlanamadı/)).toBeInTheDocument();
+    expect(await screen.findByText(/veri sızıntılarında görülmüş/)).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('beklenmeyen hatada genel mesaj gösterir', async () => {
+    mockFetch(400);
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
+    await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+    expect(await screen.findByText(/Kayıt tamamlanamadı/)).toBeInTheDocument();
   });
 });
 
@@ -231,17 +277,37 @@ describe('TwoFactorForm', () => {
     await user.clear(input);
     await user.type(input, '123456');
     await user.click(screen.getByRole('button', { name: 'Doğrula' }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/panel'));
-    expect(lastRequest(fetchMock).body).toEqual({ code: '123456' });
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/panel'));
+    const { url, body } = lastRequest(fetchMock);
+    expect(url).toBe('/api/v1/auth/totp/verify');
+    expect(body).toEqual({ code: '123456' });
   });
 
   it('hatalı kodda mesaj gösterir', async () => {
-    mockFetch(401);
+    mockFetch(401, { type: 'urn:netkar:problem:invalid-code', status: 401 });
     const user = userEvent.setup();
     render(<TwoFactorForm />);
     await user.type(screen.getByLabelText('Doğrulama kodu'), '000000');
     await user.click(screen.getByRole('button', { name: 'Doğrula' }));
-    expect(await screen.findByText(/Kod hatalı veya süresi dolmuş/)).toBeInTheDocument();
+    expect(await screen.findByText(/Kod hatalı/)).toBeInTheDocument();
+  });
+
+  it('bekleyen giriş çerezi dolmuşsa (401 unauthorized) girişe dönmeyi söyler', async () => {
+    mockFetch(401, { type: 'urn:netkar:problem:unauthorized', status: 401 });
+    const user = userEvent.setup();
+    render(<TwoFactorForm />);
+    await user.type(screen.getByLabelText('Doğrulama kodu'), '000000');
+    await user.click(screen.getByRole('button', { name: 'Doğrula' }));
+    expect(await screen.findByText(/Doğrulama süresi doldu/)).toBeInTheDocument();
+  });
+
+  it('sonra hedefine yönlendirir', async () => {
+    mockFetch(200, { status: 'ok' });
+    const user = userEvent.setup();
+    render(<TwoFactorForm next="/panel/ayarlar" />);
+    await user.type(screen.getByLabelText('Doğrulama kodu'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Doğrula' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/panel/ayarlar'));
   });
 });
 
@@ -267,11 +333,14 @@ describe('Parola sıfırlama', () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith('/giris'));
     const { url, body } = lastRequest(fetchMock);
     expect(url).toBe('/api/v1/auth/password-reset/confirm');
-    expect(body).toEqual({ token: 'abcdefghijklmnop1234', password: 'yeni uzun parola cümlesi' });
+    expect(body).toEqual({
+      token: 'abcdefghijklmnop1234',
+      new_password: 'yeni uzun parola cümlesi',
+    });
   });
 
   it('süresi dolmuş bağlantıda açıklayıcı mesaj gösterir', async () => {
-    mockFetch(410);
+    mockFetch(400, { type: 'urn:netkar:problem:invalid-reset-token', status: 400 });
     const user = userEvent.setup();
     render(<PasswordResetConfirmForm token="abcdefghijklmnop1234" />);
     await user.type(screen.getByLabelText('Yeni parola'), 'yeni uzun parola cümlesi');

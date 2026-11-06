@@ -1,16 +1,31 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { PATH_HEADER, SESSION_COOKIE_NAME } from '@/lib/auth/constants';
+import { buildLoginUrl, isProtectedPath } from '@/lib/auth/redirect';
 import { buildCsp, createNonce } from '@/lib/csp';
 
 // Her istekte yeni nonce üretir, CSP başlığını hem isteğe (Next.js betiklere nonce'u buradan
 // okur) hem yanıta yazar. Kalan güvenlik başlıkları next.config.ts içindedir.
+// Ek olarak /panel altında oturum çerezi yoksa /giris?sonra=<yol> adresine yönlendirir. Bu yalnız
+// ilk (kaba) kapıdır: çerezin geçerli olup olmadığını panel layout'u `GET /v1/me` ile doğrular.
 export function middleware(request: NextRequest) {
   const nonce = createNonce();
   const csp = buildCsp({ nonce, isDev: process.env.NODE_ENV !== 'production' });
+  const { pathname, search } = request.nextUrl;
+
+  if (isProtectedPath(pathname) && !request.cookies.get(SESSION_COOKIE_NAME)?.value) {
+    const target = new URL(buildLoginUrl(`${pathname}${search}`), request.url);
+    const redirect = NextResponse.redirect(target);
+    redirect.headers.set('Content-Security-Policy', csp);
+    redirect.headers.set('Cache-Control', 'no-store');
+    return redirect;
+  }
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', csp);
+  // İstemciden gelen sahte değer ezilir; yalnız bu middleware yazar.
+  requestHeaders.set(PATH_HEADER, `${pathname}${search}`);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Content-Security-Policy', csp);

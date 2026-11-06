@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { BrandMark, BrandName } from '@/components/brand/brand-mark';
+import { LogoutButton } from '@/components/panel/logout-button';
 import { NAV_ITEMS } from '@/components/panel/nav-items';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +14,7 @@ function useIsActive() {
 }
 
 /** Masaüstü: sol kenar çubuğu (lg ve üstü) */
-export function Sidebar() {
+export function Sidebar({ email, tenantName }: { email: string; tenantName: string }) {
   const isActive = useIsActive();
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-sidebar flex-col border-r border-border bg-surface lg:flex">
@@ -43,6 +44,13 @@ export function Sidebar() {
           })}
         </ul>
       </nav>
+      <div className="flex flex-col gap-3 border-t border-border p-4">
+        <p className="min-w-0 text-sm">
+          <span className="block truncate font-medium">{tenantName}</span>
+          <span className="block truncate text-muted-foreground">{email}</span>
+        </p>
+        <LogoutButton />
+      </div>
     </aside>
   );
 }

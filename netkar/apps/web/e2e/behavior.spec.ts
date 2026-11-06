@@ -1,9 +1,13 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-import { screenshotPath, waitForReady } from './helpers';
+import { CSRF_COOKIE, screenshotPath, SESSION_COOKIE, signIn, waitForReady } from './helpers';
 
 test.describe('panel kabuğu', () => {
+  test.beforeEach(async ({ context }) => {
+    await signIn(context);
+  });
+
   test('mobilde alt gezinme, masaüstünde kenar çubuğu görünür', async ({ page }, testInfo) => {
     await page.goto('/panel');
     const bottom = page.getByRole('navigation', { name: 'Mobil gezinme' });
@@ -87,7 +91,7 @@ test.describe('giriş formu', () => {
     context,
   }) => {
     await context.addCookies([
-      { name: 'csrf_token', value: 'e2e-token', url: 'http://127.0.0.1:3100' },
+      { name: CSRF_COOKIE, value: 'e2e-token', url: 'https://127.0.0.1:3100', secure: true },
     ]);
     let seenHeader: string | undefined;
     await page.route('**/api/v1/auth/login', async (route) => {
@@ -95,7 +99,11 @@ test.describe('giriş formu', () => {
       await route.fulfill({
         status: 401,
         contentType: 'application/problem+json',
-        body: JSON.stringify({ status: 401, title: 'Unauthorized' }),
+        body: JSON.stringify({
+          type: 'urn:netkar:problem:invalid-credentials',
+          status: 401,
+          title: 'Geçersiz kimlik bilgileri',
+        }),
       });
     });
     await page.goto('/giris');
@@ -108,10 +116,16 @@ test.describe('giriş formu', () => {
     expect(seenHeader).toBe('e2e-token');
   });
 
-  test('başarılı girişte panele gider', async ({ page }) => {
-    await page.route('**/api/v1/auth/login', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
-    );
+  test('başarılı girişte panele gider', async ({ page, context }) => {
+    // Gerçek API oturum çerezini Set-Cookie ile verir; burada onu taklit ediyoruz.
+    await page.route('**/api/v1/auth/login', async (route) => {
+      await signIn(context);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'ok' }),
+      });
+    });
     await page.goto('/giris');
     await page.getByLabel('E-posta').fill('ad@ornek.com');
     await page.getByLabel('Parola', { exact: true }).fill('dogru-parola-123');
@@ -163,13 +177,14 @@ test.describe('güvenlik başlıkları ve PWA', () => {
     expect(a).not.toBe(b);
   });
 
-  test('CSP ihlali olmadan sayfa çalışır (konsolda CSP hatası yok)', async ({ page }) => {
+  test('CSP ihlali olmadan sayfa çalışır (konsolda CSP hatası yok)', async ({ page, context }) => {
     const violations: string[] = [];
     page.on('console', (message) => {
       if (/content security policy/i.test(message.text())) violations.push(message.text());
     });
     await page.goto('/giris');
     await page.getByRole('button', { name: 'Parolayı göster' }).click();
+    await signIn(context);
     await page.goto('/panel/ayarlar');
     await page.getByRole('button', { name: 'Trendyol mağazasını bağla' }).click();
     await waitForReady(page);
@@ -209,10 +224,120 @@ test.describe('güvenlik başlıkları ve PWA', () => {
     );
   });
 
-  test('API proxy yolu rewrite edilir (ulaşılamayan arka uç 5xx döner, 404 değil)', async ({
-    request,
+  test('API proxy /api/v1/* isteğini backend /v1/* yoluna iletir', async ({ request }) => {
+    const res = await request.get('/api/v1/health');
+    expect(res.status()).toBe(200);
+    expect(await res.json()).toEqual({ status: 'ok' });
+  });
+});
+
+test.describe('oturum koruması', () => {
+  test('oturumsuz /panel girişe yönlenir ve sonra parametresi hedefi taşır', async ({ page }) => {
+    await page.goto('/panel/urunler?sayfa=2');
+    await expect(page).toHaveURL(/\/giris\?sonra=%2Fpanel%2Furunler%3Fsayfa%3D2$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Giriş yapın' })).toBeVisible();
+  });
+
+  test('oturumlu kullanıcı panelde kalır ve e-posta ile işletme adı görünür', async ({
+    page,
+    context,
+  }, testInfo) => {
+    await signIn(context);
+    await page.goto('/panel');
+    await expect(page).toHaveURL(/\/panel$/);
+    if (testInfo.project.name === 'masaustu') {
+      await expect(page.getByText('Örnek Mağaza')).toBeVisible();
+      await expect(page.getByText('ad@ornek.com')).toBeVisible();
+    }
+  });
+
+  test('geçersiz oturum çerezi (API 401) girişe yönlenir', async ({ page, context }) => {
+    await signIn(context, 'gecersiz');
+    await page.goto('/panel/ayarlar');
+    await expect(page).toHaveURL(/\/giris\?sonra=%2Fpanel%2Fayarlar$/);
+  });
+
+  test('sonra parametresi giriş sonrası kullanılır; dış adres reddedilir', async ({
+    page,
+    context,
   }) => {
-    const res = await request.get('/api/v1/saglik');
-    expect(res.status()).not.toBe(404);
+    await page.route('**/api/v1/auth/login', async (route) => {
+      await signIn(context);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'ok' }),
+      });
+    });
+    await page.goto('/giris?sonra=%2Fpanel%2Fayarlar');
+    await page.getByLabel('E-posta').fill('ad@ornek.com');
+    await page.getByLabel('Parola', { exact: true }).fill('dogru-parola-123');
+    await page.getByRole('button', { name: 'Giriş yap' }).click();
+    await expect(page).toHaveURL(/\/panel\/ayarlar$/);
+
+    // Dış adrese yönlendirme denemesi varsayılan hedefe düşer.
+    await context.clearCookies();
+    await page.goto('/giris?sonra=https%3A%2F%2Fevil.example%2Fpanel');
+    await page.getByLabel('E-posta').fill('ad@ornek.com');
+    await page.getByLabel('Parola', { exact: true }).fill('dogru-parola-123');
+    await page.getByRole('button', { name: 'Giriş yap' }).click();
+    await expect(page).toHaveURL(/127\.0\.0\.1:3100\/panel$/);
+  });
+
+  test('çıkış düğmesi POST /auth/logout çağırır (CSRF ile) ve girişe götürür', async ({
+    page,
+    context,
+  }) => {
+    await signIn(context);
+    let seen: { method: string; csrf?: string } | undefined;
+    await page.route('**/api/v1/auth/logout', async (route) => {
+      seen = { method: route.request().method(), csrf: route.request().headers()['x-csrf-token'] };
+      // Gerçek API çerezi siler; burada onu taklit ediyoruz.
+      await context.clearCookies({ name: SESSION_COOKIE });
+      await route.fulfill({ status: 204 });
+    });
+    await page.goto('/panel');
+    await page.getByRole('button', { name: 'Çıkış yap' }).click();
+    await expect(page).toHaveURL(/\/giris$/);
+    expect(seen?.method).toBe('POST');
+    // Sahte API'nin /auth/csrf çerezi ve gövdesi aynı token'ı taşır
+    expect(seen?.csrf).toBe('sahte-csrf-token-0123456789abcdef0123456789');
+  });
+});
+
+test.describe('yasal sayfa iskeletleri', () => {
+  for (const [path, heading] of [
+    ['/kullanim-kosullari', 'Kullanım koşulları'],
+    ['/kvkk-aydinlatma-metni', 'KVKK aydınlatma metni'],
+  ] as const) {
+    test(`${path} taslak uyarısı ve bölüm iskeletiyle açılır`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+      await expect(page.getByText('Taslak, hukuki inceleme bekliyor.')).toBeVisible();
+      expect(await page.getByRole('heading', { level: 2 }).count()).toBeGreaterThanOrEqual(10);
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+    });
+  }
+
+  test('kayıt formundaki bağlantılar var olan sayfalara gider', async ({ page, request }) => {
+    await page.goto('/kayit');
+    for (const href of ['/kullanim-kosullari', '/kvkk-aydinlatma-metni']) {
+      await expect(page.locator(`a[href="${href}"]`)).toHaveCount(1);
+      expect((await request.get(href)).status()).toBe(200);
+    }
+  });
+});
+
+test.describe('e-posta bağlantı uyumu', () => {
+  test('backend e-postalarındaki İngilizce yollar Türkçe sayfalara yönlenir', async ({ page }) => {
+    await page.goto('/reset-password?token=abcdefghijklmnop1234');
+    await expect(page).toHaveURL(/\/sifre-sifirla\?token=abcdefghijklmnop1234$/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Yeni parola belirleyin' }),
+    ).toBeVisible();
+    await page.goto('/login');
+    await expect(page).toHaveURL(/\/giris$/);
+    await page.goto('/forgot-password');
+    await expect(page).toHaveURL(/\/sifre-sifirla$/);
   });
 });

@@ -34,7 +34,12 @@ describe('loginSchema', () => {
 });
 
 describe('registerSchema', () => {
-  const valid = { email: 'ad@ornek.com', password: 'on iki karakter parola', acceptTerms: true };
+  const valid = {
+    email: 'ad@ornek.com',
+    tenantName: 'Örnek Mağaza',
+    password: 'on iki karakter parola',
+    acceptTerms: true,
+  };
 
   it('geçerli girdiyi kabul eder', () => {
     expect(registerSchema.safeParse(valid).success).toBe(true);
@@ -52,6 +57,14 @@ describe('registerSchema', () => {
   it('çok uzun parolayı reddeder', () => {
     const result = registerSchema.safeParse({ ...valid, password: 'a'.repeat(129) });
     expect(firstMessage(result)).toContain('en fazla 128');
+  });
+
+  it('işletme adı boş veya 120 karakterden uzunsa reddeder', () => {
+    expect(firstMessage(registerSchema.safeParse({ ...valid, tenantName: '   ' }))).toContain(
+      'İşletme veya mağaza adınızı yazın',
+    );
+    expect(registerSchema.safeParse({ ...valid, tenantName: 'a'.repeat(121) }).success).toBe(false);
+    expect(registerSchema.safeParse({ ...valid, tenantName: 'a'.repeat(120) }).success).toBe(true);
   });
 
   it('koşulları kabul etmeden geçmez', () => {

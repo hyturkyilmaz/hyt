@@ -28,7 +28,7 @@ const eslintConfig = [
     },
   },
   {
-    files: ['**/*.test.ts', '**/*.test.tsx', 'e2e/**', 'playwright.config.ts'],
+    files: ['**/*.test.ts', '**/*.test.tsx', 'e2e/**', 'playwright.config.ts', 'playwright.real-api.config.ts'],
     rules: { 'security/detect-non-literal-fs-filename': 'off', 'no-console': 'off' },
   },
 ];

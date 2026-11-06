@@ -26,6 +26,20 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       </main>
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-content flex-col gap-2 px-gutter py-8 text-sm text-muted-foreground lg:px-8">
+          <nav aria-label="Yasal" className="flex flex-wrap gap-x-6">
+            <Link
+              href="/kullanim-kosullari"
+              className="inline-flex min-h-touch items-center underline underline-offset-4"
+            >
+              Kullanım koşulları
+            </Link>
+            <Link
+              href="/kvkk-aydinlatma-metni"
+              className="inline-flex min-h-touch items-center underline underline-offset-4"
+            >
+              KVKK aydınlatma metni
+            </Link>
+          </nav>
           <p>
             © {new Date().getFullYear()} {brand.name}
           </p>

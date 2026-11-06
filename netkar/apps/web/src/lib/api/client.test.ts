@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError, NetworkError, apiFetch, describeApiError } from '@/lib/api/client';
+import {
+  ApiError,
+  NetworkError,
+  apiFetch,
+  describeApiError,
+  ensureCsrfToken,
+} from '@/lib/api/client';
 import { readCookie, readCsrfToken } from '@/lib/api/csrf';
 
 function mockFetch(response: Response | Error) {
@@ -18,31 +24,33 @@ function setCookie(value: string) {
 
 describe('csrf çerez okuma', () => {
   afterEach(() => {
-    setCookie('csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/');
+    setCookie('__Host-nk_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; Secure');
   });
 
   it('verilen çerez metninden değeri çözer', () => {
-    expect(readCookie('csrf_token', 'a=1; csrf_token=abc%2Bdef; b=2')).toBe('abc+def');
+    expect(readCookie('__Host-nk_csrf', 'a=1; __Host-nk_csrf=abc%2Bdef; b=2')).toBe('abc+def');
     expect(readCookie('yok', 'a=1')).toBeUndefined();
   });
 
   it('benzer adlı çerezle karışmaz', () => {
-    expect(readCookie('csrf_token', 'x_csrf_token=zzz; csrf_token_old=yyy')).toBeUndefined();
+    expect(
+      readCookie('__Host-nk_csrf', 'x___Host-nk_csrf=zzz; csrf_token_old=yyy'),
+    ).toBeUndefined();
   });
 
   it('belge çerezinden okur', () => {
-    setCookie('csrf_token=tok123; path=/');
+    setCookie('__Host-nk_csrf=tok123; path=/; Secure');
     expect(readCsrfToken()).toBe('tok123');
   });
 });
 
 describe('apiFetch', () => {
   beforeEach(() => {
-    setCookie('csrf_token=tok123; path=/');
+    setCookie('__Host-nk_csrf=tok123; path=/; Secure');
   });
   afterEach(() => {
     vi.unstubAllGlobals();
-    setCookie('csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/');
+    setCookie('__Host-nk_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; Secure');
   });
 
   it('POST isteğinde X-CSRF-Token başlığını ve aynı köken çerezini kullanır', async () => {
@@ -72,15 +80,75 @@ describe('apiFetch', () => {
 
   it('hata yanıtında yalnız durum ve makine kodunu taşır, sunucu ayrıntısını taşımaz', async () => {
     mockFetch(
-      new Response(JSON.stringify({ code: 'invalid_credentials', detail: 'SELECT * FROM users' }), {
-        status: 401,
-      }),
+      new Response(
+        JSON.stringify({
+          type: 'urn:netkar:problem:invalid-credentials',
+          title: 'Geçersiz kimlik bilgileri',
+          status: 401,
+          detail: 'SELECT * FROM users',
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
     );
     const error = await apiFetch('/auth/login', { method: 'POST' }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(401);
-    expect((error as ApiError).code).toBe('invalid_credentials');
+    expect((error as ApiError).code).toBe('invalid-credentials');
     expect((error as ApiError).message).not.toContain('SELECT');
+  });
+
+  it('422 doğrulama hatasında alan yolu ve kural kodunu taşır', async () => {
+    mockFetch(
+      new Response(
+        JSON.stringify({
+          type: 'urn:netkar:problem:validation-error',
+          status: 422,
+          errors: [{ field: 'tenant_name', code: 'string_too_short' }, { bozuk: 1 }],
+        }),
+        { status: 422 },
+      ),
+    );
+    const error = await apiFetch('/auth/register', { method: 'POST', body: {} }).catch(
+      (e: unknown) => e,
+    );
+    expect((error as ApiError).code).toBe('validation-error');
+    expect((error as ApiError).errors).toEqual([
+      { field: 'tenant_name', code: 'string_too_short' },
+    ]);
+  });
+
+  it('urn:netkar dışındaki type değerini makine kodu saymaz', async () => {
+    mockFetch(new Response(JSON.stringify({ type: 'https://evil.example/x' }), { status: 400 }));
+    const error = await apiFetch('/x', { method: 'POST' }).catch((e: unknown) => e);
+    expect((error as ApiError).code).toBeUndefined();
+  });
+
+  it('CSRF çerezi okunamıyorsa önce GET /auth/csrf çağırır ve gövdedeki token ı kullanır', async () => {
+    setCookie('__Host-nk_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; Secure');
+    const fn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ csrf_token: 'taze-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }));
+    vi.stubGlobal('fetch', fn);
+
+    await apiFetch('/auth/login', { method: 'POST', body: { email: 'a@b.co' } });
+
+    const [csrfUrl, csrfInit] = fn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(csrfUrl).toBe('/api/v1/auth/csrf');
+    expect(csrfInit.method).toBe('GET');
+    const [, loginInit] = fn.mock.calls[1] as unknown as [string, RequestInit];
+    expect((loginInit.headers as Headers).get('X-CSRF-Token')).toBe('taze-token');
+  });
+
+  it('CSRF token alınamazsa istek atılmadan hata verir', async () => {
+    setCookie('__Host-nk_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; Secure');
+    const fn = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fn);
+    await expect(ensureCsrfToken()).rejects.toBeInstanceOf(ApiError);
+    await expect(apiFetch('/auth/logout', { method: 'POST' })).rejects.toBeInstanceOf(ApiError);
+    expect(fn.mock.calls.every(([url]) => url === '/api/v1/auth/csrf')).toBe(true);
   });
 
   it('ağ hatasını NetworkError olarak yükseltir', async () => {

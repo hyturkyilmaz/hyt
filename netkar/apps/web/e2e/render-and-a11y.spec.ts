@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 import { ALL_PAGES } from './pages';
-import { screenshotPath, waitForReady } from './helpers';
+import { screenshotPath, signIn, waitForReady } from './helpers';
 
 // WCAG 2.2 AA etiketleriyle taranır; 0 ihlal beklenir.
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -12,7 +12,9 @@ for (const scheme of ['light', 'dark'] as const) {
     test.use({ colorScheme: scheme });
 
     for (const entry of ALL_PAGES) {
-      test(`${entry.path} render olur, axe 0 ihlal`, async ({ page }, testInfo) => {
+      test(`${entry.path} render olur, axe 0 ihlal`, async ({ page, context }, testInfo) => {
+        // Panel sayfaları oturum ister: sahte API çerezi geçerli sayar.
+        if (entry.path.startsWith('/panel')) await signIn(context);
         await page.goto(entry.path);
         await expect(page.getByRole('heading', { level: 1, name: entry.h1 })).toBeVisible();
         await waitForReady(page);

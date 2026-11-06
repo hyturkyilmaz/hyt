@@ -16,13 +16,14 @@ Ortam değişkenleri `src/config/env.ts` içinde Zod ile doğrulanır: `API_BASE
 
 ## Betikler
 
-| Komut                             | Ne yapar                                                                                                                           |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run dev` / `build` / `start` | Next.js                                                                                                                            |
-| `npm run lint`                    | ESLint (next, jsx-a11y, security), uyarı da hata sayılır                                                                           |
-| `npm run typecheck`               | `tsc --noEmit` (strict)                                                                                                            |
-| `npm test`                        | vitest + Testing Library                                                                                                           |
-| `npm run e2e`                     | Playwright: üretim derlemesini başlatır, 390x844 ve 1280x800, axe-core, ekran görüntüleri `../../docs/ux/ekranlar/` altına yazılır |
+| Komut                             | Ne yapar                                                                                                                                           |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev` / `build` / `start` | Next.js                                                                                                                                            |
+| `npm run lint`                    | ESLint (next, jsx-a11y, security), uyarı da hata sayılır                                                                                           |
+| `npm run typecheck`               | `tsc --noEmit` (strict)                                                                                                                            |
+| `npm test`                        | vitest + Testing Library                                                                                                                           |
+| `npm run e2e`                     | Playwright (sahte API ile): üretim derlemesini başlatır, 390x844 ve 1280x800, axe-core, ekran görüntüleri `../../docs/ux/ekranlar/` altına yazılır |
+| `npm run e2e:gercek-api`          | Playwright, **gerçek API** ile: geçici PostgreSQL + `services/api` + web; kayıt, giriş, panel, çıkış, TOTP ikinci adım (aşağıya bakın)             |
 
 Playwright bu makinede `/opt/pw-browsers/chromium` kullanır (`PW_CHROMIUM_PATH` ile değişir); `playwright install` gerekmez.
 
@@ -31,20 +32,49 @@ Playwright bu makinede `/opt/pw-browsers/chromium` kullanır (`PW_CHROMIUM_PATH`
 ```
 src/app/(marketing)   ana sayfa
 src/app/(auth)        giris, kayit, iki-adim, sifre-sifirla
-src/app/(app)/panel   Özet, Ürünler, Siparişler, Uyarılar, Ayarlar (boş durum + iskelet)
+src/app/(app)/panel   Özet, Ürünler, Siparişler, Uyarılar, Ayarlar (boş durum + iskelet); oturum korumalı
+src/app/(marketing)   ayrıca /kullanim-kosullari ve /kvkk-aydinlatma-metni (taslak iskelet, hukuki inceleme bekliyor)
 src/components/ui     shadcn/ui tabanlı bileşenler
-src/lib/api           fetch sarmalayıcı (CSRF), uç nokta tanımları
+src/lib/api           fetch sarmalayıcı (CSRF), uç nokta tanımları, server.ts (GET /v1/me ile oturum doğrulama)
+src/lib/auth          çerez adları, güvenli yönlendirme (safeNextPath)
 src/lib/format.ts     formatTRY, formatPercent
-src/middleware.ts     nonce tabanlı CSP
+src/middleware.ts     nonce tabanlı CSP + /panel için oturum çerezi kapısı
 ```
 
 ## API sözleşmesi
 
-Tarayıcı `/api/v1/...` çağırır; `next.config.ts` rewrites bunu `API_BASE_URL`'e yönlendirir (aynı köken, çerezler aynı yerde). Yazan istekler `csrf_token` çerezini `X-CSRF-Token` başlığına koyar. `src/lib/api/endpoints.ts` içindeki yollar (`/auth/login`, `/auth/register`, `/auth/2fa/verify`, `/auth/password-reset/request|confirm`) ve `two_factor_required` alanı **API ile henüz doğrulanmadı**; değişirse yalnız o dosya güncellenir.
+Kaynak: `services/api/app/api/v1/{auth,me,schemas}.py` ve `app/core/{cookies,middleware,errors}.py`. Tarayıcı aynı kökende `/api/v1/...` çağırır; `next.config.ts` rewrites bunu backend'in `API_BASE_URL/v1/...` yoluna iletir (backend'de `/api` öneki yoktur; adres derleme sırasında rewrites içine gömülür). Yollar ve alanlar yalnız `src/lib/api/endpoints.ts` içindedir.
+
+| Akış        | Yol                                                | Gövde (backend şeması)              | Yanıt                                                                                 |
+| ----------- | -------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------- |
+| CSRF        | `GET /v1/auth/csrf`                                |                                     | `{csrf_token}` + `__Host-nk_csrf` çerezi                                              |
+| Kayıt       | `POST /v1/auth/register`                           | `{email, password, tenant_name}`    | 202 `{status:"accepted"}`; oturum AÇMAZ, kullanıcı giriş yapar                        |
+| Giriş       | `POST /v1/auth/login`                              | `{email, password}`                 | `{status:"ok"}` (oturum çerezi) veya `{status:"totp_required"}` (`__Host-nk_pending`) |
+| İkinci adım | `POST /v1/auth/totp/verify`                        | `{code}` (6 hane)                   | `{status:"ok"}`                                                                       |
+| Çıkış       | `POST /v1/auth/logout`                             |                                     | 204 (idempotent)                                                                      |
+| Oturum      | `GET /v1/me`                                       |                                     | `MeResponse` (`user_id, email, role, totp_enabled, tenant{...}`)                      |
+| Sıfırlama   | `POST /v1/auth/password-reset/request` / `confirm` | `{email}` / `{token, new_password}` | 202 / 204                                                                             |
+
+- **CSRF:** durum değiştiren istekte `X-CSRF-Token` başlığı, `__Host-nk_csrf` çerezindeki değerle aynı olmalıdır. `apiFetch` çerezi okur; okunamıyorsa önce `GET /v1/auth/csrf` çağırır. Oturum çerezi `__Host-nk_session` HttpOnly'dir. `__Host-` öneki Secure ister: tarayıcılar bunu yalnız https'te ve `localhost`/`127.0.0.1` üzerinde kabul eder (LAN IP'si ile http'de çerez kurulmaz).
+- **Hatalar:** `application/problem+json`; makine kodu `type` alanındaki `urn:netkar:problem:<slug>` sonekidir (`invalid-credentials`, `weak-password`, `invalid-code`, `invalid-reset-token`, `rate-limited`, `validation-error` ...). 422'de `errors: [{field, code}]` gelir. Arayüz sunucu `detail` metnini göstermez.
+- **Backend e-postaları** `WEB_BASE_URL` + `/login`, `/forgot-password`, `/reset-password?token=` bağlantıları üretir; web bunları `/giris` ve `/sifre-sifirla` adreslerine yönlendirir (`next.config.ts` redirects).
+
+## Oturum koruması
+
+1. `src/middleware.ts`: `/panel` ve altında `__Host-nk_session` çerezi yoksa `/giris?sonra=<yol>` adresine yönlendirir (kaba kapı).
+2. `src/app/(app)/layout.tsx`: `getSession()` (`src/lib/api/server.ts`) yalnız oturum çerezini API'ye `GET /v1/me` ile iletir; 401 ise girişe yönlendirir (asıl kapı). API'ye ulaşılamazsa oturum düşürülmez, "tekrar dene" ekranı gösterilir.
+3. `?sonra=` değeri `safeNextPath` ile doğrulanır: yalnız `/` ile başlayan, `//`, `\`, denetim karakteri veya dış adres içermeyen, giriş sayfaları dışındaki uygulama içi yollar kabul edilir; aksi halde `/panel`.
+4. Çıkış: kenar çubuğu (masaüstü) ve üst çubuk (mobil) `LogoutButton` bileşeni `POST /v1/auth/logout` çağırır.
+
+## Gerçek API ile uçtan uca test
+
+`npm run e2e:gercek-api`: `e2e/real-api/serve_api.py` geçici bir PostgreSQL 16 kümesi kurar (`services/api/tests/conftest.py` mantığı: initdb, yalnız unix socket, tmp dizin), roller ve migrasyonlar çalışır, `services/api` uvicorn ile `127.0.0.1:8100` üzerinde başlar; web `127.0.0.1:3101` üzerinde ona bağlanır. Gereksinim: `uv` (`services/api` ortamı kurulu), `/usr/lib/postgresql/16/bin` (`PG_BIN`), Chromium. Süreç bitince küme ve tmp dizin silinir. Senaryo: kayıt, yanlış parola, giriş, panel, çerez bayrakları, çıkış, `sonra` yönlendirmesi (dış adres reddi), TOTP etkinleştirme (arayüzde kurulum ekranı henüz yok, API sayfa bağlamından çağrılır) ve ikinci adımla giriş. Varsayılan `npm run e2e` sahte API (`e2e/fake-api.mjs`, yalnız `/v1/me` ve `/v1/auth/csrf`) kullanır.
 
 ## Bilinen sınırlar
 
-- Panelde oturum koruması yok (API hazır olunca middleware veya sunucu bileşeninde eklenecek).
-- Kayıt formundaki `/kullanim-kosullari` ve `/kvkk-aydinlatma-metni` sayfaları henüz yok.
+- `/kullanim-kosullari` ve `/kvkk-aydinlatma-metni` yalnız taslak bölüm iskeletidir (noindex); metinler hukuki incelemeden sonra yazılacak.
+- Kullanım koşulları onayı yalnız arayüzde zorunludur; API onay sürümünü/tarihini kaydetmiyor.
+- TOTP kurulum ekranı yok (API hazır: `/v1/auth/totp/setup`, `/enable`).
+- Panel verisi hâlâ boş durum iskeleti; yalnız `GET /v1/me` kullanılıyor.
 - Servis çalışanı bilinçli olarak yok (bkz. tasarım dokümanı, bölüm 7).
 - Open Graph görseli yok.

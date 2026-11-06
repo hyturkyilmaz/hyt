@@ -123,14 +123,16 @@ export function PasswordResetConfirmForm({ token }: { token: string }) {
   async function onSubmit(values: PasswordResetConfirmValues) {
     setServerError(null);
     try {
-      await authApi.confirmPasswordReset({ token, password: values.password });
+      await authApi.confirmPasswordReset({ token, new_password: values.password });
       toast.success('Parolanız güncellendi. Yeni parolanızla giriş yapabilirsiniz.');
       router.push('/giris');
     } catch (error) {
       const fallback =
-        error instanceof ApiError && (error.status === 400 || error.status === 410)
-          ? 'Bu bağlantının süresi dolmuş veya daha önce kullanılmış. Yeni bir bağlantı isteyin.'
-          : 'Parola güncellenemedi. Lütfen tekrar deneyin.';
+        error instanceof ApiError && error.code === 'weak-password'
+          ? 'Bu parola bilinen veri sızıntılarında görülmüş. Lütfen farklı bir parola seçin.'
+          : error instanceof ApiError && error.code === 'invalid-reset-token'
+            ? 'Bu bağlantının süresi dolmuş veya daha önce kullanılmış. Yeni bir bağlantı isteyin.'
+            : 'Parola güncellenemedi. Lütfen tekrar deneyin.';
       setServerError(describeApiError(error, fallback));
     }
   }

@@ -21,9 +21,18 @@ import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { describeApiError, ApiError } from '@/lib/api/client';
 import { authApi } from '@/lib/api/endpoints';
+import { buildTwoFactorUrl } from '@/lib/auth/redirect';
 import { loginSchema, type LoginValues } from '@/lib/validation/auth';
 
-export function LoginForm() {
+export function LoginForm({
+  next = '/panel',
+  registered = false,
+}: {
+  /** Giriş sonrası hedef; sunucuda `safeNextPath` ile doğrulanmış olmalı */
+  next?: string;
+  /** Kayıttan geliniyorsa bilgi notu gösterilir */
+  registered?: boolean;
+}) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<LoginValues>({
@@ -36,11 +45,17 @@ export function LoginForm() {
     setServerError(null);
     try {
       const result = await authApi.login(values);
-      router.push(result?.two_factor_required ? '/iki-adim' : '/panel');
+      if (result?.status === 'totp_required') {
+        router.push(buildTwoFactorUrl(next));
+      } else {
+        router.replace(next);
+        // Sunucu bileşenleri (panel layout'u) yeni oturum çerezini görsün.
+        router.refresh();
+      }
     } catch (error) {
       // Hesap var mı yok mu sızdırmamak için tek mesaj
       const fallback =
-        error instanceof ApiError && (error.status === 401 || error.status === 400)
+        error instanceof ApiError && error.status === 401
           ? 'E-posta veya parola hatalı. Kontrol edip tekrar deneyin.'
           : 'Giriş yapılamadı. Lütfen tekrar deneyin.';
       setServerError(describeApiError(error, fallback));
@@ -62,6 +77,15 @@ export function LoginForm() {
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
+          {registered ? (
+            <p
+              role="status"
+              className="flex items-start gap-2 rounded-md border border-border bg-info-soft p-3 text-sm font-medium"
+            >
+              Kaydınız alındı. E-posta adresiniz ve parolanızla giriş yapabilirsiniz. Adres daha
+              önce kayıtlıysa size bilgi e-postası gönderdik.
+            </p>
+          ) : null}
           <FormError message={serverError} />
           <FormField
             control={form.control}

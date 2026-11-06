@@ -23,8 +23,16 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Parolanızı yazın.').max(PASSWORD_MAX_LENGTH, 'Parola çok uzun.'),
 });
 
+// Backend RegisterRequest.tenant_name: boşluklar kırpılır, 1-120 karakter.
+export const TENANT_NAME_MAX_LENGTH = 120;
+
 export const registerSchema = z.object({
   email,
+  tenantName: z
+    .string()
+    .trim()
+    .min(1, 'İşletme veya mağaza adınızı yazın.')
+    .max(TENANT_NAME_MAX_LENGTH, `Ad en fazla ${TENANT_NAME_MAX_LENGTH} karakter olabilir.`),
   password: newPassword,
   acceptTerms: z.boolean().refine((value) => value, {
     message: 'Devam etmek için kullanım koşullarını kabul etmelisiniz.',

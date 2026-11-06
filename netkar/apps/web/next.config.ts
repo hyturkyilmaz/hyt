@@ -22,7 +22,18 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   async rewrites() {
-    return [{ source: '/api/v1/:path*', destination: `${apiBaseUrl}/api/v1/:path*` }];
+    // Backend yolları /v1/... biçimindedir (services/api: api_router prefix="/v1"; "/api" öneki yok).
+    // Tarayıcı aynı kökende /api/v1/... çağırır; vekil önekteki "/api" kısmını atar.
+    return [{ source: '/api/v1/:path*', destination: `${apiBaseUrl}/v1/:path*` }];
+  },
+  async redirects() {
+    // Backend e-postalarındaki bağlantılar İngilizce yollar kullanır (WEB_BASE_URL + /login,
+    // /forgot-password, /reset-password?token=...). Web yolları Türkçedir; sorgu dizesi korunur.
+    return [
+      { source: '/login', destination: '/giris', permanent: false },
+      { source: '/forgot-password', destination: '/sifre-sifirla', permanent: false },
+      { source: '/reset-password', destination: '/sifre-sifirla', permanent: false },
+    ];
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

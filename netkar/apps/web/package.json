@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "e2e:gercek-api": "playwright test -c playwright.real-api.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "5.2.2",

@@ -5,6 +5,8 @@ export const PUBLIC_PAGES = [
   { path: '/kayit', name: 'kayit', h1: /Hesap oluşturun/ },
   { path: '/iki-adim', name: 'iki-adim', h1: /İki adımlı doğrulama/ },
   { path: '/sifre-sifirla', name: 'sifre-sifirla', h1: /Parolanızı sıfırlayın/ },
+  { path: '/kullanim-kosullari', name: 'kullanim-kosullari', h1: /^Kullanım koşulları$/ },
+  { path: '/kvkk-aydinlatma-metni', name: 'kvkk-aydinlatma-metni', h1: /^KVKK aydınlatma metni$/ },
 ] as const;
 
 export const PANEL_PAGES = [

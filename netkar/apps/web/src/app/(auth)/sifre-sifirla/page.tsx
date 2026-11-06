@@ -15,8 +15,8 @@ export default async function PasswordResetPage({
 }) {
   const { token } = await searchParams;
   const value = Array.isArray(token) ? token[0] : token;
-  // Makul uzunlukta ve yalnız URL güvenli karakterler içeren token kabul edilir.
-  if (value && /^[A-Za-z0-9._~-]{16,512}$/.test(value)) {
+  // Backend token şeması 20-200 karakter; makul uzunlukta ve yalnız URL güvenli karakterler içeren token kabul edilir.
+  if (value && /^[A-Za-z0-9._~-]{20,200}$/.test(value)) {
     return <PasswordResetConfirmForm token={value} />;
   }
   return <PasswordResetRequestForm />;
