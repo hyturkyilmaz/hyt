@@ -67,7 +67,10 @@ Testler gerçek PostgreSQL 16 kullanır:
 | `TRENDYOL_CONNECT_TIMEOUT_SECONDS` / `TRENDYOL_READ_TIMEOUT_SECONDS` | hayır | 5 / 20 | Bağlantı ve okuma zaman aşımı. |
 | `TRENDYOL_MAX_RETRIES` | hayır | 4 | 429, 5xx ve ağ hatasında yeniden deneme sayısı (üst sınır 10). |
 | `TRENDYOL_BACKOFF_BASE_SECONDS` / `TRENDYOL_BACKOFF_CAP_SECONDS` | hayır | 1 / 30 | Üstel geri çekilme tabanı ve üst sınırı (saniye). |
+| `DATA_KEKS` / `DATA_KEK_ACTIVE` | prod'da evet | | Pazaryeri anahtarları için zarf şifreleme KEK halkası: `kid:base64,kid2:base64` ve etkin kid (ADR-0004). Boşsa yalnız prod dışında `DATA_ENCRYPTION_KEY`'den türetilen geliştirme KEK'i kullanılır. |
 | `RATE_LIMIT_MARKETPLACE_IP` / `_TENANT` | hayır | 20 / 10 | 1 saatte bağlantı ekleme denemesi (IP / kiracı); her deneme Trendyol'a doğrulama çağrısı yapar. |
+| `RATE_LIMIT_MARKETPLACE_GLOBAL_PER_MINUTE` | hayır | 60 | Tüm kiracılar için dakikalık platform tavanı; aşılınca Trendyol'a gidilmez, 503 `marketplace-busy`. |
+| `TRENDYOL_VALIDATION_MAX_WAIT_SECONDS` / `_DEADLINE_SECONDS` | hayır | 5 / 15 | Bağlantı doğrulama isteği içinde toplam bekleme bütçesi (Retry-After, kova, geri çekilme) ve toplam son tarih. Senkron işleri bu sınırlara tabi değildir. |
 | `MAX_MARKETPLACE_BODY_BYTES` | hayır | 8192 | `/v1/marketplace-accounts` gövde üst sınırı. |
 
 Oturum süreleri (boşta 12 saat, mutlak 30 gün), sıfırlama token ömrü (30 dk) ve deneme süresi (14 gün) `app/core/config.py` içinde ayarlanabilir alanlardır.
@@ -134,7 +137,7 @@ Kurallar:
 - **Yeniden deneme.** 429, 500/502/503/504 ve ağ hatalarında "eşit jitter" üstel geri çekilme (taban 1 sn, üst sınır 30 sn, en fazla `TRENDYOL_MAX_RETRIES`); `Retry-After` kırpılarak uygulanır. 401 ve 403'te yeniden deneme yok: `TrendyolAuthError` / `TrendyolForbiddenError`.
 - **PII.** Müşteri adı, soyadı, adres, telefon, TCKN, e-posta, müşteri kimliği, kullanıcı adı, vergi no ve fatura bağlantısı hiçbir modelde tanımlı değildir (`extra="ignore"`); ham yanıt hiçbir yere loglanmaz. Teslimat adresinden yalnız il adı ve il kodu alınır. Çağrı meta logu yalnız yöntem, uç nokta grubu, durum, süre ve deneme sırasını içerir (gövde, sorgu dizesi ve kimlik bilgisi yok; httpx'in kendi URL logu kapatılmıştır).
 - **Bağlantı doğrulama.** `verify_connection`: stok ve fiyat odaklı onaylı ürün v2, `size=1` (gerekçe ADR-0003 §4).
-- **Anahtar saklama.** `marketplace_accounts.api_key_encrypted` ve `api_secret_encrypted`: AES-256-GCM (`FieldCipher`), AAD satır kimliği + alan adıdır (şifreli değer başka satıra taşınamaz). Listelemede şifreli sütunlar hiç okunmaz (`deferred`). İptalde (`revoke`) iki alan da NULL olur, satır silinmez. Satıcı, anahtarı Trendyol panelinden de silmelidir.
+- **Anahtar saklama.** `marketplace_accounts.api_key_encrypted` ve `api_secret_encrypted`: zarf şifreleme (`EnvelopeCipher`, ADR-0004): kayıt başına rastgele DEK (AES-256-GCM), DEK KEK ile sarılı; biçim `v2:<kid>:<sarılı_dek>:<veri>`; AAD kiracı + platform + satıcı + hesap + alan adıdır (başka kiracıya/satıcıya/satıra taşınan değer çözülemez). Eski `v1:` değerler `python -m app.tools.migrate_envelope` ile dönüştürülür; KEK döndürme `python -m app.tools.rewrap_keys` ile (ikisi de varsayılan kuru çalıştırma, idempotent; ortam: `DATABASE_ADMIN_URL`). Listelemede ve `find_live_account`'ta şifreli sütunlar okunmaz (`deferred`). `netkar_app` yalnız gerekli sütunlarda UPDATE yapabilir (migrasyon 0005). İptalde (`revoke`) iki alan da NULL olur, satır silinmez. Satıcı, anahtarı Trendyol panelinden de silmelidir.
 - **Yeni zorunlu testler** (hepsi sahte taşımayla): `tests/test_trendyol_basics.py` (User-Agent, token bucket, pencere bölme), `tests/test_trendyol_client.py` (429 geri çekilme ve deneme sayısı, 401/403'te yeniden deneme yok, uç nokta sözleşmeleri), `tests/test_trendyol_models_pii.py` (PII hiçbir nesnede ve log'da yok), `tests/test_marketplace_accounts.py` (anahtarlar DB'de şifreli, RLS izolasyonu, iptal sonrası alanlar boş).
 
 ## Kiracı bağlamı kuralı

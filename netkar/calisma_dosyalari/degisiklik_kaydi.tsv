@@ -8,3 +8,4 @@
 "2026-11-06 11:10 IST"	"repo netkar/"	"kod"	""	"S1 web iskeleti (8d59fc7) ve backend+CI (7728f52); Trendyol teyit taslağı (a620e28)"	"Koordinatör turu, S1"
 "2026-11-06 12:10 IST"	"repo netkar/"	"güvenlik"	""	"S1 denetim düzeltmeleri: Y-01, O-01..O-04, D-04, D-06, D-08; migrasyon 0003; ADR 0002"	"Bağımsız denetim bulguları (opus) kapatıldı"
 "2026-11-07 10:50 IST"	"repo netkar/"	"kod"	""	"S2 Trendyol istemcisi + marketplace_accounts (migrasyon 0004) + ADR 0003; S3 kâr motoru alan modeli + 41 altın test"	"Koordinatör turları 6-7 Kas"
+"2026-11-07 11:30 IST"	"repo netkar/"	"güvenlik"	""	"S2 denetim düzeltmeleri: zarf şifreleme (ADR 0004, migrasyon 0005, rewrap/migrate araçları), D-01..D-04, D-05/D-06 kısmi, B-02, B-04, sayfalama"	"Bağımsız denetim (opus) bulguları"

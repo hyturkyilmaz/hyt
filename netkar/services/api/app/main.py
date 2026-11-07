@@ -12,6 +12,7 @@ from app.core.clientip import ClientIpResolver
 from app.core.config import Settings, get_settings
 from app.core.crypto import FieldCipher
 from app.core.email import EmailSender, FileEmailSender, InMemoryOutbox
+from app.core.envelope import EnvelopeCipher
 from app.core.errors import install_error_handlers
 from app.core.limits import BodyLimitMiddleware, IpRateLimitMiddleware, IpRule
 from app.core.logging import configure_logging
@@ -76,6 +77,8 @@ def create_app(
     app.state.settings = settings
     app.state.client_ip_resolver = ClientIpResolver(settings.trusted_proxy_cidrs, settings.trusted_proxy_hops)
     app.state.cipher = FieldCipher(settings.master_key)
+    # Pazaryeri sırları için zarf şifreleme (KEK halkası ayrı ortam değişkenlerinden gelir).
+    app.state.envelope = EnvelopeCipher(settings.key_ring)
     if email_sender is None:
         email_sender = (
             InMemoryOutbox()

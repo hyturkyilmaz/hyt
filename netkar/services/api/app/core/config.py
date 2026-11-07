@@ -12,6 +12,8 @@ from typing import Annotated, Literal
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from app.core.crypto import derive_key
+from app.core.envelope import KeyRing, KeyRingError
 from app.integrations.trendyol.errors import TrendyolConfigError
 from app.integrations.trendyol.identity import validate_integrator_name
 
@@ -36,6 +38,14 @@ class Settings(BaseSettings):
 
     # AES-256-GCM ana anahtarı: 32 bayt, base64. Repoya girmez.
     data_encryption_key: SecretStr
+
+    # Pazaryeri anahtarları için zarf şifreleme KEK halkası (G05, ADR-0004).
+    # DATA_KEKS: virgülle ayrılmış "kid:base64(32 bayt)" listesi; DATA_KEK_ACTIVE: yeni şifrelemede
+    # kullanılan kid. Döndürme: yeni kid eklenir, etkin yapılır, `python -m app.tools.rewrap_keys`
+    # çalıştırılır, eski kid sonra listeden çıkarılır. prod'da zorunludur; diğer ortamlarda
+    # verilmezse DATA_ENCRYPTION_KEY'den türetilen geliştirme KEK'i kullanılır.
+    data_keks: SecretStr | None = None
+    data_kek_active: str | None = None
 
     pwned_check_enabled: bool = False
     web_base_url: str = "http://localhost:3000"
@@ -86,9 +96,16 @@ class Settings(BaseSettings):
     trendyol_max_retries: int = Field(4, ge=0, le=10)
     trendyol_backoff_base_seconds: float = Field(1.0, gt=0)
     trendyol_backoff_cap_seconds: float = Field(30.0, gt=0)
-    # Bağlantı ekleme çağrısı Trendyol'a gider: IP ve kiracı başına saatlik deneme sınırı.
+    # Bağlantı doğrulama isteğin içinde çalışır: Retry-After ve kova beklemesi için toplam bekleme
+    # bütçesi (sn) ve toplam son tarih (sn). Aşılırsa 503 "daha sonra deneyin". Senkron işleri
+    # bu sınırlara tabi değildir (istemci fabrikasında `max_wait` verilmez).
+    trendyol_validation_max_wait_seconds: float = Field(5.0, gt=0)
+    trendyol_validation_deadline_seconds: float = Field(15.0, gt=0)
+    # Bağlantı ekleme çağrısı Trendyol'a gider: IP ve kiracı başına saatlik deneme sınırı, ayrıca
+    # tüm kiracılar için platform geneli dakikalık tavan (tek çıkış IP'sinin itibarını korur).
     rate_limit_marketplace_ip: int = Field(20, ge=1)
     rate_limit_marketplace_tenant: int = Field(10, ge=1)
+    rate_limit_marketplace_global_per_minute: int = Field(60, ge=1)
     # /v1/marketplace-accounts gövde üst sınırı (bayt): üç kısa alan beklenir.
     max_marketplace_body_bytes: int = Field(8 * 1024, ge=1)
 
@@ -104,6 +121,21 @@ class Settings(BaseSettings):
             return validate_integrator_name(value)
         except TrendyolConfigError as exc:
             raise ValueError(str(exc)) from None
+
+    @model_validator(mode="after")
+    def _validate_kek_ring(self) -> Settings:
+        """KEK halkası geçerli olmalı; prod'da açıkça verilmeli. İleti anahtar değerini yazmaz."""
+        if self.data_keks is None and self.data_kek_active is None:
+            if self.environment == "prod":
+                raise ValueError("ENVIRONMENT=prod iken DATA_KEKS ve DATA_KEK_ACTIVE zorunludur")
+            return self
+        if self.data_keks is None or self.data_kek_active is None:
+            raise ValueError("DATA_KEKS ve DATA_KEK_ACTIVE birlikte verilmeli")
+        try:
+            KeyRing.parse(self.data_keks.get_secret_value(), self.data_kek_active)
+        except KeyRingError as exc:
+            raise ValueError(f"DATA_KEKS/DATA_KEK_ACTIVE geçersiz: {exc}") from None
+        return self
 
     @field_validator("trusted_proxy_cidrs", mode="before")
     @classmethod
@@ -156,6 +188,13 @@ class Settings(BaseSettings):
     def master_key(self) -> bytes:
         """Çözülmüş 32 baytlık ana anahtar."""
         return base64.b64decode(self.data_encryption_key.get_secret_value())
+
+    @property
+    def key_ring(self) -> KeyRing:
+        """Pazaryeri sırları için KEK halkası (verilmediyse geliştirme KEK'i, yalnız prod dışı)."""
+        if self.data_keks is not None and self.data_kek_active is not None:
+            return KeyRing.parse(self.data_keks.get_secret_value(), self.data_kek_active)
+        return KeyRing({"dev-derived": derive_key(self.master_key, "kek-dev")}, "dev-derived")
 
     @property
     def libpq_url(self) -> str:

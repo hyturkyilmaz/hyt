@@ -10,7 +10,7 @@ Hedef: OWASP ASVS 5.0.0 (30 Mayıs 2025) Seviye 2. Bölüm numaraları 4.0.3'ten
 | G02 | Kimlik doğrulama | argon2id, en az 12 karakter, sızmış parola kontrolü (k-anonimlik), 2FA TOTP, giriş deneme limiti | Birim + e2e | ASVS V2, API2 |
 | G03 | Oturum | HttpOnly, Secure, SameSite=Lax çerez; 12 saat boşta, 30 gün mutlak; oturum yenileme ve çıkışta iptal | e2e | ASVS V3 |
 | G04 | CSRF | Çift gönderim token + SameSite | Test | A01 |
-| G05 | Pazaryeri anahtarları | AES-256-GCM zarf şifreleme; KEK ortam değişkeninde; anahtar ekranda bir kez gösterilmez, yalnız son 4 hane | Birim test + kod incelemesi | ASVS V6, A02 |
+| G05 | Pazaryeri anahtarları | AES-256-GCM zarf şifreleme (kayıt başına DEK, KEK ile sarılı, kid'li ve döndürülebilir: ADR-0004); KEK ortam değişkeninde (KMS faz 2); anahtar ekranda bir kez gösterilmez, yalnız son 4 hane | Birim test + kod incelemesi | ASVS V6, A02 |
 | G06 | Girdi doğrulama | Pydantic/Zod şemaları, boyut limitleri, Excel içe aktarmada formül enjeksiyonu (CSV injection) engeli | Birim test | A03 |
 | G07 | Rate limit | IP + kullanıcı + kiracı bazında; giriş, kayıt, şifre sıfırlama, ihracat uç noktalarında sıkı | Test | API4 |
 | G08 | Hata yanıtları | RFC 9457; stack trace ve iç ayrıntı istemciye gitmez | Test | A05 |

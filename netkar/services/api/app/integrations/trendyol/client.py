@@ -22,10 +22,14 @@ import asyncio
 import json
 import logging
 import random
+import re
+import ssl
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
+from functools import lru_cache
 from types import TracebackType
 from typing import Any
 from urllib.parse import quote
@@ -43,6 +47,7 @@ from app.integrations.trendyol.errors import (
     TrendyolRequestError,
     TrendyolServerError,
     TrendyolValidationError,
+    TrendyolWaitBudgetError,
     TrendyolWindowTooLargeError,
 )
 from app.integrations.trendyol.identity import TrendyolCredentials, build_user_agent
@@ -59,7 +64,7 @@ from app.integrations.trendyol.models import (
     ShipmentPackage,
     StreamResponse,
 )
-from app.integrations.trendyol.ratelimit import EndpointGroup, RateLimiterRegistry
+from app.integrations.trendyol.ratelimit import EndpointGroup, RateLimiterRegistry, RateLimitWaitExceededError
 from app.integrations.trendyol.windows import check_order, check_span, split_window, to_epoch_ms
 
 logger = logging.getLogger("app.integrations.trendyol")
@@ -95,7 +100,74 @@ QNA_MAX_SPAN = timedelta(days=14)
 _RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 _MAX_ITER_PAGES = 100_000
 
-_PATH_SEGMENT_SAFE = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
+# Kargo faturası seri numarası: harf/rakam ile başlar; harf, rakam, '-', '_' ve '.' içerebilir; en fazla
+# 64 karakter. Yol ayırıcı, nokta bölütü ('.', '..', 'a..b') ve diğer her karakter reddedilir:
+# httpx noktalı bölütleri RFC 3986'ya göre normalize edip istek yolunu kaydırabilir (denetim B-02).
+_SERIAL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
+
+
+def _valid_serial(value: str) -> bool:
+    return _SERIAL_RE.fullmatch(value) is not None and ".." not in value and not value.endswith(".")
+
+
+@lru_cache(maxsize=1)
+def _tls_context() -> ssl.SSLContext:
+    """Ortam değişkenlerinden (SSL_CERT_FILE vb.) bağımsız, certifi güven deposu ve TLS >= 1.2."""
+    context = httpx.create_ssl_context(trust_env=False)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
+
+def _parse_json_object(content: bytes) -> dict[str, Any] | None:
+    """Gövdeyi (parasal alanlar Decimal) JSON nesnesine çevirir; geçersizse None.
+
+    Hata yolunda istisna fırlatmaz: JSONDecodeError ham gövdeyi taşıyabilir ve RecursionError aşırı
+    iç içe girdide oluşur (denetim D-03). Çağıran, None için kendi hata türünü except dışında verir.
+    """
+    try:
+        data: Any = json.loads(content, parse_float=Decimal)
+    except (ValueError, RecursionError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+@dataclass(slots=True)
+class _Reply:
+    """Tek bir HTTP denemesinin özeti. Hata durumları istisna değil bayrak olarak taşınır."""
+
+    status: int = 0
+    retry_after: str | None = None
+    body: bytes | None = None
+    failure: str | None = None  # taşıma hatası türü adı (ayrıntısız)
+    undecodable: bool = False  # bozuk Content-Encoding (httpx.DecodingError)
+    too_large: bool = False  # gövde üst sınırı aşıldı
+
+
+def _has_next_page(result: PageResponse[Any], next_page: int, collected: int, group: EndpointGroup) -> bool:
+    """Sayfa tabanlı yineleyicilerin ortak sonlandırma koşulu.
+
+    `totalPages` varsa ona uyulur. Yoksa (belgelenmiş bir sonlandırma koşulu yok) güvenli tarafta
+    kalınır: `totalElements` ulaşılana veya boş sayfa gelene kadar devam edilir; boş sayfa geldiği
+    halde `totalElements` kadar kayıt toplanmadıysa sessiz kesmek yerine hata verilir (kâr hesabı
+    eksik veriyle yapılmasın).
+    """
+    if result.total_pages is not None:
+        return bool(result.content) and next_page < result.total_pages
+    if not result.content:
+        if result.total_elements is not None and collected < result.total_elements:
+            raise TrendyolProtocolError(
+                f"eksik sayfa: totalPages yok, {collected} kayıt alındı ama totalElements "
+                f"{result.total_elements}",
+                endpoint_group=group.value,
+            )
+        return False
+    return not (result.total_elements is not None and collected >= result.total_elements)
+
+
+def _page_limit_error(group: EndpointGroup) -> TrendyolProtocolError:
+    return TrendyolProtocolError(
+        "sayfalama sınırı aşıldı: sunucu sayfalamayı sonlandırmıyor", endpoint_group=group.value
+    )
 
 
 def parse_retry_after(value: str | None) -> float | None:
@@ -167,6 +239,8 @@ class TrendyolClient:
             write=self._config.write_timeout,
             pool=self._config.pool_timeout,
         )
+        # trust_env=False: HTTPS_PROXY, NO_PROXY, SSL_CERT_FILE gibi ortam değişkenleri güveni
+        # değiştiremez (denetim B-04). Özel taşıma (test) verilmişse TLS bağlamı ona aittir.
         self._http = httpx.AsyncClient(
             base_url=self._config.base_url,
             auth=httpx.BasicAuth(
@@ -176,6 +250,8 @@ class TrendyolClient:
             timeout=timeout,
             transport=transport,
             follow_redirects=False,
+            trust_env=False,
+            verify=_tls_context() if transport is None else True,
         )
 
     @property
@@ -215,45 +291,115 @@ class TrendyolClient:
             },
         )
 
+    async def _send(self, path: str, query: dict[str, Any]) -> _Reply:
+        """Tek bir GET denemesi. Yalnız 2xx yanıtın gövdesi okunur ve üst sınırla kırpılır.
+
+        Hata yolları istisna yerine bayrak döndürür; böylece Trendyol hatası `except` bloğunun
+        dışında fırlatılabilir (özgün istisna URL veya başlık ayrıntısı taşıyabilir, `__context__`
+        boş kalır).
+        """
+        reply = _Reply()
+        limit = self._config.max_response_bytes
+        try:
+            async with self._http.stream("GET", path, params=query) as response:
+                reply.status = response.status_code
+                reply.retry_after = response.headers.get("Retry-After")
+                if not 200 <= reply.status < 300:
+                    return reply
+                declared = response.headers.get("Content-Length", "")
+                if declared.isdigit() and int(declared) > limit:
+                    reply.too_large = True
+                    return reply
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in response.aiter_bytes():
+                    total += len(chunk)
+                    if total > limit:
+                        reply.too_large = True
+                        return reply
+                    chunks.append(chunk)
+                reply.body = b"".join(chunks)
+        except httpx.DecodingError:
+            reply.undecodable = True
+        except httpx.RequestError as exc:
+            reply.failure = type(exc).__name__
+        return reply
+
+    def _exceeds_budget(self, waited: float, delay: float) -> bool:
+        budget = self._config.max_total_wait
+        return budget is not None and waited + delay > budget
+
     async def _get_json(
         self, group: EndpointGroup, endpoint: str, path: str, params: Mapping[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Hız sınırı, yeniden deneme ve hata eşlemesiyle GET; ayrıştırılmış JSON (Decimal'li) döner."""
+        """Hız sınırı, yeniden deneme ve hata eşlemesiyle GET; ayrıştırılmış JSON (Decimal'li) döner.
+
+        `max_total_wait` verilmişse kova beklemesi, geri çekilme ve Retry-After toplamı bu bütçeyi
+        aşamaz: aşılacaksa uyunmadan hata döner (bağlantı doğrulama istek içinde çalıştığı için).
+        """
         query = _clean(params or {})
+        budget = self._config.max_total_wait
+        waited = 0.0
         attempt = 0
         while True:
-            await self._limiter.acquire(self._seller_id, group, endpoint)
-            started = self._monotonic()
-            response: httpx.Response | None = None
-            failure: str | None = None
+            over_budget = False
             try:
-                response = await self._http.get(path, params=query)
-            except httpx.TransportError as exc:
-                failure = type(exc).__name__
-            if response is None:
-                self._log_call(group, endpoint, 0, started, attempt)
-                if attempt >= self._config.max_retries:
+                waited += await self._limiter.acquire(
+                    self._seller_id,
+                    group,
+                    endpoint,
+                    max_wait=None if budget is None else max(0.0, budget - waited),
+                )
+            except RateLimitWaitExceededError:
+                over_budget = True
+            if over_budget:
+                raise TrendyolWaitBudgetError(
+                    "istek sınırı beklemesi bütçeyi aşıyor", endpoint_group=group.value
+                )
+            started = self._monotonic()
+            reply = await self._send(path, query)
+            self._log_call(group, endpoint, reply.status, started, attempt)
+            if reply.undecodable:
+                raise TrendyolProtocolError("yanıt çözülemedi (Content-Encoding)", endpoint_group=group.value)
+            if reply.too_large:
+                raise TrendyolProtocolError("yanıt gövdesi üst sınırı aşıyor", endpoint_group=group.value)
+            status = reply.status
+            if reply.failure is not None:
+                delay = self._retry_delay(attempt, None)
+                if attempt >= self._config.max_retries or self._exceeds_budget(waited, delay):
                     # Özgün istisna taşınmaz (URL ve başlık ayrıntısı içerebilir); except bloğunun
                     # dışında fırlatılır ki __context__ de boş kalsın.
-                    raise TrendyolNetworkError(f"bağlantı hatası ({failure})", endpoint_group=group.value)
-                await self._sleep(self._retry_delay(attempt, None))
+                    raise TrendyolNetworkError(
+                        f"bağlantı hatası ({reply.failure})", endpoint_group=group.value
+                    )
+                await self._sleep(delay)
+                waited += delay
                 attempt += 1
                 continue
-
-            status = response.status_code
-            self._log_call(group, endpoint, status, started, attempt)
             if 200 <= status < 300:
-                return self._parse_body(response, group)
+                # Ham gövde yalnız bu ayrıştırmada yaşar; hata yolunda çerçeve yerellerinde kalmaz.
+                parsed = _parse_json_object(reply.body or b"")
+                reply.body = None
+                if parsed is None:
+                    raise TrendyolProtocolError(
+                        "yanıt geçerli bir JSON nesnesi değil", endpoint_group=group.value
+                    )
+                return parsed
             if status in _RETRY_STATUSES:
-                retry_after = parse_retry_after(response.headers.get("Retry-After"))
+                retry_after = parse_retry_after(reply.retry_after)
                 delay = self._retry_delay(attempt, retry_after)
                 if status == 429:
                     # Aynı satıcı ve grup için paralel çağrılar da beklesin.
                     self._limiter.penalize(self._seller_id, group, endpoint, delay)
-                if attempt >= self._config.max_retries:
+                exhausted = attempt >= self._config.max_retries
+                if exhausted or self._exceeds_budget(waited, delay):
                     if status == 429:
-                        raise TrendyolRateLimitedError(
-                            "istek sınırı aşıldı (429)", status=status, endpoint_group=group.value
+                        if exhausted:
+                            raise TrendyolRateLimitedError(
+                                "istek sınırı aşıldı (429)", status=status, endpoint_group=group.value
+                            )
+                        raise TrendyolWaitBudgetError(
+                            "429 bekleme süresi bütçeyi aşıyor", status=status, endpoint_group=group.value
                         )
                     raise TrendyolServerError(
                         f"sunucu hatası ({status})", status=status, endpoint_group=group.value
@@ -269,6 +415,7 @@ class TrendyolClient:
                     },
                 )
                 await self._sleep(delay)
+                waited += delay
                 attempt += 1
                 continue
             if status == 401:
@@ -290,31 +437,18 @@ class TrendyolClient:
         return delay
 
     @staticmethod
-    def _parse_body(response: httpx.Response, group: EndpointGroup) -> dict[str, Any]:
-        data: Any = None
-        valid = True
-        try:
-            # parse_float=Decimal: parasal alanlarda ikili kayan nokta hatası olmaz.
-            data = json.loads(response.content, parse_float=Decimal)
-        except ValueError:
-            valid = False
-        # JSONDecodeError ham gövdeyi taşır: hata except bloğunun dışında fırlatılır (__context__ boş).
-        if not valid:
-            raise TrendyolProtocolError("yanıt geçerli JSON değil", endpoint_group=group.value)
-        if not isinstance(data, dict):
-            raise TrendyolProtocolError("yanıt bir JSON nesnesi değil", endpoint_group=group.value)
-        return data
-
-    @staticmethod
     def _validate[T: BaseModel](model: type[T], data: dict[str, Any], group: EndpointGroup) -> T:
         """Yanıtı modele doğrular. Bu çağrı PII atma noktasıdır (`extra="ignore"`).
 
-        ValidationError girdi değerlerini taşır: zincirlenmez, yalnız hata türü bildirilir.
+        ValidationError girdi değerlerini taşır: zincirlenmez, yalnız hata türü bildirilir. Başarısız
+        olunca ham sözlük yerinde boşaltılır: çağıran çerçevelerin yerellerinde (traceback, Sentry
+        `include_local_variables`) ham yanıt kalmaz (denetim D-01).
         """
         try:
             return model.model_validate(data)
-        except ValidationError:
+        except (ValidationError, RecursionError):
             pass
+        data.clear()
         raise TrendyolProtocolError("yanıt beklenen şemaya uymuyor", endpoint_group=group.value)
 
     def _page[T: BaseModel](
@@ -388,7 +522,14 @@ class TrendyolClient:
         """
         for window_start, window_end in split_window(start, end, ORDERS_MAX_SPAN):
             page = 0
-            while True:
+            collected = 0
+            for _ in range(_MAX_ITER_PAGES):
+                if (page + 1) * size > ORDERS_WINDOW_RESULTS:
+                    # totalPages şişmiş ama totalElements pencere içinde: istemci hatası değil,
+                    # sunucu tutarsızlığıdır (protokol hatası).
+                    raise TrendyolProtocolError(
+                        "totalPages v2/orders erişim penceresini aşıyor", endpoint_group="orders"
+                    )
                 result = await self.get_shipment_packages(
                     start=window_start, end=window_end, page=page, size=size, status=status
                 )
@@ -397,8 +538,11 @@ class TrendyolClient:
                 for package in result.content:
                     yield package
                 page += 1
-                if not result.content or page >= (result.total_pages or 0):
+                collected += len(result.content)
+                if not _has_next_page(result, page, collected, EndpointGroup.ORDERS):
                     break
+            else:
+                raise _page_limit_error(EndpointGroup.ORDERS)
 
     async def get_shipment_packages_stream(
         self,
@@ -469,6 +613,8 @@ class TrendyolClient:
                     )
                 seen.add(result.next_cursor)
                 cursor = result.next_cursor
+            else:
+                raise _page_limit_error(EndpointGroup.ORDERS_STREAM)
 
     # --- İadeler -----------------------------------------------------------------------------
 
@@ -514,13 +660,16 @@ class TrendyolClient:
     ) -> AsyncIterator[Claim]:
         """İadeleri sayfa sayfa gezer."""
         page = 0
+        collected = 0
         for _ in range(_MAX_ITER_PAGES):
             result = await self.get_claims(start=start, end=end, page=page, size=size, status=status)
             for claim in result.content:
                 yield claim
             page += 1
-            if not result.content or page >= (result.total_pages or 0):
+            collected += len(result.content)
+            if not _has_next_page(result, page, collected, EndpointGroup.CLAIMS):
                 return
+        raise _page_limit_error(EndpointGroup.CLAIMS)
 
     # --- Finans ------------------------------------------------------------------------------
 
@@ -638,6 +787,7 @@ class TrendyolClient:
     ) -> AsyncIterator[FinancialTransaction]:
         for window_start, window_end in split_window(start, end, FINANCE_MAX_SPAN):
             page = 0
+            collected = 0
             for _ in range(_MAX_ITER_PAGES):
                 result = await fetch(
                     transaction_types, start=window_start, end=window_end, page=page, size=size, **extra
@@ -645,8 +795,11 @@ class TrendyolClient:
                 for item in result.content:
                     yield item
                 page += 1
-                if not result.content or page >= (result.total_pages or 0):
+                collected += len(result.content)
+                if not _has_next_page(result, page, collected, EndpointGroup.FINANCE):
                     break
+            else:
+                raise _page_limit_error(EndpointGroup.FINANCE)
 
     def iter_settlements(
         self, transaction_types: Sequence[str], start: datetime, end: datetime, *, size: int = 500
@@ -695,7 +848,7 @@ class TrendyolClient:
         """
         _check_page(page)
         _check_size(size, 1000)
-        if not invoice_serial_number or not set(invoice_serial_number) <= _PATH_SEGMENT_SAFE:
+        if not _valid_serial(invoice_serial_number):
             raise TrendyolValidationError("fatura seri numarası geçersiz")
         data = await self._get_json(
             EndpointGroup.FINANCE,
@@ -711,13 +864,16 @@ class TrendyolClient:
     ) -> AsyncIterator[CargoInvoiceItem]:
         """Bir kargo faturasının tüm kalemlerini gezer."""
         page = 0
+        collected = 0
         for _ in range(_MAX_ITER_PAGES):
             result = await self.get_cargo_invoice_items(invoice_serial_number, page=page, size=size)
             for item in result.content:
                 yield item
             page += 1
-            if not result.content or page >= (result.total_pages or 0):
+            collected += len(result.content)
+            if not _has_next_page(result, page, collected, EndpointGroup.FINANCE):
                 return
+        raise _page_limit_error(EndpointGroup.FINANCE)
 
     # --- Ürünler -----------------------------------------------------------------------------
 
@@ -769,21 +925,24 @@ class TrendyolClient:
         testi sahte yanıtla yapılır.
         """
         page = 0
+        collected = 0
         token: str | None = None
         seen_tokens: set[str] = set()
         for _ in range(_MAX_ITER_PAGES):
             result = await self.filter_approved_products(page=page, size=size, next_page_token=token)
             for product in result.content:
                 yield product
+            collected += len(result.content)
+            if token is None and (page + 2) * size <= PRODUCT_WINDOW_RESULTS:
+                # Pencere içinde: sayfa numarasıyla ilerle, toplam sayfa bitince (veya totalPages
+                # yoksa boş sayfa/totalElements ile) dur.
+                page += 1
+                if not _has_next_page(result, page, collected, EndpointGroup.PRODUCT_READ):
+                    return
+                continue
             if not result.content:
                 return
             if token is None:
-                if (page + 2) * size <= PRODUCT_WINDOW_RESULTS:
-                    # Pencere içinde: sayfa numarasıyla ilerle, toplam sayfa bitince dur.
-                    page += 1
-                    if page >= (result.total_pages or 0):
-                        return
-                    continue
                 if (result.total_elements or 0) <= (page + 1) * size:
                     return
             # Pencere doldu (veya token modunda): sonraki sayfa için token şart.
@@ -791,6 +950,7 @@ class TrendyolClient:
                 return
             seen_tokens.add(result.next_page_token)
             token = result.next_page_token
+        raise _page_limit_error(EndpointGroup.PRODUCT_READ)
 
     async def filter_inventory_and_price(
         self, *, page: int = 0, size: int = PRODUCT_MAX_SIZE
@@ -853,6 +1013,7 @@ class TrendyolClient:
         """Soruları 14 günlük pencerelere bölerek ve sayfa sayfa gezer (`id` ile tekilleştirin)."""
         for window_start, window_end in split_window(start, end, QNA_MAX_SPAN):
             page = 0
+            collected = 0
             for _ in range(_MAX_ITER_PAGES):
                 result = await self.get_questions(
                     start=window_start, end=window_end, status=status, page=page, size=size
@@ -860,8 +1021,11 @@ class TrendyolClient:
                 for question in result.content:
                     yield question
                 page += 1
-                if not result.content or page >= (result.total_pages or 0):
+                collected += len(result.content)
+                if not _has_next_page(result, page, collected, EndpointGroup.QNA):
                     break
+            else:
+                raise _page_limit_error(EndpointGroup.QNA)
 
     async def get_question(self, question_id: int) -> Question:
         """questionsFilterById: GET /integration/qna/sellers/{id}/questions/{id}."""

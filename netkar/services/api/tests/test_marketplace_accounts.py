@@ -19,12 +19,13 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import select
 
-from app.core.crypto import DecryptionError, FieldCipher
+from app.core.crypto import DecryptionError
+from app.core.envelope import EnvelopeCipher, KeyRing
 from app.integrations.trendyol import TrendyolClient, TrendyolConfig, TrendyolCredentials
 from app.integrations.trendyol.ratelimit import RateLimiterRegistry
 from app.models import MarketplaceAccount
 from app.services.marketplace_accounts import decrypt_credentials
-from tests.conftest import TEST_KEY, Api, DatabaseInfo
+from tests.conftest import TEST_KEK, Api, DatabaseInfo
 from tests.test_rls_idor import app_tx
 from tests.trendyol_helpers import FakeTime, json_response, load_fixture
 
@@ -52,11 +53,17 @@ class FakeTrendyol:
             return json_response(load_fixture("inventory_and_price.json"))
         return json_response({"exception": "sahte"}, self.status, self.headers)
 
-    def factory(self, credentials: TrendyolCredentials, *, max_retries: int | None = None) -> TrendyolClient:
+    def factory(
+        self,
+        credentials: TrendyolCredentials,
+        *,
+        max_retries: int | None = None,
+        max_wait: float | None = None,
+    ) -> TrendyolClient:
         retries = 4 if max_retries is None else min(4, max_retries)
         return TrendyolClient(
             credentials,
-            TrendyolConfig(max_retries=retries),
+            TrendyolConfig(max_retries=retries, max_total_wait=max_wait),
             transport=httpx.MockTransport(self.handler),
             limiter=RateLimiterRegistry(clock=self.fake.monotonic, sleep=self.fake.sleep),
             sleep=self.fake.sleep,
@@ -96,8 +103,20 @@ def row(admin_conn: psycopg.Connection, account_id: str) -> dict[str, Any]:
     return dict(zip(cols, values, strict=True))
 
 
-def cipher() -> FieldCipher:
-    return FieldCipher(base64.b64decode(TEST_KEY))
+def cipher() -> EnvelopeCipher:
+    """Test uygulamasının kullandığı KEK halkasıyla zarf şifreleyici (conftest.settings)."""
+    return EnvelopeCipher(KeyRing.parse(f"kek1:{TEST_KEK}", "kek1"))
+
+
+def account_row(admin_conn: psycopg.Connection, account_id: str, **overrides: Any) -> MarketplaceAccount:
+    """Veritabanındaki satırdan, AAD'yi belirleyen alanlarla birlikte model nesnesi kurar."""
+    stored = row(admin_conn, account_id)
+    values = {
+        key: stored[key]
+        for key in ("id", "tenant_id", "platform", "seller_id", "api_key_encrypted", "api_secret_encrypted")
+    }
+    values.update(overrides)
+    return MarketplaceAccount(**values)
 
 
 # --- Ekleme ----------------------------------------------------------------------------------
@@ -144,7 +163,7 @@ def test_keys_are_encrypted_in_database_raw_sql(owner: Api, admin_conn: psycopg.
     account_id = owner.post(URL, body()).json()["id"]
     stored = row(admin_conn, account_id)
     for column in ("api_key_encrypted", "api_secret_encrypted"):
-        assert stored[column].startswith("v1:")
+        assert stored[column].startswith("v2:")
         assert API_KEY not in stored[column] and API_SECRET not in stored[column]
     assert stored["api_key_encrypted"] != stored["api_secret_encrypted"]
     # Satırın tamamı (metin gösterimi) ham sırları içermez
@@ -167,18 +186,14 @@ async def test_ciphertext_roundtrip_and_aad_binding(owner: Api, admin_conn: psyc
         URL, body(seller_id="9999", api_key="BaskaAnahtar99999", api_secret="BaskaSir9999999")
     ).json()["id"]
     c = cipher()
-    stored = row(admin_conn, first)
-    account = MarketplaceAccount(
-        id=UUID(first), seller_id=SELLER, api_key_encrypted=stored["api_key_encrypted"],
-        api_secret_encrypted=stored["api_secret_encrypted"],
-    )  # fmt: skip
-    creds = decrypt_credentials(c, account)
+    creds = decrypt_credentials(c, account_row(admin_conn, first))
     assert creds.seller_id == SELLER
     assert creds.api_key.get_secret_value() == API_KEY and creds.api_secret.get_secret_value() == API_SECRET
     # Aynı şifreli değer başka satıra kopyalanırsa çözülemez (AAD satır kimliğine bağlı)
-    moved = MarketplaceAccount(
-        id=UUID(second), seller_id=SELLER, api_key_encrypted=stored["api_key_encrypted"],
-        api_secret_encrypted=stored["api_secret_encrypted"],
+    stored = row(admin_conn, first)
+    moved = account_row(
+        admin_conn, second,
+        api_key_encrypted=stored["api_key_encrypted"], api_secret_encrypted=stored["api_secret_encrypted"],
     )  # fmt: skip
     with pytest.raises(DecryptionError):
         decrypt_credentials(c, moved)
@@ -295,14 +310,7 @@ def test_invalid_account_can_be_reconnected_in_place(owner: Api, admin_conn: psy
     assert r.status_code == 201 and r.json()["id"] == first["id"] and r.json()["status"] == "active"
     assert r.json()["api_key_last4"] == "3456"
     assert admin_conn.execute("SELECT count(*) FROM marketplace_accounts").fetchone() == (1,)
-    stored = row(admin_conn, first["id"])
-    creds = decrypt_credentials(
-        cipher(),
-        MarketplaceAccount(
-            id=UUID(first["id"]), seller_id=SELLER, api_key_encrypted=stored["api_key_encrypted"],
-            api_secret_encrypted=stored["api_secret_encrypted"],
-        ),
-    )  # fmt: skip
+    creds = decrypt_credentials(cipher(), account_row(admin_conn, first["id"]))
     assert creds.api_key.get_secret_value() == "YeniAnahtar123456"
     actions = [
         a[0]
@@ -576,4 +584,5 @@ def test_migration_0004_is_reversible(alembic_cfg: Config, admin_conn: psycopg.C
         " has_table_privilege('netkar_app', 'marketplace_accounts', 'UPDATE'),"
         " has_table_privilege('netkar_app', 'marketplace_accounts', 'DELETE')"
     ).fetchone()
-    assert privileges == (True, True, True, False)
+    # UPDATE tablo düzeyinde yok: 0005 yalnız gerekli sütunlara sütun düzeyi UPDATE verir (D-05)
+    assert privileges == (True, True, False, False)

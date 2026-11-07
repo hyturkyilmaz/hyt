@@ -1,7 +1,7 @@
 """/v1/marketplace-accounts: pazaryeri (Trendyol) bağlantıları.
 
 Yanıtlarda API anahtarı ve sırrı hiçbir zaman yer almaz (yalnız son 4 hane). Anahtarlar
-AES-256-GCM ile şifrelenir. Ekleme, Trendyol'a doğrulama çağrısı yapar ve başarısızsa hiçbir şey
+zarf şifreleme (AES-256-GCM, DEK/KEK, ADR-0004) ile şifrelenir. Ekleme, Trendyol'a doğrulama çağrısı yapar ve başarısızsa hiçbir şey
 kaydetmez. İptal satırı silmez, şifreli alanları boşaltır.
 """
 
@@ -16,8 +16,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import (
-    CipherDep,
     DbDep,
+    EnvelopeDep,
     RateLimiterDep,
     SettingsDep,
     TrendyolFactoryDep,
@@ -33,10 +33,10 @@ from app.models import MarketplaceAccount, MarketplaceAccountStatus, Platform, R
 from app.services.audit import record_audit
 from app.services.auth import AuthContext
 from app.services.marketplace_accounts import (
-    VALIDATION_MAX_RETRIES,
     encrypt_secret,
     find_live_account,
     problem_for_trendyol,
+    verify_with_deadline,
 )
 
 router = APIRouter(prefix="/marketplace-accounts", tags=["marketplace-accounts"])
@@ -63,7 +63,7 @@ async def connect_account(
     ctx: AdminDep,
     db: DbDep,
     settings: SettingsDep,
-    cipher: CipherDep,
+    envelope: EnvelopeDep,
     limiter: RateLimiterDep,
     factory: TrendyolFactoryDep,
 ) -> MarketplaceAccount:
@@ -89,6 +89,18 @@ async def connect_account(
         settings.rate_limit_marketplace_tenant,
         _HOURLY,
     )
+    # Platform geneli tavan (tüm kiracılar, tek çıkış IP'si): kiracı sınırından SONRA denetlenir ki tek
+    # kiracı kendi sınırında durup genel sayacı tüketmesin. Aşımda Trendyol'a gidilmez, 503 döner.
+    try:
+        await limiter.hit("marketplace-connect:global", settings.rate_limit_marketplace_global_per_minute, 60)
+    except ProblemError as exc:
+        raise ProblemError(
+            503,
+            "Trendyol bağlantıları şu an yoğun",
+            "marketplace-busy",
+            "Şu an çok sayıda bağlantı denemesi var. Kısa süre sonra tekrar deneyin.",
+            headers={"Retry-After": exc.headers.get("Retry-After", "30")},
+        ) from None
     ip_hash = ip_hash_for(request, settings)
 
     # Etkin bağlantı varsa Trendyol'a hiç gitmeden 409.
@@ -99,8 +111,7 @@ async def connect_account(
     # Dış çağrı sırasında veritabanı bağlantısını/işlemini tutmayız; sonra bağlam yeniden kurulur.
     await db.rollback()
     try:
-        async with factory(credentials, max_retries=VALIDATION_MAX_RETRIES) as client:
-            check = await client.verify_connection()
+        check = await verify_with_deadline(factory, credentials, settings)
     except TrendyolError as exc:
         problem, reason = problem_for_trendyol(exc)
         await set_rls_context(db, ctx.tenant_id, ctx.user_id)
@@ -134,8 +145,8 @@ async def connect_account(
             status=MarketplaceAccountStatus.ACTIVE.value,
         )
         db.add(account)
-    account.api_key_encrypted = encrypt_secret(cipher, account.id, "api_key", body.api_key)
-    account.api_secret_encrypted = encrypt_secret(cipher, account.id, "api_secret", body.api_secret)
+    account.api_key_encrypted = encrypt_secret(envelope, account, "api_key", body.api_key)
+    account.api_secret_encrypted = encrypt_secret(envelope, account, "api_secret", body.api_secret)
     account.api_key_last4 = body.api_key.get_secret_value()[-4:]
     account.status = MarketplaceAccountStatus.ACTIVE.value
     account.last_validated_at = now

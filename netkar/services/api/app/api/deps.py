@@ -14,6 +14,7 @@ from app.core.config import Settings
 from app.core.cookies import SESSION_COOKIE
 from app.core.crypto import FieldCipher, hmac_hex
 from app.core.email import EmailSender
+from app.core.envelope import EnvelopeCipher
 from app.core.errors import ProblemError
 from app.core.pwned import PwnedPasswordChecker
 from app.core.ratelimit import RateLimiter
@@ -65,6 +66,11 @@ def get_cipher(request: Request) -> FieldCipher:
     return cipher
 
 
+def get_envelope(request: Request) -> EnvelopeCipher:
+    envelope: EnvelopeCipher = request.app.state.envelope
+    return envelope
+
+
 def get_password_worker(request: Request) -> PasswordWorker:
     worker: PasswordWorker = request.app.state.password_worker
     return worker
@@ -80,6 +86,7 @@ RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 EmailSenderDep = Annotated[EmailSender, Depends(get_email_sender)]
 PwnedDep = Annotated[PwnedPasswordChecker, Depends(get_pwned_checker)]
 CipherDep = Annotated[FieldCipher, Depends(get_cipher)]
+EnvelopeDep = Annotated[EnvelopeCipher, Depends(get_envelope)]
 TrendyolFactoryDep = Annotated[TrendyolClientFactory, Depends(get_trendyol_factory)]
 
 

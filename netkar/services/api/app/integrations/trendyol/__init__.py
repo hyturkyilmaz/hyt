@@ -13,6 +13,7 @@ from app.integrations.trendyol.errors import (
     TrendyolRequestError,
     TrendyolServerError,
     TrendyolValidationError,
+    TrendyolWaitBudgetError,
     TrendyolWindowTooLargeError,
 )
 from app.integrations.trendyol.identity import (
@@ -37,6 +38,7 @@ __all__ = [
     "TrendyolRequestError",
     "TrendyolServerError",
     "TrendyolValidationError",
+    "TrendyolWaitBudgetError",
     "TrendyolWindowTooLargeError",
     "build_user_agent",
     "validate_integrator_name",

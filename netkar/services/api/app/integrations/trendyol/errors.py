@@ -36,6 +36,14 @@ class TrendyolRateLimitedError(TrendyolError):
     """429: yeniden deneme bütçesi tükendi."""
 
 
+class TrendyolWaitBudgetError(TrendyolRateLimitedError):
+    """Toplam bekleme bütçesi (Retry-After veya kova beklemesi) aşılacaktı: beklenmeden vazgeçildi.
+
+    İstek içinde çalışan çağrılar (bağlantı doğrulama) için kullanılır; kullanıcıya 503 "daha sonra
+    deneyin" olarak yansır. Bütçesiz (senkron iş) çağrılarda hiç fırlatılmaz.
+    """
+
+
 class TrendyolServerError(TrendyolError):
     """5xx: yeniden deneme bütçesi tükendi (stage ortamında 503 çoğunlukla IP yetkisizliğidir)."""
 

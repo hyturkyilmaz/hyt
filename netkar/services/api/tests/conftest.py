@@ -35,6 +35,8 @@ API_ROOT = Path(__file__).resolve().parent.parent
 PG_BIN = Path(os.environ.get("PG_BIN", "/usr/lib/postgresql/16/bin"))
 TEST_KEY = base64.b64encode(b"0123456789abcdef0123456789abcdef").decode()
 GOOD_PASSWORD = "dogru-at-pil-kalem-42"
+# Zarf şifreleme KEK'i: her test oturumunda rastgele üretilir (repoda sabit sır yok).
+TEST_KEK = base64.b64encode(os.urandom(32)).decode()
 
 
 @dataclass(frozen=True)
@@ -166,6 +168,8 @@ def settings(database: DatabaseInfo) -> Settings:
         environment="test",
         database_url=database.app_url.render_as_string(hide_password=False),
         data_encryption_key=TEST_KEY,  # type: ignore[arg-type]
+        data_keks=f"kek1:{TEST_KEK}",  # type: ignore[arg-type]
+        data_kek_active="kek1",
         email_backend="memory",
         log_level="WARNING",
         web_base_url="https://app.test.invalid",

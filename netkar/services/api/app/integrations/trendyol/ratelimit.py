@@ -92,6 +92,14 @@ class TokenBucket:
 Sleep = Callable[[float], Awaitable[None]]
 
 
+class RateLimitWaitExceededError(Exception):
+    """Jeton için gereken bekleme, izin verilen azami beklemeyi aşıyor (jeton tüketilmedi)."""
+
+    def __init__(self, needed: float) -> None:
+        super().__init__(f"kova beklemesi {needed:.1f} sn gerektiriyor")
+        self.needed = needed
+
+
 class RateLimiterRegistry:
     """(satıcı, grup) ve (satıcı, uç nokta) kovalarını yönetir; çağrı öncesi `acquire` beklenir."""
 
@@ -119,8 +127,14 @@ class RateLimiterRegistry:
             self._endpoint_buckets[ekey] = TokenBucket(self._general.per_minute, self._general.burst, now)
         return [self._group_buckets[gkey], self._endpoint_buckets[ekey]]
 
-    async def acquire(self, seller_id: str, group: EndpointGroup, endpoint: str) -> float:
-        """İlgili tüm kovalardan birer jeton alana dek bekler; toplam beklenen süreyi döndürür."""
+    async def acquire(
+        self, seller_id: str, group: EndpointGroup, endpoint: str, *, max_wait: float | None = None
+    ) -> float:
+        """İlgili tüm kovalardan birer jeton alana dek bekler; toplam beklenen süreyi döndürür.
+
+        `max_wait` verilirse ve toplam bekleme bunu aşacaksa uyumadan RateLimitWaitExceededError
+        fırlatır (jeton tüketilmez). None: sınırsız bekleme (senkron işleri).
+        """
         waited = 0.0
         while True:
             # Kritik bölümde await yok: tek olay döngüsünde atomiktir, kilit gerekmez.
@@ -131,6 +145,8 @@ class RateLimiterRegistry:
                 for bucket in buckets:
                     bucket.take(now)
                 return waited
+            if max_wait is not None and waited + wait > max_wait:
+                raise RateLimitWaitExceededError(waited + wait)
             await self._sleep(wait)
             waited += wait
 

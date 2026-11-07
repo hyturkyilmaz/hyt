@@ -40,6 +40,12 @@ class TrendyolConfig:
     backoff_cap: float = 30.0
     # Retry-After başlığına uyulur ama bu üst sınırla kırpılır.
     retry_after_cap: float = 60.0
+    # Tek bir çağrı için toplam bekleme bütçesi (kova beklemesi + geri çekilme + Retry-After), saniye.
+    # None: sınırsız (senkron işleri). İstek içinde çalışan bağlantı doğrulaması kısa bir değer verir;
+    # bütçe aşılacaksa beklenmeden hata döner (D-02).
+    max_total_wait: float | None = None
+    # Yanıt gövdesi üst sınırı (çözülmüş bayt). Aşımda TrendyolProtocolError (D-03).
+    max_response_bytes: int = 20 * 1024 * 1024
 
     def __post_init__(self) -> None:
         validate_integrator_name(self.integrator_name)
@@ -50,6 +56,10 @@ class TrendyolConfig:
             raise TrendyolConfigError("max_retries 0 ile 10 arasında olmalı")
         if self.backoff_base <= 0 or self.backoff_cap < self.backoff_base or self.retry_after_cap <= 0:
             raise TrendyolConfigError("geri çekilme süreleri geçersiz")
+        if self.max_total_wait is not None and self.max_total_wait < 0:
+            raise TrendyolConfigError("max_total_wait negatif olamaz")
+        if self.max_response_bytes <= 0:
+            raise TrendyolConfigError("max_response_bytes pozitif olmalı")
 
     @property
     def base_url(self) -> str:
