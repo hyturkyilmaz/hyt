@@ -1,6 +1,7 @@
 # Trendyol'a yazılı teyit talebi (TASLAK, gönderilmedi)
 
 Durum: Taslak. Gönderim Hasan Yasin Türkyılmaz tarafından yapılacak.
+Güncelleme 2026-11-07: Hasan metni onayladı, gönderimi kendisi yapacak (K-N07). Talep, Hasan'ın kendi mağazasının (pilot hesap, K-N06) master kullanıcısından açılır. Şirket: şahıs şirketi (K-N03). Kalan tek yer tutucu: [ÜRÜN ADI] (K-N01 açık) ve iletişim bilgileri.
 Kaynak: docs/research/01_trendyol_api.md (5 Kasım 2026), bölüm 4 "Açık Sorular".
 Not: Metindeki `[ÜRÜN ADI]`, `[AD SOYAD]` vb. yer tutucular gönderimden önce doldurulmalı. Soru numaraları (S1 ile S16) araştırma dosyasındaki sıralamayı izler.
 
