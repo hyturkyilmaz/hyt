@@ -1,0 +1,22 @@
+{
+  "page": 0,
+  "size": 500,
+  "totalPages": 1,
+  "totalElements": 2,
+  "content": [
+    {
+      "shipmentPackageType": "Gönderi Kargo Bedeli",
+      "parcelUniqueId": 7260001151141191,
+      "orderNumber": "2111681160",
+      "amount": 34.24,
+      "desi": 1
+    },
+    {
+      "shipmentPackageType": "İade Kargo Bedeli",
+      "parcelUniqueId": 7265609146531138,
+      "orderNumber": "2111161312",
+      "amount": 34.24,
+      "desi": 1
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+# NetKâr yerel geliştirme yığını.
+# Kullanım: make env && docker compose -f infra/docker-compose.yml up --build
+name: netkar
+
+x-api-environment: &api-environment
+  ENVIRONMENT: ${ENVIRONMENT:-dev}
+  PRODUCT_NAME: ${PRODUCT_NAME:-NetKâr}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  # Uygulama rolü (superuser değil). Parola URL'de olduğu için hex gibi güvenli karakterler kullanın.
+  DATABASE_URL: postgresql://netkar_app:${NETKAR_APP_PASSWORD:?NETKAR_APP_PASSWORD gerekli}@postgres:5432/${POSTGRES_DB:-netkar}
+  DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?DATA_ENCRYPTION_KEY gerekli}
+  # Pazaryeri anahtarları için zarf şifreleme KEK halkası (ADR-0004). Boşsa yalnız prod dışında
+  # DATA_ENCRYPTION_KEY'den türetilen geliştirme KEK'i kullanılır; prod'da zorunludur.
+  DATA_KEKS: ${DATA_KEKS:-}
+  DATA_KEK_ACTIVE: ${DATA_KEK_ACTIVE:-}
+  PWNED_CHECK_ENABLED: ${PWNED_CHECK_ENABLED:-false}
+  # İstemci IP'si için güvenilir vekil (ADR-0002). Boşsa X-Forwarded-For yok sayılır.
+  TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+  TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
+  EMAIL_BACKEND: ${EMAIL_BACKEND:-file}
+  EMAIL_DEV_OUTBOX_PATH: /tmp/outbox.jsonl
+  WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:3000}
+  RATE_LIMIT_LOGIN_IP: ${RATE_LIMIT_LOGIN_IP:-30}
+  RATE_LIMIT_LOGIN_EMAIL: ${RATE_LIMIT_LOGIN_EMAIL:-10}
+  RATE_LIMIT_REGISTER_IP: ${RATE_LIMIT_REGISTER_IP:-10}
+  RATE_LIMIT_RESET_IP: ${RATE_LIMIT_RESET_IP:-10}
+  RATE_LIMIT_RESET_EMAIL: ${RATE_LIMIT_RESET_EMAIL:-3}
+  RATE_LIMIT_TOTP_USER: ${RATE_LIMIT_TOTP_USER:-10}
+  RATE_LIMIT_TOTP_IP: ${RATE_LIMIT_TOTP_IP:-30}
+  TOTP_MAX_FAILURES: ${TOTP_MAX_FAILURES:-5}
+  TOTP_LOCK_SECONDS: ${TOTP_LOCK_SECONDS:-900}
+  MAX_REQUEST_BODY_BYTES: ${MAX_REQUEST_BODY_BYTES:-1048576}
+  MAX_AUTH_BODY_BYTES: ${MAX_AUTH_BODY_BYTES:-65536}
+
+x-api-hardening: &api-hardening
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-netkar}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD gerekli}
+      # Yalnız ilk açılışta 01-roles.sh tarafından okunur.
+      NETKAR_OWNER_PASSWORD: ${NETKAR_OWNER_PASSWORD:?NETKAR_OWNER_PASSWORD gerekli}
+      NETKAR_APP_PASSWORD: ${NETKAR_APP_PASSWORD:?NETKAR_APP_PASSWORD gerekli}
+      NETKAR_WORKER_PASSWORD: ${NETKAR_WORKER_PASSWORD:?NETKAR_WORKER_PASSWORD gerekli}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-netkar}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Migrasyonlar ayrı (tablo sahibi) rolle, tek seferlik çalışır.
+  migrate:
+    build:
+      context: ../services/api
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_MIGRATION_URL: postgresql://netkar_owner:${NETKAR_OWNER_PASSWORD:?NETKAR_OWNER_PASSWORD gerekli}@postgres:5432/${POSTGRES_DB:-netkar}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ../services/api
+    restart: unless-stopped
+    environment: *api-environment
+    <<: *api-hardening
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  worker:
+    build:
+      context: ../services/api
+    restart: unless-stopped
+    command: ["procrastinate", "--app=app.worker.app.app", "worker", "--concurrency", "4"]
+    # Worker ayrı DB rolüyle bağlanır (netkar_worker, ADR-0005 §6): şifreli sütunları okuyabilen tek rol.
+    # API ise netkar_app ile bağlanır ve şifreli sütunları okuyamaz. Rol parolaları ayrıdır.
+    environment:
+      <<: *api-environment
+      WORKER_DATABASE_URL: postgresql://netkar_worker:${NETKAR_WORKER_PASSWORD:?NETKAR_WORKER_PASSWORD gerekli}@postgres:5432/${POSTGRES_DB:-netkar}
+    <<: *api-hardening
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Web uygulaması ayrı bir iş akışında (apps/web) kuruluyor; dizin yoksa bu servis atlanır.
+  web:
+    build:
+      context: ../apps/web
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:8000
+      PRODUCT_NAME: ${PRODUCT_NAME:-NetKâr}
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:3000:3000"
+    profiles:
+      - web
+
+volumes:
+  pgdata:

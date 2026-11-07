@@ -1,0 +1,4 @@
+# Gitleaks yanlış pozitif parmak izleri (yalnız doğrulanmış olanlar).
+# 2505b62 marketplace_accounts.py:73 -> "api_secret=body.api_secret" değişken aktarımı, sabit sır değil.
+# Sonraki commitlerde satır içi gitleaks:allow eklendi; bu satır geçmiş commit içindir.
+2505b6281b7a8124fc7a52f8705546ef13b49b0a:netkar/services/api/app/api/v1/marketplace_accounts.py:generic-api-key:73

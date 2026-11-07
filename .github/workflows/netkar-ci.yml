@@ -1,0 +1,149 @@
+name: netkar-ci
+
+# Yalnız netkar/** (veya bu iş akışı) değişince çalışır; pull request'lerde de aynı süzgeç geçerlidir.
+on:
+  push:
+    paths:
+      - "netkar/**"
+      - ".github/workflows/netkar-ci.yml"
+  pull_request:
+    paths:
+      - "netkar/**"
+      - ".github/workflows/netkar-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: netkar-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: api (ruff, mypy, pytest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: netkar/services/api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Yalnız bu iş için atılıp kapanan servis konteyneri; gerçek sır değildir.
+          POSTGRES_PASSWORD: ci-throwaway
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      # Yönetici bağlantısı: testler rastgele adlı veritabanı ve roller kurar.
+      TEST_DATABASE_URL: postgresql://postgres:ci-throwaway@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6.3.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: netkar/services/api/uv.lock
+      - name: Bağımlılıkları kur
+        run: uv sync --frozen
+      - name: ruff check
+        run: uv run ruff check .
+      - name: ruff format
+        run: uv run ruff format --check .
+      - name: mypy
+        run: uv run mypy
+      - name: pytest (kapsam eşiği %90)
+        run: uv run pytest --cov --cov-report=term-missing
+
+  web:
+    name: web (lint, typecheck, test)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: netkar/apps/web
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          persist-credentials: false
+      - name: apps/web var mı?
+        id: gate
+        working-directory: .
+        run: echo "present=${{ hashFiles('netkar/apps/web/package.json') != '' }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4.4.0
+        if: steps.gate.outputs.present == 'true'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: netkar/apps/web/package-lock.json
+      - name: npm ci
+        if: steps.gate.outputs.present == 'true'
+        run: npm ci
+      - name: lint
+        if: steps.gate.outputs.present == 'true'
+        run: npm run lint
+      - name: typecheck
+        if: steps.gate.outputs.present == 'true'
+        run: npm run typecheck
+      - name: test
+        if: steps.gate.outputs.present == 'true'
+        run: npm test
+
+  security:
+    name: security (gitleaks, semgrep, pip-audit, npm audit, trivy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: gitleaks (sır tarama)
+        uses: gitleaks/gitleaks-action@v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: astral-sh/setup-uv@v6.3.1
+      - name: Semgrep (p/owasp-top-ten, p/python)
+        working-directory: netkar
+        run: >-
+          uvx --from semgrep==1.184.0 semgrep scan
+          --config p/owasp-top-ten --config p/python
+          --error --metrics=off --exclude services/api/tests services
+
+      - name: pip-audit (kilitli üretim bağımlılıkları)
+        working-directory: netkar/services/api
+        run: |
+          uv export --frozen --no-dev --no-emit-project --no-hashes -o "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit@2.9.0 -r "$RUNNER_TEMP/requirements.txt" --no-deps --disable-pip
+
+      - name: apps/web var mı?
+        id: gate
+        run: echo "present=${{ hashFiles('netkar/apps/web/package-lock.json') != '' }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4.4.0
+        if: steps.gate.outputs.present == 'true'
+        with:
+          node-version: "22"
+      - name: npm audit (yüksek ve üstü)
+        if: steps.gate.outputs.present == 'true'
+        working-directory: netkar/apps/web
+        run: npm audit --audit-level=high
+
+      - name: Trivy fs taraması (HIGH, CRITICAL'de başarısız)
+        # 0.0.1-0.34.2 etiketleri Mart 2026 tedarik zinciri saldırısında (CVE-2026-33634) etkilendi.
+        # 0.35.0 değiştirilemez (immutable) yayınla korunuyor; Trivy ikilisi bilinen güvenli sürüme sabitlendi.
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.69.3
+          scan-type: fs
+          scan-ref: netkar
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          scanners: vuln,secret,misconfig

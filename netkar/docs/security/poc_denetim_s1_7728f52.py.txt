@@ -1,0 +1,258 @@
+"""Denetim S1 (7728f52) kavram kanıtı testleri. Her test GEÇERSE ilgili bulgu MEVCUTTUR.
+
+Bu dosya denetçinin ayrı kopyasında çalıştırıldı; repoya eklenmedi.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import io
+import json
+import logging
+import re
+import statistics
+import time
+from collections.abc import Callable
+
+import httpx
+import psycopg
+import pyotp
+import pytest
+from sqlalchemy.exc import OperationalError
+
+from app.core.logging import JsonFormatter, MaskingFilter
+from app.core.security import hash_password
+from tests.conftest import GOOD_PASSWORD, Api, DatabaseInfo
+from tests.test_password_reset import NEW_PASSWORD, _token_from
+from tests.test_rls_idor import Tenant, app_tx, two_tenants  # noqa: F401  (fixture)
+from tests.test_totp import _enable_totp
+
+
+# --- B-01: Vekil başlığı güveni ------------------------------------------------------------
+def test_poc_xff_rightmost_rotation_bypasses_ip_limit(make_api: Callable[..., Api]) -> None:
+    """TRUST_PROXY_HEADERS=true iken en sağdaki XFF değeri istemci tarafından seçilebiliyorsa
+    (önündeki vekil eklemiyorsa, ör. Next.js rewrites) IP sınırı tamamen aşılır."""
+    api = make_api(trust_proxy_headers=True, rate_limit_login_ip=2, rate_limit_login_email=1000)
+    codes = [
+        api.post(
+            "/v1/auth/login",
+            {"email": f"u{i}@example.com", "password": "x"},
+            headers={"X-Forwarded-For": f"10.0.{i // 250}.{i % 250}"},
+        ).status_code
+        for i in range(20)
+    ]
+    assert codes == [401] * 20  # sınır 2 olmasına rağmen 429 yok
+
+
+def test_poc_without_proxy_trust_all_clients_share_one_bucket(make_api: Callable[..., Api]) -> None:
+    """TRUST_PROXY_HEADERS=false iken BFF arkasında tüm kullanıcılar vekilin IP'sini paylaşır."""
+    api = make_api(rate_limit_login_ip=3, rate_limit_login_email=1000)
+    attacker = [api.login(f"spam{i}@example.com", "x").status_code for i in range(3)]
+    assert attacker == [401, 401, 401]
+    api.register("kurban@example.com")
+    # Başka bir "kullanıcı" (aynı vekil IP'si) doğru parolayla giremiyor
+    assert api.login("kurban@example.com").status_code == 429
+
+
+# --- O-03: e-posta başına sınır ile hedefli kilitleme --------------------------------------
+def test_poc_targeted_login_lockout(make_api: Callable[..., Api]) -> None:
+    attacker = make_api(trust_proxy_headers=True)
+    victim = make_api(trust_proxy_headers=True)
+    victim.register("hedef@example.com")
+    for i in range(10):
+        attacker.post(
+            "/v1/auth/login",
+            {"email": "hedef@example.com", "password": "yanlis-parola-x"},
+            headers={"X-Forwarded-For": f"203.0.113.{i}"},
+        )
+    r = victim.post(
+        "/v1/auth/login",
+        {"email": "hedef@example.com", "password": GOOD_PASSWORD},
+        headers={"X-Forwarded-For": "198.51.100.7"},
+    )
+    assert r.status_code == 429
+
+
+# --- O-01: TOTP tekrar oynatma --------------------------------------------------------------
+def test_poc_totp_code_replay_accepted(make_api: Callable[..., Api]) -> None:
+    owner = make_api()
+    owner.signup_and_login("replay@example.com")
+    secret = _enable_totp(owner)
+    code = pyotp.TOTP(secret).now()
+
+    first = make_api()
+    assert first.login("replay@example.com").json()["status"] == "totp_required"
+    assert first.post("/v1/auth/totp/verify", {"code": code}).status_code == 200
+
+    second = make_api()  # saldırgan: aynı kodu (omuz üstünden/phishing) yeniden kullanır
+    assert second.login("replay@example.com").json()["status"] == "totp_required"
+    assert second.post("/v1/auth/totp/verify", {"code": code}).status_code == 200
+
+
+# --- O-04: parola sıfırlama TOTP'yi korur + doğrulanmamış e-posta (ön ele geçirme) ----------
+def test_poc_prehijack_totp_survives_reset(make_api: Callable[..., Api], outbox) -> None:  # type: ignore[no-untyped-def]
+    attacker = make_api()
+    attacker.signup_and_login("ceo@kurbanfirma.example")  # e-posta doğrulaması yok
+    _enable_totp(attacker)  # saldırganın authenticator'ı
+
+    victim = make_api()
+    assert victim.post("/v1/auth/password-reset/request", {"email": "ceo@kurbanfirma.example"}).status_code == 202
+    token = _token_from(outbox, "ceo@kurbanfirma.example")
+    assert (
+        victim.post("/v1/auth/password-reset/confirm", {"token": token, "new_password": NEW_PASSWORD}).status_code
+        == 204
+    )
+    # Gerçek sahip yeni parolayla giremiyor: saldırganın TOTP'si hâlâ zorunlu
+    assert victim.login("ceo@kurbanfirma.example", NEW_PASSWORD).json()["status"] == "totp_required"
+
+
+# --- O-05: istek gövdesi boyut sınırı yok ---------------------------------------------------
+def test_poc_no_request_body_size_limit(api: Api) -> None:
+    pad = "[" + ",".join(["0"] * 2_000_000) + "]"  # ~4 MB, 2 milyon öğeli liste
+    body = '{"email":"a@example.com","password":"x","pad":' + pad + "}"
+    token = api.csrf()
+    r = api.client.post(
+        "/v1/auth/login",
+        content=body.encode(),
+        headers={"Content-Type": "application/json", "X-CSRF-Token": token},
+    )
+    # 413 değil: gövde tamamen okunup JSON olarak ayrıştırıldı, sonra şema reddetti
+    assert r.status_code == 422
+    assert any(e["field"] == "pad" for e in r.json()["errors"])
+
+
+# --- O-02: argon2 olay döngüsünü bloke ediyor -------------------------------------------------
+async def test_poc_argon2_blocks_event_loop(make_app: Callable[..., object]) -> None:
+    app = make_app(rate_limit_login_ip=1000, rate_limit_login_email=1000)
+    started = time.perf_counter()
+    hash_password("olcum-icin-parola")
+    one_hash = time.perf_counter() - started
+
+    transport = httpx.ASGITransport(app=app)  # type: ignore[arg-type]
+    async with app.router.lifespan_context(app):  # type: ignore[attr-defined]
+        async with httpx.AsyncClient(transport=transport, base_url="https://testserver") as client:
+            csrf = (await client.get("/v1/auth/csrf")).json()["csrf_token"]
+            headers = {"X-CSRF-Token": csrf}
+
+            async def login(i: int) -> int:
+                r = await client.post(
+                    "/v1/auth/login", json={"email": f"x{i}@example.com", "password": "x"}, headers=headers
+                )
+                return r.status_code
+
+            async def health() -> float:
+                worst = 0.0
+                for _ in range(40):
+                    await asyncio.sleep(0.01)
+                    t = time.perf_counter()
+                    await client.get("/v1/health")
+                    worst = max(worst, time.perf_counter() - t)
+                return worst
+
+            results = await asyncio.gather(*(login(i) for i in range(8)), health())
+    assert results[:-1] == [401] * 8
+    health_latency = results[-1]
+    print(f"tek argon2 özeti: {one_hash * 1000:.0f} ms, eşzamanlı 8 girişte /health: {health_latency * 1000:.0f} ms")
+    assert health_latency > 0.8 * one_hash  # DB'ye dokunmayan uç nokta bir özet süresi kadar bekledi
+
+
+# --- D-02: zamanlama farkı (ölçüm) ------------------------------------------------------------
+def test_poc_login_timing_difference_measurement(make_api: Callable[..., Api]) -> None:
+    api = make_api(rate_limit_login_ip=10_000, rate_limit_login_email=10_000)
+    api.register("var@example.com")
+    exists, missing = [], []
+    for _ in range(25):
+        t = time.perf_counter()
+        api.login("var@example.com", "yanlis-parola-1")
+        exists.append(time.perf_counter() - t)
+        t = time.perf_counter()
+        api.login("yok@example.com", "yanlis-parola-1")
+        missing.append(time.perf_counter() - t)
+    diff_ms = (statistics.median(exists) - statistics.median(missing)) * 1000
+    print(f"medyan fark (var - yok): {diff_ms:.1f} ms")
+
+
+# --- D-05: log maskeleme: SQLAlchemy parametreleri ------------------------------------------
+def test_poc_sqlalchemy_params_leak_through_masking() -> None:
+    argon = hash_password("gizli-parola-123456")
+    exc = OperationalError(
+        "SELECT * FROM auth_gate.register_account(%(e)s, %(h)s, %(n)s, %(d)s)",
+        {"e": "kisi@example.com", "h": argon, "n": "Mağaza", "d": 14},
+        Exception("server closed the connection unexpectedly"),
+    )
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(JsonFormatter())
+    handler.addFilter(MaskingFilter())
+    logger = logging.getLogger("poc.mask")
+    logger.handlers = [handler]
+    logger.propagate = False
+    try:
+        raise exc
+    except OperationalError:
+        logger.exception("yakalanmamış hata")
+    out = json.loads(stream.getvalue())
+    assert "kisi@example.com" not in out["exc"]  # e-posta maskelendi
+    assert argon in out["exc"]  # parola özeti maskelenmedi
+
+
+def test_poc_idn_local_part_email_not_masked() -> None:
+    from app.core.logging import mask_text
+
+    assert mask_text("kullanıcı ğüşı@örnek.com.tr giriş yaptı").count("***") == 0
+
+
+# --- B-03: RLS bağlamı SQLi altında taklit edilebilir (bilgi) --------------------------------
+def test_poc_sqli_as_app_role_can_spoof_tenant_context(
+    two_tenants: tuple[Tenant, Tenant],  # noqa: F811
+    database: DatabaseInfo,
+) -> None:
+    _, b = two_tenants
+    with psycopg.connect(database.app_dsn()) as conn:
+        row = conn.execute("SELECT user_id, tenant_id, password_hash FROM auth_gate.find_user_for_login(%s)", (b.email,)).fetchone()
+        assert row is not None and row[2].startswith("$argon2id$")
+        conn.execute("SELECT set_config('app.tenant_id', %s, true)", (str(row[1]),))
+        conn.execute("SELECT set_config('app.user_id', %s, true)", (str(row[0]),))
+        sessions = conn.execute("SELECT count(*) FROM sessions").fetchone()
+        email = conn.execute("SELECT email FROM users").fetchone()
+        assert sessions is not None and sessions[0] >= 1
+        assert email == (b.email,)
+        conn.rollback()
+
+
+# --- Doğrulanan kontroller (bulgu yok) ----------------------------------------------------
+def test_ok_app_role_cannot_create_temp_objects(database: DatabaseInfo) -> None:
+    with psycopg.connect(database.app_dsn()) as conn:
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("CREATE TEMP TABLE users (id int)")
+
+
+def test_ok_local_guc_does_not_survive_commit(database: DatabaseInfo) -> None:
+    with psycopg.connect(database.app_dsn()) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', '00000000-0000-0000-0000-000000000001', true)")
+        conn.commit()
+        value = conn.execute("SELECT current_setting('app.tenant_id', true)").fetchone()
+        assert value in (("",), (None,))
+
+
+def test_ok_role_memberships(admin_conn: psycopg.Connection) -> None:
+    rows = admin_conn.execute(
+        """
+        SELECT r.rolname AS member, g.rolname AS grp, m.inherit_option, m.set_option
+        FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member JOIN pg_roles g ON g.oid = m.roleid
+        WHERE r.rolname LIKE 'netkar%' OR g.rolname LIKE 'netkar%'
+        """
+    ).fetchall()
+    assert rows == [("netkar_owner", "netkar_auth", False, True)]
+    app_tenant_upd = admin_conn.execute(
+        "SELECT has_column_privilege('netkar_app', 'tenants', 'plan', 'UPDATE'),"
+        " has_column_privilege('netkar_app', 'tenants', 'status', 'UPDATE')"
+    ).fetchone()
+    assert app_tenant_upd == (True, True)  # D-xx: en az yetki: plan/status uygulama rolüyle yazılabilir
+
+
+def test_ok_reset_link_ignores_host_header(api: Api, outbox) -> None:  # type: ignore[no-untyped-def]
+    api.register("hh@example.com")
+    api.post("/v1/auth/password-reset/request", {"email": "hh@example.com"}, headers={"Host": "evil.example"})
+    body = outbox.to("hh@example.com")[-1].body
+    assert re.search(r"https://app\.test\.invalid/reset-password\?token=", body)
