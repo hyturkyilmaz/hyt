@@ -71,7 +71,9 @@ async def connect_account(
     try:
         # Aşağıdaki satır sabit sır değil, istek gövdesinden değişken aktarımıdır (gitleaks yanlış pozitif).
         credentials = TrendyolCredentials(
-            seller_id=body.seller_id, api_key=body.api_key, api_secret=body.api_secret  # gitleaks:allow
+            seller_id=body.seller_id,
+            api_key=body.api_key,  # gitleaks:allow
+            api_secret=body.api_secret,  # gitleaks:allow
         )
     except TrendyolConfigError:
         raise ProblemError(
