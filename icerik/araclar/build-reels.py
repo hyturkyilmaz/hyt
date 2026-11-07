@@ -72,6 +72,7 @@ def main():
     ap.add_argument("--zamanlama")
     ap.add_argument("--muzik-seviye", type=float, default=0.09)
     ap.add_argument("--vurgu", default="#f29900")
+    ap.add_argument("--altyazisiz", action="store_true", help="altyazı basmadan, aynı zamanlamayla üret")
     a = ap.parse_args()
 
     senaryo = json.load(open(a.senaryo, encoding="utf-8"))
@@ -103,7 +104,10 @@ def main():
                 t += d
         is_json = os.path.join(tmp, "isler.json")
         json.dump(isler, open(is_json, "w", encoding="utf-8"), ensure_ascii=False)
-        run("node", os.path.join(BURADA, "render-altyazi.mjs"), is_json)
+        if a.altyazisiz:
+            zaman = []
+        else:
+            run("node", os.path.join(BURADA, "render-altyazi.mjs"), is_json)
 
         # 2) slayt klipleri
         klipler = []
@@ -151,7 +155,7 @@ def main():
         run("ffmpeg", "-y", "-loglevel", "error", *girdi, "-filter_complex", fc, "-map", "0:v", "-map", "[a]",
             "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart",
             "-shortest", a.cikti)
-        print(a.cikti, f"{sure:.1f} sn", "sesli" if a.ses else "sessiz önizleme (müzik + altyazı)")
+        print(a.cikti, f"{sure:.1f} sn", "sesli" if a.ses else ("müzikli, altyazısız" if a.altyazisiz else "sessiz önizleme (müzik + altyazı)"))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
