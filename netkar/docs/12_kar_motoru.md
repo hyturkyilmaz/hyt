@@ -582,3 +582,108 @@ Testlerdeki tarife ve hizmet bedeli değerleri kurgusaldır; üretimde kullanıl
 | K32 | Gramaj provizyonu, işçilik bedeli | Düşük |
 
 K29 ile K32 v1 altın testlerinde yoktur; pilot verisi ve §9 cevapları geldikten sonra senaryo eklenecek.
+
+---
+
+## 11. Uygulama notları (kâr motoru kodu, `services/api/app/profit/`)
+
+Bu bölüm kuralları değiştirmez; kuralların koddaki karşılığını ve genişletme noktalarını anlatır. Kural ile kod
+çelişirse bu belgenin §1-§10 kısmı doğrudur (önce belge, sonra betik, sonra altın test, kod en son değişir).
+
+### 11.1 İlkeler
+- **Saf ve deterministik:** `calculate_profit(ProfitInput) -> ProfitResult`. Veritabanı, ağ, dosya, rastgelelik ve
+  saat yok; tarihler girdi olarak gelir (sipariş günü İstanbul takvim günü, dönüşümü `schema_v1.istanbul_day`).
+  `tests/test_profit_purity.py` yasak içe aktarmaları, saat çağrılarını, `float` ve em dash kullanımını denetler.
+- **Yalnız Decimal ve Fraction:** Bölme gerektiren her işlem tam hassasiyetli `Fraction` ile yapılır, kuruşa tek
+  yuvarlama fonksiyonu (`money.rnd`, ROUND_HALF_UP) ile inilir (K01). Ara adımlar yuvarlanmaz.
+- **Girdi ve çıktı değişmezdir** (frozen dataclass); motorun iç birikim nesnesi (`work.LineWork`) dışarı sızmaz.
+- **Tahmin uydurulmaz:** ayar yoksa (kargo tarifesi, hizmet bedeli tahmini) kalem `eksik` kaynaklı olur ya da 0
+  kalır ve uyarı verir; K29-K32 için tahmini hesap yoktur, yalnız "teyit bekliyor" bayrağı vardır.
+
+### 11.2 Modül yapısı ve kural eşlemesi
+
+| Modül | İçerik | Kurallar |
+|---|---|---|
+| `money.py` | `rnd`, `split_inclusive/exclusive`, `allocate` (en büyük kalan), `percent_of`, `ratio`, `fmt`, `to_decimal` | K01, K02, K24 |
+| `enums.py`, `constants.py` | Durum, kaynak, uyarı kodları; ekstre tipi kümeleri ve komisyon işaret tablosu | K05, K14, K22, K26 |
+| `settings.py` | `ProfitSettings`, eşikler (`WarningThresholds`), tarife, değişken gider tanımı | §8, K07, K08, K17, K23 |
+| `inputs.py` | Girdi alan modeli (`Order`, `OrderLine`, `SettlementRow`, `OtherFinancialRow`, `CargoInvoice`, `Claim`, `CostRecord`, `AdRecord`, `CompensationTicket`) ve `ProfitInputError` | K03, K27 |
+| `settlement.py` | Ekstre eşleştirme, satış, iade, komisyon, hakediş düzeltmesi, iç tutarlılık | K04-K07, K11, K27, K28 |
+| `costs.py` | İade kalemi sayımı, ürün maliyeti (geçerlilik tarihi), değişken giderler | K10, K16, K17 |
+| `shipping.py` | Tarife tahmini, fatura KDV tespiti, kesin kargo, iade kargo, dağıtım | K08, K09, K12 |
+| `fees.py` | Platform hizmet bedeli, ceza, erken ödeme, stopaj ekstresi, sınıflandırılamayan kesinti | K13, K14, K18 (ekstre), K19 |
+| `advertising.py` | Reklam dağıtımı (eşlenen, eşlenmeyen, satışsız ürün) | K15 |
+| `lines.py` | Durum makinesi, tahmini-kesin fark tespiti, KDV etkisi, nakit akışı, satır çıktısı | K18, K20-K23, K25 |
+| `aggregate.py` | Ürün ve dönem toplulaştırma, marj, ROAS, başabaş ROAS | K25 |
+| `pending.py` | K29-K32 yer tutucu: teyit bekleyen kural kaydı ve bayrak | K29-K32 |
+| `engine.py` | Adımları sırayla çağıran giriş noktası | hepsi |
+| `schema_v1.py` | Altın test şeması (Trendyol alan adları + `netkar_` alanları) <-> alan modeli | README şeması |
+| `work.py`, `results.py` | İç birikim nesnesi; değişmez çıktı modeli (`wire` üst verisiyle şema anahtarları) | K25 |
+
+Adım sırası (`engine.calculate_profit`): satır kurulumu -> ekstre eşleştirme ve satış/iade/komisyon -> iade
+kalemleri ve maliyet -> kargo -> platform hizmet bedeli -> diğer finansallar -> değişken giderler -> reklam ->
+satır kırılımı -> ürün ve dönem toplamı. Sıra anlamlıdır: dağıtımlar önceki adımların yuvarlanmış tutarlarını
+ağırlık olarak kullanır (örn. reklam ve değişken gider net satışı, kargo ve hizmet bedeli KDV hariç satışı).
+
+### 11.3 Belgenin açık bırakıp motorun karar verdiği noktalar
+Bunlar altın testleri etkilemez; pilot verisi gelince §9 ile birlikte gözden geçirilmelidir.
+1. **K27 adet oranı paylaşımı:** Aynı barkod aynı siparişte birden çok satırdaysa ekstre satırının tutarı
+   satırlara adet oranında paylaştırılır (K27 metni). Referans betik bunu uygulamaz (her eşleşen satıra tam tutar
+   verir); altın testlerde bu durumun ekstreli senaryosu yoktur (G33'te aynı barkod var ama ekstre yok).
+2. **Kesin kargo sipariş düzeyinde:** Kargo faturası kalemleri `orderNumber` ile eşleştiği için (§9 madde 14)
+   kesin tutar siparişin aktif, satıcı anlaşmasız tüm paketlerinin satırlarına **bir kez** dağıtılır; tahmini
+   tutar paket düzeyinde kalır. Tek paketli siparişte sonuç referansla aynıdır. Referans, çok paketli siparişte
+   fatura kalemini her pakete ayrı ayrı uygular (çift sayım riski). İade kargosu da sipariş düzeyindedir.
+3. **Bağlanamayan platform hizmet bedeli satırı:** Siparişi bilinmeyen, tüm satırları iptal olan ya da
+   `paymentOrderId`'si hiçbir satışlı siparişle eşleşmeyen (veya null olan) satır `siniflandirilmamis_kesinti`
+   olur ve `SINIFLANDIRILMAMIS_KESINTI` uyarısı verir (K14 ihtiyat ilkesi). Referans bu durumda hata verir ya da
+   tutarı sessizce düşürür.
+4. **Nakit hareketi tipleri:** K14'e uygun olarak `PaymentOrder`, `WireTransfer`, `IncomingTransfer` gider
+   sayılmaz (referans yalnız `PaymentOrder`'ı atlar). `CashAdvance` erken ödeme nakit girişidir (K19).
+5. **Bilinmeyen ekstre tipi:** Komisyon işaret tablosunda olmayan `settlements` tipi hesaba katılmaz, satıra
+   `teyit_bekliyor: ["K05"]` bayrağı konur (referans hata verir).
+6. **Varsayılan ayarlar:** `platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric` varsayılanı 0'dır, kargo
+   tarifeleri boştur (tarifesiz satırda `KARGO_TARIFESI_EKSIK`). Referans betiğin kurgusal tarifesi motorun
+   varsayılanı değildir; altın testler ayarları girdide taşır.
+7. **Stopaj ekstre farkı toleransı** ayrı sabit değil, `yuvarlama_toleransi` (0,05) ayarıdır.
+8. **Uyarı sırası ve tekrarı:** Satır uyarıları ilk görülme sırasıyla tekrarsız listelenir; testler kümeyle
+   karşılaştırır.
+
+### 11.4 K29-K32 (düşük güvenli kurallar)
+- `pending.LOW_CONFIDENCE_RULES`: teyit bekleyen kuralların künyesi (kimlik, başlık, §9 madde numarası). Arayüz
+  "teyit bekliyor" rozetini bu kayıttan ve satır/dönem `teyit_bekliyor` alanından üretir.
+- **K29** (`DeliveryFee`, `DeliveryFeeCancel`): belgedeki v1 kuralı uygulanır (satış gibi gelir, komisyon işareti
+  +1/-1; tek başına satırı `settled` yapmaz) ve satır `K29` bayrağı taşır.
+- **K30** (`TyDiscount`, `TyCoupon`): gelire ve komisyona katılmaz, satır `K30` bayrağı taşır; alacak takibi
+  henüz yok.
+- **K32** (`ProvisionPositive/Negative`): satış tipi olarak işlenir (K04), satır `K32` bayrağı taşır; işçilik
+  bedeli stopaj ayrımı yoktur.
+- **K31** (TEX tazmini): `ProfitInput.compensation_tickets` kabul edilir, tutar hesaba katılmaz, dönem
+  `teyit_bekliyor` listesine `K31` eklenir.
+
+### 11.5 Genişletme noktaları
+- **Yeni ekstre tipi:** `constants.COMMISSION_SIGN` (işaret), gerekirse `REVENUE_TYPES`, `REFUND_TYPES`,
+  `ADJUSTMENT_TYPES`; teyit bekliyorsa `pending.ROW_TYPE_RULES`. Önce bu belgedeki K05 tablosu güncellenir.
+- **Yeni gider kalemi:** (1) kural bu belgeye, (2) `work.LineWork` alanları, (3) kural modülünde bir `apply_*`
+  işlevi, (4) `engine.calculate_profit` içinde doğru sırada çağrı, (5) `lines.build_line_result` (toplam gider,
+  KDV, nakit akışı), (6) `results.py` alanı ve `wire` adı, (7) `aggregate.py` toplamı, (8) altın test senaryosu.
+- **Teyit gelen düşük güvenli kural:** `LOW_CONFIDENCE_RULES` kaydı ve `ROW_TYPE_RULES` girdisi kaldırılır, hesap
+  ilgili modüle taşınır, belge güven düzeyi güncellenir, altın test eklenir.
+- **Eşikler ve ayarlar:** `settings.WarningThresholds` ve `ProfitSettings`; yeni ayar eklenince
+  `schema_v1._SETTING_FIELDS` tablosuna satır eklenir.
+- **Girdi kaynağı:** DB ya da senkron katmanı `ProfitInput` kurar (ayrı iş); `schema_v1.parse_input` altın test
+  JSON'unu aynı modele çevirir, `render_result` çıktıyı README şemasına çevirir.
+
+### 11.6 Test ve kapsam
+```
+cd netkar && make test-profit    # tests/test_profit_*.py, app/profit satır VE dal kapsamı %100 (DB gerekmez)
+cd netkar && make lint && make test
+```
+- `tests/test_profit_golden.py`: 41 senaryo parametrik, kuruşu kuruşuna (kural: golden README "Motorun testte yapması
+  gereken").
+- `tests/test_profit_money.py`: yuvarlama sınırları (10,025; -0,005), KDV ayrımı, dağıtım (hypothesis: toplam
+  korunur, negatif tutar ve ağırlık, sıfır ağırlık, boş liste, her parça tam payın 1 kuruş yakınında).
+- `tests/test_profit_properties.py`: satır kırılımı tutarlılığı, dağıtılan giderlerin paket toplamını koruması,
+  ürün ve dönem toplamının satır toplamı olması, stopajın kâra girmemesi, determinizm, tam iadede sıfır net satış.
+- `tests/test_profit_engine.py`, `test_profit_shipping_fees.py`, `test_profit_ads_aggregate.py`,
+  `test_profit_schema.py`, `test_profit_purity.py`: kural dalları, K29-K32 bayrakları, saflık güvenceleri.

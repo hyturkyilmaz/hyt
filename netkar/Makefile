@@ -7,13 +7,14 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 # infra/.env varsa ortama yükler (yerel çalıştırma için).
 LOAD_ENV := set -a; if [ -f $(CURDIR)/$(ENV_FILE) ]; then . $(CURDIR)/$(ENV_FILE); fi; set +a;
 
-.PHONY: help setup env lint test dev migrate worker db-up db-down web-lint web-test
+.PHONY: help setup env lint test test-profit dev migrate worker db-up db-down web-lint web-test
 
 help:
 	@echo "setup  : Python bağımlılıklarını kurar (uv sync)"
 	@echo "env    : infra/.env üretir (rastgele sırlarla), varsa dokunmaz"
 	@echo "lint   : ruff check + ruff format --check + mypy"
 	@echo "test   : pytest (gerçek PostgreSQL 16, kapsam raporlu)"
+	@echo "test-profit: kâr motoru testleri, app/profit satır ve dal kapsamı %100 (DB gerekmez)"
 	@echo "db-up  : compose ile yalnız PostgreSQL'i başlatır"
 	@echo "migrate: alembic upgrade head (DATABASE_MIGRATION_URL)"
 	@echo "dev    : uvicorn (--reload)"
@@ -38,6 +39,9 @@ lint:
 
 test:
 	cd $(API) && uv run pytest --cov
+
+test-profit:
+	cd $(API) && uv run pytest tests/test_profit_*.py --cov=app/profit --cov-branch --cov-fail-under=100 --cov-report=term-missing
 
 db-up:
 	$(COMPOSE) up -d postgres
