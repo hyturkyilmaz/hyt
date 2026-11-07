@@ -1,0 +1,322 @@
+"""S2 denetimi kavram kanıtı (PoC) testleri. GEÇİCİDİR: repoya eklenmez.
+
+Her `test_poc_*` testi GEÇTİĞİNDE ilgili bulgu mevcuttur. `test_ok_*` testleri bulgu olmadığını
+gösteren olumlu kontrollerdir. Denetim raporu: docs/security/denetim_2026-11-07_S2.md.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+from collections.abc import Callable
+from typing import Any
+from uuid import uuid4
+
+import httpx
+import psycopg
+import pytest
+
+from app.core.crypto import FieldCipher
+from app.integrations.trendyol import TrendyolError, TrendyolProtocolError, TrendyolRateLimitedError
+from app.integrations.trendyol.config import TrendyolConfig
+from app.integrations.trendyol.ratelimit import RateLimiterRegistry
+from app.models import MarketplaceAccount
+from app.services.marketplace_accounts import decrypt_credentials, encrypt_secret
+from pydantic import SecretStr
+from tests.conftest import TEST_KEY, Api, DatabaseInfo
+from tests.test_marketplace_accounts import URL, FakeTrendyol, body
+from tests.test_rls_idor import app_tx
+from tests.trendyol_helpers import PII_SENTINELS, FakeTime, json_response, load_fixture, make_client
+
+
+@pytest.fixture
+def trendyol() -> FakeTrendyol:
+    return FakeTrendyol()
+
+
+@pytest.fixture
+def make_ty_api(trendyol: FakeTrendyol, make_api: Callable[..., Api]) -> Callable[..., Api]:
+    def _make(**overrides: Any) -> Api:
+        return make_api(trendyol_client_factory=trendyol.factory, **overrides)
+
+    return _make
+
+
+# --- O-02: istek içi doğrulamada Retry-After 60 sn'ye kadar uyulur, kova beklemesi sınırsız -----
+
+
+def test_poc_validation_request_sleeps_retry_after_inside_http_request(
+    make_ty_api: Callable[..., Api], trendyol: FakeTrendyol
+) -> None:
+    api = make_ty_api()
+    api.signup_and_login("o@example.com", tenant="Mağaza")
+    trendyol.status = 429
+    trendyol.headers = {"Retry-After": "3600"}
+    r = api.post(URL, body())
+    assert r.status_code == 503
+    # VALIDATION_MAX_RETRIES=1 olmasına rağmen HTTP isteği içinde 60 sn uyunur (cap 60).
+    assert trendyol.fake.sleeps == [60.0]
+
+
+async def test_poc_shared_limiter_makes_other_tenant_wait_after_429() -> None:
+    """Paylaşılan kova satıcı kimliğine bağlı: bir 429 başka kiracının doğrulamasını da bekletir."""
+    fake = FakeTime()
+    shared = RateLimiterRegistry(clock=fake.monotonic, sleep=fake.sleep)
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return json_response({}, 429, {"Retry-After": "60"})
+        return json_response(load_fixture("inventory_and_price.json"))
+
+    first, _ = make_client(handler, fake=fake, limiter=shared, config=TrendyolConfig(max_retries=0))
+    async with first:
+        with pytest.raises(TrendyolRateLimitedError):
+            await first.verify_connection()
+    before = list(fake.sleeps)
+    # Aynı satıcı kimliği, başka kiracı/anahtar (aynı süreç içi kayıt): gönderimden önce 60 sn bekler.
+    second, _ = make_client(handler, fake=fake, limiter=shared, config=TrendyolConfig(max_retries=0))
+    async with second:
+        await second.verify_connection()
+    assert fake.sleeps[len(before) :] == [60.0]
+
+
+# --- D-01: PII, hata nesnesinin traceback çerçeve yerellerinde kalıyor ------------------------
+
+
+async def test_poc_raw_pii_survives_in_traceback_frame_locals() -> None:
+    raw = load_fixture("shipment_packages_v2.json")
+    raw["content"][0]["shipmentPackageId"] = "sayı-değil"  # şema hatası tetiklenir
+    client, _ = make_client(lambda request: json_response(raw))
+    async with client:
+        with pytest.raises(TrendyolProtocolError) as info:
+            await client.get_shipment_packages()
+    # Sentry include_local_variables=True (varsayılan) benzeri: çerçeve yerellerinin repr'i
+    tb = info.value.__traceback__
+    dumped = []
+    while tb is not None:
+        # Yalnız istemci çerçeveleri (testin kendi `raw` yereli sayılmaz)
+        if tb.tb_frame.f_code.co_filename.endswith("integrations/trendyol/client.py"):
+            dumped.append(repr(tb.tb_frame.f_locals))
+        tb = tb.tb_next
+    assert len(dumped) == 3  # get_shipment_packages, _page, _validate
+    text = " ".join(dumped)
+    leaked = [s for s in PII_SENTINELS if s in text]
+    assert leaked, "çerçeve yerellerinde ham PII yok"
+    # Hata nesnesinin kendisi temiz (mevcut testlerin doğruladığı kısım)
+    assert not any(s in f"{info.value!r} {info.value.args}" for s in PII_SENTINELS)
+
+
+# --- D-03: httpx.DecodingError ve RecursionError TrendyolError'a eşlenmiyor --------------------
+
+
+async def test_poc_decoding_error_escapes_error_mapping() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, stream=httpx.ByteStream(b"gzip-degil"), headers={"Content-Encoding": "gzip"}
+        )
+
+    client, _ = make_client(handler)
+    async with client:
+        with pytest.raises(httpx.DecodingError) as info:
+            await client.verify_connection()
+    assert not isinstance(info.value, TrendyolError)
+    # İstisna istek nesnesini (Authorization başlığı dahil) taşır; httpx repr'i maskeler.
+    assert "Authorization" in info.value.request.headers
+
+
+async def test_poc_deeply_nested_json_raises_recursion_error_not_protocol_error() -> None:
+    deep = b'{"a":' + b"[" * 100_000 + b"]" * 100_000 + b"}"
+
+    client, _ = make_client(lambda request: httpx.Response(200, content=deep))
+    async with client:
+        with pytest.raises(RecursionError):
+            await client.verify_connection()
+
+
+def test_poc_decoding_error_becomes_500_on_connect(
+    make_ty_api: Callable[..., Api], trendyol: FakeTrendyol
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, stream=httpx.ByteStream(b"gzip-degil"), headers={"Content-Encoding": "gzip"}
+        )
+
+    trendyol.handler = handler  # type: ignore[method-assign]
+    api = make_ty_api()
+    api.signup_and_login("d@example.com", tenant="Mağaza")
+    r = api.post(URL, body())
+    # Eşlenmemiş istisna: problem+json 500 (marketplace-unavailable değil), audit kaydı yok.
+    assert r.status_code == 500
+
+
+# --- D-02: AAD kiracıyı ve satıcıyı bağlamıyor -----------------------------------------------
+
+
+def test_poc_aad_does_not_bind_tenant_or_seller() -> None:
+    cipher = FieldCipher(base64.b64decode(TEST_KEY))
+    account_id = uuid4()
+    original = MarketplaceAccount(id=account_id, tenant_id=uuid4(), seller_id="1111")
+    original.api_key_encrypted = encrypt_secret(cipher, account_id, "api_key", SecretStr("AnahtarABCDEFGH"))
+    original.api_secret_encrypted = encrypt_secret(cipher, account_id, "api_secret", SecretStr("SirABCDEFGH"))
+    # Aynı satır kimliği, farklı kiracı ve satıcı: çözme başarılı (AAD yalnız id + alan adı)
+    moved = MarketplaceAccount(
+        id=account_id,
+        tenant_id=uuid4(),
+        seller_id="2222",
+        api_key_encrypted=original.api_key_encrypted,
+        api_secret_encrypted=original.api_secret_encrypted,
+    )
+    creds = decrypt_credentials(cipher, moved)
+    assert creds.seller_id == "2222" and creds.api_key.get_secret_value() == "AnahtarABCDEFGH"
+
+
+# --- D-04: netkar_app şifreli sütunları okuyabilir, kimlik sütunlarını güncelleyebilir -----------
+
+
+def test_poc_app_role_column_privileges(admin_conn: psycopg.Connection) -> None:
+    rows = admin_conn.execute(
+        "SELECT column_name, has_column_privilege('netkar_app', 'marketplace_accounts', column_name, 'SELECT'),"
+        " has_column_privilege('netkar_app', 'marketplace_accounts', column_name, 'UPDATE') "
+        "FROM information_schema.columns WHERE table_name = 'marketplace_accounts'"
+    ).fetchall()
+    priv = {name: (sel, upd) for name, sel, upd in rows}
+    assert priv["api_key_encrypted"] == (True, True)
+    assert priv["api_secret_encrypted"] == (True, True)
+    for col in ("tenant_id", "seller_id", "platform", "created_by", "created_at", "api_key_last4"):
+        assert priv[col][1] is True, col
+
+
+def test_poc_app_role_can_rewrite_identity_columns_within_tenant(
+    make_ty_api: Callable[..., Api], database: DatabaseInfo, admin_conn: psycopg.Connection
+) -> None:
+    api = make_ty_api()
+    api.signup_and_login("p@example.com", tenant="Mağaza")
+    account_id = api.post(URL, body()).json()["id"]
+    tenant = api.get("/v1/me").json()["tenant"]["id"]
+    with app_tx(database, tenant) as conn:
+        n = conn.execute(
+            "UPDATE marketplace_accounts SET seller_id = '9999', created_at = '2000-01-01', "
+            "api_key_last4 = 'XXXX' WHERE id = %s",
+            (account_id,),
+        ).rowcount
+        assert n == 1
+
+
+# --- B-02: iptal sonrası şifreli değer ölü satır sürümünde kalıyor -----------------------------
+
+
+def test_poc_revoked_ciphertext_remains_in_dead_tuple(
+    make_ty_api: Callable[..., Api], admin_conn: psycopg.Connection
+) -> None:
+    api = make_ty_api()
+    api.signup_and_login("r@example.com", tenant="Mağaza")
+    account_id = api.post(URL, body()).json()["id"]
+    before = admin_conn.execute(
+        "SELECT api_key_encrypted FROM marketplace_accounts WHERE id = %s", (account_id,)
+    ).fetchone()
+    assert before is not None and before[0].startswith("v1:")
+    assert api.post(f"{URL}/{account_id}/revoke").status_code == 200
+    admin_conn.execute("CREATE EXTENSION IF NOT EXISTS pageinspect")
+    raw = admin_conn.execute(
+        "SELECT encode(t_data, 'escape') FROM heap_page_items(get_raw_page('marketplace_accounts', 0)) "
+        "WHERE t_data IS NOT NULL"
+    ).fetchall()
+    assert any(before[0][3:20] in r[0] for r in raw), "ölü sürümde şifreli değer yok"
+    admin_conn.execute("DROP EXTENSION pageinspect")
+
+
+# --- B-03: kargo faturası seri numarasında nokta bölütü yolu kaydırır --------------------------
+
+
+async def test_poc_dot_segment_serial_changes_request_path() -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return json_response({"content": [], "totalPages": 0})
+
+    client, _ = make_client(handler)
+    async with client:
+        await client.get_cargo_invoice_items("..")
+    assert seen == ["/integration/finance/che/sellers/2738/items"]
+
+
+# --- D-05: platform geneli dış çağrı tavanı yok -------------------------------------------------
+
+
+def test_poc_no_global_cap_on_outbound_validation_calls(
+    make_ty_api: Callable[..., Api], trendyol: FakeTrendyol
+) -> None:
+    trendyol.status = 401
+    total = 0
+    for i in range(3):
+        api = make_ty_api(peer=f"203.0.113.{10 + i}")
+        api.signup_and_login(f"x{i}@example.com", tenant=f"Mağaza {i}")
+        for j in range(10):
+            r = api.post(URL, body(seller_id=str(1000 + j)))
+            assert r.status_code == 422
+            total += 1
+    # 3 kiracı x 10 deneme: hepsi Trendyol'a gitti; tek bir platform geneli fren yok.
+    assert len(trendyol.requests) == total == 30
+
+
+# --- Kod kalitesi: totalPages yoksa yineleyiciler ilk sayfada sessizce durur ----------------------
+
+
+async def test_poc_iterator_stops_after_first_page_when_total_pages_missing() -> None:
+    pages = load_fixture("shipment_packages_v2.json")
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        data = json.loads(json.dumps(pages))
+        data.pop("totalPages", None)
+        data["totalElements"] = 5000
+        return json_response(data)
+
+    from datetime import UTC, datetime, timedelta
+
+    t0 = datetime(2026, 10, 1, tzinfo=UTC)
+    client, _ = make_client(handler)
+    async with client:
+        got = [p async for p in client.iter_shipment_packages(t0, t0 + timedelta(days=1))]
+    assert calls["n"] == 1 and len(got) == len(pages["content"])
+
+
+# --- Olumlu kontroller ------------------------------------------------------------------------
+
+
+def test_ok_seller_id_injection_rejected(make_ty_api: Callable[..., Api], trendyol: FakeTrendyol) -> None:
+    api = make_ty_api()
+    api.signup_and_login("i@example.com", tenant="Mağaza")
+    for bad in ("2738\r\nX-Evil: 1", "2738/../../x", "2738 - Evil", "02738", "-1", "1e3", "١٢٣"):
+        assert api.post(URL, body(seller_id=bad)).status_code == 422, bad
+    for key in ("anahtar\r\nX: y", "ana:htar1234", "anahtar 12345", "anahtarİ12345"):
+        assert api.post(URL, body(api_key=key)).status_code == 422, key
+    assert trendyol.requests == []
+
+
+async def test_ok_query_values_are_encoded() -> None:
+    seen: list[httpx.URL] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url)
+        return json_response({"content": [], "hasMore": False})
+
+    client, _ = make_client(handler)
+    async with client:
+        await client.get_shipment_packages_stream(next_cursor="a&b=c\r\nX: y#/../")
+    assert seen[0].path == "/integration/order/sellers/2738/orders/stream"
+    assert seen[0].params["nextCursor"] == "a&b=c\r\nX: y#/../"
+    assert b"\r\n" not in seen[0].raw_path
+
+
+def test_ok_revoke_requires_csrf_and_session(make_ty_api: Callable[..., Api]) -> None:
+    api = make_ty_api()
+    api.signup_and_login("c@example.com", tenant="Mağaza")
+    account_id = api.post(URL, body()).json()["id"]
+    assert api.post(f"{URL}/{account_id}/revoke", csrf=False).status_code == 403
+    anonymous = make_ty_api()
+    assert anonymous.post(f"{URL}/{account_id}/revoke").status_code == 401
