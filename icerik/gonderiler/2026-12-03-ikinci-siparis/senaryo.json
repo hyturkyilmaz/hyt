@@ -1,0 +1,48 @@
+{
+ "id": "2026-12-03-ikinci-siparis",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Kampanya yeni müşteri getirdi. Seni büyütecek olan ikinci sipariş.",
+   "altyazi": "Kampanya yeni müşteri getirdi. Seni büyütecek olan ikinci sipariş."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "İlk kırk beş gün belirleyici. İkinci sipariş veren müşteri çok daha değerli.",
+   "altyazi": "İlk 45 gün belirleyici. İkinci sipariş veren müşteri çok daha değerli."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. İzinli müşteriye üç mesaj: yedinci gün ipucu, yirmi birinci gün tamamlayıcı ürün, kırk beşinci gün hatırlatma.",
+   "altyazi": "1. İzinli müşteriye 3 mesaj: 7. gün ipucu, 21. gün tamamlayıcı ürün, 45. gün hatırlatma."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. İzin yoksa e-posta yok. Kutuya kart, sipariş sayfasında öneri.",
+   "altyazi": "2. İzin yoksa e-posta yok. Kutuya kart, sipariş sayfasında öneri."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Kutunun içi de bir kanal: bakım ipucu ve QR kodu.",
+   "altyazi": "3. Kutunun içi de bir kanal: bakım ipucu ve QR kodu."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Müşteri listesini reklama yükleyeceksen KVKK'yı kontrol et. Bu hukuki görüş değildir.",
+   "altyazi": "Müşteri listesini reklama yükleyeceksen KVKK'yı kontrol et. Hukuki görüş değildir."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Akış şablonunu istiyorsan yorumlara ikinci yaz. Di emden göndereyim.",
+   "altyazi": "Akış şablonunu istiyorsan yorumlara İKİNCİ yaz. DM'den göndereyim."
+  }
+ ]
+}

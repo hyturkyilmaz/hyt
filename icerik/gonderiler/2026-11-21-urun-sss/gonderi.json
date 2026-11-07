@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-21-urun-sss",
+  "tarih": "2026-11-21",
+  "gun": "Cumartesi",
+  "sutun": "seo",
+  "anahtar": "SSS",
+  "muzik_tohum": 55,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "SEO · Ürün sayfası", "baslik": "Müşterinin sorusunu _ürün sayfasında_ cevapla.",
+     "alt": "Efsane Cuma'da en çok sorulan 5 soru. **Sayfada cevap yoksa DM'e, oradan rakibe gider.**",
+     "zaman": [{"t": "Kargo", "s": "Ne zaman gelir?", "renk": "ecom"}, {"t": "İade", "s": "Nasıl olur?", "renk": "ads"}, {"t": "Beden", "s": "Hangisi olur?", "renk": "seo"}, {"t": "AI", "s": "Asistan da okuyor", "renk": "ai"}],
+     "kaynak": "Kaynak: Google Search Central (yapısal veri) · danışmanlık notları"},
+    {"tip": "matris", "num": "01", "kicker": "5 soru", "baslik": "Her ürün sayfasında _5 soru_",
+     "basliklar": ["Soru", "Cevapta ne olmalı?"],
+     "satirlar": [[["ecom", "Ne zaman gelir?"], "Kampanya haftası teslim süresi, iş günüyle"], [["ads", "İade nasıl?"], "14 gün cayma, ücret, adım sayısı"], [["seo", "Hangi beden?"], "Ölçü tablosu, kalıp bilgisi"], [["ai", "Neden bu fiyat?"], "Malzeme, garanti, fark"], [["ink", "Stokta var mı?"], "Gerçek stok, gelecek tarih"]],
+     "kaynak": "Örnek liste"},
+    {"tip": "oncesonra", "num": "02", "kicker": "Sayfa", "baslik": "Sorular _sayfanın içinde_",
+     "once": {"dosya": "urun_eski.html", "etiket": "DM'e yönlendiren", "basliklar": ["Bölüm", "İçerik"], "satirlar": [["Açıklama", "Uzun paragraf"], ["Kargo", "Ayrı sayfada"], ["Soru", "\"DM'den sorun\""]]},
+     "sonra": {"dosya": "urun_yeni.html", "etiket": "Cevap veren", "basliklar": ["Bölüm", "İçerik"], "satirlar": [["Açıklama", "Madde madde özellik"], ["Kargo", "Ürün altında, tarihle"], ["Soru", "5 soru, kısa cevap"]]},
+     "kaynak": "Örnek yapı"},
+    {"tip": "kural", "num": "03", "kicker": "Yapısal veri", "baslik": "Ürün bilgisini _işaretle._",
+     "alt": "Arama motoru ve AI asistanı fiyatı, stoku ve iade bilgisini net okusun.",
+     "kod": ["<span class=\"c\"># ürün sayfası işaretlemesi</span>", "<span class=\"k\">Product</span> ad, görsel, açıklama", "<span class=\"k\">Offer</span> fiyat, para birimi, stok durumu", "<span class=\"k\">MerchantReturnPolicy</span> iade süresi ve ücreti", "<span class=\"g\">→</span> sayfadaki bilgiyle birebir aynı"],
+     "prompt": "Ekteki ürün sayfası metnine göre müşterinin sorabileceği 5 soruyu ve 40 kelimeyi geçmeyen cevaplarını yaz. Sayfada olmayan bilgiyi uydurma, eksikleri ayrıca listele.",
+     "kaynak": "Garanti değil; zengin sonuç ve alıntılanma olasılığını artırır."},
+    {"tip": "akis", "kicker": "Akış", "renk": "seo", "baslik": "Sorudan _sayfaya_",
+     "satirlar": [[{"ad": "DM ve yorumlar", "alt": "Gerçek sorular", "ikon": "sohbet", "renk": "ink"}, {"ad": "Gruplama", "alt": "En sık 5 soru", "ikon": "veri", "renk": "ai"}, {"ad": "Cevap", "alt": "40 kelime", "ikon": "belge", "renk": "seo"}],
+                   [{"ad": "Ürün sayfası", "alt": "Görünür bölüm", "ikon": "magaza", "renk": "ecom"}, {"ad": "İşaretleme", "alt": "Product + Offer", "ikon": "kod", "renk": "ads"}],
+                   [{"ad": "Kontrol", "alt": "Search Console", "ikon": "onay", "renk": "seo", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım akış"},
+    {"tip": "ekran", "kicker": "Eksik tespiti", "baslik": "Sayfada _ne eksik?_",
+     "pencere": "Claude · ürün sayfası kontrolü", "istek": "Bu ürün sayfasında hangi cevaplar eksik?",
+     "yanit": "**5 sorudan 3'ünün cevabı sayfada yok.**",
+     "tablo": {"basliklar": ["Soru", "Sayfada", "Öneri"], "satirlar": [["Ne zaman gelir?", "Yok", "Teslim süresi ekle"], ["İade nasıl?", "Var", "-"], ["Hangi beden?", "Yok", "Ölçü tablosu ekle"]], "vurgu_sutun": 1},
+     "evet": "Ekle", "hayir": "Sonra", "aksiyon": "En çok satan 10 üründen başla.", "kaynak": "Örnek kontrol"},
+    {"tip": "cta", "anahtar": "SSS", "vaat": "**Ürün sayfası 5 soru şablonunu** ve işaretleme örneğini DM'den göndereyim."}
+  ],
+  "aciklama": "Müşteri sorusunun cevabını ürün sayfasında bulamazsa önce DM'e yazar, cevap gecikirse rakibe gider.\n\nEfsane Cuma'da en çok sorulan beş soru hemen hemen her mağazada aynı: ne zaman gelir, iade nasıl olur, hangi beden, neden bu fiyat ve stokta var mı. Bu soruların kısa cevaplarını ürün sayfasının içine koymak hem dönüşümü hem DM yükünü doğrudan etkiliyor.\n\nAynı bilgiyi Product, Offer ve iade politikası işaretlemesiyle de vermek, arama motorunun ve AI asistanlarının fiyatı, stoku ve iade koşulunu net okumasına yardım ediyor. Önemli kural: işaretlemedeki bilgi sayfadakiyle birebir aynı olmalı. En çok satan 10 ürünün sayfalarndan başla, sonra yay.\n\nİyi bir ürün sayfası satıcı gibi konuşmaz, müşterinin aklındaki soruyu ondan önce sorar.\n\nKaydırınca beş soruyu, sayfa yapısını ve işaretleme kuralını göreceksin.\n\nYorumlara SSS yaz, ürün sayfası 5 soru şablonunu DM'den göndereyim.\n\n#seo #eticaret #urunsayfasi #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "sayfalarndan", "dogrusu": "sayfalarından", "paragraf": 3},
+  "dogrulama": ["Google Search Central: Product, Offer ve MerchantReturnPolicy yapısal verisi", "Mesafeli Sözleşmeler Yönetmeliği (14 gün cayma)"],
+  "senaryo": [
+    {"tts": "Müşteri cevabı ürün sayfasında bulamazsa önce DM'e yazar, sonra rakibe gider.", "altyazi": "Müşteri cevabı ürün sayfasında bulamazsa önce DM'e yazar, sonra rakibe gider."},
+    {"tts": "Beş soru: ne zaman gelir, iade nasıl, hangi beden, neden bu fiyat, stokta var mı.", "altyazi": "5 soru: ne zaman gelir, iade nasıl, hangi beden, neden bu fiyat, stokta var mı."},
+    {"tts": "Bir. Cevapları sayfanın içine koy. Kırk kelimeyi geçmesin.", "altyazi": "1. Cevapları sayfanın içine koy. 40 kelimeyi geçmesin."},
+    {"tts": "İki. Ürün bilgisini işaretle: Product, Offer ve iade politikası.", "altyazi": "2. Ürün bilgisini işaretle: Product, Offer ve iade politikası."},
+    {"tts": "İşaretlemedeki bilgi sayfadakiyle birebir aynı olsun.", "altyazi": "İşaretlemedeki bilgi sayfadakiyle birebir aynı olsun."},
+    {"tts": "Üç. En çok satan on üründen başla, eksikleri yapay zekâyla bul.", "altyazi": "3. En çok satan 10 üründen başla, eksikleri AI ile bul."},
+    {"tts": "Soru şablonunu istiyorsan yorumlara es es es yaz. Di emden göndereyim.", "altyazi": "Soru şablonunu istiyorsan yorumlara SSS yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Ürün Sayfası _5 Soru Şablonu_", "kicker": "Şablon · SEO · Ürün sayfası",
+    "giris": "Kampanya haftasında en çok sorulan beş sorunun cevabını ürün sayfasına koy ve aynı bilgiyi yapısal veriyle işaretle.",
+    "bolumler": [
+      {"ad": "5 soru", "renk": "seo", "maddeler": [["Ne zaman gelir?", "Kampanya haftası teslim süresi, iş günüyle."], ["İade nasıl?", "14 gün cayma, ücret, adım sayısı."], ["Hangi beden?", "Ölçü tablosu ve kalıp bilgisi."], ["Neden bu fiyat?", "Malzeme, garanti, fark yaratan özellik."], ["Stokta var mı?", "Gerçek stok; yoksa gelecek tarih."]]},
+      {"ad": "İşaretleme", "renk": "ads", "maddeler": [["Product", "Ad, görsel, açıklama."], ["Offer", "Fiyat, para birimi, stok durumu."], ["İade politikası", "Süre ve ücret bilgisi."]]},
+      {"ad": "Kontrol", "renk": "ecom", "maddeler": [["Birebir aynı", "İşaretleme ile sayfa bilgisi tutarlı."], ["Search Console", "Ürün snippet raporunda hata yok."]]}
+    ]
+  }
+}

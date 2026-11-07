@@ -1,0 +1,60 @@
+{
+  "id": "2026-12-04-yilbasi-hediye",
+  "tarih": "2026-12-04",
+  "gun": "Cuma",
+  "sutun": "ecom",
+  "anahtar": "HEDİYE",
+  "muzik_tohum": 68,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Yıl sonu hediye dönemi", "baslik": "Hediye alan kişi _tarihe_ bakar, indirime değil.",
+     "alt": "Yıl sonu hediye kampanyasında en önemli bilgi: **en geç ne zaman sipariş vermeli?**",
+     "zaman": [{"t": "4 Aralık", "s": "Hediye rehberi", "renk": "ecom"}, {"t": "Son sipariş", "s": "Tarihi duyur", "renk": "ads"}, {"t": "Hediye paketi", "s": "Not + fiyatsız fiş", "renk": "seo"}, {"t": "31 Aralık", "s": "Teslim", "renk": "ai"}],
+     "kaynak": "Takvim: Aralık 2026"},
+    {"tip": "matris", "num": "01", "kicker": "Rehber", "baslik": "Hediye rehberini _bütçeye_ göre kur",
+     "basliklar": ["Bütçe", "Örnek", "Not"],
+     "satirlar": [[["ecom", "500 TL altı"], "Kupa, defter, aksesuar", "Çok satan, stok derin"], [["ads", "500-1.500 TL"], "Atkı, set ürünler", "Hediye paketi ücretsiz"], [["seo", "1.500 TL üstü"], "Özel ürün, kişiselleştirme", "Erken son sipariş tarihi"], [["ai", "Kararsızlar"], "Hediye çeki", "Son güne kadar satılır"]],
+     "kaynak": "Örnek kategori yapısı"},
+    {"tip": "kural", "num": "02", "kicker": "Tarih", "baslik": "Son sipariş tarihini _geriye_ hesapla.",
+     "alt": "Kargo, hazırlık ve emniyet payı; her ürün tipi için ayrı.",
+     "kod": ["<span class=\"c\"># son sipariş tarihi</span>", "<span class=\"k\">TESLİM</span> 31 Aralık", "<span class=\"k\">EKSİ</span> kargo süresi (en uzun bölge)", "<span class=\"k\">EKSİ</span> hazırlık + kişiselleştirme", "<span class=\"k\">EKSİ</span> 2 gün emniyet payı"],
+     "prompt": "Ürün tiplerime göre (stoklu, kişiselleştirilen, yurt dışından gelen) yıl sonu teslimi için son sipariş tarihini hesapla. Kargo sürelerini ve 2 günlük emniyet payını tabloda göster.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "akis", "kicker": "Hediye siparişi", "renk": "ecom", "baslik": "Sepetten _hediyeye_",
+     "satirlar": [[{"ad": "Rehber", "alt": "Bütçeye göre", "ikon": "belge", "renk": "ink"}, {"ad": "Ürün", "alt": "Son tarih görünür", "ikon": "etiket", "renk": "ecom"}, {"ad": "Sepet", "alt": "Hediye seçeneği", "ikon": "sepet", "renk": "seo"}],
+                   [{"ad": "Hediye notu", "alt": "Ücretsiz", "ikon": "sohbet", "renk": "ads"}, {"ad": "Fiyatsız fiş", "alt": "Paket içinde", "ikon": "kutu", "renk": "ai"}],
+                   [{"ad": "Teslim", "alt": "Söz verilen tarihte", "ikon": "onay", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Fatura ve belge yükümlülükleri için mali müşavirine danış."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Ürün sayfası", "baslik": "Tarihi _ürünün yanına_ yaz.",
+     "once": {"dosya": "urun_normal", "etiket": "Belirsiz", "basliklar": ["Alan", "Metin"], "satirlar": [["Kargo", "1-3 iş günü"], ["Hediye", "-"], ["Not", "-"]]},
+     "sonra": {"dosya": "urun_hediye", "etiket": "Net", "basliklar": ["Alan", "Metin"], "satirlar": [["Kargo", "Yıl sonu teslimi için son sipariş: 26 Aralık"], ["Hediye", "Ücretsiz paket ve not"], ["Not", "Fiyatsız fiş eklenir"]]},
+     "kaynak": "Örnek tarih; kendi kargo sürene göre hesapla."},
+    {"tip": "ekran", "kicker": "Plan", "baslik": "Ürün tipine göre _son tarih_",
+     "pencere": "Claude · son sipariş tarihi", "istek": "Ürün tiplerine göre son tarihleri hesapla.",
+     "yanit": "**3 ürün tipi için 3 ayrı son tarih.**",
+     "tablo": {"basliklar": ["Ürün tipi", "Hazırlık", "Son sipariş"], "satirlar": [["Stoklu ürün", "1 gün", "26 Aralık"], ["Kişiselleştirilen", "4 gün", "22 Aralık"], ["Yurt dışından", "10 gün", "15 Aralık"]], "vurgu_sutun": 2},
+     "evet": "Duyur", "hayir": "Sonra", "aksiyon": "Tarihleri ürün sayfasına ve sepete yaz.", "kaynak": "Örnek hesap"},
+    {"tip": "cta", "anahtar": "HEDİYE", "vaat": "**Yıl sonu hediye kampanyası planını** (son tarih hesabıyla) DM'den göndereyim."}
+  ],
+  "aciklama": "Hediye alan kişi önce tarihe bakar, sonra indirime. Yıl sonu hediye kampanyasında en önemli bilgi şu: en geç ne zaman sipariş vermeli?\n\nSon sipariş tarihini teslim gününden geriye hesapla: en uzun bölgenin kargo süresi, hazırlık ve kişiselleştirme süresi ve iki günlük emniyet payı. Stoklu ürün, kişiselleştirilen ürün ve yurt dışından gelen ürün için ayrı tarihler çıkar. Bu tarihleri ürün sayfasına, sepete ve reklam metnine yaz; teslmat sözünü de bu tarihe göre ver.\n\nHediye rehberini bütçeye göre kur: 500 TL altı, 500-1.500 TL arası, 1.500 TL üstü ve kararsızlar için hediye çeki. Sepette hediye paketi, ücretsiz not ve paketin içinde fiyatsız fiş seçeneği sunmak, hediye siparişini kolaylaştırıyor.\n\nHediye alan kişi aslında bir ürün değil, zamanında gelen bir güzel an satın alıyor.\n\nKaydırınca hediye rehberini, son tarih hesabını ve sipariş akışını göreceksin.\n\nYorumlara HEDİYE yaz, yıl sonu hediye kampanyası planını DM'den göndereyim.\n\n#eticaret #hediye #yilsonu #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "teslmat", "dogrusu": "teslimat", "paragraf": 2},
+  "dogrulama": ["Takvim: Aralık 2026", "Danışmanlık kampanya notları"],
+  "senaryo": [
+    {"tts": "Hediye alan kişi önce tarihe bakar, sonra indirime.", "altyazi": "Hediye alan kişi önce tarihe bakar, sonra indirime."},
+    {"tts": "En önemli bilgi: en geç ne zaman sipariş vermeli?", "altyazi": "En önemli bilgi: en geç ne zaman sipariş vermeli?"},
+    {"tts": "Bir. Son sipariş tarihini geriye hesapla: kargo, hazırlık ve iki gün emniyet payı.", "altyazi": "1. Son sipariş tarihini geriye hesapla: kargo, hazırlık ve 2 gün emniyet payı."},
+    {"tts": "Stoklu, kişiselleştirilen ve yurt dışından gelen ürüne ayrı tarih.", "altyazi": "Stoklu, kişiselleştirilen ve yurt dışından gelen ürüne ayrı tarih."},
+    {"tts": "İki. Hediye rehberini bütçeye göre kur. Kararsızlara hediye çeki.", "altyazi": "2. Hediye rehberini bütçeye göre kur. Kararsızlara hediye çeki."},
+    {"tts": "Üç. Sepette hediye paketi, ücretsiz not ve fiyatsız fiş.", "altyazi": "3. Sepette hediye paketi, ücretsiz not ve fiyatsız fiş."},
+    {"tts": "Kampanya planını istiyorsan yorumlara hediye yaz. Di emden göndereyim.", "altyazi": "Kampanya planını istiyorsan yorumlara HEDİYE yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Yıl Sonu _Hediye Kampanyası_", "kicker": "Plan · E-ticaret · Aralık",
+    "giris": "Hediye siparişinde tarih, indirimden önce gelir. Son sipariş tarihini hesapla, duyur ve hediye seçeneklerini sepete ekle.",
+    "bolumler": [
+      {"ad": "Tarih", "renk": "ecom", "maddeler": [["Geriye hesap", "Teslim günü eksi kargo, hazırlık ve 2 gün emniyet."], ["Ürün tipine göre", "Stoklu, kişiselleştirilen, yurt dışı ayrı."], ["Görünürlük", "Ürün sayfası, sepet ve reklam metninde."]]},
+      {"ad": "Rehber", "renk": "ads", "maddeler": [["500 TL altı", "Çok satan, stoğu derin ürünler."], ["500-1.500 TL", "Set ürünler, ücretsiz paket."], ["1.500 TL üstü", "Özel ürün, erken son tarih."], ["Hediye çeki", "Son güne kadar satılabilir."]]},
+      {"ad": "Sepet", "renk": "seo", "maddeler": [["Hediye paketi", "Tek tıkla seçilir."], ["Hediye notu", "Ücretsiz, karakter sınırı belli."], ["Fiyatsız fiş", "Belge yükümlülükleri için mali müşavire danış."]]}
+    ]
+  }
+}

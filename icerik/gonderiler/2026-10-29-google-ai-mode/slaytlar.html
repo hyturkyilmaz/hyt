@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>2026-10-29-google-ai-mode</title>
+<style>
+  :root {
+    /* hyturkyilmaz.com CTA renk sistemi */
+    --seo: #1a73e8;
+    --ads: #34a853;
+    --ecom: #f29900;
+    --ai: #7b1fa2;
+    --paper: #f5f7fa;
+    --card: #ffffff;
+    --ink: #111827;
+    --ink2: #374151;
+    --muted: #6b7280;
+    --line: #dddddd;
+    --dark: #0f172a;
+    --brand: #2e9447; /* logo yeşili */
+    --accent: var(--seo);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #444; font-family: "Inter", sans-serif; color: var(--ink); }
+
+  .slide {
+    width: 1080px; height: 1350px; position: relative; overflow: hidden;
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(rgba(17,24,39,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(17,24,39,.045) 1px, transparent 1px);
+    background-size: 54px 54px;
+    padding: 150px 90px 150px; display: flex; flex-direction: column; justify-content: center;
+    margin-bottom: 20px;
+  }
+  .slide.dark {
+    background-color: var(--dark); color: #f8fafc;
+    background-image:
+      linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  }
+
+  /* ortak çerçeve */
+  .top { position: absolute; top: 56px; left: 90px; right: 90px; display: flex; justify-content: space-between; align-items: center; }
+  .author { display: flex; align-items: center; gap: 16px; font-size: 24px; font-weight: 600; color: var(--ink2); }
+  .mark { width: 50px; height: 56px; display: block; }
+  .dark .author { color: #cbd5e1; }
+  .counter { font-size: 24px; font-weight: 600; color: var(--muted); letter-spacing: 1px; }
+  .foot { position: absolute; bottom: 56px; left: 90px; right: 90px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 22px; color: var(--muted); }
+  .foot .next { font-weight: 700; color: var(--ink); font-size: 26px; }
+
+  .kicker { font-size: 24px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 28px; display: flex; align-items: center; gap: 14px; }
+  .kicker .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); }
+  h1 { font-family: "Inter Display", "Inter", sans-serif; font-size: 112px; line-height: 1.02; font-weight: 800; letter-spacing: -3px; }
+  h2 { font-family: "Inter Display", "Inter", sans-serif; font-size: 80px; line-height: 1.05; font-weight: 800; letter-spacing: -2px; margin-bottom: 40px; }
+  .lead { font-size: 38px; line-height: 1.4; color: var(--ink2); font-weight: 500; }
+
+  /* el çizimi alt çizgi */
+  .u { position: relative; display: inline-block; white-space: nowrap; }
+  .u svg { position: absolute; left: -2%; bottom: -18px; width: 104%; height: 30px; overflow: visible; }
+  .u path { fill: none; stroke: var(--accent); stroke-width: 7; stroke-linecap: round; }
+
+  /* sol çizgili blok (site CTA stili) */
+  .block { background: var(--card); border-left: 6px solid var(--accent); padding: 30px 36px; border-radius: 0 14px 14px 0; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
+  .block .label { font-size: 22px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+  .block p { font-size: 34px; line-height: 1.4; color: var(--ink2); }
+  .num { font-family: "Inter Display", sans-serif; font-weight: 800; font-size: 26px; color: var(--muted); margin-right: 18px; }
+
+  /* ekran kartı */
+  .window { background: var(--card); border-radius: 22px; border: 1px solid #e5e7eb; box-shadow: 0 30px 60px -30px rgba(15,23,42,.35); overflow: hidden; }
+  .chrome { height: 58px; border-bottom: 1px solid #eef0f3; display: flex; align-items: center; gap: 10px; padding: 0 24px; font-size: 20px; color: var(--muted); font-weight: 600; }
+  .chrome i { width: 14px; height: 14px; border-radius: 50%; background: #e5e7eb; display: inline-block; }
+  .chrome span { margin-left: 14px; }
+  .pill { display: inline-block; font-size: 18px; font-weight: 700; padding: 6px 12px; border-radius: 999px; }
+
+  /* ---------- 1: kapak ---------- */
+  #s1 h1 { margin-bottom: 56px; }
+  .timeline { margin-top: 70px; position: relative; height: 150px; }
+  .tl-line { position: absolute; top: 18px; left: 110px; width: 680px; height: 3px; background: #9ca3af; transform-origin: left; animation: grow 1.4s .9s ease-out both; }
+  .tl-pt { position: absolute; top: 0; width: 220px; text-align: center; animation: pop .5s both; }
+  .tl-pt b { display: block; width: 38px; height: 38px; border-radius: 50%; margin: 0 auto 18px; border: 6px solid var(--paper); box-shadow: 0 0 0 2px currentColor; background: currentColor; }
+  .tl-pt .t { font-size: 24px; font-weight: 800; color: var(--ink); }
+  .tl-pt .s { font-size: 21px; color: var(--muted); margin-top: 4px; }
+  @keyframes grow { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+  @keyframes pop { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+  @keyframes draw { from { stroke-dashoffset: 1000 } to { stroke-dashoffset: 0 } }
+  .draw { stroke-dasharray: 1000; animation: draw 1s .3s ease-out both; }
+
+  /* ---------- 2: sohbet ---------- */
+  .chat { padding: 34px; display: flex; flex-direction: column; gap: 22px; }
+  .bubble-user { align-self: flex-end; background: var(--ink); color: #fff; font-size: 30px; padding: 20px 26px; border-radius: 22px 22px 6px 22px; white-space: nowrap; }
+  .typing { display: inline-block; clip-path: inset(0 100% 0 0); animation: type 2.2s .4s steps(42) forwards; }
+  @keyframes type { to { clip-path: inset(0 0 0 0) } }
+  .caret { display: inline-block; width: 3px; height: 30px; background: #fff; margin-left: 4px; vertical-align: -4px; animation: blink .6s steps(1) 6, hide .1s 2.7s forwards; }
+  @keyframes blink { 50% { opacity: 0 } }
+  @keyframes hide { to { opacity: 0 } }
+  .bot { font-size: 28px; color: var(--ink2); animation: pop .4s 3.0s both; }
+  .bot b { color: var(--ink); }
+  table.t { width: 100%; border-collapse: collapse; font-size: 26px; }
+  table.t th { text-align: left; font-size: 19px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 12px 14px; border-bottom: 2px solid #eef0f3; }
+  table.t td { padding: 16px 14px; border-bottom: 1px solid #f1f2f4; }
+  .rows tr { animation: pop .35s both; }
+  .rows tr:nth-child(1) { animation-delay: 3.5s } .rows tr:nth-child(2) { animation-delay: 3.8s } .rows tr:nth-child(3) { animation-delay: 4.1s }
+  .low { color: #c2410c; font-weight: 800; }
+  .actions { display: flex; gap: 14px; align-items: center; animation: pop .4s 4.8s both; }
+  .btn { font-size: 24px; font-weight: 700; padding: 14px 26px; border-radius: 12px; }
+  .btn.ok { background: var(--ads); color: #fff; } .btn.no { border: 2px solid #d1d5db; color: var(--ink2); }
+  .actions small { font-size: 21px; color: var(--muted); margin-left: 8px; }
+  .disclaim { font-size: 20px; color: var(--muted); margin-top: 22px; }
+
+  /* ---------- 3: akış ---------- */
+  .flow { position: relative; height: 780px; margin-top: 10px; }
+  .flow svg.wires { position: absolute; inset: 0; }
+  .wires path { fill: none; stroke: #9ca3af; stroke-width: 3; stroke-dasharray: 4 10; stroke-linecap: round; animation: flow 1s linear infinite; }
+  @keyframes flow { to { stroke-dashoffset: -28 } }
+  .node { position: absolute; width: 260px; text-align: center; transform: translate(-50%, -48px); }
+  .node .ic { width: 96px; height: 96px; border-radius: 50%; margin: 0 auto 14px; display: grid; place-items: center; color: #fff; box-shadow: 0 10px 22px -10px rgba(0,0,0,.4); }
+  .node .ic svg { width: 46px; height: 46px; stroke: #fff; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .node .n { font-size: 25px; font-weight: 800; color: var(--ink); }
+  .node .d { font-size: 19px; color: var(--muted); margin-top: 3px; }
+  .node.human .ic { box-shadow: 0 0 0 6px var(--paper), 0 0 0 9px var(--ads); }
+
+  /* ---------- 4: tablo önce/sonra ---------- */
+  .sheets { display: grid; grid-template-columns: 1fr; gap: 26px; }
+  .sheet .chrome { height: 50px; font-size: 19px; }
+  .sheet table { width: 100%; border-collapse: collapse; font-size: 23px; }
+  .sheet th { background: #f8fafc; color: var(--muted); font-size: 17px; letter-spacing: 1.5px; text-transform: uppercase; text-align: left; padding: 10px 16px; border-bottom: 1px solid #eef0f3; }
+  .sheet td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; }
+  .bad { background: #fef2f2; } .bad .x { color: #b91c1c; font-weight: 800; }
+  .good td:first-child { font-family: "DejaVu Sans Mono", monospace; font-size: 20px; color: var(--ink2); }
+  .tag-bad { background: #fee2e2; color: #b91c1c; } .tag-good { background: #dcfce7; color: #15803d; }
+
+  /* ---------- 5: kural ---------- */
+  .rule { font-family: "DejaVu Sans Mono", monospace; font-size: 27px; line-height: 1.75; background: var(--ink); color: #e5e7eb; border-radius: 18px; padding: 34px 38px; margin-bottom: 30px; }
+  .rule .k { color: #fbbf24; font-weight: 700; } .rule .c { color: #94a3b8; } .rule .g { color: #86efac; }
+  .prompt { border-left: 6px solid var(--ai); background: var(--card); padding: 26px 32px; border-radius: 0 14px 14px 0; }
+  .prompt .label { color: var(--ai); }
+  .prompt p { font-size: 30px; line-height: 1.45; color: var(--ink2); }
+
+  /* ---------- 6: onay matrisi ---------- */
+  table.m { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card); border-radius: 18px; overflow: hidden; border: 1px solid #e5e7eb; font-size: 28px; }
+  table.m th { background: #f8fafc; text-align: left; font-size: 19px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); padding: 18px 24px; border-bottom: 1px solid #eef0f3; }
+  table.m td { padding: 24px; border-bottom: 1px solid #f1f2f4; vertical-align: middle; }
+  table.m tr:last-child td { border-bottom: 0; }
+  table.m td:first-child { font-weight: 800; }
+  .sw { display: inline-block; width: 16px; height: 16px; border-radius: 4px; margin-right: 12px; vertical-align: 1px; }
+
+  /* ---------- 7: CTA ---------- */
+  #s7 { justify-content: center; }
+  #s7 .say { font-size: 48px; font-weight: 700; }
+  .kw { display: inline-block; font-family: "Inter Display", sans-serif; font-size: 190px; font-weight: 900; letter-spacing: 6px; color: var(--accent); margin: 10px 0 30px; animation: pulse 1.6s ease-in-out infinite; transform-origin: left center; }
+  
+  @keyframes pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.045) } }
+  #s7 .give { font-size: 42px; line-height: 1.35; color: #e2e8f0; max-width: 860px; }
+  #s7 .give b { color: #fff; }
+  .chips { display: flex; gap: 14px; margin-top: 54px; animation: pop .5s 1s both; }
+  .chip { font-size: 24px; font-weight: 700; padding: 14px 22px; border-radius: 999px; border: 2px solid rgba(255,255,255,.25); color: #e2e8f0; }
+  .chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+  .rows tr:nth-child(4) { animation-delay: 4.4s }
+  .btn { white-space: nowrap; }
+  /* grafik */
+  .bars { display: flex; flex-direction: column; gap: 26px; margin-top: 10px; }
+  .bar .lbl { display: flex; justify-content: space-between; font-size: 28px; font-weight: 700; margin-bottom: 10px; }
+  .bar .lbl span:last-child { font-family: "Inter Display", sans-serif; font-weight: 800; }
+  .bar .track { height: 46px; background: rgba(17,24,39,.06); border-radius: 10px; overflow: hidden; }
+  .bar .fill { height: 100%; border-radius: 10px; transform-origin: left; animation: grow 1.2s ease-out both; }
+  .bar .alt { font-size: 21px; color: var(--muted); margin-top: 8px; }
+  .chart-note { font-size: 22px; color: var(--muted); margin-top: 26px; }
+</style>
+</head>
+<body>
+<section class="slide" id="s1" data-duration="6"><div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">1/7</div></div><div class="kicker"><span class="dot"></span>SEO · Google AI arama</div><h1>Google AI cevaplarında bağlantılar <span class="u">yukarı<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path class="draw" d="M4 18 C 120 10, 260 8, 396 16"/></svg></span> çıkıyor.</h1><p class="lead">Reklamın da organiğin de yeri değişiyor. <b>Bu hafta yapılacak 3 iş.</b></p><div class="timeline"><div class="tl-line"></div><div class="tl-pt" style="left:0px; color:var(--ads); animation-delay:1.1s"><b></b><div class="t">12 Ekim</div><div class="s">Yeni reklam testi (ABD)</div></div><div class="tl-pt" style="left:227px; color:var(--seo); animation-delay:1.5s"><b></b><div class="t">15 Ekim</div><div class="s">Bağlantılar yukarıda</div></div><div class="tl-pt" style="left:453px; color:var(--ecom); animation-delay:1.9s"><b></b><div class="t">Test</div><div class="s">Resmi site bölümü</div></div><div class="tl-pt" style="left:680px; color:var(--ai); animation-delay:2.3s"><b></b><div class="t">Sen</div><div class="s">Sayfaların hazır mı?</div></div></div><div class="foot"><span>Kaynak: PPC Land · Analytics Insight, Ekim 2026</span><span class="next">Kaydır →</span></div></section>
+<section class="slide" id="s2" data-duration="6"><div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">2/7</div></div><div class="kicker"><span class="dot" style="background:var(--seo)"></span>Cevap nasıl kuruluyor?</div><h2>AI cevabında <span class="u">üç<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path class="draw" d="M4 18 C 120 10, 260 8, 396 16"/></svg></span> yer</h2><div class="flow"><svg class="wires" viewBox="0 0 900 780"><path d="M150 90 L 450 90"/><path d="M450 90 L 750 90"/><path d="M750 215 C 750 275, 300 270, 300 332"/><path d="M750 215 C 750 275, 600 270, 600 332"/><path d="M300 505 C 300 565, 450 530, 450 592"/><path d="M600 505 C 600 565, 450 530, 450 592"/></svg><div class="node" style="left:150px; top:90px"><div class="ic" style="background:var(--ink)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></div><div class="n">Soru</div><div class="d">Kullanıcı sorar</div></div><div class="node" style="left:450px; top:90px"><div class="ic" style="background:var(--seo)"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></div><div class="n">AI cevabı</div><div class="d">Özet + satır içi bağlantı</div></div><div class="node" style="left:750px; top:90px"><div class="ic" style="background:var(--ecom)"><svg viewBox="0 0 24 24"><path d="M3 9l2-5h14l2 5M3 9v11h18V9M3 9h18"/><path d="M9 20v-6h6v6"/></svg></div><div class="n">Resmi site</div><div class="d">Test: üstte 1-2 sayfa</div></div><div class="node" style="left:300px; top:380px"><div class="ic" style="background:var(--ads)"><svg viewBox="0 0 24 24"><path d="M3 10v4h4l6 4V6L7 10z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg></div><div class="n">Reklam</div><div class="d">Mevcut kampanyalardan</div></div><div class="node" style="left:600px; top:380px"><div class="ic" style="background:var(--ai)"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg></div><div class="n">İlgili bağlantılar</div><div class="d">Sonda, görselli</div></div><div class="node human" style="left:450px; top:640px"><div class="ic" style="background:var(--ads)"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div><div class="n">Tıklama</div><div class="d">Kullanıcı seçer</div></div></div><div class="foot"><span>Şema: Google'ın 15 Ekim duyurusu (basın özetleri)</span><span class="next">→</span></div></section>
+<section class="slide" id="s3"><div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">3/7</div></div><div class="kicker"><span class="num">01</span>Reklam</div><h2>Hangi kampanya <span class="u">orada<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path class="draw" d="M4 18 C 120 10, 260 8, 396 16"/></svg></span> görünür?</h2><p class="lead" style="margin-bottom:40px">Ayrı kampanya türü yok, hariç tutma ayarı da yok.</p><table class="m"><tr><th>Kampanya</th><th>AI cevabında</th><th>Not</th></tr><tr><td><span class="sw" style="background:var(--ads)"></span>Performance Max</td><td>Uygun</td><td>Varlıklar güncel</td></tr><tr><td><span class="sw" style="background:var(--seo)"></span>Arama · geniş eşleme</td><td>Uygun</td><td>Negatifleri gözden geçir</td></tr><tr><td><span class="sw" style="background:var(--ai)"></span>AI Max for Search</td><td>Uygun</td><td>Metin özelleştirme</td></tr><tr><td><span class="sw" style="background:var(--ink)"></span>Arama · tam eşleme</td><td>Uygun değil</td><td>Klasik sonuçta kalır</td></tr></table><div class="foot"><span>Kaynak: Google Ads Yardım (ajans özetleri), 2026</span><span class="next">→</span></div></section>
+<section class="slide" id="s4" data-duration="6"><div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">4/7</div></div><div class="kicker"><span class="dot" style="background:var(--seo)"></span>Bir rakam</div><h2>Tercih edilen kaynaklar <span class="u">7 kat<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path class="draw" d="M4 18 C 120 10, 260 8, 396 16"/></svg></span></h2><div class="bars"><div class="bar"><div class="lbl"><span>Yılbaşı</span><span>1x</span></div><div class="track"><div class="fill" style="width:14.3%; background:var(--ink); animation-delay:0.60s"></div></div><div class="alt">Başlangıç</div></div><div class="bar"><div class="lbl"><span>Ekim 2026</span><span>7x</span></div><div class="track"><div class="fill" style="width:100.0%; background:var(--seo); animation-delay:0.95s"></div></div><div class="alt">Google'ın açıkladığı kullanım artışı</div></div></div><p class="chart-note">Google, bu değişikliklerin tıklamayı artıracağını söylemedi; trafik etkisi henüz bilinmiyor.</p><div class="foot"><span>Kaynak: Google, 15 Ekim 2026 (PPC Land)</span><span class="next">→</span></div></section>
+<section class="slide" id="s5"><div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">5/7</div></div><div class="kicker"><span class="num">02</span>Organik</div><h2>Sayfanı <span class="u">alıntılanabilir<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path class="draw" d="M4 18 C 120 10, 260 8, 396 16"/></svg></span> yap.</h2><div class="sheets"><div class="window sheet"><div class="chrome"><i></i><i></i><i></i><span>uzun_paragraf.html</span><span class="pill tag-bad" style="margin-left:auto">Alıntılanmaz</span></div><table><tr><th>Bölüm</th><th>İçerik</th></tr><tr class=bad><td>Giriş</td><td>300 kelime genel giriş</td></tr><tr class=bad><td>Cevap</td><td>Sayfanın ortasında</td></tr><tr class=bad><td>Kaynak</td><td>Yok</td></tr></table></div><div class="window sheet good"><div class="chrome"><i></i><i></i><i></i><span>net_cevap.html</span><span class="pill tag-good" style="margin-left:auto">Alıntılanabilir</span></div><table><tr><th>Bölüm</th><th>İçerik</th></tr><tr><td>Giriş</td><td>2 cümlelik net cevap</td></tr><tr><td>Cevap</td><td>İlk 100 kelimede</td></tr><tr><td>Kaynak</td><td>Tarih + kaynak bağlantısı</td></tr></table></div></div><div class="foot"><span>Örnek yapı. Garanti değil, olasılığı artırır.</span><span class="next">→</span></div></section>
+<section class="slide" id="s6"><div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">6/7</div></div><div class="kicker"><span class="num">03</span>Resmi sayfa</div><h2>Resmi sayfanı <span class="u">kontrol et.<svg viewBox="0 0 400 30" preserveAspectRatio="none"><path class="draw" d="M4 18 C 120 10, 260 8, 396 16"/></svg></span></h2><p class="lead" style="margin-bottom:34px">Google, cevabın üstünde 1-2 resmi sayfa gösteren bir bölümü test ediyor.</p><div class="rule"><span class="c"># resmi sayfa kontrolü</span><br><span class="k">MARKA ARAMASI</span> doğru sayfa açılıyor mu<br><span class="k">SAYFA</span> güncel fiyat, iletişim, iade<br><span class="k">YAPISAL VERİ</span> Organization + Product<br><span class="g">→</span> Search Console'da hata yok</div><div class="prompt"><div style="font-size:22px; font-weight:800; letter-spacing:2.5px; text-transform:uppercase; color:var(--ai); margin-bottom:10px">Claude'a yapıştır</div><p>"Markamın adıyla yapılan aramaları düşün. Kullanıcının resmi kaynaktan duymak isteyeceği 10 soruyu yaz ve sitemde cevabı olan sayfaları eşleştir."</p></div><div class="foot"><span>Test her işletme için otomatik değil.</span><span class="next">→</span></div></section>
+<section class="slide dark" id="s7" data-duration="5"><div class="top"><div class="author"><img class="mark" src="../../marka/logo-isaret.svg" alt="">Hasan Yasin Türkyılmaz</div><div class="counter">7/7</div></div><div class="say">Yorumlara yaz:</div><div><span class="kw">GOOGLE</span></div><p class="give"><b>AI aramaya hazırlık</b> kontrol listesini DM'den göndereyim.</p><div class="chips"><span class="chip">Kaydet</span><span class="chip">Ekibinle paylaş</span><span class="chip on">Takip et</span></div><div class="foot" style="color:#94a3b8"><span>@hyturkyilmaz · hyturkyilmaz.com</span></div></section>
+</body>
+</html>

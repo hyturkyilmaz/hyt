@@ -1,0 +1,60 @@
+{
+  "id": "2026-12-10-ajan-rutin",
+  "tarih": "2026-12-10",
+  "gun": "Perşembe",
+  "sutun": "ai",
+  "anahtar": "RUTİN",
+  "muzik_tohum": 74,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "AI · Rutin devri", "baslik": "Her hafta yaptığın _3 işi_ AI'a devret.",
+     "alt": "Rapor, yorum özeti, fiyat kontrolü. **Aynı veri, aynı prompt, her pazartesi.**",
+     "zaman": [{"t": "Pazartesi 09.00", "s": "Haftalık rapor", "renk": "seo"}, {"t": "Pazartesi 10.00", "s": "Yorum ve DM özeti", "renk": "ecom"}, {"t": "Pazartesi 11.00", "s": "Fiyat kontrolü", "renk": "ads"}, {"t": "Sen", "s": "Kararı verirsin", "renk": "ai"}],
+     "kaynak": "Danışmanlıkta kullandığım rutin devri"},
+    {"tip": "matris", "num": "01", "kicker": "3 rutin", "baslik": "Devredilecek _3 iş_",
+     "basliklar": ["Rutin", "Girdi", "Çıktı"],
+     "satirlar": [[["seo", "Haftalık rapor"], "GA4 toplu tablo", "1 sayfa, 3 karar"], [["ecom", "Yorum ve DM özeti"], "Kişisel verisi ayıklanmış metinler", "3 konu, 3 aksiyon"], [["ads", "Fiyat ve etiket kontrolü"], "Fiyat tablosu", "Hatalı etiket listesi"]],
+     "kaynak": "Toplu ve anonim veri; kişisel veri modele gitmez."},
+    {"tip": "akis", "kicker": "Döngü", "renk": "ai", "baslik": "Her pazartesi _aynı döngü_",
+     "satirlar": [[{"ad": "Veri", "alt": "Aynı formatta dışa aktar", "ikon": "veri", "renk": "ink"}, {"ad": "Kayıtlı prompt", "alt": "Değişmez iskelet", "ikon": "belge", "renk": "ai"}, {"ad": "Taslak", "alt": "AI çıkarır", "ikon": "sohbet", "renk": "seo"}],
+                   [{"ad": "Karar", "alt": "Sen verirsin", "ikon": "kisi", "renk": "ads"}, {"ad": "Prompt güncelle", "alt": "Hata varsa", "ikon": "kod", "renk": "ecom"}],
+                   [{"ad": "Kayıt", "alt": "Karar günlüğü", "ikon": "onay", "renk": "ai", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [3, 5]],
+     "kaynak": "Örnek döngü"},
+    {"tip": "kural", "num": "02", "kicker": "İskelet", "baslik": "Prompt'u _kaydet_, her hafta yazma.",
+     "alt": "Aynı iskelet her hafta karşılaştırılabilir çıktı verir.",
+     "kod": ["<span class=\"c\"># rutin prompt iskeleti</span>", "<span class=\"k\">ROL</span> sen haftalık raporcusun", "<span class=\"k\">VERİ</span> ekteki tablo, bu hafta + geçen hafta", "<span class=\"k\">KURAL</span> veride olmayan sayı yok", "<span class=\"k\">ÇIKTI</span> 3 bulgu, 3 karar önerisi, 1 soru"],
+     "prompt": "Her hafta tekrar ettiğim işleri ekte listeliyorum. Hangilerinin aynı veri ve aynı prompt ile AI'a devredilebileceğini, hangilerinin bende kalması gerektiğini gerekçesiyle tablo olarak ver.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Zaman", "baslik": "Pazartesi sabahı _3 saat_ değil, 40 dakika",
+     "once": {"dosya": "elle", "etiket": "Elle", "basliklar": ["İş", "Süre"], "satirlar": [["Haftalık rapor", "90 dk"], ["Yorum ve DM özeti", "60 dk"], ["Fiyat kontrolü", "45 dk"]]},
+     "sonra": {"dosya": "devredilmis", "etiket": "Devredilmiş", "basliklar": ["İş", "Süre"], "satirlar": [["Haftalık rapor", "15 dk okuma"], ["Yorum ve DM özeti", "15 dk okuma"], ["Fiyat kontrolü", "10 dk okuma"]]},
+     "kaynak": "Örnek süreler"},
+    {"tip": "ekran", "kicker": "Pazartesi sabahı", "baslik": "Üç rutinin _tek_ özeti",
+     "pencere": "Claude · haftalık rutin", "istek": "Bu haftanın 3 rutin çıktısını birleştir.",
+     "yanit": "**3 karar bekliyor.** Biri bugün.",
+     "tablo": {"basliklar": ["Rutin", "Bulgu", "Karar"], "satirlar": [["Rapor", "Mobil dönüşüm -%12", "Ödeme sayfasını test et"], ["Yorum", "Beden şikâyeti arttı", "Ölçü tablosu ekle"], ["Fiyat", "4 etikette hata", "Bugün düzelt"]], "vurgu_sutun": 2},
+     "evet": "Onayla", "hayir": "Sonra", "aksiyon": "Kararı sen verirsin; AI yalnız hazırlar.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "RUTİN", "vaat": "**3 haftalık rutin için prompt setini** DM'den göndereyim."}
+  ],
+  "aciklama": "Her hafta yaptığın üç işi AI'a devret ve pazartesi sabahını geri al: haftalık rapor, yorum ve DM özeti, fiyat ve etiket kontrolü.\n\nYöntem basit: her hafta aynı formatta veri, kayıtlı ve değişmeyen bir prompt iskeleti, AI'ın çıkardığı taslak ve senin vereceğin karar. Rapor için GA4'ten toplu tablo, özet için kişisel verisi ayıklanmış yorum ve DM metinleri, fiyat kontrolü için ürün fiyat tablosu yeterli. Örnekte bu üç iş elle üç saat sürerken, devredildiğinde 40 dakikalık okumaya iniyor.\n\nİki kural var. Modele kişisel veri gitmez ve modelden veride olmayan bir sayı istenmez. Bir de şu: AI yalnızca hazırlar, kararı sen verirsin. Hatalı bir çıktı görürsen prompt'u güncelle ve tarihiyle not al; rutinlri her ay biraz daha iyi hale getirmenin yolu bu.\n\nOtomasyon zamanı geri verir. O zamanı neye harcadığın ise işini büyüten asıl karar.\n\nKaydırınca üç rutini, haftalık döngüyü ve prompt iskeletini göreceksin.\n\nYorumlara RUTİN yaz, 3 haftalık rutin için prompt setini DM'den göndereyim.\n\n#yapayzeka #claude #verimlilik #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "rutinlri", "dogrusu": "rutinleri", "paragraf": 3},
+  "dogrulama": ["6698 sayılı KVKK", "Danışmanlık otomasyon notları"],
+  "senaryo": [
+    {"tts": "Her hafta yaptığın üç işi yapay zekâya devret, pazartesi sabahını geri al.", "altyazi": "Her hafta yaptığın 3 işi AI'a devret, pazartesi sabahını geri al."},
+    {"tts": "Haftalık rapor, yorum ve DM özeti, fiyat ve etiket kontrolü.", "altyazi": "Haftalık rapor, yorum ve DM özeti, fiyat ve etiket kontrolü."},
+    {"tts": "Bir. Her hafta aynı veri, aynı kayıtlı prompt. Çıktılar karşılaştırılabilir olur.", "altyazi": "1. Her hafta aynı veri, aynı kayıtlı prompt. Çıktılar karşılaştırılabilir olur."},
+    {"tts": "İki. Modele kişisel veri gitmez, veride olmayan sayı istenmez.", "altyazi": "2. Modele kişisel veri gitmez, veride olmayan sayı istenmez."},
+    {"tts": "Üç. Yapay zekâ hazırlar, kararı sen verirsin. Hata varsa prompt'u güncelle.", "altyazi": "3. AI hazırlar, kararı sen verirsin. Hata varsa prompt'u güncelle."},
+    {"tts": "Örnek: üç saatlik iş kırk dakikalık okumaya iniyor.", "altyazi": "Örnek: 3 saatlik iş 40 dakikalık okumaya iniyor."},
+    {"tts": "Prompt setini istiyorsan yorumlara rutin yaz. Di emden göndereyim.", "altyazi": "Prompt setini istiyorsan yorumlara RUTİN yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Haftalık Rutin _Prompt Seti_", "kicker": "Prompt seti · AI · Otomasyon",
+    "giris": "Her pazartesi aynı veri ve aynı prompt ile üç rutini AI'a hazırlat, kararı sen ver. Kişisel veri modele gitmez.",
+    "bolumler": [
+      {"ad": "Rutinler", "renk": "ai", "maddeler": [["Haftalık rapor", "GA4 toplu tablo; 3 bulgu, 3 karar önerisi."], ["Yorum ve DM özeti", "Ayıklanmış metinler; 3 konu, 3 aksiyon."], ["Fiyat ve etiket kontrolü", "Fiyat tablosu; hatalı etiket listesi."]]},
+      {"ad": "İskelet", "renk": "seo", "maddeler": [["Rol", "Modelin görevi tek cümle."], ["Veri", "Bu hafta ve geçen hafta, aynı format."], ["Kural", "Veride olmayan sayı yok, kişisel veri yok."], ["Çıktı", "Bulgu, karar önerisi, açık soru."]]},
+      {"ad": "Bakım", "renk": "ecom", "maddeler": [["Prompt günlüğü", "Hata ve güncelleme tarihleri."], ["Aylık gözden geçirme", "Hangi öneri işe yaradı, hangisi yaramadı."], ["Karar", "Son karar her zaman insanda."]]}
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-30-uzatma-karari",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Son gün dedin ve satışlar iyi gidiyor. Uzatacak mısın?",
+   "altyazi": "\"Son gün\" dedin ve satışlar iyi gidiyor. Uzatacak mısın?"
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Uzatmadan önce üç soru: son gün dedin mi, stok fazlası var mı, tarih metinde yazılı mı?",
+   "altyazi": "Uzatmadan önce 3 soru: \"son gün\" dedin mi, stok fazlası var mı, tarih metinde yazılı mı?"
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Son gün dediysen uzatma. Güveni ve sonraki kampanyaları korur.",
+   "altyazi": "1. \"Son gün\" dediysen uzatma. Güveni ve sonraki kampanyaları korur."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Stok fazlası için yeni tarihli, ayrı bir kampanya planla.",
+   "altyazi": "2. Stok fazlası için yeni tarihli, ayrı bir kampanya planla."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Kapanışı kurala bağla: fiyat, etiket, reklam ve e-posta aynı anda.",
+   "altyazi": "3. Kapanışı kurala bağla: fiyat, etiket, reklam ve e-posta aynı anda."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Banner ve pop-up'ı unutma. Bu hukuki görüş değildir.",
+   "altyazi": "Banner ve pop-up'ı unutma. Hukuki görüş değildir."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Kapanış listesini istiyorsan yorumlara uzatma yaz. Di emden göndereyim.",
+   "altyazi": "Kapanış listesini istiyorsan yorumlara UZATMA yaz. DM'den göndereyim."
+  }
+ ]
+}

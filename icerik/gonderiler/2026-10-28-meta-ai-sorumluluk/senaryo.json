@@ -1,0 +1,48 @@
+{
+ "id": "2026-10-28-meta-ai-sorumluluk",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Meta'nın yapay zekâsı reklamını değiştirirse sorumlu kim? Otuz Ekim'den itibaren cevap: sen.",
+   "altyazi": "Meta'nın yapay zekâsı reklamını değiştirirse sorumlu kim? 30 Ekim'den itibaren cevap: sen."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Sen reklamı yüklüyorsun, Meta'nın yapay zekâsı metin, görsel ya da müzik ekliyor. Sorumluluk ise tamamen sende.",
+   "altyazi": "Sen reklamı yüklüyorsun, Meta'nın yapay zekâsı metin, görsel ya da müzik ekliyor. Sorumluluk ise tamamen sende."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Advantage Plus yaratıcı ayarlarını tek tek kontrol et. Birini kapatmak diğerlerini kapatmıyor.",
+   "altyazi": "1. Advantage+ yaratıcı ayarlarını tek tek kontrol et. Birini kapatmak diğerlerini kapatmıyor."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Onay kuralını yaz. Fiyat, garanti ya da sağlık ifadesi varsa yapay zekâ metni kapalı kalsın.",
+   "altyazi": "2. Onay kuralını yaz. Fiyat, garanti ya da sağlık ifadesi varsa AI metni kapalı kalsın."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Varsayılanı kendin seç. Açık geldi diye açık bırakma.",
+   "altyazi": "3. Varsayılanı kendin seç. Açık geldi diye açık bırakma."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Her hafta önizlemeleri tara. Son karar her zaman sende.",
+   "altyazi": "Her hafta önizlemeleri tara. Son karar her zaman sende."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Kontrol listesini istiyorsan yorumlara meta yaz. Di emden göndereyim.",
+   "altyazi": "Kontrol listesini istiyorsan yorumlara META yaz. DM'den göndereyim."
+  }
+ ]
+}

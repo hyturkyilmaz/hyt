@@ -1,0 +1,60 @@
+{
+  "id": "2026-10-29-google-ai-mode",
+  "tarih": "2026-10-29",
+  "gun": "Perşembe",
+  "sutun": "seo",
+  "anahtar": "GOOGLE",
+  "muzik_tohum": 32,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "SEO · Google AI arama", "baslik": "Google AI cevaplarında bağlantılar _yukarı_ çıkıyor.",
+     "alt": "Reklamın da organiğin de yeri değişiyor. **Bu hafta yapılacak 3 iş.**",
+     "zaman": [{"t": "12 Ekim", "s": "Yeni reklam testi (ABD)", "renk": "ads"}, {"t": "15 Ekim", "s": "Bağlantılar yukarıda", "renk": "seo"}, {"t": "Test", "s": "Resmi site bölümü", "renk": "ecom"}, {"t": "Sen", "s": "Sayfaların hazır mı?", "renk": "ai"}],
+     "kaynak": "Kaynak: PPC Land · Analytics Insight, Ekim 2026"},
+    {"tip": "akis", "kicker": "Cevap nasıl kuruluyor?", "renk": "seo", "baslik": "AI cevabında _üç_ yer",
+     "satirlar": [[{"ad": "Soru", "alt": "Kullanıcı sorar", "ikon": "arama", "renk": "ink"}, {"ad": "AI cevabı", "alt": "Özet + satır içi bağlantı", "ikon": "sohbet", "renk": "seo"}, {"ad": "Resmi site", "alt": "Test: üstte 1-2 sayfa", "ikon": "magaza", "renk": "ecom"}],
+                   [{"ad": "Reklam", "alt": "Mevcut kampanyalardan", "ikon": "hoparlor", "renk": "ads"}, {"ad": "İlgili bağlantılar", "alt": "Sonda, görselli", "ikon": "belge", "renk": "ai"}],
+                   [{"ad": "Tıklama", "alt": "Kullanıcı seçer", "ikon": "onay", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Şema: Google'ın 15 Ekim duyurusu (basın özetleri)"},
+    {"tip": "matris", "num": "01", "kicker": "Reklam", "baslik": "Hangi kampanya _orada_ görünür?",
+     "alt": "Ayrı kampanya türü yok, hariç tutma ayarı da yok.",
+     "basliklar": ["Kampanya", "AI cevabında", "Not"],
+     "satirlar": [[["ads", "Performance Max"], "Uygun", "Varlıklar güncel"], [["seo", "Arama · geniş eşleme"], "Uygun", "Negatifleri gözden geçir"], [["ai", "AI Max for Search"], "Uygun", "Metin özelleştirme"], [["ink", "Arama · tam eşleme"], "Uygun değil", "Klasik sonuçta kalır"]],
+     "kaynak": "Kaynak: Google Ads Yardım (ajans özetleri), 2026"},
+    {"tip": "grafik", "kicker": "Bir rakam", "renk": "seo", "baslik": "Tercih edilen kaynaklar _7 kat_",
+     "barlar": [{"ad": "Yılbaşı", "etiket": "1x", "deger": 1, "renk": "ink", "alt": "Başlangıç"}, {"ad": "Ekim 2026", "etiket": "7x", "deger": 7, "renk": "seo", "alt": "Google'ın açıkladığı kullanım artışı"}],
+     "not": "Google, bu değişikliklerin tıklamayı artıracağını söylemedi; trafik etkisi henüz bilinmiyor.",
+     "kaynak": "Kaynak: Google, 15 Ekim 2026 (PPC Land)"},
+    {"tip": "oncesonra", "num": "02", "kicker": "Organik", "baslik": "Sayfanı _alıntılanabilir_ yap.",
+     "once": {"dosya": "uzun_paragraf.html", "etiket": "Alıntılanmaz", "basliklar": ["Bölüm", "İçerik"], "satirlar": [["Giriş", "300 kelime genel giriş"], ["Cevap", "Sayfanın ortasında"], ["Kaynak", "Yok"]]},
+     "sonra": {"dosya": "net_cevap.html", "etiket": "Alıntılanabilir", "basliklar": ["Bölüm", "İçerik"], "satirlar": [["Giriş", "2 cümlelik net cevap"], ["Cevap", "İlk 100 kelimede"], ["Kaynak", "Tarih + kaynak bağlantısı"]]},
+     "kaynak": "Örnek yapı. Garanti değil, olasılığı artırır."},
+    {"tip": "kural", "num": "03", "kicker": "Resmi sayfa", "baslik": "Resmi sayfanı _kontrol et._",
+     "alt": "Google, cevabın üstünde 1-2 resmi sayfa gösteren bir bölümü test ediyor.",
+     "kod": ["<span class=\"c\"># resmi sayfa kontrolü</span>", "<span class=\"k\">MARKA ARAMASI</span> doğru sayfa açılıyor mu", "<span class=\"k\">SAYFA</span> güncel fiyat, iletişim, iade", "<span class=\"k\">YAPISAL VERİ</span> Organization + Product", "<span class=\"g\">→</span> Search Console'da hata yok"],
+     "prompt": "Markamın adıyla yapılan aramaları düşün. Kullanıcının resmi kaynaktan duymak isteyeceği 10 soruyu yaz ve sitemde cevabı olan sayfaları eşleştir.",
+     "kaynak": "Test her işletme için otomatik değil."},
+    {"tip": "cta", "anahtar": "GOOGLE", "vaat": "**AI aramaya hazırlık** kontrol listesini DM'den göndereyim."}
+  ],
+  "aciklama": "Google'ın yapay zekâ cevaplarında bağlantılar yukarı çıkıyor. Hem reklamın hem organik sayfanın yeri değişiyor.\n\n15 Ekim'de Google, AI Overviews ve AI Mode'da satır içi bağlantıları artırdığını ve daha yukarıda göstereceğini açıkladı. Cevabın üstünde bir ya da iki resmi sayfayı gösteren bir bölüm de test ediliyor. Reklam tarafında ayrı bir kampanya türü yok; uygun mevcut kampanyalar bu alanda görünebiliyor ve hariç tutma ayarı bulunmuyor.\n\nBirçok reklamveern bunu fark etmeden zaten AI cevaplarında görünüyor. Asıl soru, orada hangi mesajla göründükleri.\n\nYeni bir yüzey açıldığında insanlar önce kendi yerini arar. Burada yer, net cevap veren sayfaya gidiyor.\n\nKaydırınca hangi kampanyanın orada göründüğünü, sayfanı alıntılanabilir yapmayı ve resmi sayfa kontrolünü göreceksin.\n\nYorumlara GOOGLE yaz, AI aramaya hazırlık listesini DM'den göndereyim.\n\n#seo #googleads #yapayzeka #dijitalpazarlama #geo",
+  "yazim_hatasi": {"kelime": "reklamveern", "dogrusu": "reklamveren", "paragraf": 3},
+  "dogrulama": ["PPC Land, Ekim 2026", "Analytics Insight", "Stagman SEO", "Google Ads Yardım (ajans özetleri)"],
+  "senaryo": [
+    {"tts": "Google'ın yapay zekâ cevaplarında bağlantılar yukarı çıkıyor. Reklamın da organiğin de yeri değişiyor.", "altyazi": "Google'ın yapay zekâ cevaplarında bağlantılar yukarı çıkıyor. Reklamın da organiğin de yeri değişiyor."},
+    {"tts": "Cevapta üç yer var: satır içi bağlantılar, resmi site bölümü ve reklam.", "altyazi": "Cevapta üç yer var: satır içi bağlantılar, resmi site bölümü ve reklam."},
+    {"tts": "Bir. Reklam için ayrı kampanya yok. Performans Maks, geniş eşleme ve AI Maks oraya çıkabiliyor.", "altyazi": "1. Reklam için ayrı kampanya yok. Performance Max, geniş eşleme ve AI Max oraya çıkabiliyor."},
+    {"tts": "Tercih edilen kaynak kullanımı yılbaşından beri yedi kat artmış. Ama tıklama artışı vaadi yok.", "altyazi": "Tercih edilen kaynak kullanımı yılbaşından beri 7 kat artmış. Ama tıklama artışı vaadi yok."},
+    {"tts": "İki. Sayfanı alıntılanabilir yap. Net cevap ilk yüz kelimede olsun.", "altyazi": "2. Sayfanı alıntılanabilir yap. Net cevap ilk 100 kelimede olsun."},
+    {"tts": "Üç. Resmi sayfanı kontrol et. Marka aramasında doğru sayfa açılıyor mu?", "altyazi": "3. Resmi sayfanı kontrol et. Marka aramasında doğru sayfa açılıyor mu?"},
+    {"tts": "Hazırlık listesini istiyorsan yorumlara google yaz. Di emden göndereyim.", "altyazi": "Hazırlık listesini istiyorsan yorumlara GOOGLE yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "AI Aramaya _Hazırlık_", "kicker": "Kontrol listesi · SEO · Google AI",
+    "giris": "Google AI Overviews ve AI Mode'da bağlantılar yukarı çıkıyor, reklamlar mevcut kampanyalardan geliyor. Bu liste hem organik hem reklam tarafı için.",
+    "bolumler": [
+      {"ad": "Organik", "renk": "seo", "maddeler": [["Net cevap", "Her önemli sayfada sorunun cevabı ilk 100 kelimede."], ["Tarih ve kaynak", "Bilgi içeren sayfalarda güncelleme tarihi ve kaynak bağlantısı."], ["Yapısal veri", "Organization, Product ve SSS işaretlemesi hatasız."], ["Marka araması", "Marka adıyla aramada doğru resmi sayfa açılıyor."]]},
+      {"ad": "Reklam", "renk": "ads", "maddeler": [["Uygun kampanyaları listele", "Performance Max, Shopping, geniş eşleme ve AI Max kampanyaları AI cevaplarında görünebilir."], ["Negatif anahtar kelimeler", "Geniş eşlemede istenmeyen sorguları dışla."], ["Varlıklar güncel", "Başlık, açıklama, görsel ve fiyat bilgisi doğru."]]},
+      {"ad": "Takip", "renk": "ai", "maddeler": [["Aylık kontrol", "Markanla ilgili 10 soruyu AI Mode'da sor, sonucu tabloya yaz."], ["Değişiklik günlüğü", "Hangi sayfayı ne zaman değiştirdiğini kaydet."], ["Beklenti", "Google tıklama artışı vaat etmedi; etkiyi kendi verinle ölç."]]}
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "id": "2026-10-31-indirim-10-gun",
+  "tarih": "2026-10-31",
+  "gun": "Cumartesi",
+  "sutun": "ecom",
+  "anahtar": "FIYAT",
+  "muzik_tohum": 34,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Mevzuat", "baslik": "Kasım indiriminde _10 gün_ kuralı.",
+     "alt": "İndirim öncesi fiyat, son 10 günün **en düşük fiyatı**.",
+     "zaman": [{"t": "1 Ağustos", "s": "Kural yürürlükte", "renk": "ecom"}, {"t": "11 Kasım", "s": "11.11", "renk": "ai"}, {"t": "27 Kasım", "s": "Efsane Cuma", "renk": "ads"}, {"t": "Sen", "s": "Fiyat geçmişin hazır mı?", "renk": "seo"}],
+     "kaynak": "Kaynak: Ticaret Bakanlığı (AA) · Dünya Gazetesi, 2026"},
+    {"tip": "oncesonra", "kicker": "Örnek", "baslik": "Aynı indirim, _iki_ etiket",
+     "once": {"dosya": "yanlis_etiket", "etiket": "Yanıltıcı", "basliklar": ["Tarih", "Fiyat", "Etiket"], "satirlar": [["1-9 Kasım", "₺899", "-"], ["10 Kasım", "₺1.299", "Fiyat artırıldı"], ["11 Kasım", "₺899", "\"%31 indirim\""]]},
+     "sonra": {"dosya": "dogru_etiket", "etiket": "Uyumlu", "basliklar": ["Tarih", "Fiyat", "Etiket"], "satirlar": [["1-10 Kasım", "₺1.099", "-"], ["En düşük (10 gün)", "₺1.099", "Referans"], ["11 Kasım", "₺899", "\"%18 indirim\""]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "grafik", "kicker": "Ceza aralığı", "renk": "ecom", "baslik": "İdari para _cezası_",
+     "barlar": [{"ad": "En düşük", "etiket": "108.370 TL", "deger": 108370, "renk": "ecom"}, {"ad": "En yüksek", "etiket": "39.916.524 TL", "deger": 39916524, "renk": "ads"}],
+     "not": "Reklamın yayınlandığı mecraya göre değişir; Reklam Kurulu reklamı durdurma cezası da verebilir.",
+     "kaynak": "Kaynak: Ticaret Bakanlığı açıklaması (AA), 2026"},
+    {"tip": "kural", "num": "01", "kicker": "Kayıt", "baslik": "Fiyat geçmişini _kaydet._",
+     "alt": "Denetimde ispat senden istenir.",
+     "kod": ["<span class=\"c\"># fiyat kaydı · günlük</span>", "<span class=\"k\">KAYIT</span> ürün · kanal · tarih · fiyat", "<span class=\"g\">→</span> 10 gün geriye en düşük fiyatı bul", "<span class=\"g\">→</span> indirim oranını buna göre yaz", "<span class=\"k\">SAKLA</span> kampanya boyunca ve sonrasında"],
+     "prompt": "Ekteki fiyat tablosunda her ürün için 11 Kasım öncesi son 10 günün en düşük fiyatını bul ve gerçek indirim oranını hesapla. Etiketteki oranla farklı olanları işaretle.",
+     "kaynak": "Hukuki görüş değildir; resmi metin için Bakanlık duyurusuna bak."},
+    {"tip": "matris", "num": "02", "kicker": "Denetim", "baslik": "Bakanlığın _baktığı_ yerler",
+     "basliklar": ["Konu", "Risk", "Ne yapmalı"],
+     "satirlar": [[["ecom", "Şartlı kampanya"], "Şart gizli", "Şartı görselde yaz"], [["ads", "Stok bilgisi"], "Yanıltıcı \"son 3 ürün\"", "Gerçek stok"], [["seo", "Kampanya süresi"], "Belirsiz bitiş", "Tarih ve saat"], [["ai", "AI ve sosyal medya"], "Etiketsiz reklam", "Reklam etiketi"]],
+     "kaynak": "Kaynak: Ticaret Bakanlığı (AA), 2026"},
+    {"tip": "ekran", "kicker": "Kontrol", "baslik": "Etiketleri _toplu_ kontrol et.",
+     "pencere": "Claude · fiyat kontrolü", "istek": "11.11 etiketlerini 10 gün kuralıyla kontrol et.",
+     "yanit": "**120 üründen 7'sinde** oran yanlış.",
+     "tablo": {"basliklar": ["Ürün", "Etiket", "Gerçek", "Durum"], "satirlar": [["Keten gömlek", "%31", "%18", "Düzelt"], ["Pamuk şort", "%20", "%20", "Uygun"], ["Hasır şapka", "%40", "%25", "Düzelt"]], "vurgu_sutun": 3},
+     "evet": "Düzelt", "hayir": "Atla", "aksiyon": "Yayından önce etiketleri güncelle.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "FIYAT", "vaat": "**10 gün kuralı fiyat kontrol tablosunu** DM'den göndereyim."}
+  ],
+  "aciklama": "Kasım indiriminde etiketteki oran, son 10 günün en düşük fiyatına göre hesaplanmalı.\n\nTicari Reklam ve Haksız Ticari Uygulamalar Yönetmeliği'nde yapılan ve 1 Ağustos 2026'da yürürlüğe giren değişiklikle indirim öncesi fiyat, indirimin başladığı tarihten önceki son 10 günde uygulanan en düşük fiyat olarak esas alınıyor. Bakanlık şartlı kampanyaları, stok bilgilerini ve kampanya sürelerini de inceliyor.\n\n11.11 ve Efsane Cuma öncesi en riskli hamle, kampanyadan birkaç gün önce fiyatı yükseltmek. Etikette %31 yazarken gerçek oran %18 çıkabiliyor. Uyguladğın her fiyatın kaydını tutmak, denetimde elindeki tek ispat.\n\nTüketici sahte indirimi bir kez fark ettiğinde markaya güveni uzun süre geri gelmiyor. Kural, bu güveni korumanın da yolu.\n\nKaydırınca doğru ve yanlış etiket örneğini, ceza aralığını ve toplu kontrol yöntemini göreceksin.\n\nYorumlara FIYAT yaz, 10 gün kuralı fiyat kontrol tablosunu DM'den göndereyim.\n\n#eticaret #blackfriday #efsanecuma #kasimindirimi #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "Uyguladğın", "dogrusu": "Uyguladığın", "paragraf": 3},
+  "dogrulama": ["Anadolu Ajansı (Ticaret Bakanlığı açıklaması), 2026", "Dünya Gazetesi", "Haber7"],
+  "senaryo": [
+    {"tts": "Kasım indiriminde etiketteki oran, son on günün en düşük fiyatına göre hesaplanmalı.", "altyazi": "Kasım indiriminde etiketteki oran, son 10 günün en düşük fiyatına göre hesaplanmalı."},
+    {"tts": "Kampanyadan önce fiyatı artırırsan, yüzde otuz bir yazan etiketin gerçeği yüzde on sekiz çıkabilir.", "altyazi": "Kampanyadan önce fiyatı artırırsan, %31 yazan etiketin gerçeği %18 çıkabilir."},
+    {"tts": "İdari para cezası, mecraya göre yüz sekiz bin liradan yaklaşık kırk milyon liraya kadar çıkıyor.", "altyazi": "İdari para cezası, mecraya göre 108 bin liradan yaklaşık 40 milyon liraya kadar çıkıyor."},
+    {"tts": "Bir. Fiyat geçmişini her gün kaydet. Denetimde ispat senden istenir.", "altyazi": "1. Fiyat geçmişini her gün kaydet. Denetimde ispat senden istenir."},
+    {"tts": "İki. Şartları, stok bilgisini ve kampanya süresini açık yaz.", "altyazi": "2. Şartları, stok bilgisini ve kampanya süresini açık yaz."},
+    {"tts": "Üç. Etiketleri toplu kontrol et, yanlış oranı yayından önce düzelt.", "altyazi": "3. Etiketleri toplu kontrol et, yanlış oranı yayından önce düzelt."},
+    {"tts": "Kontrol tablosunu istiyorsan yorumlara fiyat yaz. Di emden göndereyim.", "altyazi": "Kontrol tablosunu istiyorsan yorumlara FIYAT yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "10 Gün Kuralı _Fiyat Kontrolü_", "kicker": "Kontrol listesi · E-ticaret · Mevzuat",
+    "giris": "1 Ağustos 2026'dan itibaren indirim öncesi fiyat, indirimin başladığı tarihten önceki son 10 günün en düşük fiyatı. Bu liste hukuki görüş değildir; tereddütte resmi metne ve uzmana başvur.",
+    "bolumler": [
+      {"ad": "Kayıt", "renk": "ecom", "maddeler": [["Günlük fiyat kaydı", "Her ürün, her kanal, her gün: tarih ve fiyat."], ["Kampanya başlangıcı", "İndirimin başladığı tarih ve saat yazılı."], ["Referans fiyat", "Başlangıçtan geriye 10 günün en düşük fiyatı."], ["Saklama", "Kayıtlar kampanya boyunca ve sonrasında erişilebilir."]]},
+      {"ad": "Etiket", "renk": "ads", "maddeler": [["Oran formülü", "İndirim % = (Referans - İndirimli) ÷ Referans × 100"], ["Şartlar görselde", "\"Sepette\", \"ikinci ürüne\" gibi şartlar ana görselde."], ["Süre ve stok", "Bitiş tarihi, saati ve gerçek stok bilgisi açık."]]},
+      {"ad": "Kontrol", "renk": "seo", "maddeler": [["Toplu kontrol", "Kampanyadan önce tüm etiketleri formülle karşılaştır."], ["Reklam etiketi", "Etkileyici ve AI içeriklerinde reklam olduğu belirtilir."], ["Son kontrol", "Kampanya günü sabahı rastgele 10 ürünü yeniden kontrol et."]]}
+    ]
+  }
+}

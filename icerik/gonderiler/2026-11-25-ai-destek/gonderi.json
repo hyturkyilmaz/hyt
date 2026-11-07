@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-25-ai-destek",
+  "tarih": "2026-11-25",
+  "gun": "Çarşamba",
+  "sutun": "ai",
+  "anahtar": "DESTEK",
+  "muzik_tohum": 59,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "AI · Müşteri hizmetleri", "baslik": "AI yanıtı yazsın, _insan_ göndersin.",
+     "alt": "Kampanya haftasında destek yükü 3 katına çıkar. **AI taslak, insan onay.**",
+     "zaman": [{"t": "Soru", "s": "DM, e-posta, yorum", "renk": "ink"}, {"t": "AI", "s": "Taslak yanıt", "renk": "ai"}, {"t": "İnsan", "s": "Kontrol ve gönderim", "renk": "ads"}, {"t": "Sen", "s": "Devir kuralın var mı?", "renk": "ecom"}],
+     "kaynak": "Danışmanlıkta kullandığım destek modeli"},
+    {"tip": "akis", "kicker": "Akış", "renk": "ai", "baslik": "Sorudan _yanıta_",
+     "satirlar": [[{"ad": "Soru", "alt": "Kişisel veri ayıklanır", "ikon": "sohbet", "renk": "ink"}, {"ad": "Sınıf", "alt": "Kargo, iade, beden", "ikon": "etiket", "renk": "seo"}, {"ad": "AI taslak", "alt": "Hazır yanıt havuzundan", "ikon": "belge", "renk": "ai"}],
+                   [{"ad": "İnsan kontrolü", "alt": "Düzelt, onayla", "ikon": "kisi", "renk": "ads"}, {"ad": "Devir", "alt": "Şikâyet, ödeme, hukuk", "ikon": "kalkan", "renk": "ecom"}],
+                   [{"ad": "Gönderim", "alt": "Müşteriye", "ikon": "onay", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Örnek akış"},
+    {"tip": "matris", "num": "01", "kicker": "Devir kuralı", "baslik": "AI'ın _dokunmadığı_ konular",
+     "basliklar": ["Konu", "Kim yanıtlar", "Neden"],
+     "satirlar": [[["ads", "Ödeme sorunu"], "İnsan", "Para ve güven"], [["ecom", "Hukuki şikâyet"], "İnsan + uzman", "Risk"], [["seo", "Öfkeli müşteri"], "İnsan", "Empati"], [["ai", "Kargo, beden, iade"], "AI taslak + insan onay", "Tekrar eden soru"]],
+     "kaynak": "Örnek kural seti"},
+    {"tip": "kural", "num": "02", "kicker": "Veri", "baslik": "Modele _kişisel veri_ gitmez.",
+     "alt": "Ad, telefon, adres ve sipariş numarası taslaktan önce ayıklanır.",
+     "kod": ["<span class=\"c\"># destek prompt kuralı</span>", "<span class=\"k\">GİRDİ</span> soru metni, kişisel veri yok", "<span class=\"k\">KAYNAK</span> yalnızca hazır yanıt havuzu", "<span class=\"k\">YASAK</span> politika dışı söz, uydurma tarih", "<span class=\"k\">ÇIKTI</span> 2-3 cümle, samimi, net"],
+     "prompt": "Aşağıdaki müşteri sorusuna yalnızca ekteki hazır yanıt havuzunu kullanarak 3 cümleyi geçmeyen bir taslak yaz. Havuzda cevap yoksa \"insan devri\" yaz ve nedenini belirt.",
+     "kaynak": "KVKK: kişisel veri aktarımı için hukuki dayanak gerekir. Hukuki görüş değildir."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Yanıt", "baslik": "Robot gibi değil, _insan_ gibi",
+     "once": {"dosya": "robot_yanit", "etiket": "Soğuk", "basliklar": ["Bölüm", "Metin"], "satirlar": [["Giriş", "Talebiniz alınmıştır"], ["Gövde", "İlgili birime iletilmiştir"], ["Kapanış", "Saygılarımızla"]]},
+     "sonra": {"dosya": "insan_yanit", "etiket": "Sıcak", "basliklar": ["Bölüm", "Metin"], "satirlar": [["Giriş", "Merhaba Ayşe Hanım"], ["Gövde", "Siparişiniz yarın kargoda"], ["Kapanış", "Takip bağlantısını şimdi gönderiyorum"]]},
+     "kaynak": "Örnek metin"},
+    {"tip": "ekran", "kicker": "Günlük özet", "baslik": "AI kaç soruyu _taslakladı?_",
+     "pencere": "Claude · destek özeti", "istek": "Bugünkü destek kayıtlarını özetle.",
+     "yanit": "**214 sorunun 171'i taslakla yanıtlandı.**",
+     "tablo": {"basliklar": ["Sınıf", "Adet", "Yanıt yolu"], "satirlar": [["Kargo", "96", "AI taslak + onay"], ["İade", "41", "AI taslak + onay"], ["Ödeme", "12", "İnsan"]], "vurgu_sutun": 2},
+     "evet": "Havuzu güncelle", "hayir": "Sonra", "aksiyon": "Yeni çıkan soruyu havuza ekle.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "DESTEK", "vaat": "**AI destekli müşteri hizmetleri kural setini** DM'den göndereyim."}
+  ],
+  "aciklama": "Kampanya haftasında destek yükü birkaç katına çıkıyor. Çözüm basit bir iş bölümü: AI yanıtı yazsın, insan göndersin.\n\nGelen soru önce kişisel verilerden ayıklanıyor, sonra kargo, iade, beden gibi sınıflara ayrılıyor. Tekrar eden sorularda Claude hazır yanıt havuzundan iki üç cümlelik bir taslak çıkarıyor; ekipten biri okuyup düzeltiyor ve gönderiyor. Ödeme sorunu, hukuki şikâyet ve öfkeli müşteri ise doğrudan insana gidiyor.\n\nİki kural önemli. Modele ad, telefon, adres ve sipariş numarası gitmiyor. Model de yalnızca havuzdaki bilgiyle yanıt yazıyor; politika dışında bir söz vermek ya da tarih uydurmak yasak. Böylece müşterilrin aldığı yanıt hem hızlı hem doğru oluyor.\n\nMüşteri yanıtı kimin yazdığını değil, sorununun çözülüp çözülmediğini hatırlıyor.\n\nKaydırınca akışı, devir kuralını ve yanıt örneklerini göreceksin.\n\nYorumlara DESTEK yaz, AI destekli müşteri hizmetleri kural setini DM'den göndereyim.\n\n#yapayzeka #musterideneyimi #claude #eticaret",
+  "yazim_hatasi": {"kelime": "müşterilrin", "dogrusu": "müşterilerin", "paragraf": 3},
+  "dogrulama": ["6698 sayılı KVKK", "Danışmanlık müşteri hizmetleri notları"],
+  "senaryo": [
+    {"tts": "Kampanya haftasında destek yükü katlanıyor. Yapay zekâ yazsın, insan göndersin.", "altyazi": "Kampanya haftasında destek yükü katlanıyor. AI yazsın, insan göndersin."},
+    {"tts": "Soru ayıklanır, sınıflanır, taslak çıkar, insan onaylar.", "altyazi": "Soru ayıklanır, sınıflanır, taslak çıkar, insan onaylar."},
+    {"tts": "Bir. Ödeme, hukuki şikâyet ve öfkeli müşteri doğrudan insana gider.", "altyazi": "1. Ödeme, hukuki şikâyet ve öfkeli müşteri doğrudan insana gider."},
+    {"tts": "İki. Modele kişisel veri gitmez. Ad, telefon, adres ayıklanır.", "altyazi": "2. Modele kişisel veri gitmez. Ad, telefon, adres ayıklanır."},
+    {"tts": "Üç. Model yalnız hazır yanıt havuzunu kullanır, söz uydurmaz.", "altyazi": "3. Model yalnız hazır yanıt havuzunu kullanır, söz uydurmaz."},
+    {"tts": "Yanıt robot gibi değil, insan gibi olsun. Yeni soruyu havuza ekle.", "altyazi": "Yanıt robot gibi değil, insan gibi olsun. Yeni soruyu havuza ekle."},
+    {"tts": "Kural setini istiyorsan yorumlara destek yaz. Di emden göndereyim.", "altyazi": "Kural setini istiyorsan yorumlara DESTEK yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "AI Destekli _Müşteri Hizmetleri_", "kicker": "Kural seti · AI · Destek",
+    "giris": "Kampanya haftasında AI taslak yazar, insan onaylar ve gönderir. Kişisel veri modele gitmez. Hukuki görüş değildir.",
+    "bolumler": [
+      {"ad": "Akış", "renk": "ai", "maddeler": [["Ayıklama", "Ad, telefon, adres, sipariş numarası çıkarılır."], ["Sınıflama", "Kargo, iade, beden, ödeme, şikâyet."], ["Taslak", "Yalnızca hazır yanıt havuzundan, 2-3 cümle."], ["Onay", "Ekipten biri okur, düzeltir, gönderir."]]},
+      {"ad": "Devir", "renk": "ads", "maddeler": [["Ödeme sorunu", "Doğrudan insan."], ["Hukuki şikâyet", "İnsan ve gerekirse uzman."], ["Öfkeli müşteri", "İnsan, telefonla dönüş teklifi."]]},
+      {"ad": "Bakım", "renk": "seo", "maddeler": [["Havuz güncelleme", "Yeni çıkan soru aynı gün eklenir."], ["Günlük özet", "Sınıf, adet, yanıt yolu; kişi bilgisi yok."], ["Hesap ayarı", "Kurumsal planda veri eğitim ayarlarını kontrol et."]]}
+    ]
+  }
+}

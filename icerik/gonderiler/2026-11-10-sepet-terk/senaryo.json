@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-10-sepet-terk",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Terk edilen sepete dönmek satış getirir. Onay almadan dönmek ise risk.",
+   "altyazi": "Terk edilen sepete dönmek satış getirir. Onay almadan dönmek ise risk."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Önce onay kapısı: ticari ileti onayı ve İ Ye Se kaydı. Onay yoksa mesaj gitmez.",
+   "altyazi": "Önce onay kapısı: ticari ileti onayı ve İYS kaydı. Onay yoksa mesaj gitmez."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. E-posta ve SMS'te onay ve ret bağlantısı her mesajda olsun.",
+   "altyazi": "1. E-posta ve SMS'te onay ve ret bağlantısı her mesajda olsun."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Üç mesaj yeter: bir saat, yirmi dört saat ve yetmiş iki saat. Sonra dur.",
+   "altyazi": "2. 3 mesaj yeter: 1 saat, 24 saat ve 72 saat. Sonra dur."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Büyük liste değil, onaylı liste. Onay tarihini sakla.",
+   "altyazi": "3. Büyük liste değil, onaylı liste. Onay tarihini sakla."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Göndermeden önce kontrol et. Sahte aciliyet varsa düzelt. Bu hukuki görüş değildir.",
+   "altyazi": "Göndermeden önce kontrol et. Sahte aciliyet varsa düzelt. Hukuki görüş değildir."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "E-posta şablonlarını istiyorsan yorumlara terk yaz. Di emden göndereyim.",
+   "altyazi": "E-posta şablonlarını istiyorsan yorumlara TERK yaz. DM'den göndereyim."
+  }
+ ]
+}

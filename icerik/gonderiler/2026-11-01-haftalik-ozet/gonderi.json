@@ -1,0 +1,59 @@
+{
+  "id": "2026-11-01-haftalik-ozet",
+  "tarih": "2026-11-01",
+  "gun": "Pazar",
+  "sutun": "ads",
+  "anahtar": "HAFTA",
+  "muzik_tohum": 35,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Haftalık özet · Kasım 1", "baslik": "Ekim bitti: _5 gelişme_, 5 aksiyon.",
+     "alt": "Kaydettiğin her şeyi okumana gerek yok. **Bu 5 işi yapman yeter.**",
+     "zaman": [{"t": "Meta", "s": "AI değişikliği senin sorumluluğun", "renk": "ads"}, {"t": "Google", "s": "AI cevabında bağlantılar yukarıda", "renk": "seo"}, {"t": "Claude", "s": "Duet önizlemede", "renk": "ai"}, {"t": "Ticaret", "s": "10 gün kuralı", "renk": "ecom"}],
+     "kaynak": "Kaynak: bu haftanın gönderileri (28-31 Ekim)"},
+    {"tip": "matris", "num": "01", "kicker": "Gelişme → aksiyon", "baslik": "Her gelişmeye _tek_ iş",
+     "basliklar": ["Gelişme", "Aksiyon (süre)"],
+     "satirlar": [[["ads", "Meta AI şartları"], "Yaratıcı ayarları tek tek kontrol et (20 dk)"], [["seo", "Google AI cevapları"], "Ana sayfalarda net cevap ilk 100 kelimede (1 saat)"], [["ai", "Claude Duet"], "Devredilecek 2 rutin işi yaz (15 dk)"], [["ecom", "10 gün kuralı"], "Fiyat kaydını başlat (30 dk)"], [["ink", "11.11 takvimi"], "Vitrin ürünlerini seç (45 dk)"]],
+     "kaynak": "Süreler tahmini; ekip büyüklüğüne göre değişir."},
+    {"tip": "grafik", "kicker": "Takvim", "renk": "ecom", "baslik": "Kampanyalara _kalan_ gün",
+     "barlar": [{"ad": "11.11", "etiket": "10 gün", "deger": 10, "renk": "ecom", "alt": "11 Kasım Çarşamba"}, {"ad": "Efsane Cuma", "etiket": "26 gün", "deger": 26, "renk": "ads", "alt": "27 Kasım"}, {"ad": "Siber Pazartesi", "etiket": "29 gün", "deger": 29, "renk": "seo", "alt": "30 Kasım"}],
+     "not": "Hazırlık, kampanya gününden değil bugünden başlar. 10 gün kuralı da bugünden işliyor.",
+     "kaynak": "1 Kasım 2026 itibarıyla"},
+    {"tip": "akis", "kicker": "Rutin", "renk": "ads", "baslik": "Pazar akşamı _30 dakika_",
+     "satirlar": [[{"ad": "Kaydedilenler", "alt": "Haftanın notları", "ikon": "veri", "renk": "ink"}, {"ad": "Filtre", "alt": "Bana dokunuyor mu?", "ikon": "arama", "renk": "seo"}, {"ad": "3 aksiyon", "alt": "En fazla üç", "ikon": "onay", "renk": "ads"}],
+                   [{"ad": "Takvim", "alt": "Gün ve saat ver", "ikon": "saat", "renk": "ecom"}, {"ad": "Ekip", "alt": "Kim, ne zaman?", "ikon": "kisi", "renk": "ai"}],
+                   [{"ad": "Pazartesi başla", "alt": "İlk iş sabah 10'da", "ikon": "kutu", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım haftalık rutin"},
+    {"tip": "kural", "num": "02", "kicker": "Şablon", "baslik": "Gündemi _tek sayfaya_ indir.",
+     "alt": "Okuduğun her şey bir aksiyona ya da çöpe gider.",
+     "kod": ["<span class=\"c\"># haftalık gündem · v1</span>", "<span class=\"k\">GELİŞME</span> ne oldu, tek cümle", "<span class=\"k\">ETKİ</span> bana / müşterime dokunuyor mu", "&nbsp;&nbsp;<span class=\"g\">→</span> hayırsa sil", "<span class=\"k\">AKSİYON</span> en fazla 3, sahibi ve günü belli", "<span class=\"k\">ÖLÇÜ</span> bir hafta sonra neye bakacağım"],
+     "prompt": "Bu hafta kaydettiğim notları ekte paylaşıyorum. İşimi etkileyenleri seç, her biri için tek bir aksiyon ve süre öner. En fazla 3 aksiyon olsun.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Fark", "baslik": "Arşiv değil, _plan._",
+     "once": {"dosya": "kaydedilenler", "etiket": "Arşiv", "basliklar": ["Not", "Durum"], "satirlar": [["Meta haberi", "Okundu"], ["Google haberi", "Okunacak"], ["23 gönderi daha", "Kaydedildi"]]},
+     "sonra": {"dosya": "haftalik_plan", "etiket": "Plan", "basliklar": ["Aksiyon", "Gün"], "satirlar": [["Meta ayarları", "Pazartesi"], ["Fiyat kaydı", "Salı"], ["Vitrin ürünleri", "Çarşamba"]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "cta", "anahtar": "HAFTA", "vaat": "**Haftalık gündem şablonunu** (tek sayfa) DM'den göndereyim."}
+  ],
+  "aciklama": "Ekim bitti. Son iki haftada 5 gelişme var, her biri için tek bir aksiyon yeter.\n\nMeta 30 Ekim'de ticari şartlarını değiştirdi: AI özelliklerinin reklamda yaptığı değişikliklerin sorumluluğu reklamverende. Google, AI cevaplarında bağlantıları yukarı taşıdı. Anthropic, Claude Duet'i önizlemeye açtı. Ticarette 10 gün kuralı, 11.11 öncesi en çok sorulan konu oldu.\n\nBu gelişmelri tek tek takip etmek zor değil. Zor olan, hepsini pazar akşamı 30 dakikada bir plana çevirmek. Kaydettiğin gönderiler plana dönmüyorsa sadece arşiv oluyor.\n\nBilgi bolluğunda insanı yoran şey az bilmek değil, neyi bırakacağını bilememek.\n\nKaydırınca 5 aksiyonu, kampanyalara kalan günleri ve pazar akşamı rutinini göreceksin.\n\nYorumlara HAFTA yaz, haftalık gündem şablonunu DM'den göndereyim.\n\n#dijitalpazarlama #eticaret #yapayzeka #performanspazarlama",
+  "yazim_hatasi": {"kelime": "gelişmelri", "dogrusu": "gelişmeleri", "paragraf": 3},
+  "dogrulama": ["Bu planın 28-31 Ekim gönderileri ve kaynakları", "Takvim: 2026 Kasım günleri"],
+  "senaryo": [
+    {"tts": "Ekim bitti. Son iki haftada beş gelişme var. Her biri için tek bir iş yeter.", "altyazi": "Ekim bitti. Son iki haftada 5 gelişme var. Her biri için tek bir iş yeter."},
+    {"tts": "Meta, Google, Klod, on gün kuralı ve on bir on bir takvimi.", "altyazi": "Meta, Google, Claude, 10 gün kuralı ve 11.11 takvimi."},
+    {"tts": "On bir on bire on gün, Efsane Cuma'ya yirmi altı gün kaldı.", "altyazi": "11.11'e 10 gün, Efsane Cuma'ya 26 gün kaldı."},
+    {"tts": "Bir. Her pazar akşamı otuz dakika ayır. Kaydettiklerini filtrele.", "altyazi": "1. Her pazar akşamı 30 dakika ayır. Kaydettiklerini filtrele."},
+    {"tts": "İki. En fazla üç aksiyon seç. Her birinin sahibi ve günü belli olsun.", "altyazi": "2. En fazla 3 aksiyon seç. Her birinin sahibi ve günü belli olsun."},
+    {"tts": "Üç. Kaydedilenler arşiv olarak kalmasın, plana dönsün.", "altyazi": "3. Kaydedilenler arşiv olarak kalmasın, plana dönsün."},
+    {"tts": "Gündem şablonunu istiyorsan yorumlara hafta yaz. Di emden göndereyim.", "altyazi": "Gündem şablonunu istiyorsan yorumlara HAFTA yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Haftalık Gündem _Şablonu_", "kicker": "Şablon · Pazarlama · Haftalık rutin",
+    "giris": "Haftada bir kez, 30 dakikada okuduklarını aksiyona çevir. Bu şablon tek sayfa; her pazar yeniden doldurulur.",
+    "bolumler": [
+      {"ad": "Topla", "renk": "ink", "maddeler": [["Kaydedilenler", "Hafta içinde kaydettiğin gönderi, haber ve notları tek listede topla."], ["Tek cümle", "Her gelişmeyi tek cümleyle yaz: ne oldu?"], ["Kaynak", "Her satıra kaynağı ve tarihi ekle."]]},
+      {"ad": "Süz", "renk": "seo", "maddeler": [["Etki sorusu", "Bana ya da müşterime bu hafta dokunuyor mu? Hayırsa sil."], ["Takvim kontrolü", "Önümüzdeki 30 günde hangi kampanya var?"], ["Mevzuat kontrolü", "Fiyat, reklam veya kişisel veriyle ilgili bir değişiklik var mı?"]]},
+      {"ad": "Planla", "renk": "ads", "maddeler": [["En fazla 3 aksiyon", "Her aksiyonun sahibi ve günü yazılı."], ["Süre tahmini", "Her işe dakika cinsinden süre ver."], ["Ölçü", "Bir hafta sonra neye bakacağını şimdiden yaz."], ["Pazartesi ilk iş", "Listenin ilk maddesi pazartesi sabah 10'da başlar."]]}
+    ]
+  }
+}
