@@ -53,7 +53,7 @@
 ## 3. Veri akışı ve senkron stratejisi
 
 1. **Bağlantı:** Satıcı panelde Satıcı ID, API Key, API Secret girer. API bir test çağrısıyla doğrular. Anahtar AES-256-GCM ile zarf şifreleme yapılarak saklanır (veri anahtarı başına KEK; KEK ortam değişkeninde, faz 2'de KMS). Düz metin anahtar hiçbir log'a yazılmaz.
-2. **İlk yükleme (backfill):** Siparişler `orders/stream` (cursor, son 3 ay, 14 günlük pencereler); ekstre `settlements` ve `otherfinancials` (15 günlük pencereler, kayıt teslimattan sonra oluşur); kargo faturası kalemleri `cargo-invoice/{seri}/items`. İlerleme çubuğu kullanıcıya gösterilir. İlk "aha anı": ilk 10 dakikada en çok satan 20 ürünün tahmini kârı.
+2. **İlk yükleme (backfill):** (ayrıntı ve kararlar: ADR-0005) Siparişler `orders/stream` (cursor, son 3 ay, 14 günlük pencereler); ekstre `settlements` ve `otherfinancials` (15 günlük pencereler, kayıt teslimattan sonra oluşur); kargo faturası kalemleri `cargo-invoice/{seri}/items`. İlerleme çubuğu kullanıcıya gösterilir. İlk "aha anı": ilk 10 dakikada en çok satan 20 ürünün tahmini kârı.
 3. **Artımlı senkron:** Sipariş paketi statüleri webhook ile (satıcı başına en fazla 15 webhook, en az bir kez teslim → işlem idempotent olmalı), yedek olarak 15 dakikada bir `v2/orders` polling; iadeler (`claims`) 15 dakikada bir; ekstre günde 2 kez; ürün kataloğu ve komisyon oranları günde 1 kez; sorular (faz 2) 10 dakikada bir.
 4. **Trendyol istemci kuralları (research/01):** Taban URL `https://apigw.trendyol.com` (eski `api.trendyol.com/sapigw` kapandı); stage `stageapigw.trendyol.com` (IP whitelist ister). Basic Auth (API Key:Secret). Zorunlu `User-Agent: "{sellerId} - <ÜrünAdı>"` (en fazla 30 alfanümerik, aksi 403). Rate limit: aynı uç noktaya 10 sn'de 50 istek; finans 100/dk, iade 1000/dk, sipariş 30-100/dk (listeleme seviyesine göre). Satıcı + uç nokta başına token bucket; 429'da üstel geri çekilme + jitter; tüm çağrılar `api_call_log` tablosuna (gövdesiz, yalnız meta).
 5. **Veri minimizasyonu (KVKK + Trendyol sözleşmesi EK-6):** Sipariş yanıtındaki son müşteri adı, soyadı, açık adresi, telefonu, TCKN'si ve relay e-postası **ilk alım anında atılır, hiçbir yere yazılmaz** (log dahil). EK-6 müşteri verisiyle veri tabanı oluşturmayı yasaklıyor. Yalnız il ve takma adlı müşteri anahtarı (tuzlu HMAC; anonim değil, takma adlı veri sayılır) tutulur.
@@ -87,8 +87,10 @@ Tüm para işlemleri `Decimal` ile, kuruş hassasiyetinde; yuvarlama kuralı tek
 | `products` | Ürün | barkod, SKU, kategori, komisyon oranı, maliyet (geçmişli) |
 | `product_costs` | Maliyet geçmişi | geçerlilik tarihi, birim maliyet, KDV oranı |
 | `orders`, `order_lines` | Sipariş | sipariş no, tarih, fiyat, indirimler, durum, il, müşteri hash |
-| `returns` | İade | neden, durum, iade kargo bedeli |
-| `financial_transactions` | Ekstre satırları | tür, tutar, sipariş no eşlemesi, belge no |
+| `returns` | İade (kalem başına satır) | neden kodu, durum, iade kalemi stoğa döndü mü (kullanıcı işareti) |
+| `financial_transactions` | Ekstre satırları | istek tipi, tutar, sipariş no eşlemesi, belge no |
+| `cargo_invoice_items` | Kargo faturası kalemleri | fatura seri no, sipariş no, tutar, desi |
+| `sync_runs`, `sync_cursors` | Senkron ilerlemesi ve imleç | kaynak, pencere, durum, sayaçlar, hata sınıfı; kaynak başına son başarılı pencere |
 | `ad_spend` | Reklam harcaması | kaynak, tarih, ürün (varsa), tutar |
 | `profit_snapshots` | Hesaplanmış kâr | satır bazında durum (estimated/settled), kalem kırılımı |
 | `alerts` | Uyarılar | tür, önem, ürün/sipariş, okunma |

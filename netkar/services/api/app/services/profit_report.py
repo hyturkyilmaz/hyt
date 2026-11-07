@@ -1,0 +1,75 @@
+"""Dönem ve ürün kâr özeti: besleyici + saf motor (ADR-0005 §7).
+
+Henüz API ucu yoktur (S3/S4 sonraki tur); uç noktalar bu işlevleri çağıracaktır. RLS bağlamı
+(`app.tenant_id`) çağıran tarafından kurulur. Kâr motoru dönemin TÜM satırlarıyla çalışır:
+ortak giderler (kargo, hizmet bedeli, reklam) satırlara dağıtıldığı için tek ürünü tek başına
+hesaplamak farklı sonuç verirdi; ürün özeti dönem sonucundan seçilir.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.profit import ProfitSettings, calculate_profit
+from app.profit.results import LineResult, PeriodTotals, ProductTotals, ProfitResult
+from app.services.profit_feed import FeedNotes, build_profit_input
+
+
+@dataclass(frozen=True, slots=True)
+class PeriodReport:
+    """Dönem sonucu: motor çıktısı ve motora verilmeyen kayıtların notları."""
+
+    start: date
+    end: date
+    result: ProfitResult
+    notes: FeedNotes
+
+    @property
+    def totals(self) -> PeriodTotals:
+        return self.result.period
+
+
+@dataclass(frozen=True, slots=True)
+class ProductReport:
+    """Tek ürünün (barkod) dönem özeti: ürün toplamı (satışı yoksa None) ve satırları."""
+
+    barcode: str
+    start: date
+    end: date
+    product: ProductTotals | None
+    lines: tuple[LineResult, ...]
+    period: PeriodTotals
+    notes: FeedNotes
+
+
+async def period_profit(
+    db: AsyncSession,
+    tenant_id: UUID,
+    account_id: UUID,
+    start: date,
+    end: date,
+    settings: ProfitSettings | None = None,
+) -> PeriodReport:
+    """[start, end] (İstanbul günleri) için kâr motorunu veritabanı kayıtlarıyla çalıştırır."""
+    feed = await build_profit_input(db, tenant_id, account_id, start, end, settings)
+    return PeriodReport(start, end, calculate_profit(feed.profit_input), feed.notes)
+
+
+async def product_profit(
+    db: AsyncSession,
+    tenant_id: UUID,
+    account_id: UUID,
+    barcode: str,
+    start: date,
+    end: date,
+    settings: ProfitSettings | None = None,
+) -> ProductReport:
+    """Bir barkodun dönem kârı: dönem hesaplanır, barkodun toplamı ve satırları seçilir."""
+    report = await period_profit(db, tenant_id, account_id, start, end, settings)
+    product = next((p for p in report.result.products if p.barcode == barcode), None)
+    lines = tuple(line for line in report.result.lines if line.barcode == barcode)
+    return ProductReport(barcode, start, end, product, lines, report.result.period, report.notes)

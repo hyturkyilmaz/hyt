@@ -7,6 +7,7 @@ kaydetmez. İptal satırı silmez, şifreli alanları boşaltır.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
@@ -18,6 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.deps import (
     DbDep,
     EnvelopeDep,
+    JobQueueDep,
     RateLimiterDep,
     SettingsDep,
     TrendyolFactoryDep,
@@ -38,6 +40,8 @@ from app.services.marketplace_accounts import (
     problem_for_trendyol,
     verify_with_deadline,
 )
+
+logger = logging.getLogger("netkar.marketplace")
 
 router = APIRouter(prefix="/marketplace-accounts", tags=["marketplace-accounts"])
 
@@ -66,6 +70,7 @@ async def connect_account(
     envelope: EnvelopeDep,
     limiter: RateLimiterDep,
     factory: TrendyolFactoryDep,
+    queue: JobQueueDep,
 ) -> MarketplaceAccount:
     """Trendyol bağlantısı ekler: anahtarlar önce Trendyol'da doğrulanır, geçerliyse şifreli saklanır."""
     try:
@@ -167,6 +172,15 @@ async def connect_account(
         meta={"platform": Platform.TRENDYOL.value, "total_products": check.total_products},
     )
     await db.commit()
+    # Bağlantı kalıcı olduktan SONRA ilk yükleme kuyruğa girer. Kuyruk hatası bağlantıyı bozmaz:
+    # planlayıcı backfill'i eksik etkin hesabı bir sonraki turda kuyruğa alır (ADR-0005 §4).
+    try:
+        await queue.enqueue_backfill(account.id)
+    except Exception as exc:
+        logger.warning(
+            "backfill kuyruğa eklenemedi",
+            extra={"account_id": str(account.id), "error_class": type(exc).__name__},
+        )
     return account
 
 

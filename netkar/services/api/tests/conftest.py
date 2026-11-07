@@ -15,6 +15,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import psycopg
 import pyotp
@@ -31,6 +32,9 @@ from app.core.email import InMemoryOutbox
 from app.db.provision import provision_roles
 from app.main import create_app
 
+# Senkron testlerinin ortak fixture'ları (Env, worker_engine, make_env, worker_env).
+pytest_plugins = ["tests.sync_fixtures"]
+
 API_ROOT = Path(__file__).resolve().parent.parent
 PG_BIN = Path(os.environ.get("PG_BIN", "/usr/lib/postgresql/16/bin"))
 TEST_KEY = base64.b64encode(b"0123456789abcdef0123456789abcdef").decode()
@@ -46,6 +50,7 @@ class DatabaseInfo:
     admin_url: URL  # superuser, bu veritabanına
     owner_url: URL
     app_url: URL
+    worker_url: URL
     name: str
 
     def admin_dsn(self) -> str:
@@ -53,6 +58,9 @@ class DatabaseInfo:
 
     def app_dsn(self) -> str:
         return self.app_url.set(drivername="postgresql").render_as_string(hide_password=False)
+
+    def worker_dsn(self) -> str:
+        return self.worker_url.set(drivername="postgresql").render_as_string(hide_password=False)
 
 
 def _free_port() -> int:
@@ -122,15 +130,16 @@ def _alembic_config(owner_url: URL) -> Config:
 def database(pg_admin_url: URL) -> Iterator[DatabaseInfo]:
     """Rastgele adlı veritabanı: roller kurulur, migrasyonlar owner rolüyle çalışır."""
     name = f"netkar_test_{secrets.token_hex(4)}"
-    owner_pw, app_pw = secrets.token_urlsafe(12), secrets.token_urlsafe(12)
+    owner_pw, app_pw, worker_pw = (secrets.token_urlsafe(12) for _ in range(3))
     admin_dsn = pg_admin_url.set(drivername="postgresql").render_as_string(hide_password=False)
     with psycopg.connect(admin_dsn, autocommit=True) as conn:
         conn.execute(f'CREATE DATABASE "{name}"')
-        provision_roles(conn, name, owner_pw, app_pw)
+        provision_roles(conn, name, owner_pw, app_pw, worker_pw)
     info = DatabaseInfo(
         admin_url=pg_admin_url.set(database=name),
         owner_url=pg_admin_url.set(username="netkar_owner", password=owner_pw, database=name),
         app_url=pg_admin_url.set(username="netkar_app", password=app_pw, database=name),
+        worker_url=pg_admin_url.set(username="netkar_worker", password=worker_pw, database=name),
         name=name,
     )
     command.upgrade(_alembic_config(info.owner_url), "head")
@@ -158,7 +167,7 @@ def _clean_tables(database: DatabaseInfo) -> None:
     with psycopg.connect(database.admin_dsn(), autocommit=True) as conn:
         conn.execute(
             "TRUNCATE tenants, users, memberships, sessions, password_reset_tokens, "
-            "audit_log, rate_limits, marketplace_accounts RESTART IDENTITY CASCADE"
+            "audit_log, rate_limits, marketplace_accounts, procrastinate_jobs RESTART IDENTITY CASCADE"
         )
 
 
@@ -167,6 +176,7 @@ def settings(database: DatabaseInfo) -> Settings:
     return Settings(
         environment="test",
         database_url=database.app_url.render_as_string(hide_password=False),
+        worker_database_url=database.worker_url.render_as_string(hide_password=False),
         data_encryption_key=TEST_KEY,  # type: ignore[arg-type]
         data_keks=f"kek1:{TEST_KEK}",  # type: ignore[arg-type]
         data_kek_active="kek1",
@@ -229,14 +239,35 @@ class Api:
 AppFactory = Callable[..., FastAPI]
 
 
+class RecordingJobQueue:
+    """Sahte iş kuyruğu: eklenen backfill işlerini kaydeder; `fail` açıksa kuyruk hata verir."""
+
+    def __init__(self) -> None:
+        self.backfills: list[UUID] = []
+        self.fail = False
+
+    async def enqueue_backfill(self, account_id: UUID) -> None:
+        if self.fail:
+            raise RuntimeError("kuyruk erişilemez")
+        self.backfills.append(account_id)
+
+
 @pytest.fixture
-def make_app(settings: Settings, outbox: InMemoryOutbox, fake_pwned: FakePwned) -> Callable[..., FastAPI]:
+def job_queue() -> RecordingJobQueue:
+    return RecordingJobQueue()
+
+
+@pytest.fixture
+def make_app(
+    settings: Settings, outbox: InMemoryOutbox, fake_pwned: FakePwned, job_queue: RecordingJobQueue
+) -> Callable[..., FastAPI]:
     def _make(trendyol_client_factory: Any = None, **overrides: Any) -> FastAPI:
         return create_app(
             settings.model_copy(update=overrides),
             email_sender=outbox,
             pwned_checker=fake_pwned,
             trendyol_client_factory=trendyol_client_factory,
+            job_queue=job_queue,
         )
 
     return _make

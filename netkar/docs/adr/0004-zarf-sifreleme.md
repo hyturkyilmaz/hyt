@@ -64,6 +64,6 @@ Nonce'lar `os.urandom(12)`. Uygulama: `app/core/envelope.py` (`KeyRing`, `Envelo
 
 - KEK hâlâ ortam değişkeninde: ortam dökümü + veritabanı yedeği birlikte sızarsa sırlar çözülür. Kazanım gizlilik değil, **döndürme, kid ile kesintisiz geçiş, kayıt başına anahtar ve KMS'e geçiş kolaylığıdır.**
 - **B-01 (iptal sonrası ölü satır sürümü) tam kapanmadı.** İptalde iki sütun NULL olur; eski satır sürümü `VACUUM`'a kadar diskte, WAL'da ve yedeklerde sarılı DEK ile birlikte kalır. DEK aynı satırda saklandığı için "DEK silme" gerçek kriptografik silme sağlamaz; koruma, ilgili KEK'in döndürülüp eskisinin imhası (yukarıda) ve yedek saklama süresiyle sınırlıdır. Gerçek kriptografik silme DEK'in satır dışında (KMS) tutulmasını gerektirir (faz 2). Satıcı yine Trendyol panelinden anahtarı yenilemelidir.
-- `netkar_app` şifreli sütunlarda SELECT yetkisini korur (senkron işçisi bunları okuyacak); ayrı bir işçi rolü veya `SECURITY DEFINER` kimlik bilgisi işlevi senkron işçisi yazılırken ele alınacaktır (ertelendi).
+- (Güncelleme, ADR-0005 §6) `netkar_app`'in şifreli sütunlarda SELECT yetkisi kaldırıldı: ayrı `netkar_worker` rolü şifreli sütunları okuyabilen tek roldür (migrasyon 0006). D-05 tamamen kapandı. Yukarıdaki ertelenen madde artık geçerli değildir.
 - Python bellekte düz metni ve anahtar baytlarını sıfırlayamaz; pencere kısa tutulur (istemci kullanım başına kurulur).
 - `rewrap_keys` ve `migrate_envelope` bakım pencerelerinde, yönetici DB kimlik bilgisiyle çalışır; bu kimlik bilgisi uygulama ortamında bulundurulmaz.

@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # Uygulama rolü (superuser DEĞİL). Migrasyon rolü ayrıdır.
     database_url: str
     database_migration_url: str | None = None
+    # Senkron işçisi rolü (netkar_worker): şifreli pazaryeri sütunlarını okuyabilen TEK rol (ADR-0005).
+    # Yalnız worker süreci okur; API kullanmaz. Worker için zorunludur (worker_libpq_url).
+    worker_database_url: str | None = None
 
     # AES-256-GCM ana anahtarı: 32 bayt, base64. Repoya girmez.
     data_encryption_key: SecretStr
@@ -160,7 +163,7 @@ class Settings(BaseSettings):
                 raise ValueError("; ".join(problems))
         return self
 
-    @field_validator("database_url", "database_migration_url")
+    @field_validator("database_url", "database_migration_url", "worker_database_url")
     @classmethod
     def _normalize_url(cls, value: str | None) -> str | None:
         """SQLAlchemy için psycopg 3 sürücüsünü zorlar."""
@@ -200,6 +203,17 @@ class Settings(BaseSettings):
     def libpq_url(self) -> str:
         """Sürücü ekinden arındırılmış bağlantı dizesi (procrastinate için)."""
         return self.database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+
+    @property
+    def worker_libpq_url(self) -> str:
+        """Worker bağlantı dizesi (procrastinate). WORKER_DATABASE_URL yoksa worker başlamaz.
+
+        Uygulama rolüne geri düşülmez: o rol şifreli sütunları okuyamaz (ADR-0005), sessiz geri
+        düşme senkronu çalışır gibi gösterip kimlik bilgisi okurken patlatırdı.
+        """
+        if self.worker_database_url is None:
+            raise ValueError("WORKER_DATABASE_URL tanımlı değil (worker netkar_worker rolüyle bağlanır)")
+        return self.worker_database_url.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
 @lru_cache

@@ -1,6 +1,6 @@
 # NetKâr API
 
-FastAPI (Python >= 3.12), SQLAlchemy 2 (async), Alembic, PostgreSQL 16 (RLS), procrastinate (PostgreSQL tabanlı kuyruk). Ürün adı tek ayardan okunur: `PRODUCT_NAME`. Mimari karar kayıtları: [`0001` RLS ve kimlik doğrulama](../../docs/adr/0001-rls-ve-kimlik-dogrulama.md), [`0002` istemci IP'si](../../docs/adr/0002-istemci-ip-ve-vekil-guveni.md), [`0003` Trendyol istemcisi](../../docs/adr/0003-trendyol-istemcisi.md).
+FastAPI (Python >= 3.12), SQLAlchemy 2 (async), Alembic, PostgreSQL 16 (RLS), procrastinate (PostgreSQL tabanlı kuyruk). Ürün adı tek ayardan okunur: `PRODUCT_NAME`. Mimari karar kayıtları: [`0001` RLS ve kimlik doğrulama](../../docs/adr/0001-rls-ve-kimlik-dogrulama.md), [`0002` istemci IP'si](../../docs/adr/0002-istemci-ip-ve-vekil-guveni.md), [`0003` Trendyol istemcisi](../../docs/adr/0003-trendyol-istemcisi.md), [`0004` zarf şifreleme](../../docs/adr/0004-zarf-sifreleme.md), [`0005` Trendyol verisi, senkron ve worker rolü](../../docs/adr/0005-senkron-ve-depolama.md).
 
 ## Kurulum
 
@@ -13,7 +13,7 @@ make env        # infra/.env üretir (rastgele parolalar ve DATA_ENCRYPTION_KEY)
 make db-up      # PostgreSQL 16 (roller 01-roles.sh ile kurulur)
 make migrate    # alembic upgrade head (netkar_owner rolüyle)
 make dev        # http://127.0.0.1:8000  (OpenAPI: /v1/openapi.json, prod'da kapalı; uvicorn --no-proxy-headers)
-make worker     # procrastinate worker (heartbeat ve rate limit temizliği)
+make worker     # procrastinate worker (senkron işleri, planlayıcılar, rate limit temizliği); WORKER_DATABASE_URL ister
 ```
 
 Tüm yığın (api, worker, migrate, postgres) için: `docker compose -f infra/docker-compose.yml up --build`. Web servisi `--profile web` ile eklenir (apps/web hazır olunca).
@@ -33,6 +33,8 @@ Testler gerçek PostgreSQL 16 kullanır:
 - `TEST_DATABASE_URL` verilirse (CI) bu bir **yönetici (superuser)** bağlantısı olmalıdır, örn. `postgresql://postgres:...@localhost:5432/postgres`. Testler rastgele adlı bir veritabanı ve `netkar_*` rolleri kurar, migrasyonları çalıştırır, bitince veritabanını düşürür.
 - Uygulama testlerde de `netkar_app` rolüyle (superuser olmayan, RLS'ye tabi) bağlanır; tablo temizliği ve doğrulama için ayrı yönetici bağlantısı kullanılır.
 
+Senkron ve depolama testleri: `tests/test_sync_schema.py` (migrasyon 0006, RLS, rol yetkileri, sync_gate), `tests/test_sync_mappers.py`, `tests/test_sync_runner.py` ve `tests/test_sync_edge.py` (backfill, artımlı çekim, idempotentlik, yeniden başlama, kilit, 401/403, hata sınıfları), `tests/test_sync_worker.py` (görevler, planlayıcı, kuyruk, bağlantı eklenince backfill), `tests/test_sync_pii.py` (hiçbir tabloda ve logda müşteri verisi yok), `tests/test_feed_database.py` ve `tests/test_feed_golden_database.py` (38 altın senaryo veritabanı yolundan, motor çıktısıyla birebir). Ortak fixture'lar `tests/sync_fixtures.py` (conftest `pytest_plugins`) ve `tests/sync_helpers.py` (sahte Trendyol API'si).
+
 Önemli test dosyaları: `tests/test_rls_idor.py` (kiracı izolasyonu: uç noktalar ve doğrudan SQL), `tests/test_auth_flow.py`, `tests/test_totp.py`, `tests/test_password_reset.py`, `tests/test_rate_limit.py`, `tests/test_logging.py` (maskeleme), `tests/test_http_hardening.py` (güvenlik başlıkları, RFC 9457), `tests/test_migrations.py` (geri alınabilirlik), `tests/test_client_ip.py` ve `tests/test_limits.py` (istemci IP çözümleyici, gövde sınırı), `tests/test_denetim_s1_regression.py` (S1 güvenlik denetimi PoC'lerinin tersine çevrilmiş regresyon testleri).
 
 ## Ortam değişkenleri
@@ -43,6 +45,7 @@ Testler gerçek PostgreSQL 16 kullanır:
 |---|---|---|---|
 | `DATABASE_URL` | evet | | Uygulama rolü (`netkar_app`, superuser DEĞİL). |
 | `DATABASE_MIGRATION_URL` | migrasyonda | | Tablo sahibi rol (`netkar_owner`); yalnız Alembic okur. |
+| `WORKER_DATABASE_URL` | worker'da | | Senkron işçisi rolü (`netkar_worker`, superuser DEĞİL, RLS'ye tabi): pazaryeri şifreli sütunlarını okuyabilen TEK rol. Yalnız worker süreci okur, API'ye VERİLMEZ; yoksa worker başlamaz, uygulama rolüne geri düşmez (ADR-0005 §6). |
 | `DATA_ENCRYPTION_KEY` | evet | | AES-256-GCM ana anahtarı, 32 bayt base64 (`openssl rand -base64 32`). Alt anahtarlar (IP özeti, imzalı token) HKDF ile türetilir. |
 | `PRODUCT_NAME` | hayır | `NetKâr` | Ürün adı (TOTP yayıncı adı, e-posta metinleri, API başlığı). |
 | `ENVIRONMENT` | hayır | `dev` | `dev`, `test`, `prod`. `prod`'da OpenAPI belgesi kapalıdır. |
@@ -104,10 +107,40 @@ app/db/                session, base, rls (bağlam), provision (rol kurulumu)
 app/models/            ORM modelleri
 app/api/v1/            auth, me, tenant, health, marketplace_accounts
 app/integrations/trendyol/  TrendyolClient (tek HTTP noktası), modeller (PII yok), hız sınırı, pencere yardımcıları, hatalar
-app/services/          auth (auth_gate çağrıları, oturum), audit, marketplace_accounts (şifreleme, istemci fabrikası)
-app/worker/            procrastinate App ve görevler (heartbeat, rate limit temizliği)
-migrations/            Alembic (0001 şema + RLS + auth_gate, 0002 procrastinate, 0003 TOTP tekrar kullanım + kilit, 0004 marketplace_accounts)
+app/services/          auth (auth_gate çağrıları, oturum), audit, marketplace_accounts (şifreleme, istemci fabrikası), sync/ (senkron yürütücü, kaynaklar, eşlemeler, upsert), profit_feed (DB -> ProfitInput), profit_report (dönem ve ürün kâr özeti), financial_classes (ceza/erken ödeme metin eşlemesi)
+app/worker/            procrastinate App, görevler (sync.backfill, sync.incremental, planlayıcılar, heartbeat, rate limit temizliği), çalışma zamanı (worker rolü), kuyruk (iş ekleme)
+migrations/            Alembic (0001 şema + RLS + auth_gate, 0002 procrastinate, 0003 TOTP tekrar kullanım + kilit, 0004 marketplace_accounts, 0005 dar UPDATE yetkisi, 0006 Trendyol verisi + senkron durumu + worker rolü + sync_gate)
 tests/fixtures/trendyol/  Resmi doküman örneklerinden türetilmiş, sahte kişisel veri içeren yanıt fixture'ları
+```
+
+## Senkron ve depolama (ADR-0005)
+
+Trendyol verisi (ürün, sipariş paketi ve satırı, iade kalemi, ekstre, kargo faturası) hesap ve kiracı bağlı tablolarda saklanır (migrasyon 0006, hepsi `FORCE` RLS). Son müşteri adı, adresi, telefonu, TCKN'si ve e-postası hiçbir tabloda ve logda yoktur; yalnız il adı tutulur. Para alanları `NUMERIC(18,6)` (kuruş altı hassasiyet kayıpsız; yuvarlama yalnız motor çıkışında), oranlar `NUMERIC(9,4)`.
+
+**Roller.** Üç ayrı kimlik: `netkar_owner` (migrasyon), `netkar_app` (API; şifreli anahtar sütunlarını okuyamaz), `netkar_worker` (senkron işçisi; okuyabilen tek rol). Roller migrasyondan ÖNCE superuser ile kurulur: yeni kurulumda `infra/postgres/init/01-roles.sh` (`NETKAR_WORKER_PASSWORD` gerekir). Var olan bir veri dizininde (betik yeniden çalışmaz) superuser ile:
+
+```sql
+CREATE ROLE netkar_worker LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD '<parola>';
+CREATE ROLE netkar_sync_gate NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+GRANT netkar_sync_gate TO netkar_owner WITH INHERIT FALSE, SET TRUE;
+GRANT CONNECT ON DATABASE netkar TO netkar_worker;
+```
+
+(ya da Python'dan `app.db.provision.provision_roles`, idempotent). Sonra `make migrate` ve worker'a `WORKER_DATABASE_URL`. Migrasyon rol yoksa açık iletiyle durur. Geri alma: `alembic downgrade 0005` (yalnız 0006'nın eklediği veri kaybolur).
+
+**İşler (procrastinate, kuyruk `sync`).** `sync.backfill(account_id)`: siparişler (son 89 gün, `orders/stream`, 14 günlük pencereler), iadeler, ürünler, ekstre (15 günlük pencereler, tip başına ayrı istek), kargo faturası kalemleri; ilerleme `sync_runs`'a, imleç `sync_cursors`'a yazılır, çökme sonrası kaldığı yerden devam eder. `sync.incremental(account_id, sources=None)`: imleçten (örtüşmeyle) devam eder. Periyodik planlayıcılar: sipariş ve iade 15 dakikada bir, ekstre günde 2 (03:07 ve 15:07 UTC), ürünler günde 1. Hesap başına çakışma yoktur (procrastinate `lock`, `queueing_lock` ve PostgreSQL danışma kilidi). 401/403 gelirse hesap `invalid` olur, denetim kaydı yazılır ve senkron durur; geçici hata (429, 5xx, ağ) üstel geri çekilmeyle yeniden denenir. Bağlantı eklenince (`POST /v1/marketplace-accounts`) backfill kuyruğa girer. Sağlık için: `SELECT source, status, windows_done, windows_total, error_class FROM sync_runs ORDER BY started_at DESC` (gövde ve ileti yok, yalnız sınıf).
+
+**Motor bağlantısı.** `app.services.profit_feed.build_profit_input(db, tenant_id, account_id, start, end, settings)` veritabanı kayıtlarından `ProfitInput` kurar; `app.services.profit_report.period_profit` ve `product_profit` motoru çalıştırır (API ucu sonraki tur). RLS bağlamı çağıran tarafından kurulur (`app.db.rls.tenant_transaction`).
+
+```python
+async with tenant_transaction(sessionmaker, tenant_id) as session:
+    report = await period_profit(
+        session, tenant_id, account_id, date(2026, 10, 1), date(2026, 10, 31), settings
+    )
+    (
+        report.totals.period_net_profit,
+        report.notes.total,
+    )  # notes: motora verilmeyen kayıt sayısı (eksik oran vb.)
 ```
 
 ## Trendyol entegrasyonu
@@ -137,7 +170,7 @@ Kurallar:
 - **Yeniden deneme.** 429, 500/502/503/504 ve ağ hatalarında "eşit jitter" üstel geri çekilme (taban 1 sn, üst sınır 30 sn, en fazla `TRENDYOL_MAX_RETRIES`); `Retry-After` kırpılarak uygulanır. 401 ve 403'te yeniden deneme yok: `TrendyolAuthError` / `TrendyolForbiddenError`.
 - **PII.** Müşteri adı, soyadı, adres, telefon, TCKN, e-posta, müşteri kimliği, kullanıcı adı, vergi no ve fatura bağlantısı hiçbir modelde tanımlı değildir (`extra="ignore"`); ham yanıt hiçbir yere loglanmaz. Teslimat adresinden yalnız il adı ve il kodu alınır. Çağrı meta logu yalnız yöntem, uç nokta grubu, durum, süre ve deneme sırasını içerir (gövde, sorgu dizesi ve kimlik bilgisi yok; httpx'in kendi URL logu kapatılmıştır).
 - **Bağlantı doğrulama.** `verify_connection`: stok ve fiyat odaklı onaylı ürün v2, `size=1` (gerekçe ADR-0003 §4).
-- **Anahtar saklama.** `marketplace_accounts.api_key_encrypted` ve `api_secret_encrypted`: zarf şifreleme (`EnvelopeCipher`, ADR-0004): kayıt başına rastgele DEK (AES-256-GCM), DEK KEK ile sarılı; biçim `v2:<kid>:<sarılı_dek>:<veri>`; AAD kiracı + platform + satıcı + hesap + alan adıdır (başka kiracıya/satıcıya/satıra taşınan değer çözülemez). Eski `v1:` değerler `python -m app.tools.migrate_envelope` ile dönüştürülür; KEK döndürme `python -m app.tools.rewrap_keys` ile (ikisi de varsayılan kuru çalıştırma, idempotent; ortam: `DATABASE_ADMIN_URL`). Listelemede ve `find_live_account`'ta şifreli sütunlar okunmaz (`deferred`). `netkar_app` yalnız gerekli sütunlarda UPDATE yapabilir (migrasyon 0005). İptalde (`revoke`) iki alan da NULL olur, satır silinmez. Satıcı, anahtarı Trendyol panelinden de silmelidir.
+- **Anahtar saklama.** `marketplace_accounts.api_key_encrypted` ve `api_secret_encrypted`: zarf şifreleme (`EnvelopeCipher`, ADR-0004): kayıt başına rastgele DEK (AES-256-GCM), DEK KEK ile sarılı; biçim `v2:<kid>:<sarılı_dek>:<veri>`; AAD kiracı + platform + satıcı + hesap + alan adıdır (başka kiracıya/satıcıya/satıra taşınan değer çözülemez). Eski `v1:` değerler `python -m app.tools.migrate_envelope` ile dönüştürülür; KEK döndürme `python -m app.tools.rewrap_keys` ile (ikisi de varsayılan kuru çalıştırma, idempotent; ortam: `DATABASE_ADMIN_URL`). Listelemede ve `find_live_account`'ta şifreli sütunlar okunmaz (`deferred`). `netkar_app` yalnız gerekli sütunlarda UPDATE yapabilir (migrasyon 0005) ve şifreli sütunları SELECT EDEMEZ (migrasyon 0006, ADR-0005 §6): bunları yalnız `netkar_worker` okur. İptalde (`revoke`) iki alan da NULL olur, satır silinmez. Satıcı, anahtarı Trendyol panelinden de silmelidir.
 - **Yeni zorunlu testler** (hepsi sahte taşımayla): `tests/test_trendyol_basics.py` (User-Agent, token bucket, pencere bölme), `tests/test_trendyol_client.py` (429 geri çekilme ve deneme sayısı, 401/403'te yeniden deneme yok, uç nokta sözleşmeleri), `tests/test_trendyol_models_pii.py` (PII hiçbir nesnede ve log'da yok), `tests/test_marketplace_accounts.py` (anahtarlar DB'de şifreli, RLS izolasyonu, iptal sonrası alanlar boş).
 
 ## Kiracı bağlamı kuralı

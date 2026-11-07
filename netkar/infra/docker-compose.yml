@@ -52,6 +52,7 @@ services:
       # Yalnız ilk açılışta 01-roles.sh tarafından okunur.
       NETKAR_OWNER_PASSWORD: ${NETKAR_OWNER_PASSWORD:?NETKAR_OWNER_PASSWORD gerekli}
       NETKAR_APP_PASSWORD: ${NETKAR_APP_PASSWORD:?NETKAR_APP_PASSWORD gerekli}
+      NETKAR_WORKER_PASSWORD: ${NETKAR_WORKER_PASSWORD:?NETKAR_WORKER_PASSWORD gerekli}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -91,8 +92,12 @@ services:
     build:
       context: ../services/api
     restart: unless-stopped
-    command: ["procrastinate", "--app=app.worker.app.app", "worker"]
-    environment: *api-environment
+    command: ["procrastinate", "--app=app.worker.app.app", "worker", "--concurrency", "4"]
+    # Worker ayrı DB rolüyle bağlanır (netkar_worker, ADR-0005 §6): şifreli sütunları okuyabilen tek rol.
+    # API ise netkar_app ile bağlanır ve şifreli sütunları okuyamaz. Rol parolaları ayrıdır.
+    environment:
+      <<: *api-environment
+      WORKER_DATABASE_URL: postgresql://netkar_worker:${NETKAR_WORKER_PASSWORD:?NETKAR_WORKER_PASSWORD gerekli}@postgres:5432/${POSTGRES_DB:-netkar}
     <<: *api-hardening
     depends_on:
       migrate:

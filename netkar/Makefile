@@ -26,10 +26,10 @@ setup:
 
 env:
 	@if [ -f $(ENV_FILE) ]; then echo "$(ENV_FILE) zaten var, dokunulmadı"; else \
-	  owner=$$(openssl rand -hex 16); app=$$(openssl rand -hex 16); super=$$(openssl rand -hex 16); \
+	  owner=$$(openssl rand -hex 16); app=$$(openssl rand -hex 16); worker=$$(openssl rand -hex 16); super=$$(openssl rand -hex 16); \
 	  key=$$(openssl rand -base64 32); \
 	  sed -e "s|REPLACE_ME_superuser|$$super|g" -e "s|REPLACE_ME_owner|$$owner|g" \
-	      -e "s|REPLACE_ME_app|$$app|g" -e "s|REPLACE_ME_base64_32_bytes|$$key|g" \
+	      -e "s|REPLACE_ME_app|$$app|g" -e "s|REPLACE_ME_worker|$$worker|g" -e "s|REPLACE_ME_base64_32_bytes|$$key|g" \
 	      infra/.env.example > $(ENV_FILE); chmod 600 $(ENV_FILE); echo "$(ENV_FILE) üretildi"; fi
 
 lint:
@@ -56,7 +56,7 @@ dev:
 	$(LOAD_ENV) cd $(API) && uv run uvicorn app.main:create_app --factory --reload --port 8000 --no-proxy-headers
 
 worker:
-	$(LOAD_ENV) cd $(API) && uv run procrastinate --app=app.worker.app.app worker
+	$(LOAD_ENV) cd $(API) && uv run procrastinate --app=app.worker.app.app worker --concurrency 4
 
 web-lint:
 	npm --prefix apps/web run lint

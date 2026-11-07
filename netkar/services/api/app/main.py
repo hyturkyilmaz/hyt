@@ -22,6 +22,7 @@ from app.core.ratelimit import RateLimiter
 from app.core.security import PasswordWorker
 from app.db.session import create_engine, create_sessionmaker
 from app.services.marketplace_accounts import TrendyolClientFactory, default_client_factory
+from app.worker.queue import JobQueue, ProcrastinateJobQueue
 
 _WINDOW_LOGIN = 15 * 60
 _WINDOW_HOURLY = 60 * 60
@@ -47,6 +48,7 @@ def create_app(
     email_sender: EmailSender | None = None,
     pwned_checker: PwnedPasswordChecker | None = None,
     trendyol_client_factory: TrendyolClientFactory | None = None,
+    job_queue: JobQueue | None = None,
 ) -> FastAPI:
     """FastAPI uygulamasını kurar. Bağımlılıklar testte dışarıdan verilebilir."""
     settings = settings or get_settings()
@@ -91,6 +93,8 @@ def create_app(
     app.state.pwned_checker = pwned_checker
     # Trendyol istemcisi fabrikası: testlerde sahte taşımalı istemci verilir.
     app.state.trendyol_client_factory = trendyol_client_factory or default_client_factory(settings)
+    # İş kuyruğu (bağlantı eklenince backfill): API `netkar_app` rolüyle yalnız iş ekler (ADR-0005).
+    app.state.job_queue = job_queue or ProcrastinateJobQueue(settings)
 
     # Ekleme sırasının tersi çalışır. Dıştan içe: güvenlik başlıkları, istek bağlamı, gövde boyut
     # sınırı, IP rate limit, CSRF. Gövde sınırı ve IP sınırı FastAPI gövdeyi ayrıştırmadan önce

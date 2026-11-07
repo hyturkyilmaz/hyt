@@ -541,7 +541,8 @@ def test_app_role_may_update_only_needed_columns(admin_conn: psycopg.Connection)
     assert {c for c, (_, upd) in priv.items() if upd} == NEEDED_UPDATE
     for column in ("id", "tenant_id", "platform", "seller_id", "created_by", "created_at"):
         assert priv[column][1] is False, column
-    assert all(sel for sel, _ in priv.values())  # okuma yetkisi korunur (işçi şifreli sütunları okur)
+    # Okuma: netkar_app şifreli sütunlar HARİÇ her şeyi okur (D-05 kapandı, migrasyon 0006; ADR-0005 §6).
+    assert {c for c, (sel, _) in priv.items() if not sel} == {"api_key_encrypted", "api_secret_encrypted"}
 
 
 def test_app_role_cannot_rewrite_identity_columns(

@@ -584,5 +584,6 @@ def test_migration_0004_is_reversible(alembic_cfg: Config, admin_conn: psycopg.C
         " has_table_privilege('netkar_app', 'marketplace_accounts', 'UPDATE'),"
         " has_table_privilege('netkar_app', 'marketplace_accounts', 'DELETE')"
     ).fetchone()
-    # UPDATE tablo düzeyinde yok: 0005 yalnız gerekli sütunlara sütun düzeyi UPDATE verir (D-05)
-    assert privileges == (True, True, False, False)
+    # UPDATE tablo düzeyinde yok: 0005 yalnız gerekli sütunlara sütun düzeyi UPDATE verir (D-05).
+    # SELECT de tablo düzeyinde yok: 0006 şifreli sütunlar HARİÇ sütun düzeyi SELECT verir (netkar_worker okur).
+    assert privileges == (False, True, False, False)

@@ -82,6 +82,8 @@ async def test_fixed_window_resets_in_next_window(settings: Settings) -> None:
 def test_prune_task_removes_old_windows(database: DatabaseInfo, admin_conn: psycopg.Connection) -> None:
     import asyncio
 
+    from app.core.config import Settings
+    from app.worker.runtime import WorkerRuntime
     from app.worker.tasks import prune_rate_limits
 
     admin_conn.execute(
@@ -89,9 +91,10 @@ def test_prune_task_removes_old_windows(database: DatabaseInfo, admin_conn: psyc
     )
 
     async def run() -> int:
-        engine = create_async_engine(database.app_url.render_as_string(hide_password=False))
+        # Temizlik görevi worker rolüyle çalışır (netkar_worker: rate_limits SELECT, DELETE).
+        engine = create_async_engine(database.worker_url.render_as_string(hide_password=False))
         try:
-            return await prune_rate_limits(engine)
+            return await prune_rate_limits(WorkerRuntime(Settings.model_construct(), engine=engine))
         finally:
             await engine.dispose()
 
