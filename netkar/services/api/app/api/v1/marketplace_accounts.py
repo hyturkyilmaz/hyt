@@ -69,8 +69,9 @@ async def connect_account(
 ) -> MarketplaceAccount:
     """Trendyol bağlantısı ekler: anahtarlar önce Trendyol'da doğrulanır, geçerliyse şifreli saklanır."""
     try:
+        # Aşağıdaki satır sabit sır değil, istek gövdesinden değişken aktarımıdır (gitleaks yanlış pozitif).
         credentials = TrendyolCredentials(
-            seller_id=body.seller_id, api_key=body.api_key, api_secret=body.api_secret
+            seller_id=body.seller_id, api_key=body.api_key, api_secret=body.api_secret  # gitleaks:allow
         )
     except TrendyolConfigError:
         raise ProblemError(
