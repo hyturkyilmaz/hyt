@@ -1,0 +1,395 @@
+{
+  "senaryo_id": "G16",
+  "ad": "tam_iade_stoga_donen",
+  "aciklama": "Satış kesinleşti, müşteri iade etti (claim Accepted), ürün sağlam stoğa döndü. Return satırı geliri ve komisyonu ters çevirir; maliyet 0; gönderi ve iade kargo bedeli ile platform hizmet bedeli geri alınamaz. Durum adjusted, ZARAR uyarısı.",
+  "kurallar": [
+    "K10",
+    "K12",
+    "K05",
+    "K22"
+  ],
+  "etiketler": [
+    "tam_iade",
+    "iade_kargo",
+    "adjusted",
+    "negatif_kar"
+  ],
+  "sema_surumu": "1",
+  "not": "Tutarlar kurgusaldır. 'netkar_' önekli alanlar NetKâr ingest katmanınındır, Trendyol alanı değildir.",
+  "girdi": {
+    "ayarlar": {
+      "komisyon_tutari_kdv_dahil": true,
+      "komisyon_kdv_orani": "20",
+      "kargo_kdv_orani": "20",
+      "hizmet_bedeli_kdv_orani": "20",
+      "reklam_kdv_orani": "20",
+      "stopaj_orani": "1",
+      "platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric": "10.00",
+      "kargo_tarifesi": {
+        "Trendyol Express": [
+          [
+            "1",
+            "40.00"
+          ],
+          [
+            "2",
+            "45.00"
+          ],
+          [
+            "3",
+            "50.00"
+          ],
+          [
+            "5",
+            "60.00"
+          ],
+          [
+            "10",
+            "85.00"
+          ],
+          [
+            "15",
+            "110.00"
+          ]
+        ]
+      },
+      "satici_kargo_tarifesi": {
+        "Aras Kargo Marketplace": [
+          [
+            "2",
+            "38.00"
+          ],
+          [
+            "5",
+            "52.00"
+          ],
+          [
+            "10",
+            "75.00"
+          ]
+        ]
+      },
+      "kargo_faturasi_kdv_tespit_toleransi": "0.05",
+      "uyari_esikleri": {
+        "beklenmeyen_kesinti_tutar": "5.00",
+        "beklenmeyen_kesinti_oran_yuzde": "5",
+        "yuvarlama_toleransi": "0.05",
+        "komisyon_orani_tolerans_puan": "0.01"
+      },
+      "degisken_giderler": []
+    },
+    "siparisler": [
+      {
+        "orderNumber": "10000016",
+        "shipmentPackageId": 3300000016,
+        "orderDate": 1791199800000,
+        "netkar_not_orderDate_iso": "2026-10-05T14:30:00+03:00",
+        "status": "Delivered",
+        "cargoProviderName": "Trendyol Express",
+        "cargoTrackingNumber": 7280000000000016,
+        "cargoDeci": 2,
+        "commercial": false,
+        "lines": [
+          {
+            "lineId": 470000019,
+            "barcode": "8681000000011",
+            "quantity": 1,
+            "lineGrossAmount": "499.90",
+            "lineSellerDiscount": "0.00",
+            "lineTyDiscount": "0.00",
+            "lineTotalDiscount": "0.00",
+            "lineUnitPrice": "499.90",
+            "vatRate": "20",
+            "commission": "15",
+            "discountDetails": [
+              {
+                "lineItemId": "900000022",
+                "lineItemPrice": "499.90",
+                "lineItemSellerDiscount": "0.00",
+                "lineItemTyDiscount": "0.00"
+              }
+            ]
+          }
+        ],
+        "packageGrossAmount": "499.90",
+        "packageSellerDiscount": "0.00",
+        "packageTyDiscount": "0.00",
+        "packageTotalDiscount": "0.00",
+        "packageTotalPrice": "499.90"
+      }
+    ],
+    "urun_maliyetleri": [
+      {
+        "barcode": "8681000000011",
+        "gecerlilik_baslangic": "2026-01-01",
+        "birim_maliyet_kdv_haric": "180.00",
+        "kdv_orani": "20"
+      }
+    ],
+    "settlements": [
+      {
+        "id": "725000013",
+        "transactionDate": 1791961200000,
+        "barcode": "8681000000011",
+        "netkar_istek_tipi": "Sale",
+        "transactionType": "Satış",
+        "receiptId": 48376618,
+        "description": "Satış",
+        "debt": "0",
+        "credit": "499.90",
+        "paymentPeriod": 30,
+        "commissionRate": "15",
+        "commissionAmount": "74.985",
+        "commissionInvoiceSerialNumber": null,
+        "sellerRevenue": "424.915",
+        "orderNumber": "10000016",
+        "paymentOrderId": 112360,
+        "paymentDate": null,
+        "sellerId": 123456,
+        "orderDate": 1791199800000,
+        "affiliate": "TRENDYOLTR",
+        "shipmentPackageId": 3300000016
+      },
+      {
+        "id": "725000014",
+        "transactionDate": 1792652400000,
+        "barcode": "8681000000011",
+        "netkar_istek_tipi": "Return",
+        "transactionType": "İade",
+        "receiptId": 48376618,
+        "description": "İade",
+        "debt": "499.90",
+        "credit": "0",
+        "paymentPeriod": 30,
+        "commissionRate": "15",
+        "commissionAmount": "74.985",
+        "commissionInvoiceSerialNumber": null,
+        "sellerRevenue": "424.915",
+        "orderNumber": "10000016",
+        "paymentOrderId": 112360,
+        "paymentDate": null,
+        "sellerId": 123456,
+        "orderDate": 1791199800000,
+        "affiliate": "TRENDYOLTR",
+        "shipmentPackageId": 3300000016
+      }
+    ],
+    "otherfinancials": [
+      {
+        "id": "KRG2026000016",
+        "transactionDate": 1792479600000,
+        "barcode": null,
+        "netkar_istek_tipi": "DeductionInvoices",
+        "transactionType": "Kargo Faturası",
+        "receiptId": null,
+        "description": "Kargo Faturası",
+        "debt": "108.00",
+        "credit": "0",
+        "orderNumber": null,
+        "paymentOrderId": 112360,
+        "sellerId": 123456,
+        "affiliate": "TRENDYOLTR",
+        "shipmentPackageId": null
+      }
+    ],
+    "kargo_faturalari": [
+      {
+        "invoiceSerialNumber": "KRG2026000016",
+        "items": [
+          {
+            "shipmentPackageType": "Gönderi Kargo Bedeli",
+            "parcelUniqueId": 7260001151141000,
+            "orderNumber": "10000016",
+            "amount": "54.00",
+            "desi": 2
+          },
+          {
+            "shipmentPackageType": "İade Kargo Bedeli",
+            "parcelUniqueId": 7260001151141001,
+            "orderNumber": "10000016",
+            "amount": "54.00",
+            "desi": 2
+          }
+        ]
+      }
+    ],
+    "iadeler": [
+      {
+        "claimId": "claim-3300000016",
+        "orderNumber": "10000016",
+        "orderShipmentPackageId": 3300000016,
+        "items": [
+          {
+            "orderLine": {
+              "barcode": "8681000000011",
+              "price": "499.90",
+              "vatRate": "20"
+            },
+            "claimItems": [
+              {
+                "id": "claim-item-900000022",
+                "orderLineItemId": 900000022,
+                "customerClaimItemReason": {
+                  "id": "451",
+                  "name": "Diğer",
+                  "code": "UNFIT"
+                },
+                "claimItemStatus": {
+                  "name": "Accepted"
+                },
+                "autoAccepted": false,
+                "acceptedBySeller": true
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "donem": {
+      "baslangic": "2026-10-01",
+      "bitis": "2026-10-31"
+    }
+  },
+  "beklenen": {
+    "siparis_satirlari": [
+      {
+        "orderNumber": "10000016",
+        "shipmentPackageId": 3300000016,
+        "lineId": 470000019,
+        "barcode": "8681000000011",
+        "durum": "adjusted",
+        "adet": 1,
+        "adet_iade": 1,
+        "kalemler": {
+          "brut_satis_kdv_dahil": "499.90",
+          "satici_indirimi_kdv_dahil": "0.00",
+          "trendyol_indirimi_kdv_dahil": "0.00",
+          "satis_kdv_dahil": "499.90",
+          "satis_kdv_haric": "416.58",
+          "iade_kdv_dahil": "499.90",
+          "iade_kdv_haric": "416.58",
+          "net_satis_kdv_haric": "0.00",
+          "urun_maliyeti": "0.00",
+          "komisyon": "0.00",
+          "kargo_gonderi": "45.00",
+          "kargo_iade": "45.00",
+          "platform_hizmet_bedeli": "10.00",
+          "ceza": "0.00",
+          "reklam": "0.00",
+          "degisken_giderler": "0.00",
+          "toplam_gider": "100.00",
+          "maliyet_haric_katki": "-100.00",
+          "net_kar": "-100.00",
+          "net_kar_marji_yuzde": null
+        },
+        "kdv": {
+          "satis_kdv": "83.32",
+          "iade_kdv": "83.32",
+          "komisyon_kdv": "0.00",
+          "kargo_kdv": "18.00",
+          "platform_hizmet_bedeli_kdv": "2.00",
+          "ceza_kdv": "0.00",
+          "urun_maliyeti_kdv": "0.00",
+          "degisken_giderler_kdv": "0.00",
+          "reklam_kdv": "0.00",
+          "kdv_etkisi": "-20.00"
+        },
+        "nakit_akisi": {
+          "trendyol_hakedis": "0.00",
+          "fatura_kesintileri_kdv_dahil": "120.00",
+          "stopaj": "0.00",
+          "beklenen_net_tahsilat": "-120.00"
+        },
+        "kaynaklar": {
+          "satis": "kesin",
+          "komisyon": "kesin",
+          "urun_maliyeti": "kullanici",
+          "kargo_gonderi": "kesin",
+          "kargo_iade": "kesin",
+          "platform_hizmet_bedeli": "tahmini",
+          "degisken_giderler": "yok",
+          "reklam": "yok"
+        },
+        "degisken_gider_detayi": [],
+        "reklam_detayi": [],
+        "karsilastirma": {
+          "komisyon_tahmini": "62.49",
+          "komisyon_kesin": "62.49",
+          "kargo_gonderi_tahmini": "45.00",
+          "kargo_gonderi_kesin": "45.00",
+          "platform_hizmet_bedeli_tahmini": "10.00",
+          "platform_hizmet_bedeli_kesin": null,
+          "karsilastirilan_tahmini_toplam": "107.49",
+          "karsilastirilan_kesin_toplam": "107.49",
+          "fark": "0.00",
+          "esik": "5.37"
+        },
+        "uyarilar": [
+          "ZARAR"
+        ]
+      }
+    ],
+    "urun_toplamlari": [
+      {
+        "barcode": "8681000000011",
+        "satir_sayisi": 1,
+        "adet": 1,
+        "adet_iade": 1,
+        "net_satis_kdv_haric": "0.00",
+        "urun_maliyeti": "0.00",
+        "komisyon": "0.00",
+        "kargo_gonderi": "45.00",
+        "kargo_iade": "45.00",
+        "platform_hizmet_bedeli": "10.00",
+        "ceza": "0.00",
+        "reklam_satirlara_dagitilan": "0.00",
+        "reklam_satissiz": "0.00",
+        "degisken_giderler": "0.00",
+        "maliyet_haric_katki": "-100.00",
+        "net_kar": "-100.00",
+        "net_kar_marji_yuzde": null,
+        "maliyet_eksik": false,
+        "reklam_harcamasi": "0.00",
+        "reklam_cirosu": null,
+        "roas": null,
+        "basabas_roas": null,
+        "stopaj": "0.00"
+      }
+    ],
+    "donem_toplami": {
+      "siparis_sayisi": 1,
+      "satir_sayisi": 1,
+      "net_satis_kdv_haric": "0.00",
+      "urun_maliyeti": "0.00",
+      "komisyon": "0.00",
+      "kargo_gonderi": "45.00",
+      "kargo_iade": "45.00",
+      "platform_hizmet_bedeli": "10.00",
+      "ceza_satirlara_dagitilan": "0.00",
+      "reklam_satirlara_dagitilan": "0.00",
+      "degisken_giderler": "0.00",
+      "satir_net_kar_toplami": "-100.00",
+      "donem_duzeyi_giderler": {
+        "reklam_satissiz_urunler": "0.00",
+        "reklam_dagitilamayan": "0.00",
+        "dagitilmamis_ceza": "0.00",
+        "erken_odeme_bedeli": "0.00",
+        "siniflandirilmamis_kesinti": "0.00"
+      },
+      "donem_net_kar": "-100.00",
+      "net_kar_kismi": false,
+      "maliyet_eksik_satir_sayisi": 0,
+      "net_kar_marji_yuzde": null,
+      "kdv_etkisi": "-20.00",
+      "nakit_akisi": {
+        "stopaj_hesaplanan": "0.00",
+        "stopaj_ekstre": "0.00",
+        "erken_odeme_nakit_girisi": "0.00"
+      },
+      "uyarilar": []
+    },
+    "kargo_faturasi_kdv_durumu": {
+      "KRG2026000016": "dahil"
+    }
+  }
+}
