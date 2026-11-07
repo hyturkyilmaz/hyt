@@ -21,6 +21,7 @@ from app.core.security import PasswordWorker
 from app.db.rls import set_rls_context
 from app.models import Role
 from app.services.auth import TOUCH_INTERVAL_SECONDS, AuthContext, lookup_session, touch_session
+from app.services.marketplace_accounts import TrendyolClientFactory
 
 
 def get_settings_dep(request: Request) -> Settings:
@@ -69,11 +70,17 @@ def get_password_worker(request: Request) -> PasswordWorker:
     return worker
 
 
+def get_trendyol_factory(request: Request) -> TrendyolClientFactory:
+    factory: TrendyolClientFactory = request.app.state.trendyol_client_factory
+    return factory
+
+
 PasswordsDep = Annotated[PasswordWorker, Depends(get_password_worker)]
 RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 EmailSenderDep = Annotated[EmailSender, Depends(get_email_sender)]
 PwnedDep = Annotated[PwnedPasswordChecker, Depends(get_pwned_checker)]
 CipherDep = Annotated[FieldCipher, Depends(get_cipher)]
+TrendyolFactoryDep = Annotated[TrendyolClientFactory, Depends(get_trendyol_factory)]
 
 
 def client_ip(request: Request) -> str:

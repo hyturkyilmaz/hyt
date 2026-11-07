@@ -20,6 +20,7 @@ from app.core.pwned import HibpPwnedChecker, NullPwnedChecker, PwnedPasswordChec
 from app.core.ratelimit import RateLimiter
 from app.core.security import PasswordWorker
 from app.db.session import create_engine, create_sessionmaker
+from app.services.marketplace_accounts import TrendyolClientFactory, default_client_factory
 
 _WINDOW_LOGIN = 15 * 60
 _WINDOW_HOURLY = 60 * 60
@@ -35,6 +36,8 @@ def _ip_rate_rules(settings: Settings) -> dict[str, IpRule]:
             "reset-confirm", settings.rate_limit_reset_ip * 2, _WINDOW_HOURLY
         ),
         "/v1/auth/totp/verify": IpRule("totp", settings.rate_limit_totp_ip, _WINDOW_LOGIN),
+        # Trendyol'a doğrulama çağrısı yaptığı için IP başına da sınırlanır.
+        "/v1/marketplace-accounts": IpRule("mpconnect", settings.rate_limit_marketplace_ip, _WINDOW_HOURLY),
     }
 
 
@@ -42,6 +45,7 @@ def create_app(
     settings: Settings | None = None,
     email_sender: EmailSender | None = None,
     pwned_checker: PwnedPasswordChecker | None = None,
+    trendyol_client_factory: TrendyolClientFactory | None = None,
 ) -> FastAPI:
     """FastAPI uygulamasını kurar. Bağımlılıklar testte dışarıdan verilebilir."""
     settings = settings or get_settings()
@@ -82,6 +86,8 @@ def create_app(
     if pwned_checker is None:
         pwned_checker = HibpPwnedChecker() if settings.pwned_check_enabled else NullPwnedChecker()
     app.state.pwned_checker = pwned_checker
+    # Trendyol istemcisi fabrikası: testlerde sahte taşımalı istemci verilir.
+    app.state.trendyol_client_factory = trendyol_client_factory or default_client_factory(settings)
 
     # Ekleme sırasının tersi çalışır. Dıştan içe: güvenlik başlıkları, istek bağlamı, gövde boyut
     # sınırı, IP rate limit, CSRF. Gövde sınırı ve IP sınırı FastAPI gövdeyi ayrıştırmadan önce
@@ -91,7 +97,10 @@ def create_app(
     app.add_middleware(
         BodyLimitMiddleware,
         default_limit=settings.max_request_body_bytes,
-        prefix_limits={"/v1/auth/": settings.max_auth_body_bytes},
+        prefix_limits={
+            "/v1/auth/": settings.max_auth_body_bytes,
+            "/v1/marketplace-accounts": settings.max_marketplace_body_bytes,
+        },
     )
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)

@@ -104,3 +104,29 @@ class RateLimit(Base):
     key: Mapped[str] = mapped_column(Text, primary_key=True)
     window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     count: Mapped[int] = mapped_column(Integer)
+
+
+class MarketplaceAccount(Base):
+    """Pazaryeri bağlantısı (Trendyol satıcı hesabı). RLS: tenant_id.
+
+    API anahtarı ve sırrı AES-256-GCM ile şifrelidir (AAD: satır kimliği + alan adı) ve `deferred`
+    olduğundan listelemede hiç yüklenmez. İptalde (`revoked`) iki alan da NULL olur; satır silinmez.
+    """
+
+    __tablename__ = "marketplace_accounts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"))
+    # Değerler Platform / MarketplaceAccountStatus enum'larındadır; sütun metin olarak okunur.
+    platform: Mapped[str] = mapped_column(Text)
+    seller_id: Mapped[str] = mapped_column(Text)
+    api_key_encrypted: Mapped[str | None] = deferred(mapped_column(Text))
+    api_secret_encrypted: Mapped[str | None] = deferred(mapped_column(Text))
+    # Yalnız gösterim için API anahtarının son 4 hanesi (sır sayılmaz).
+    api_key_last4: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text)
+    last_validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

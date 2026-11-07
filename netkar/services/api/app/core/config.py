@@ -12,6 +12,9 @@ from typing import Annotated, Literal
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from app.integrations.trendyol.errors import TrendyolConfigError
+from app.integrations.trendyol.identity import validate_integrator_name
+
 IPNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
 
 
@@ -73,9 +76,34 @@ class Settings(BaseSettings):
     max_request_body_bytes: int = Field(1024 * 1024, ge=1)
     max_auth_body_bytes: int = Field(64 * 1024, ge=1)
 
+    # Trendyol istemcisi (ADR-0003). Varsayılan ortam stage; canlıya yalnız açıkça geçilir.
+    trendyol_environment: Literal["stage", "live"] = "stage"
+    # User-Agent'taki entegratör adı: ASCII harf/rakam, en fazla 30 karakter. Varsayılan ürün kod adı
+    # (ürün adı "NetKâr" Türkçe karakter içerdiği için doğrudan kullanılamaz). Geçersizse açılış durur.
+    trendyol_integrator_name: str = "NetKar"
+    trendyol_connect_timeout_seconds: float = Field(5.0, gt=0)
+    trendyol_read_timeout_seconds: float = Field(20.0, gt=0)
+    trendyol_max_retries: int = Field(4, ge=0, le=10)
+    trendyol_backoff_base_seconds: float = Field(1.0, gt=0)
+    trendyol_backoff_cap_seconds: float = Field(30.0, gt=0)
+    # Bağlantı ekleme çağrısı Trendyol'a gider: IP ve kiracı başına saatlik deneme sınırı.
+    rate_limit_marketplace_ip: int = Field(20, ge=1)
+    rate_limit_marketplace_tenant: int = Field(10, ge=1)
+    # /v1/marketplace-accounts gövde üst sınırı (bayt): üç kısa alan beklenir.
+    max_marketplace_body_bytes: int = Field(8 * 1024, ge=1)
+
     # Eşzamanlı argon2 özet sayısı (her özet ~64 MiB bellek kullanır). Olay döngüsü
     # bloklanmasın diye özetler iş parçacığı havuzunda ve bu sınırla çalışır.
     password_hash_concurrency: int = Field(default_factory=lambda: min(4, os.cpu_count() or 1), ge=1)
+
+    @field_validator("trendyol_integrator_name")
+    @classmethod
+    def _validate_integrator(cls, value: str) -> str:
+        """Geçersiz entegratör adında uygulama açılmaz (istemci kurulamayacağı için)."""
+        try:
+            return validate_integrator_name(value)
+        except TrendyolConfigError as exc:
+            raise ValueError(str(exc)) from None
 
     @field_validator("trusted_proxy_cidrs", mode="before")
     @classmethod

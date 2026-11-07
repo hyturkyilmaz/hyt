@@ -11,3 +11,17 @@ class Role(StrEnum):
     OWNER = "owner"
     ADMIN = "admin"
     VIEWER = "viewer"
+
+
+class Platform(StrEnum):
+    """Desteklenen pazaryeri. Şimdilik yalnız Trendyol."""
+
+    TRENDYOL = "trendyol"
+
+
+class MarketplaceAccountStatus(StrEnum):
+    """Bağlantı durumu: active (çalışıyor), invalid (anahtar reddedildi), revoked (iptal, sırlar boş)."""
+
+    ACTIVE = "active"
+    INVALID = "invalid"
+    REVOKED = "revoked"

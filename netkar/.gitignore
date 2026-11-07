@@ -14,3 +14,6 @@ services/api/var/
 # Node
 node_modules/
 .next/
+
+# Trendyol resmi doküman sayfalarının yerel kopyası (yalnız geliştirme referansı; repoya alınmaz)
+docs/research/trendyol_docs_ham/

@@ -6,7 +6,15 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    EmailStr,
+    SecretStr,
+    StringConstraints,
+)
 
 from app.core.security import PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH
 
@@ -105,3 +113,43 @@ class AuditOut(BaseModel):
     target: str | None
     created_at: datetime
     meta: dict[str, object]
+
+
+def _seller_id_to_str(value: object) -> object:
+    """Satıcı kimliği JSON'da sayı olarak da gelebilir (Trendyol panelinde sayı gösterilir)."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    return value
+
+
+SellerId = Annotated[
+    str,
+    BeforeValidator(_seller_id_to_str),
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=18, pattern=r"^[1-9][0-9]*$"),
+]
+# Biçim (ASCII, boşluksuz) TrendyolCredentials içinde doğrulanır; burada yalnız boyut sınırı vardır.
+ApiSecretValue = Annotated[SecretStr, StringConstraints(min_length=8, max_length=256)]
+
+
+class MarketplaceAccountCreate(_Strict):
+    """Pazaryeri bağlantısı ekleme isteği. Sırlar SecretStr'dir: repr ve hata metinlerinde görünmez."""
+
+    seller_id: SellerId
+    api_key: ApiSecretValue
+    api_secret: ApiSecretValue
+
+
+class MarketplaceAccountOut(BaseModel):
+    """Maskeli bağlantı özeti. API anahtarı ve sırrı ASLA döndürülmez; yalnız son 4 hane."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    platform: str
+    seller_id: str
+    status: str
+    api_key_last4: str | None
+    last_validated_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    revoked_at: datetime | None

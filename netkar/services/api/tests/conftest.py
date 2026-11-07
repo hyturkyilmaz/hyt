@@ -156,7 +156,7 @@ def _clean_tables(database: DatabaseInfo) -> None:
     with psycopg.connect(database.admin_dsn(), autocommit=True) as conn:
         conn.execute(
             "TRUNCATE tenants, users, memberships, sessions, password_reset_tokens, "
-            "audit_log, rate_limits RESTART IDENTITY CASCADE"
+            "audit_log, rate_limits, marketplace_accounts RESTART IDENTITY CASCADE"
         )
 
 
@@ -227,9 +227,12 @@ AppFactory = Callable[..., FastAPI]
 
 @pytest.fixture
 def make_app(settings: Settings, outbox: InMemoryOutbox, fake_pwned: FakePwned) -> Callable[..., FastAPI]:
-    def _make(**overrides: Any) -> FastAPI:
+    def _make(trendyol_client_factory: Any = None, **overrides: Any) -> FastAPI:
         return create_app(
-            settings.model_copy(update=overrides), email_sender=outbox, pwned_checker=fake_pwned
+            settings.model_copy(update=overrides),
+            email_sender=outbox,
+            pwned_checker=fake_pwned,
+            trendyol_client_factory=trendyol_client_factory,
         )
 
     return _make
