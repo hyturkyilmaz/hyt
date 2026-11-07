@@ -18,6 +18,15 @@ const envSchema = z.object({
   // Gerçek istemci IP'sinin kaynağı (ADR-0002); middleware aynı değerleri doğrudan okur.
   CLIENT_IP_SOURCE: z.enum(CLIENT_IP_SOURCES).default('none'),
   CLIENT_IP_TRUSTED_HOPS: z.coerce.number().int().min(1).max(10).default(1),
+  // Bekleme listesi kayıt hedefi. Boşsa: geliştirme ve testte bellek, üretimde hedef yok (503).
+  WAITLIST_SINK: z.enum(['memory', 'file', 'none']).optional(),
+  WAITLIST_FILE: z.string().trim().min(1).max(300).optional(),
+  // Turnstile: anahtar yokken kapalıdır (bkz. src/lib/waitlist/turnstile.ts).
+  TURNSTILE_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  TURNSTILE_SECRET_KEY: z.string().trim().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

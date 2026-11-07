@@ -1,6 +1,30 @@
 // Sınanan sayfalar: yol, ekran görüntüsü adı, beklenen h1
 export const PUBLIC_PAGES = [
   { path: '/', name: 'anasayfa', h1: /Cironuzu değil, cebinize kalanı gösterir/ },
+  {
+    path: '/ozellikler',
+    name: 'ozellikler',
+    h1: /Her ürünün size ne bıraktığını gösteren özellikler/,
+  },
+  { path: '/fiyatlar', name: 'fiyatlar', h1: /^Fiyatlar$/ },
+  { path: '/guvenlik-ve-kvkk', name: 'guvenlik-ve-kvkk', h1: /^Verileriniz nasıl korunuyor\?$/ },
+  { path: '/sss', name: 'sss', h1: /^Sık sorulan sorular$/ },
+  { path: '/araclar', name: 'araclar', h1: /^Ücretsiz Trendyol satıcı araçları$/ },
+  {
+    path: '/araclar/trendyol-komisyon-hesaplama',
+    name: 'arac-komisyon-hesaplama',
+    h1: /^Trendyol komisyon hesaplama \(2026\)$/,
+  },
+  {
+    path: '/araclar/trendyol-kar-hesaplama',
+    name: 'arac-kar-hesaplama',
+    h1: /^Trendyol kâr hesaplama: reklam ve iade dahil net kâr$/,
+  },
+  {
+    path: '/araclar/desi-hesaplama',
+    name: 'arac-desi-hesaplama',
+    h1: /^Desi hesaplama ve ücretlendirmeye esas değer$/,
+  },
   { path: '/giris', name: 'giris', h1: /Giriş yapın/ },
   { path: '/kayit', name: 'kayit', h1: /Hesap oluşturun/ },
   { path: '/iki-adim', name: 'iki-adim', h1: /İki adımlı doğrulama/ },

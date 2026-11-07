@@ -30,7 +30,7 @@ Playwright bu makinede `/opt/pw-browsers/chromium` kullanır (`PW_CHROMIUM_PATH`
 ## Yapı
 
 ```
-src/app/(marketing)   ana sayfa
+src/app/(marketing)   ana sayfa, /ozellikler, /fiyatlar, /guvenlik-ve-kvkk, /sss, /araclar (+ 3 hesaplayıcı)
 src/app/(auth)        giris, kayit, iki-adim, sifre-sifirla
 src/app/(app)/panel   Özet, Ürünler, Siparişler, Uyarılar, Ayarlar (boş durum + iskelet); oturum korumalı
 src/app/(marketing)   ayrıca /kullanim-kosullari ve /kvkk-aydinlatma-metni (taslak iskelet, hukuki inceleme bekliyor)
@@ -74,6 +74,13 @@ Kaynak: `services/api/app/api/v1/{auth,me,schemas}.py` ve `app/core/{cookies,mid
 ## Gerçek API ile uçtan uca test
 
 `npm run e2e:gercek-api`: `e2e/real-api/serve_api.py` geçici bir PostgreSQL 16 kümesi kurar (`services/api/tests/conftest.py` mantığı: initdb, yalnız unix socket, tmp dizin), roller ve migrasyonlar çalışır, `services/api` uvicorn ile `127.0.0.1:8100` üzerinde başlar; web `127.0.0.1:3101` üzerinde ona bağlanır. Gereksinim: `uv` (`services/api` ortamı kurulu), `/usr/lib/postgresql/16/bin` (`PG_BIN`), Chromium. Süreç bitince küme ve tmp dizin silinir. Senaryo: kayıt, yanlış parola, giriş, panel, çerez bayrakları, çıkış, `sonra` yönlendirmesi (dış adres reddi), TOTP etkinleştirme (arayüzde kurulum ekranı henüz yok, API sayfa bağlamından çağrılır), ikinci adımla giriş ve aynı kodun yeniden kullanımının reddi. `rate-limit.spec.ts` (web `CLIENT_IP_SOURCE=cf-connecting-ip`, API `TRUSTED_PROXY_CIDRS=127.0.0.0/8`): sahte `X-Forwarded-For`/`X-Real-IP` ile IP sınırı aşılamaz, farklı gerçek istemciler birbirinin sınırını tüketmez. Varsayılan `npm run e2e` sahte API (`e2e/fake-api.mjs`, yalnız `/v1/me` ve `/v1/auth/csrf`) kullanır.
+
+## Pazarlama sitesi (S5)
+
+- **Hesaplayıcılar** (`src/lib/calc`, tamsayı BigInt kuruş, float yok; kurallar docs/12 K01, K02, K06, K07, K10, K18, K20, K25): `/araclar/trendyol-komisyon-hesaplama`, `/araclar/trendyol-kar-hesaplama`, `/araclar/desi-hesaplama`. İstemcide çalışır, sunucuya veri gitmez. Komisyon KDV'si (K07) varsayımı arayüzde işaretli ve seçilebilir. Birim testleri golden tahminleriyle karşılaştırır (G01, G03, G09, G10, G12, G24, G31, G32).
+- **Bekleme listesi:** `POST /api/bekleme-listesi` -> `WaitlistSink` (`src/lib/waitlist/sink.ts`: bellek veya dosya; üretimde hedef yoksa 503). Origin denetimi, bot tuzağı, hız sınırı, ayrı ve işaretsiz ticari ileti onayı. Turnstile yeri hazır, kapalı. E-posta gönderilmez. İstemci paketine zod girmemesi için seçenekler `options.ts` içindedir.
+- **SEO:** sayfa bilgisi `src/lib/seo/pages.ts` (başlık, açıklama, site haritası), JSON-LD `src/lib/seo/jsonld.ts` (FAQPage yalnız /sss).
+- **CWV:** `e2e/cwv.spec.ts` Playwright ile LCP, CLS, etkileşim gecikmesi ve JS boyutunu ölçer (Lighthouse CI yok, bağımlılık eklenmedi).
 
 ## Bilinen sınırlar
 

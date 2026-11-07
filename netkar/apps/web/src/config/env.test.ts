@@ -27,3 +27,17 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ NEXT_PUBLIC_PRODUCT_NAME: 'a'.repeat(41) })).toThrow();
   });
 });
+
+describe('bekleme listesi ve Turnstile ayarları', () => {
+  it('Turnstile varsayılan kapalı, bayrak true ise açılır', () => {
+    expect(parseEnv({}).TURNSTILE_ENABLED).toBe(false);
+    expect(parseEnv({ TURNSTILE_ENABLED: 'true' }).TURNSTILE_ENABLED).toBe(true);
+    expect(() => parseEnv({ TURNSTILE_ENABLED: 'evet' })).toThrow(/Ortam değişkenleri geçersiz/);
+  });
+
+  it('kayıt hedefi yalnız bilinen değerleri kabul eder', () => {
+    expect(parseEnv({}).WAITLIST_SINK).toBeUndefined();
+    expect(parseEnv({ WAITLIST_SINK: 'file' }).WAITLIST_SINK).toBe('file');
+    expect(() => parseEnv({ WAITLIST_SINK: 'redis' })).toThrow();
+  });
+});

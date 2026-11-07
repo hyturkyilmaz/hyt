@@ -214,10 +214,12 @@ test.describe('güvenlik başlıkları ve PWA', () => {
     await expect(page).toHaveTitle(/NetKâr/);
     await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', 'tr_TR');
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Trendyol/);
-    const raw = await page.locator('script[type="application/ld+json"]').first().textContent();
-    const data = JSON.parse(raw ?? '{}') as { '@type': string; name: string };
-    expect(data['@type']).toBe('Organization');
-    expect(data.name).toBe('NetKâr');
+    // Sayfa ayrıca SoftwareApplication yazar; Organization kök düzenden gelir (sıra önemsiz).
+    const blocks = (await page.locator('script[type="application/ld+json"]').allTextContents()).map(
+      (raw) => JSON.parse(raw) as { '@type': string; name: string },
+    );
+    const organization = blocks.find((block) => block['@type'] === 'Organization');
+    expect(organization?.name).toBe('NetKâr');
     await expect(page.getByRole('link', { name: 'Bekleme listesine katıl' })).toHaveAttribute(
       'href',
       '#bekleme-listesi',

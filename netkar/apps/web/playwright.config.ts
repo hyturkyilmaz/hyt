@@ -63,6 +63,8 @@ export default defineConfig({
       env: {
         API_BASE_URL: `http://127.0.0.1:${FAKE_API_PORT}`,
         NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${PORT}`,
+        // Bekleme listesi kaydı bellekte tutulur (gerçek kayıt uç noktası sonraki turda)
+        WAITLIST_SINK: 'memory',
       },
     },
   ],
