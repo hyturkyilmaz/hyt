@@ -10,3 +10,4 @@
 "2026-11-07 10:50 IST"	"repo netkar/"	"kod"	""	"S2 Trendyol istemcisi + marketplace_accounts (migrasyon 0004) + ADR 0003; S3 kâr motoru alan modeli + 41 altın test"	"Koordinatör turları 6-7 Kas"
 "2026-11-07 11:30 IST"	"repo netkar/"	"güvenlik"	""	"S2 denetim düzeltmeleri: zarf şifreleme (ADR 0004, migrasyon 0005, rewrap/migrate araçları), D-01..D-04, D-05/D-06 kısmi, B-02, B-04, sayfalama"	"Bağımsız denetim (opus) bulguları"
 "2026-11-07 15:00 IST"	"repo netkar/"	"kod"	""	"Trendyol verisi depolama + senkron (migrasyon 0006, ADR 0005): 9 tablo FORCE RLS, netkar_worker rolü (D-05 kapandı), sync.backfill/incremental, profit_feed + 38 altın senaryo DB yolundan, PII kanıt testi"	"S2/S3 köprü turu (backend)"
+2026-11-07 15:36	test	services/api/tests/test_denetim_s1_regression.py	O-03 kararsız zamanlama testi: gerçek argon2 süresi yerine 0,2 sn sahte özet + iş parçacığı kimliği + olay döngüsü gecikmesi ölçümü; bloklu uygulamada kırıldığı doğrulandı

@@ -336,17 +336,35 @@ def test_o02_default_lock_policy_matches_audit_recommendation() -> None:
 
 
 # --- O-03: argon2 olay döngüsünü bloklamaz -----------------------------------------------------
-async def test_o03_argon2_does_not_block_event_loop(make_app: Callable[..., object]) -> None:
+async def test_o03_argon2_does_not_block_event_loop(
+    make_app: Callable[..., object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Parola özeti olay döngüsünün dışında çalışır; döngü özet süresince takılmaz.
+
+    Gerçek argon2 süresi CI makinesinin yüküne göre 30-150 ms arasında oynadığından kıyas gürültülüydü.
+    Burada özet, süresi bilinen (0,2 sn) ve GIL'i bırakan bir sahte işle değiştirilir; argon2-cffi de
+    hesap sırasında GIL'i bırakır. İki bağımsız kanıt aranır:
+    1) Özet, olay döngüsünün iş parçacığında ÇALIŞMAZ (belirlenimci).
+    2) Olay döngüsündeki en uzun bekleme, tek özet süresinin yarısının altında kalır. Bloklu
+       uygulamada her özet döngüyü en az 0,2 sn durdurur; pay 2 kattır.
+    """
+    hash_seconds = 0.2
+    hash_threads: list[int] = []
+
+    def slow_burn(password: str) -> None:
+        hash_threads.append(threading.get_ident())
+        time.sleep(hash_seconds)
+
+    monkeypatch.setattr(security, "burn_password_verification", slow_burn)
     app = make_app(rate_limit_login_ip=1000, rate_limit_login_email=1000)
-    started = time.perf_counter()
-    hash_password("olcum-icin-parola")
-    one_hash = time.perf_counter() - started
+    loop_thread = threading.get_ident()
 
     transport = httpx.ASGITransport(app=app)  # type: ignore[arg-type]
     async with app.router.lifespan_context(app):  # type: ignore[attr-defined]
         async with httpx.AsyncClient(transport=transport, base_url="https://testserver") as client:
             csrf = (await client.get("/v1/auth/csrf")).json()["csrf_token"]
             headers = {"X-CSRF-Token": csrf}
+            done = asyncio.Event()
 
             async def login(i: int) -> int:
                 r = await client.post(
@@ -354,21 +372,26 @@ async def test_o03_argon2_does_not_block_event_loop(make_app: Callable[..., obje
                 )
                 return r.status_code
 
-            async def health() -> float:
-                latencies = []
-                for _ in range(40):
-                    await asyncio.sleep(0.01)
+            async def ticker() -> float:
+                # 5 ms aralıklı uyanır; beklenenden fazla geçen süre döngünün takıldığı süredir.
+                worst = 0.0
+                while not done.is_set():
                     t = time.perf_counter()
-                    await client.get("/v1/health")
-                    latencies.append(time.perf_counter() - t)
-                latencies.sort()
-                return latencies[int(len(latencies) * 0.9)]  # p90
+                    await asyncio.sleep(0.005)
+                    worst = max(worst, time.perf_counter() - t - 0.005)
+                return worst
 
-            results = await asyncio.gather(*(login(i) for i in range(8)), health())
-    assert results[:-1] == [401] * 8
-    p90 = results[-1]
-    # Bloklu döngüde sağlık denetimi bir özet süresi kadar beklerdi (PoC: > 0.8 * tek özet).
-    assert p90 < 0.5 * one_hash, f"health p90 {p90 * 1000:.0f} ms, tek özet {one_hash * 1000:.0f} ms"
+            tick_task = asyncio.create_task(ticker())
+            try:
+                results = await asyncio.gather(*(login(i) for i in range(8)))
+            finally:
+                done.set()
+            worst_lag = await tick_task
+
+    assert results == [401] * 8
+    assert len(hash_threads) == 8, "her bilinmeyen kullanıcı girişi bir özet maliyeti ödemeli"
+    assert loop_thread not in hash_threads, "parola özeti olay döngüsünün iş parçacığında çalıştı"
+    assert worst_lag < 0.5 * hash_seconds, f"olay döngüsü {worst_lag * 1000:.0f} ms takıldı"
 
 
 async def test_o03_password_worker_limits_concurrency(monkeypatch: pytest.MonkeyPatch) -> None:
