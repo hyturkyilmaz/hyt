@@ -8,6 +8,7 @@ E-posta ve kullanıcı bazlı sayaçlar gövdedeki alanlara bağlı olduğundan 
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -44,14 +45,23 @@ class BodyLimitMiddleware:
     """Content-Length ve akış bazlı gövde boyut sınırı."""
 
     def __init__(
-        self, app: ASGIApp, default_limit: int, prefix_limits: Mapping[str, int] | None = None
+        self,
+        app: ASGIApp,
+        default_limit: int,
+        prefix_limits: Mapping[str, int] | None = None,
+        pattern_limits: Mapping[str, int] | None = None,
     ) -> None:
         self.app = app
         self._default = default_limit
+        # Yol ortasında kimlik geçen uç noktalar için tam eşleşen kalıplar (önekten ÖNCE denenir).
+        self._patterns = [(re.compile(pattern), limit) for pattern, limit in (pattern_limits or {}).items()]
         # En uzun önek kazanır.
         self._prefixes = sorted((prefix_limits or {}).items(), key=lambda item: len(item[0]), reverse=True)
 
     def _limit_for(self, path: str) -> int:
+        for pattern, limit in self._patterns:
+            if pattern.fullmatch(path):
+                return limit
         for prefix, limit in self._prefixes:
             if path.startswith(prefix):
                 return limit

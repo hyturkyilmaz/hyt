@@ -112,6 +112,15 @@ class Settings(BaseSettings):
     # /v1/marketplace-accounts gövde üst sınırı (bayt): üç kısa alan beklenir.
     max_marketplace_body_bytes: int = Field(8 * 1024, ge=1)
 
+    # Ürün maliyeti (docs/adr/0005 sonraki tur). İçe aktarma dosyası en fazla 2 MiB; gövde sınırı
+    # multipart zarfı için 64 KiB pay içerir (dosyanın kendisi işleyicide ayrıca 2 MiB ile sınırlanır).
+    max_cost_import_file_bytes: int = Field(2 * 1024 * 1024, ge=1)
+    max_cost_import_body_bytes: int = Field(2 * 1024 * 1024 + 64 * 1024, ge=1)
+    # Kiracı başına saatlik sınırlar: içe aktarma (kuru deneme dahil), tekil maliyet yazımı, şablon indirme.
+    rate_limit_cost_import_tenant: int = Field(30, ge=1)
+    rate_limit_cost_write_tenant: int = Field(600, ge=1)
+    rate_limit_cost_template_tenant: int = Field(60, ge=1)
+
     # Eşzamanlı argon2 özet sayısı (her özet ~64 MiB bellek kullanır). Olay döngüsü
     # bloklanmasın diye özetler iş parçacığı havuzunda ve bu sınırla çalışır.
     password_hash_concurrency: int = Field(default_factory=lambda: min(4, os.cpu_count() or 1), ge=1)

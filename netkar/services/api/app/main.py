@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.v1.product_costs import COST_IMPORT_PATH_PATTERN
 from app.api.v1.router import api_router
 from app.core.clientip import ClientIpResolver
 from app.core.config import Settings, get_settings
@@ -108,6 +109,8 @@ def create_app(
             "/v1/auth/": settings.max_auth_body_bytes,
             "/v1/marketplace-accounts": settings.max_marketplace_body_bytes,
         },
+        # Maliyet içe aktarma: yalnız bu uç nokta dosya yükler (hesap kimliği yolun ortasındadır).
+        pattern_limits={COST_IMPORT_PATH_PATTERN: settings.max_cost_import_body_bytes},
     )
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
