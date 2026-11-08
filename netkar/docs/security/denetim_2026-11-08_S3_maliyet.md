@@ -267,3 +267,89 @@ PUT unit_cost: '1e5' 422, 'NaN' 422, 'Infinity' 422, '12.50\n' 422, '١٢.٥٠' 
 JSON ham: NaN 422, Infinity 422, 1e999 422, 4001 hane 422, 5001 hane 400
 Barkod yolu: ABC%0A 422, ABC%0D 422, ABC%20 422, %EF%BC%A1BC 422, 201 x 'A' 422
 ```
+
+## Kapanış doğrulaması (2026-11-08)
+
+- Doğrulanan sürüm: düzeltmeler önce commit edilmemiş çalışma ağacında incelendi. Doğrulama sürerken başka bir oturumda `7c01b34` olarak commit edildi (sonraki `c6ef2be` yalnız test fixture'larını değiştirir). Aşağıdaki satır numaraları `7c01b34` iledir. Denetçi kod değiştirmedi, commit yapmadı.
+- Testler: tüm API paketi 1074 geçti, 3 atlandı (reklam, bilinçli), 0 kaldı. Yeni `tests/test_denetim_s3_regression.py` paketin içinde.
+- Ek A PoC'leri yeni kodla yeniden çalıştırıldı. Ayrıca atlatma denemeleri repo dışında yapıldı: `test_poc_s3_kapanis.py` (7/7 geçti) ve bölüm sınırlarının altında kalan yeni XLSX üreticileri (`mkbypass.py`, `sstredirect.py`).
+
+### Bulgu durumu
+
+| No | Durum | Kanıt |
+|---|---|---|
+| Y-01 | **Kısmen** (ciddiyet Yüksek'ten Orta'ya indi; kalıntı YK-01) | Ek A.1 dosyaları artık 0,05-0,06 sn'de 422 "bölüm izin verilen boyuttan büyük" alıyor, tepe bellek 56-57 MB (önceki 431 MB ve 1385 MB). Kiracı kilidi: ayrıştırma bekletilirken aynı kiracının ikinci isteği 429 ve `Retry-After: 5` aldı. Süreç yuvası: aynı uygulamada iki kiracı ayrıştırırken üçüncü kiracı 503 ve `Retry-After: 5` aldı. Kilidin istisnada bırakıldığı doğrulandı: 400 (iki dosya, 9 alan, 70 KB alan, urlencoded çok alan), 422 (bozuk multipart, `file` metin, bozuk XLSX) yanıtlarının her birinden sonra normal istek 200 aldı. `run_in_threadpool` iptal edilemez (`anyio.to_thread.run_sync`, terk yok), bu yüzden yuva iş parçacığı bitmeden boşalmaz. Bölüm sınırlarının altında kalan yeni dosyalar hâlâ büyük bellek tüketiyor (YK-01). |
+| O-01 | **Kapandı** | `product_costs.py:262-274`: kiracı kilidi alınır, `db.rollback()` ile bağlantı bırakılır, gövde okunur ve ayrıştırılır, sonra `set_rls_context` yeniden kurulur. PoC: ayrıştırma bekletilirken `pg_stat_activity`'de `netkar_app` için `idle in transaction` satırı yok (`[]`). `dry_run=false` ile yazma 200 döndü ve `created=1` (RLS bağlamı yazımda geçerli). |
+| D-01 | **Kapandı** | `UploadFile` imzadan çıkarıldı, gövde `request.form(max_files=1, max_fields=8, max_part_size=64 KiB)` ile kimlik, rol, hesap, hız sınırı ve kiracı kilidinden SONRA okunuyor (`product_costs.py:215`). PoC: oturumsuz ve sahte CSRF çiftli 2 MiB istekte `MultiPartParser.parse` çağrı sayısı 0, yanıt 401. 36 tireli yol artık 413 (kalıp kanonik UUID). Form sınırları: iki dosya, 9 alan, 70 KB alan ve 150.000 alanlı urlencoded gövde 400 problem yanıtı aldı (500 yok). |
+| D-02 | **Kısmen** (kalıntı YK-02) | `QUOTE_ALL` ve ayırıcı sonrası tek tırnak eklendi (`cost_import.py:635-660`). `x,=1+1,y` virgülle bölününce `'=1+1` oluyor (kapandı). Başta boşluk, NBSP ve `＝` varyantları da kaçırılıyor. Ancak ayırıcı ile formül karakteri arasına `"` konunca kaçış atlanıyor (YK-02). Ayrıca kaçış deseni ikinci dereceden zaman alıyor (YK-03). |
+| B-01 | **Kapandı** | Sayı ve tarih desenleri `[0-9]` kullanıyor. PoC: PUT gövdesinde `"١٢.٥٠"` ve `"１２.５０"` 422 aldı. |
+| B-02 | **Kapandı** | `require_defusedxml()` hem `create_app`'te (başlangıç fail-closed) hem `_read_xlsx`'te (503) çağrılıyor. Hem bayrağa hem gerçek ayrıştırıcı modülüne bakıyor. Not: lxml ileride dolaylı bağımlılık olarak gelirse openpyxl `fromstring`'i `functools.partial`'a çevirir ve uygulama hiç açılmaz (güvenli tarafta başarısızlık; bilgi). |
+| B-03 | **Kapandı** | `pyproject.toml:21` `python-multipart>=0.0.33`; `uv.lock` belirteci güncel; `pip-audit` temiz. |
+| B-07 | **Kapandı** | `upsert_costs` satırları yazmadan önce `(barcode, valid_from)` ile sıralıyor (`services/product_costs.py:252-253`); regresyon testi var. Kilitlenmenin 409/503'e çevrilmesi yapılmadı (bilgi düzeyinde kalır). |
+| B-04, B-05, B-06 | Açık (bilgi, bu turda istenmedi) | Değişiklik yok. |
+| B-08 | Kapandı / iyileşti | Kanonik UUID kalıbı: büyük harf 200; sonda `/`, tiresiz ve 36 tire 413 (güvenli tarafta). |
+
+### Yeni bulgular
+
+| No | Ciddiyet | Başlık | Konum |
+|---|---|---|---|
+| YK-01 | Orta | Bölüm sınırlarının altında kalan XLSX hâlâ yaklaşık 1,1 GB bellek tüketiyor; `<si>` sayımı içerik türü yönlendirmesiyle atlatılıyor | `cost_import.py:94-100, 200-258`; openpyxl `worksheet/_reader.py:155-168, 303`, `reader/strings.py:16-22` |
+| YK-02 | Düşük | Şablonda ayırıcı ile formül karakteri arasındaki `"` kaçışı atlatıyor | `cost_import.py:635-650` |
+| YK-03 | Düşük | `csv_safe_cell` deseni ikinci dereceden zaman alıyor; şablon olay döngüsünde üretiliyor | `cost_import.py:635`; `product_costs.py:329-339` |
+| YB-01 | Bilgi | Kiracı kilidi ve ayrıştırma yuvaları süreç içi | `import_gate.py:8-9, 29-30` |
+
+#### YK-01 (Orta) Bölüm sınırları içinde bellek amplifikasyonu sürüyor
+
+**Açıklama:** Bölüm başına bayt sınırı ve yalnız `styles.xml` ile `sharedStrings.xml` için `<xf>`/`<si>` sayımı var. openpyxl'in akışlı ayrıştırıcıları ise iki durumda belleği serbest bırakmıyor:
+
+- Bir `<row>` öğesinin tüm çocukları satır bitene kadar ağaçta tutulur. `parse_row` de `max_col`'dan bağımsız olarak HER hücre için sözlük üretir; sütun kırpması sonra yapılır.
+- Sayfada tanınmayan öğeler ve `sharedStrings.xml`'de `<si>` dışındaki öğeler hiç `clear()` edilmez, kök altında birikir.
+
+Sayfanın (20 MB) ve paylaşılan dizelerin (10 MB) içeriği için öğe sayısı sınırı yok. Ayrıca openpyxl paylaşılan dize bölümünü sabit addan değil `[Content_Types].xml`'deki `Override PartName`'den bulur. Bu yüzden dize tablosu izinli bir sayfa adına (`xl/worksheets/sheet2.xml`, 20 MB sınır, taranmıyor) taşınabilir.
+
+Ölçümler (ayrı süreç, `ru_maxrss`, varsayılan sınırlar, hepsi kabul edildi):
+
+| Dosya | Boyut | En büyük bölüm (oran) | Süre | Tepe RSS (başlangıç yaklaşık 51 MB) |
+|---|---|---|---|---|
+| `widerow`: sayfada tek satırda yaklaşık 2 milyon `<c s="N"/>` | 1,37 MB | sheet1.xml 19,9 MB (14,6) | 4,9 sn | 1159 MB |
+| `sheetjunk`: `</sheetData>` sonrasında 19 MB tek harfli bilinmeyen öğe | 1,49 MB | sheet1.xml 19,9 MB (13,4) | 6,1 sn | 479 MB |
+| `sstjunk`: sharedStrings'te 9,5 MB `<si>` dışı öğe | 1,38 MB | sharedStrings.xml 9,96 MB (7,2) | 3,3 sn | 277 MB |
+| `sstredirect`: 1,05 milyon `<si>` (sınır 200.000), Override ile `xl/worksheets/sheet2.xml`'e | 0,73 MB | sheet2.xml 19 MB | 6,2 sn | 223 MB |
+| `stylesfonts`: 1 MB styles içinde `<font>` öğeleri | 0,04 MB | styles.xml 1 MB (31) | 0,7 sn | 91 MB |
+
+**İstismar senaryosu:** Kiracı kilidi ve süreç başına 2 yuva, eski 30 paralel ve 40 GB'lık senaryoyu kapattı. Ancak iki kiracının yöneticisi (veya iki süreç) `widerow` dosyasını aynı anda gönderirse tek uvicorn sürecinde yaklaşık 2,3 GB tepe oluşur. Bu yük dakikada yaklaşık 10 kez tekrarlanabilir (dosya başına yaklaşık 5 sn). `docs/research/04_altyapi_fiyatlari.md`'deki 4 GB'lık tek sunucuda (API + worker + PostgreSQL) bu, OOM riskidir. Ayrıca CPython belleği işletim sistemine tam geri vermez; RSS yüksek kalır. Sınırlı (2 x yaklaşık 1,2 GB) ve iki hesap gerektirdiği için ciddiyet Orta'dır. Üretim sunucusu 4 GB veya altındaysa Yüksek sayılmalıdır.
+
+**Düzeltme önerisi (biri yeterli, 1 en sağlamı):**
+1. Sayfayı openpyxl yerine dar bir akışlı okuyucuyla okumak: defusedxml `iterparse` start/end olayları; her `<c>` bitişinde işlenip `clear()` ve ebeveynden kaldırılması; 50. sütundan sonraki hücrelerin hiç sözlüğe dönüşmemesi; `sheetData` dışındaki öğelerin atlanıp temizlenmesi. Paylaşılan dizeler için aynı yaklaşım (her öğe bitişinde temizlik).
+2. openpyxl kalacaksa: sayfa ve paylaşılan dize bölümleri için de öğe sayısı ön taraması (`<c` toplamı <= 600.000, satır başına `<c` <= 200, tüm bölümlerde toplam başlangıç etiketi sayısı sınırı). `[Content_Types].xml` Override'larındaki `PartName`'in beklenen sabit adlarla (`/xl/sharedStrings.xml`, `/xl/styles.xml`, `/xl/workbook.xml`) eşleştiğinin doğrulanması. Sayfa bölüm sınırının 20 MB'tan yaklaşık 6 MB'a indirilmesi (10.000 satırlık gerçekçi sayfa 2-3 MB).
+3. Derinlemesine savunma: ayrıştırmanın `RLIMIT_AS` (örn. 512 MB) ve süre sınırlı ayrı süreçte çalışması. Böylece kalan bilinmeyen amplifikasyonlar da sınırlanır.
+
+**Test önerisi:** Yukarıdaki dört üreticiyle (geniş satır, sayfada çöp öğe, `<si>` dışı öğe, Override yönlendirmesi) dosya üretilip her biri için 422 veya `tracemalloc` tepe artışı < 150 MB ve süre < 3 sn; Override `PartName`'i sabit addan farklıysa 422.
+
+#### YK-02 (Düşük) Şablon kaçışı `"` ile atlatılıyor
+
+**Açıklama:** `_INNER_FORMULA` ayırıcıdan sonra yalnız boşluk izin verip formül karakterine bakıyor. `QUOTE_ALL` iç `"`'yi `""` olarak ikiler. Virgüllü yerel ayarda bu iki tırnak açılıp kapanan boş bir tırnaklı bölüm gibi okunur. Python `csv` modülüyle (virgül ayraç) gösterim:
+
+```
+'x,"=1+1,y'         -> "A1";"x,""=1+1,y";"";"";""  | virgül: ['A1;"x', '=1+1', 'y";"";"";""']
+'x," =SUM(1;2),y'   -> "A1";"x,"" =SUM(1;2),y";... | virgül: ['A1;"x', ' =SUM(1;2)', 'y";...']
+```
+
+Excel'in aynı şekilde ayrıştırıp hücreyi formül olarak değerlendirdiği DOĞRULANMADI (Python `csv` RFC 4180'e hoşgörülü bir yaklaşımdır). Önkoşul ve etki D-02 ile aynıdır.
+
+**Düzeltme önerisi:** Önceden önerildiği gibi şablonu XLSX olarak üretmek. CSV kalacaksa bilgi amaçlı `baslik` sütununda `" , ; \t \r \n` karakterlerini boşlukla değiştirmek; ayırıcı sonrası lookahead'i `[\s"']*` ile genişletmek. **Test önerisi:** `x,"=1`, `x;"=1`, `x," =1`, `x,'=1` için satır `,` ve `;` ile `csv` modülünden geçirildiğinde hiçbir hücre (soldan boşluk atılmış) `'` olmadan formül karakteriyle başlamamalı.
+
+#### YK-03 (Düşük) `csv_safe_cell` deseninde ikinci dereceden zaman
+
+**Açıklama:** `([;,\t\r\n]\s*)(?=[=+\-@...])` deseninde `\t`, `\r`, `\n` hem ayırıcı hem `\s`'dir. Uzun bir sekme dizisinde her konumda `\s*` dizinin sonuna kadar tüketip geri izler. Ölçüm: başlık `x` + n sekme + `y` için n=1000 0,007 sn, n=5000 0,17 sn, n=20.000 2,65 sn (O(n²); n=100.000 için yaklaşık 66 sn tahmini). Şablon `async def template_csv` içinde, iş parçacığı havuzu OLMADAN üretilir (`product_costs.py:339`); süre boyunca olay döngüsü ve tüm istekler durur. `products.title` sütunu ve Trendyol modeli uzunluk sınırı koymuyor. Trendyol'un ürün başlığı uzunluk sınırı ve sekme karakterini kabul edip etmediği DOĞRULANMADI; bu yüzden ciddiyet Düşük'tür. Barkod 200 karakterle sınırlı olduğundan etkilenmez.
+
+**Düzeltme önerisi:** Kaçışı doğrusal bir döngüyle yapmak veya ayırıcı ile boşluk sınıflarını ayırmak (`[;,]` sonrası `[  ]*`, satır sonu ve sekmeyi boşluğa çevirmek); şablonda başlığı örn. 500 karaktere kırpmak; `build_template_csv`'yi `run_in_threadpool` ile çalıştırmak. **Test önerisi:** 100.000 sekmeli başlıkla `csv_safe_cell` < 50 ms.
+
+#### YB-01 (Bilgi) Eşzamanlılık kapısı süreç içi
+
+Kiracı kilidi (`set`) ve yuvalar (`asyncio.Semaphore`) süreç içidir. Bugünkü `Dockerfile` tek uvicorn süreci başlatır (`--workers` yok), bu yüzden sınırlar bugün geçerlidir. `--workers N` veya birden çok kopya kullanılırsa aynı kiracı N içe aktarmayı aynı anda çalıştırabilir ve yuvalar N ile çarpılır (kodda ve config'te not edilmiş). Ölçeklemeden önce kiracı kilidi `pg_try_advisory_lock`'a taşınmalı ve yuva sayısı makine belleğine göre süreç sayısıyla bölünmeli.
+
+### Sonuç
+
+- Kritik veya Yüksek açık bulgu YOK; **merge engeli kalktı.** Y-01'in kalıntısı YK-01 (Orta) lansman öncesi kapatılmalı; üretim sunucusu 4 GB veya altındaysa Yüksek sayılmalı ve merge/lansman engeli olarak ele alınmalıdır.
+- Yeni bulgu sayısı: 4 (Orta 1, Düşük 2, Bilgi 1).

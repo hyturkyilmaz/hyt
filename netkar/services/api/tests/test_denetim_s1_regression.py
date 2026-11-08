@@ -345,13 +345,14 @@ async def test_o03_argon2_does_not_block_event_loop(
     """Parola özeti olay döngüsünün dışında çalışır; döngü özet süresince takılmaz.
 
     Gerçek argon2 süresi CI makinesinin yüküne göre 30-150 ms arasında oynadığından kıyas gürültülüydü.
-    Burada özet, süresi bilinen (0,2 sn) ve GIL'i bırakan bir sahte işle değiştirilir; argon2-cffi de
+    Burada özet, süresi bilinen (0,5 sn) ve GIL'i bırakan bir sahte işle değiştirilir; argon2-cffi de
     hesap sırasında GIL'i bırakır. İki bağımsız kanıt aranır:
-    1) Özet, olay döngüsünün iş parçacığında ÇALIŞMAZ (belirlenimci).
-    2) Olay döngüsündeki en uzun bekleme, tek özet süresinin yarısının altında kalır. Bloklu
-       uygulamada her özet döngüyü en az 0,2 sn durdurur; pay 2 kattır.
+    1) Özet, olay döngüsünün iş parçacığında ÇALIŞMAZ (belirlenimci, asıl regresyon kontrolü).
+    2) Olay döngüsündeki en uzun bekleme, tek özet süresinin yarısının (250 ms) altında kalır. Bloklu
+       uygulamada her özet döngüyü en az 0,5 sn durdurur. Yüklü CI'da istek işleme ve GC kaynaklı
+       gecikme 112 ms'ye kadar görüldü (0,2 sn'lik eski ayarda eşik 100 ms idi); pay buna göre seçildi.
     """
-    hash_seconds = 0.2
+    hash_seconds = 0.5
     hash_threads: list[int] = []
 
     def slow_burn(password: str) -> None:
