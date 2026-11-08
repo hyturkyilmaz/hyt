@@ -10,7 +10,7 @@ import asyncio
 import json
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from types import TracebackType
+from types import SimpleNamespace, TracebackType
 from typing import Any
 from uuid import uuid4
 
@@ -22,6 +22,7 @@ from alembic.config import Config
 from pydantic import SecretStr
 from sqlalchemy import event
 
+from app.core import ratelimit as ratelimit_module
 from app.core.config import Settings
 from app.core.crypto import DecryptionError
 from app.core.envelope import EnvelopeCipher, KeyRing
@@ -625,8 +626,11 @@ def test_grant_migration_is_reversible(alembic_cfg: Config, admin_conn: psycopg.
 
 
 def test_global_cap_stops_outbound_validation_calls_across_tenants_and_ips(
-    make_ty_api: Callable[..., Api], trendyol: FakeTrendyol
+    make_ty_api: Callable[..., Api], trendyol: FakeTrendyol, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Sınırlayıcı sabit dakika penceresi kullanır (ADR-0001). Test bir dakika sınırına denk gelirse
+    # sayaç sıfırlanır ve 5 yerine 10 çağrı geçerdi (CI'da görüldü). Saat pencerenin ortasında sabit.
+    monkeypatch.setattr(ratelimit_module, "time", SimpleNamespace(time=lambda: 1_800_000_030.0))
     trendyol.status = 401
     sent, blocked = 0, 0
     for i in range(3):
