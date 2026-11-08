@@ -299,7 +299,11 @@ def test_template_roundtrip_imports_filled_rows(shop: Shop, admin_conn: psycopg.
     template = shop.api.get(f"{shop.base}/product-costs/template.csv").content
     untouched = upload(shop, template).json()
     assert (untouched["valid"], untouched["invalid"], untouched["skipped"]) == (0, 0, 2)
-    filled = template.decode("utf-8-sig").replace(f"{B1};Şık Çanta;;;", f"{B1};Şık Çanta;49,90;20;01.10.2026")
+    # Şablon artık tüm hücreleri tırnaklar (QUOTE_ALL): doldurulacak satır tırnaklı biçimiyle aranır.
+    filled = template.decode("utf-8-sig").replace(
+        f'"{B1}";"Şık Çanta";"";"";""', f'"{B1}";"Şık Çanta";"49,90";"20";"01.10.2026"'
+    )
+    assert filled != template.decode("utf-8-sig")
     r = upload(shop, filled.encode("utf-8"), dry_run=False)
     assert r.status_code == 200 and r.json()["created"] == 1 and r.json()["skipped"] == 1
     assert costs_of(admin_conn, shop) == {(B1, date(2026, 10, 1)): (Decimal("49.9"), Decimal("20"))}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 from collections.abc import Callable
 from datetime import date, timedelta
 from decimal import Decimal
@@ -397,10 +399,11 @@ def test_template_is_utf8_bom_attachment_with_products_and_empty_costs(
     assert r.headers["content-type"] == "text/csv; charset=utf-8"
     assert r.headers["content-disposition"] == 'attachment; filename="maliyet_sablonu.csv"'
     assert r.content.startswith(b"\xef\xbb\xbf")
-    lines = r.content.decode("utf-8-sig").splitlines()
-    assert lines[0] == "barkod;baslik;birim_maliyet_kdv_haric;kdv_orani;gecerlilik_tarihi"
-    assert lines[1] == f"{B1};Şık Çanta İğne;;;" and lines[2] == f"{B2};;;;"
-    assert len(lines) == 3 and "X-Template-Truncated" not in r.headers
+    # Tüm hücreler tırnaklıdır (QUOTE_ALL); içerik csv ile okunarak doğrulanır.
+    rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"), newline=""), delimiter=";"))
+    assert rows[0] == ["barkod", "baslik", "birim_maliyet_kdv_haric", "kdv_orani", "gecerlilik_tarihi"]
+    assert rows[1] == [B1, "Şık Çanta İğne", "", "", ""] and rows[2] == [B2, "", "", "", ""]
+    assert len(rows) == 3 and "X-Template-Truncated" not in r.headers
 
 
 def test_template_neutralizes_formula_injection(shop: Shop, admin_conn: psycopg.Connection[Any]) -> None:
@@ -413,14 +416,14 @@ def test_template_neutralizes_formula_injection(shop: Shop, admin_conn: psycopg.
     add_product(admin_conn, shop, "A7", "Normal = başlık")
     add_product(admin_conn, shop, "-NEG", "ok")
     text = shop.api.get(f"{shop.base}/product-costs/template.csv").content.decode("utf-8-sig")
-    rows = {line.split(";")[0]: line for line in text.replace("\r\n", "\n").split("\n")[1:] if line}
-    assert rows["A1"].startswith("A1;'=1+1;")
-    assert rows["A2"].startswith("A2;'+SUM(A1);")
-    assert rows["A3"].startswith("A3;'-2+3;")
-    assert rows["A4"].startswith("A4;'@cmd;")
-    assert "'\t=tab" in text and "'\r=cr" in text
-    assert rows["A7"].startswith("A7;Normal = başlık;")  # ortadaki '=' dokunulmaz
-    assert rows["'-NEG"].startswith("'-NEG;ok;")  # barkod hücresi de kaçırılır
+    rows = {row[0]: row for row in csv.reader(io.StringIO(text, newline=""), delimiter=";")}
+    assert rows["A1"][1] == "'=1+1"
+    assert rows["A2"][1] == "'+SUM(A1)"
+    assert rows["A3"][1] == "'-2+3"
+    assert rows["A4"][1] == "'@cmd"
+    assert rows["A5"][1] == "'\t=tab" and rows["A6"][1] == "'\r=cr"
+    assert rows["A7"][1] == "Normal = başlık"  # ortadaki '=' dokunulmaz
+    assert rows["'-NEG"][1] == "ok"  # barkod hücresi de kaçırılır
 
 
 def test_template_marks_truncation(

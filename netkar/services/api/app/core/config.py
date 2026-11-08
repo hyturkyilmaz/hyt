@@ -120,6 +120,22 @@ class Settings(BaseSettings):
     rate_limit_cost_import_tenant: int = Field(30, ge=1)
     rate_limit_cost_write_tenant: int = Field(600, ge=1)
     rate_limit_cost_template_tenant: int = Field(60, ge=1)
+    # XLSX bölüm sınırları (denetim S3 Y-01): açılmış bayt sınırı BÖLÜM başına uygulanır; başlıktaki
+    # boyuta güvenilmez, akışta sayılır. Gerekçe: 2 MiB'lik dosyada 10.000 satırlık gerçekçi bir maliyet
+    # kitabı styles.xml ~ onlarca KB, sharedStrings.xml ~ 0,5 MB, sayfa ~ 3 MB tutar; sınırlar bunun
+    # 10-30 katıdır. XML ağacı bayt başına onlarca kat bellek yer, bu yüzden sınır gevşetilmemelidir.
+    cost_import_max_styles_bytes: int = Field(1024 * 1024, ge=1)
+    cost_import_max_shared_strings_bytes: int = Field(10 * 1024 * 1024, ge=1)
+    cost_import_max_sheet_bytes: int = Field(20 * 1024 * 1024, ge=1)
+    cost_import_max_other_part_bytes: int = Field(256 * 1024, ge=1)
+    # Öğe sayısı ön taraması (openpyxl'e verilmeden önce): <xf> (stil kaydı) ve <si> (paylaşılan dize).
+    cost_import_max_style_xfs: int = Field(10_000, ge=1)
+    cost_import_max_shared_strings: int = Field(200_000, ge=1)
+    # Süreç başına eşzamanlı ayrıştırma sayısı ve dolu olduğunda önerilen bekleme (sn). Kiracı başına
+    # aynı anda tek içe aktarma vardır. Sayaçlar SÜREÇ İÇİDİR: çok süreçli dağıtımda süreç sayısıyla
+    # çarpılır; gerekirse PostgreSQL danışma kilidine (pg_try_advisory_lock) taşınır.
+    cost_import_parse_concurrency: int = Field(2, ge=1)
+    cost_import_retry_after_seconds: int = Field(5, ge=1)
 
     # Eşzamanlı argon2 özet sayısı (her özet ~64 MiB bellek kullanır). Olay döngüsü
     # bloklanmasın diye özetler iş parçacığı havuzunda ve bu sınırla çalışır.

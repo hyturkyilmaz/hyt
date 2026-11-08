@@ -22,6 +22,7 @@ from app.core.security import PasswordWorker
 from app.db.rls import set_rls_context
 from app.models import Role
 from app.services.auth import TOUCH_INTERVAL_SECONDS, AuthContext, lookup_session, touch_session
+from app.services.import_gate import ImportGate
 from app.services.marketplace_accounts import TrendyolClientFactory
 from app.worker.queue import JobQueue
 
@@ -82,6 +83,11 @@ def get_job_queue(request: Request) -> JobQueue:
     return queue
 
 
+def get_import_gate(request: Request) -> ImportGate:
+    gate: ImportGate = request.app.state.import_gate
+    return gate
+
+
 def get_trendyol_factory(request: Request) -> TrendyolClientFactory:
     factory: TrendyolClientFactory = request.app.state.trendyol_client_factory
     return factory
@@ -95,6 +101,7 @@ CipherDep = Annotated[FieldCipher, Depends(get_cipher)]
 EnvelopeDep = Annotated[EnvelopeCipher, Depends(get_envelope)]
 TrendyolFactoryDep = Annotated[TrendyolClientFactory, Depends(get_trendyol_factory)]
 JobQueueDep = Annotated[JobQueue, Depends(get_job_queue)]
+ImportGateDep = Annotated[ImportGate, Depends(get_import_gate)]
 
 
 def client_ip(request: Request) -> str:

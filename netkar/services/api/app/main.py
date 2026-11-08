@@ -22,6 +22,8 @@ from app.core.pwned import HibpPwnedChecker, NullPwnedChecker, PwnedPasswordChec
 from app.core.ratelimit import RateLimiter
 from app.core.security import PasswordWorker
 from app.db.session import create_engine, create_sessionmaker
+from app.services.cost_import import require_defusedxml
+from app.services.import_gate import ImportGate
 from app.services.marketplace_accounts import TrendyolClientFactory, default_client_factory
 from app.worker.queue import JobQueue, ProcrastinateJobQueue
 
@@ -54,6 +56,8 @@ def create_app(
     """FastAPI uygulamasını kurar. Bağımlılıklar testte dışarıdan verilebilir."""
     settings = settings or get_settings()
     configure_logging(settings.log_level)
+    # XML ayrıştırma korumasız çalışıyorsa uygulama hiç açılmaz (denetim S3 B-02, fail-closed).
+    require_defusedxml()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -63,6 +67,10 @@ def create_app(
         app.state.rate_limiter = RateLimiter(engine)
         # CapacityLimiter olay döngüsüne bağlıdır; bu yüzden lifespan içinde üretilir.
         app.state.password_worker = PasswordWorker(settings.password_hash_concurrency)
+        # Maliyet içe aktarma: süreç başına ayrıştırma yuvaları ve kiracı kilidi (denetim S3 Y-01).
+        app.state.import_gate = ImportGate(
+            settings.cost_import_parse_concurrency, settings.cost_import_retry_after_seconds
+        )
         try:
             yield
         finally:

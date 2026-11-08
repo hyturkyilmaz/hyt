@@ -24,7 +24,8 @@ from app.services.product_costs import (
     check_vat_rate,
 )
 
-_PLAIN_DECIMAL = re.compile(r"\d{1,15}(?:\.\d{1,10})?")
+# Yalnız ASCII rakam (\d Unicode rakamları da eşler; denetim S3 B-01).
+_PLAIN_DECIMAL = re.compile(r"[0-9]{1,15}(?:\.[0-9]{1,10})?")
 
 
 def _coerce_decimal(value: Any) -> Any:

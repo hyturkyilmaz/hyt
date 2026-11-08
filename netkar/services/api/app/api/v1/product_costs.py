@@ -11,11 +11,12 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Path, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, Path, Query, Request
 from fastapi.responses import Response
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile
 
-from app.api.deps import DbDep, RateLimiterDep, SettingsDep, ip_hash_for, require_role
+from app.api.deps import DbDep, ImportGateDep, RateLimiterDep, SettingsDep, ip_hash_for, require_role
 from app.api.v1.product_cost_schemas import (
     CostHistoryOut,
     CostOut,
@@ -27,18 +28,31 @@ from app.api.v1.product_cost_schemas import (
     ProductListOut,
 )
 from app.core.clock import today_istanbul
+from app.core.config import Settings
 from app.core.errors import ProblemError
 from app.core.ratelimit import digest
+from app.db.rls import set_rls_context
 from app.models import Role
 from app.services import product_costs as costs
 from app.services.audit import record_audit
 from app.services.auth import AuthContext
-from app.services.cost_import import ImportFileError, ImportParse, build_template_csv, parse_import
+from app.services.cost_import import (
+    ImportFileError,
+    ImportLimits,
+    ImportParse,
+    build_template_csv,
+    parse_import,
+)
 
 router = APIRouter(prefix="/marketplace-accounts/{account_id}", tags=["product-costs"])
 
 # Gövde sınırı ara katmanı için: yalnız bu yol 2 MiB dosya kabul eder (BodyLimitMiddleware pattern_limits).
-COST_IMPORT_PATH_PATTERN = r"/v1/marketplace-accounts/[0-9A-Fa-f-]{36}/product-costs/import"
+# Hesap kimliği gerçek UUID biçiminde (8-4-4-4-12 onaltılık) olmalı; başka biçim 8 KiB sınırına düşer.
+COST_IMPORT_PATH_PATTERN = (
+    r"/v1/marketplace-accounts/"
+    r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"
+    r"/product-costs/import"
+)
 TEMPLATE_MAX_ROWS = 10_000  # içe aktarma satır sınırıyla aynı: daha büyük şablon yüklenemezdi
 
 AdminDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN))]
@@ -175,40 +189,106 @@ def _report(
     )
 
 
-@router.post("/product-costs/import", response_model=ImportReportOut)
-async def import_costs(
-    account_id: UUID,
-    request: Request,
-    file: Annotated[UploadFile, File()],
-    ctx: AdminDep,
-    db: DbDep,
-    settings: SettingsDep,
-    limiter: RateLimiterDep,
-    dry_run: bool = True,
-    allow_partial: bool = False,
-) -> ImportReportOut:
-    """CSV/XLSX maliyet dosyası. `dry_run=true` (varsayılan) yalnız doğrulama raporu verir, hiçbir şey yazmaz.
+_IMPORT_OPENAPI = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "type": "object",
+                    "required": ["file"],
+                    "properties": {"file": {"type": "string", "format": "binary"}},
+                }
+            }
+        },
+    }
+}
 
-    `dry_run=false`: geçerli satırlar TEK işlemde upsert edilir; hatalı satır varsa ve `allow_partial=false`
-    ise hiçbir şey yazılmaz (422 ve rapor).
+
+async def _read_upload(request: Request, settings: Settings) -> tuple[str | None, bytes]:
+    """Multipart gövdesinden `file` parçasını okur. Çağrıldığında kimlik ve rol zaten doğrulanmıştır.
+
+    Dosya parametresi imzada DEĞİL burada okunur: FastAPI imzadaki `UploadFile`'ı bağımlılıklardan
+    (oturum, rol) ÖNCE ayrıştırırdı ve kimliksiz istekler için de 2 MiB'lik multipart çözülürdü (D-01).
     """
-    await _require_account(db, ctx, account_id)
-    # Her deneme (kuru deneme dahil) sayılır: ayrıştırma CPU işidir.
-    await _limit(limiter, settings, "cost-import", ctx.tenant_id, settings.rate_limit_cost_import_tenant)
-    data = await file.read(settings.max_cost_import_file_bytes + 1)
-    if len(data) > settings.max_cost_import_file_bytes:
+    limit = settings.max_cost_import_file_bytes
+    async with request.form(max_files=1, max_fields=8, max_part_size=64 * 1024) as form:
+        part = form.get("file")
+        if not isinstance(part, UploadFile):
+            raise ProblemError(
+                422,
+                "Doğrulama hatası",
+                "validation-error",
+                "İstek gövdesi geçersiz.",
+                extra={"errors": [{"field": "file", "code": "missing"}]},
+            )
+        data = await part.read(limit + 1)
+        filename = part.filename
+    if len(data) > limit:
         raise ProblemError(
             413,
             "İstek gövdesi çok büyük",
             "payload-too-large",
-            f"Dosya en fazla {settings.max_cost_import_file_bytes // (1024 * 1024)} MB olabilir.",
+            f"Dosya en fazla {limit // (1024 * 1024)} MB olabilir.",
         )
-    try:
-        # Zip denetimi ve ayrıştırma CPU işidir: olay döngüsünü bloklamamak için iş parçacığı havuzunda.
-        parsed = await run_in_threadpool(parse_import, file.filename, data, today_istanbul())
-    except ImportFileError as exc:
-        raise ProblemError(exc.status, exc.title, exc.slug, exc.detail) from None
+    return filename, data
 
+
+@router.post("/product-costs/import", response_model=ImportReportOut, openapi_extra=_IMPORT_OPENAPI)
+async def import_costs(
+    account_id: UUID,
+    request: Request,
+    ctx: AdminDep,
+    db: DbDep,
+    settings: SettingsDep,
+    limiter: RateLimiterDep,
+    gate: ImportGateDep,
+    dry_run: bool = True,
+    allow_partial: bool = False,
+) -> ImportReportOut:
+    """CSV/XLSX maliyet dosyası (multipart, alan adı `file`). `dry_run=true` (varsayılan) yalnız doğrulama
+    raporu verir, hiçbir şey yazmaz.
+
+    `dry_run=false`: geçerli satırlar TEK işlemde upsert edilir; hatalı satır varsa ve `allow_partial=false`
+    ise hiçbir şey yazılmaz (422 ve rapor).
+
+    Sıra: kimlik ve rol, hesap, hız sınırı, kiracı kilidi, dosyayı oku ve ayrıştır (veritabanı bağlantısı
+    TUTULMAZ), RLS bağlamını yeniden kur, yaz. Kiracı başına tek içe aktarma ve süreç başına sınırlı
+    ayrıştırma vardır; doluysa beklemeden 429/503 ve Retry-After döner.
+    """
+    await _require_account(db, ctx, account_id)
+    # Her deneme (kuru deneme dahil) sayılır: ayrıştırma CPU işidir.
+    await _limit(limiter, settings, "cost-import", ctx.tenant_id, settings.rate_limit_cost_import_tenant)
+    with gate.tenant(ctx.tenant_id):
+        # Dosya okuma ve ayrıştırma sırasında veritabanı bağlantısını/işlemini tutmayız (O-01); bağlam sonra kurulur.
+        await db.rollback()
+        filename, data = await _read_upload(request, settings)
+        try:
+            # Zip denetimi ve ayrıştırma CPU işidir: olay döngüsünü bloklamamak için iş parçacığı havuzunda.
+            async with gate.parse_slot():
+                parsed = await run_in_threadpool(
+                    parse_import, filename, data, today_istanbul(), ImportLimits.from_settings(settings)
+                )
+        except ImportFileError as exc:
+            raise ProblemError(exc.status, exc.title, exc.slug, exc.detail) from None
+        await set_rls_context(db, ctx.tenant_id, ctx.user_id)
+        return await _store_import(
+            request, db, settings, ctx, account_id, parsed, dry_run=dry_run, allow_partial=allow_partial
+        )
+
+
+async def _store_import(
+    request: Request,
+    db: DbDep,
+    settings: Settings,
+    ctx: AuthContext,
+    account_id: UUID,
+    parsed: ImportParse,
+    *,
+    dry_run: bool,
+    allow_partial: bool,
+) -> ImportReportOut:
+    """Ayrıştırma sonrası veritabanı aşaması: bilinmeyen barkodlar, upsert ve denetim kaydı."""
     barcodes = {row.barcode for row in parsed.rows}
     unknown = len(barcodes - await costs.known_barcodes(db, ctx.tenant_id, account_id, sorted(barcodes)))
     if dry_run:

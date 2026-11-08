@@ -97,9 +97,10 @@ def test_csv_safe_cell_and_template() -> None:
         assert ci.csv_safe_cell(f"{prefix}x") == f"'{prefix}x"
     assert ci.csv_safe_cell("a=b") == "a=b" and ci.csv_safe_cell(None) == "" and ci.csv_safe_cell("") == ""
     out = ci.build_template_csv([("B1", "=HYPERLINK(1)"), ("B2", None)])
-    assert (
-        out.startswith(b"\xef\xbb\xbf") and b"B1;'=HYPERLINK(1);;;\r\n" in out and out.endswith(b"B2;;;;\r\n")
-    )
+    # Tüm hücreler tırnaklanır (QUOTE_ALL).
+    assert out.startswith(b"\xef\xbb\xbf")
+    assert b'"B1";"\'=HYPERLINK(1)";"";"";""\r\n' in out
+    assert out.endswith(b'"B2";"";"";"";""\r\n')
 
 
 def test_csv_reader_errors() -> None:

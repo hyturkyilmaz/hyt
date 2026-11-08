@@ -249,6 +249,8 @@ async def upsert_costs(
     güncellenemez). Commit çağırana aittir: tüm parçalar tek işlemdedir.
     """
     created = updated = 0
+    # Kilitler hep aynı sırayla alınsın: çakışan eşzamanlı yazımlarda kilitlenmeyi önler (denetim S3 B-07).
+    rows = sorted(rows, key=lambda row: (row.barcode, row.valid_from))
     for start in range(0, len(rows), _CHUNK):
         values = [
             {

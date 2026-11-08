@@ -4,6 +4,9 @@ Güvenlik (OWASP ASVS V12 dosya yükleme, G06):
 - Uzantı VE içerik imzası denetlenir (XLSX: zip imzası `PK\\x03\\x04`; CSV: UTF-8 metin, NUL bayt yok).
 - XLSX açılmadan önce zip denetlenir: girdi sayısı, bildirilen ve GERÇEK açılmış toplam boyut (<= 50 MB;
   başlıkta yalan söyleyen zip'e karşı akışla sayılır) ve sıkıştırma oranı (<= 100).
+- Bölüm izin listesi (yalnız gereken OOXML bölümleri), BÖLÜM başına açılmış boyut sınırı ve openpyxl'e
+  verilmeden önce styles.xml (<xf>) ile sharedStrings.xml (<si>) için akışla öğe sayısı ön taraması
+  (denetim S3 Y-01: küçük dosya, devasa bellek). Sınırlar `ImportLimits` ve config'tedir.
 - openpyxl `read_only=True, data_only=True` ile okunur (formül değerlendirilmez, önbellek değeri okunur);
   defusedxml kuruludur ve openpyxl onu otomatik kullanır (XXE ve varlık genişletme kapalı).
 - Satır sınırı 10.000. Barkod allowlist'tir (formül karakteriyle başlayamaz).
@@ -22,7 +25,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.services.product_costs import (
     FORMULA_PREFIXES,
@@ -34,6 +37,9 @@ from app.services.product_costs import (
     check_vat_rate,
 )
 
+if TYPE_CHECKING:
+    from app.core.config import Settings
+
 MAX_ROWS = 10_000
 # Boş satırlara (Excel biçimli boş satırlar) tolerans: fiziksel satır tavanı. Aşılırsa dosya reddedilir.
 MAX_PHYSICAL_ROWS = 50_000
@@ -42,6 +48,59 @@ MAX_ZIP_UNCOMPRESSED = 50 * 1024 * 1024
 MAX_ZIP_RATIO = 100
 MAX_ZIP_ENTRIES = 1000
 _BIG_ENTRY = 1024 * 1024
+_CHUNK = 64 * 1024
+
+
+@dataclass(frozen=True, slots=True)
+class ImportLimits:
+    """XLSX bölüm sınırları ve öğe sayısı tavanları (varsayılanlar `Settings` ile aynıdır)."""
+
+    max_styles_bytes: int = 1024 * 1024
+    max_shared_strings_bytes: int = 10 * 1024 * 1024
+    max_sheet_bytes: int = 20 * 1024 * 1024
+    max_other_part_bytes: int = 256 * 1024
+    max_style_xfs: int = 10_000
+    max_shared_strings: int = 200_000
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> ImportLimits:
+        return cls(
+            max_styles_bytes=settings.cost_import_max_styles_bytes,
+            max_shared_strings_bytes=settings.cost_import_max_shared_strings_bytes,
+            max_sheet_bytes=settings.cost_import_max_sheet_bytes,
+            max_other_part_bytes=settings.cost_import_max_other_part_bytes,
+            max_style_xfs=settings.cost_import_max_style_xfs,
+            max_shared_strings=settings.cost_import_max_shared_strings,
+        )
+
+
+DEFAULT_LIMITS = ImportLimits()
+
+_STYLES = "xl/styles.xml"
+_SHARED_STRINGS = "xl/sharedStrings.xml"
+# openpyxl'in okuduğu ve Excel'in yazdığı zararsız bölümler. Listede olmayan her bölüm (gömülü nesne,
+# makro, görsel, özel XML vb.) reddedilir: işlevi yok, yalnız saldırı yüzeyi.
+_ALLOWED_PARTS = frozenset(
+    {
+        "[Content_Types].xml",
+        "_rels/.rels",
+        "xl/workbook.xml",
+        "xl/_rels/workbook.xml.rels",
+        _STYLES,
+        _SHARED_STRINGS,
+        "xl/calcChain.xml",  # Excel yazar; openpyxl okumaz, yalnız boyutu sınırlı
+    }
+)
+_ALLOWED_PART_PATTERNS = (
+    re.compile(r"xl/worksheets/sheet[0-9]{1,4}\.xml"),
+    re.compile(r"xl/worksheets/_rels/sheet[0-9]{1,4}\.xml\.rels"),
+    re.compile(r"docProps/[A-Za-z0-9_.-]{1,64}"),
+    re.compile(r"xl/theme/[A-Za-z0-9_.-]{1,64}"),
+)
+_SHEET_PART = re.compile(r"xl/worksheets/sheet[0-9]{1,4}\.xml")
+# Ad alanı önekli etiketler de sayılır (<x:xf ...>): openpyxl etiketi ad alanına göre eşler, önek serbesttir.
+_XF_TAG = re.compile(rb"<(?:[A-Za-z_][\w.\-]*:)?xf(?=[\s/>])")
+_SI_TAG = re.compile(rb"<(?:[A-Za-z_][\w.\-]*:)?si(?=[\s/>])")
 MAX_REPORTED_ERRORS = 200
 EXCERPT_LENGTH = 20
 _MAX_NUMBER_TEXT = 40
@@ -141,8 +200,45 @@ def detect_format(filename: str | None, data: bytes) -> str:
     return "csv"
 
 
-def check_zip(data: bytes) -> None:
-    """Zip bombası ve bozuk arşiv denetimi (openpyxl açmadan ÖNCE)."""
+def _part_limit(name: str, limits: ImportLimits) -> int | None:
+    """Bölümün açılmış boyut sınırı; izin listesinde değilse None."""
+    if name == _STYLES:
+        return limits.max_styles_bytes
+    if name == _SHARED_STRINGS:
+        return limits.max_shared_strings_bytes
+    if _SHEET_PART.fullmatch(name):
+        return limits.max_sheet_bytes
+    if name in _ALLOWED_PARTS or any(p.fullmatch(name) for p in _ALLOWED_PART_PATTERNS):
+        return limits.max_other_part_bytes
+    return None
+
+
+def _count_elements(buffer: bytes, pattern: re.Pattern[bytes], maximum: int) -> int:
+    """Etiket sayısı; tavan aşılır aşılmaz durur."""
+    count = 0
+    for _ in pattern.finditer(buffer):
+        count += 1
+        if count > maximum:
+            break
+    return count
+
+
+def _scan_part(name: str, buffer: bytes, limits: ImportLimits) -> None:
+    """styles.xml ve sharedStrings.xml için öğe sayısı ön taraması (openpyxl'den ÖNCE)."""
+    # UTF-16/32 gövdeler bayt düzeyinde etiket aramasından kaçar: ASCII uyumlu (UTF-8) olmayanı reddet.
+    if buffer.startswith((b"\xff\xfe", b"\xfe\xff")) or b"\x00" in buffer[:8]:
+        raise _invalid("XLSX bölümü UTF-8 değil.")
+    if name == _STYLES and _count_elements(buffer, _XF_TAG, limits.max_style_xfs) > limits.max_style_xfs:
+        raise _invalid("XLSX stil tablosu çok büyük.")
+    if (
+        name == _SHARED_STRINGS
+        and _count_elements(buffer, _SI_TAG, limits.max_shared_strings) > limits.max_shared_strings
+    ):
+        raise _invalid("XLSX paylaşılan dize tablosu çok büyük.")
+
+
+def check_zip(data: bytes, limits: ImportLimits = DEFAULT_LIMITS) -> None:
+    """Zip bombası, bölüm izin listesi, bölüm sınırları ve öğe sayısı denetimi (openpyxl açmadan ÖNCE)."""
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             infos = archive.infolist()
@@ -158,22 +254,60 @@ def check_zip(data: bytes) -> None:
                     info.compress_size, 1
                 ):
                     raise _invalid("XLSX içindeki bir dosyanın sıkıştırma oranı olağandışı yüksek.")
-            # Başlıkta bildirilen boyuta güvenilmez: gerçek açılım akışla sayılır ve tavanda kesilir.
+            names = [info.filename for info in infos]
+            if len(set(names)) != len(names):
+                raise _invalid("XLSX arşivinde aynı ada sahip birden çok girdi var.")
+            caps: dict[str, int] = {}
+            for info in infos:
+                if info.is_dir() and info.file_size == 0:
+                    continue
+                cap = _part_limit(info.filename, limits)
+                if cap is None:
+                    raise _invalid("XLSX içinde izin verilmeyen bölüm var.")
+                if info.file_size > cap:
+                    raise _invalid("XLSX içindeki bir bölüm izin verilen boyuttan büyük.")
+                caps[info.filename] = cap
+            if "[Content_Types].xml" not in caps or "xl/workbook.xml" not in caps:
+                raise _invalid("Dosya geçerli bir XLSX çalışma kitabı değil.")
+            # Başlıktaki boyuta güvenilmez: gerçek açılım akışla sayılır, bölüm ve toplam tavanında kesilir.
             actual = 0
             for info in infos:
+                cap = caps.get(info.filename)
+                if cap is None:
+                    continue
+                scanned = info.filename in {_STYLES, _SHARED_STRINGS}
+                buffer = bytearray() if scanned else None
+                part = 0
                 with archive.open(info) as stream:
-                    while chunk := stream.read(65536):
+                    while chunk := stream.read(_CHUNK):
+                        part += len(chunk)
                         actual += len(chunk)
+                        if part > cap:
+                            raise _invalid("XLSX içindeki bir bölüm izin verilen boyuttan büyük.")
                         if actual > MAX_ZIP_UNCOMPRESSED:
                             raise _invalid("XLSX açıldığında çok büyük (en çok 50 MB).")
-            names = {info.filename for info in infos}
-            if "[Content_Types].xml" not in names or "xl/workbook.xml" not in names:
-                raise _invalid("Dosya geçerli bir XLSX çalışma kitabı değil.")
+                        if buffer is not None:
+                            buffer.extend(chunk)
+                if buffer is not None:
+                    _scan_part(info.filename, bytes(buffer), limits)
     except ImportFileError:
         raise
     except Exception:
         # BadZipFile, şifreli girdi, bozuk akış vb.: ayrıntı sızdırılmaz.
         raise _invalid("XLSX arşivi okunamadı.") from None
+
+
+def require_defusedxml() -> None:
+    """XXE ve varlık genişletme korumasını (defusedxml) zorunlu kılar; kapalıysa RuntimeError (fail-closed).
+
+    openpyxl defusedxml'i yalnız kuruluysa ve OPENPYXL_DEFUSEDXML ortam değişkeni kapatılmadıysa kullanır.
+    Hem bayrağa hem de gerçekte kullanılan ayrıştırıcının modülüne bakılır.
+    """
+    import openpyxl.xml
+    import openpyxl.xml.functions as functions
+
+    if not openpyxl.xml.DEFUSEDXML or not functions.fromstring.__module__.startswith("defusedxml"):
+        raise RuntimeError("openpyxl defusedxml olmadan çalışıyor; XLSX içe aktarma güvenli değil.")
 
 
 # --- okuma (ham hücre satırları) --------------------------------------------------------------------
@@ -198,10 +332,19 @@ def _read_csv(data: bytes) -> list[list[Any]]:
     return rows
 
 
-def _read_xlsx(data: bytes) -> list[list[Any]]:
+def _read_xlsx(data: bytes, limits: ImportLimits = DEFAULT_LIMITS) -> list[list[Any]]:
     from openpyxl import load_workbook  # yavaş içe aktarma yalnız gerektiğinde
 
-    check_zip(data)
+    try:
+        require_defusedxml()
+    except RuntimeError:
+        raise ImportFileError(
+            503,
+            "İçe aktarma şu an kullanılamıyor",
+            "import-unavailable",
+            "XLSX içe aktarma geçici olarak kapalı. CSV kullanın veya destekle iletişime geçin.",
+        ) from None
+    check_zip(data, limits)
     rows: list[list[Any]] = []
     try:
         workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
@@ -245,11 +388,11 @@ def _text(value: Any) -> str:
     return "" if value is None else str(value).strip("﻿  \t\r\n")
 
 
-_NUMBER_CHARS = re.compile(r"\d[\d.,]*")
+_NUMBER_CHARS = re.compile(r"[0-9][0-9.,]*")
 
 
 def _group_pattern(sep: str) -> re.Pattern[str]:
-    return re.compile(rf"[1-9]\d{{0,2}}(?:{re.escape(sep)}\d{{3}})+")
+    return re.compile(rf"[1-9][0-9]{{0,2}}(?:{re.escape(sep)}[0-9]{{3}})+")
 
 
 def parse_decimal_text(text: str) -> Decimal:
@@ -310,8 +453,9 @@ def _decimal_cell(value: Any, *, percent: bool = False) -> Decimal:
     raise RuleError("number_invalid", "Sayı olarak okunamadı.")
 
 
-_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
-_TR_DATE = re.compile(r"\d{2}\.\d{2}\.\d{4}")
+# Yalnız ASCII rakam: \d Arapça-Hint ve tam genişlik rakamları da eşler (denetim S3 B-01).
+_ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+_TR_DATE = re.compile(r"[0-9]{2}\.[0-9]{2}\.[0-9]{4}")
 
 
 def _date_cell(value: Any) -> date:
@@ -468,10 +612,15 @@ def _present(value: Any, code: str = "value_missing", message: str = "Bu alan bo
     return value
 
 
-def parse_import(filename: str | None, data: bytes, today: date) -> ImportParse:
-    """Biçimi doğrular, dosyayı okur ve satırları doğrular (CPU işi: iş parçacığı havuzunda çağrılır)."""
+def parse_import(
+    filename: str | None, data: bytes, today: date, limits: ImportLimits = DEFAULT_LIMITS
+) -> ImportParse:
+    """Biçimi doğrular, dosyayı okur ve satırları doğrular (CPU işi: iş parçacığı havuzunda çağrılır).
+
+    Veritabanına DOKUNMAZ: çağıran ayrıştırma sırasında bağlantı/işlem tutmamalıdır (denetim S3 O-01).
+    """
     kind = detect_format(filename, data)
-    raw_rows = _read_xlsx(data) if kind == "xlsx" else _read_csv(data)
+    raw_rows = _read_xlsx(data, limits) if kind == "xlsx" else _read_csv(data)
     result = validate_rows(raw_rows, today)
     result.file_format = kind
     return result
@@ -480,16 +629,33 @@ def parse_import(filename: str | None, data: bytes, today: date) -> ImportParse:
 # --- dışa aktarım -----------------------------------------------------------------------------------
 
 
+# Ayırıcıdan (; , sekme, satır sonu) hemen sonra (boşluklar serbest) gelen formül karakteri. Tam genişlik
+# varyantlar (＝ ＋ － ＠) bazı yerel ayarlarda formül sayılabilir; sağlamlaştırma olarak onlar da kaçırılır.
+# Hücrenin ilk karakteri olan ayırıcı (örn. başta sekme) baştaki tek tırnakla zaten kapsanır.
+_INNER_FORMULA = re.compile(r"(?<=[\s\S])([;,\t\r\n]\s*)(?=[=+\-@＝＋－＠])")
+_LEADING_FORMULA = re.compile(r"\s*[=+\-@＝＋－＠]")
+
+
 def csv_safe_cell(value: str | None) -> str:
-    """CSV/formül enjeksiyonu (OWASP): tehlikeli önekli hücrenin başına tek tırnak eklenir."""
+    """CSV/formül enjeksiyonu (OWASP): tehlikeli önekli hücrenin başına tek tırnak eklenir.
+
+    Excel dosyayı farklı liste ayırıcısıyla ("," yerine ";" gibi) açıp hücreyi bölebilir; bu yüzden
+    hücre içinde herhangi bir ayırıcıdan sonra gelen =, +, -, @ karakterinden önce de tek tırnak konur.
+    """
     text = value or ""
-    return f"'{text}" if text.startswith(FORMULA_PREFIXES) else text
+    text = _INNER_FORMULA.sub(lambda m: f"{m.group(1)}'", text)
+    if text.startswith(FORMULA_PREFIXES) or _LEADING_FORMULA.match(text):
+        return f"'{text}"
+    return text
 
 
 def build_template_csv(products: Sequence[tuple[str, str | None]]) -> bytes:
-    """UTF-8 BOM'lu, ';' ayraçlı şablon (Türkçe Excel). Maliyet, KDV ve tarih sütunları boştur."""
+    """UTF-8 BOM'lu, ';' ayraçlı şablon (Türkçe Excel). Maliyet, KDV ve tarih sütunları boştur.
+
+    Tüm hücreler tırnaklanır (QUOTE_ALL): ayırıcı uyuşmazlığında bile alan sınırları korunur.
+    """
     buffer = io.StringIO(newline="")
-    writer = csv.writer(buffer, delimiter=";", lineterminator="\r\n")
+    writer = csv.writer(buffer, delimiter=";", lineterminator="\r\n", quoting=csv.QUOTE_ALL)
     writer.writerow(TEMPLATE_HEADER)
     for barcode, title in products:
         writer.writerow([csv_safe_cell(barcode), csv_safe_cell(title), "", "", ""])
