@@ -336,4 +336,6 @@ async def template_csv(
     headers = {"Content-Disposition": 'attachment; filename="maliyet_sablonu.csv"'}
     if truncated:
         headers["X-Template-Truncated"] = "true"
-    return Response(build_template_csv(products), media_type="text/csv; charset=utf-8", headers=headers)
+    # Şablon üretimi (ürün sayısı büyük olabilir) CPU işidir: olay döngüsünü bloklamamak için iş parçacığı havuzunda (YK-03).
+    content = await run_in_threadpool(build_template_csv, products)
+    return Response(content, media_type="text/csv; charset=utf-8", headers=headers)

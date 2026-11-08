@@ -10,7 +10,6 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-import openpyxl.xml
 import psycopg
 import pytest
 
@@ -353,7 +352,7 @@ def test_xlsx_non_text_barcode_cells_are_rejected(shop: Shop) -> None:
 
 
 def test_xlsx_formula_cells_are_not_evaluated(shop: Shop) -> None:
-    """openpyxl data_only: önbellek değeri okunur; openpyxl ile yazılan formülün önbelleği yoktur (boş)."""
+    """Önbellek değeri okunur (formül değerlendirilmez); openpyxl ile yazılan formülün önbelleği yoktur (boş)."""
     data = xlsx_bytes(
         [["barkod", "maliyet", "kdv"], ["=1+1", 5, 20], [B1, "=2*50", 20], ['=HYPERLINK("http://x")', 5, 20]]
     )
@@ -363,7 +362,7 @@ def test_xlsx_formula_cells_are_not_evaluated(shop: Shop) -> None:
 
 
 def test_xlsx_xxe_and_entity_expansion_are_rejected(shop: Shop, admin_conn: psycopg.Connection[Any]) -> None:
-    assert openpyxl.xml.DEFUSEDXML is True  # openpyxl defusedxml'i görüyor ve kullanıyor
+    cost_import.require_defusedxml()  # okuyucunun ayrıştırıcısı defusedxml ve DTD'yi reddediyor
     import importlib.metadata
 
     assert importlib.metadata.version("defusedxml")  # kurulu

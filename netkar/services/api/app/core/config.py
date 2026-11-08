@@ -128,12 +128,18 @@ class Settings(BaseSettings):
     cost_import_max_shared_strings_bytes: int = Field(10 * 1024 * 1024, ge=1)
     cost_import_max_sheet_bytes: int = Field(20 * 1024 * 1024, ge=1)
     cost_import_max_other_part_bytes: int = Field(256 * 1024, ge=1)
-    # Öğe sayısı ön taraması (openpyxl'e verilmeden önce): <xf> (stil kaydı) ve <si> (paylaşılan dize).
+    # Öğe sayısı ön taraması (ayrıştırmadan önce): <xf> (stil kaydı) ve <si> (paylaşılan dize).
     cost_import_max_style_xfs: int = Field(10_000, ge=1)
     cost_import_max_shared_strings: int = Field(200_000, ge=1)
+    # Akışlı XLSX okuyucu tavanları (denetim S3 YK-01): toplam hücre (10.001 satır x 50 sütun = 500.050),
+    # tanınmayan öğe sayısı ve tutulan toplam hücre metni (karakter). Aşımda 422.
+    cost_import_max_sheet_cells: int = Field(600_000, ge=1)
+    cost_import_max_other_elements: int = Field(50_000, ge=1)
+    cost_import_max_text_chars: int = Field(16_000_000, ge=1)
     # Süreç başına eşzamanlı ayrıştırma sayısı ve dolu olduğunda önerilen bekleme (sn). Kiracı başına
     # aynı anda tek içe aktarma vardır. Sayaçlar SÜREÇ İÇİDİR: çok süreçli dağıtımda süreç sayısıyla
-    # çarpılır; gerekirse PostgreSQL danışma kilidine (pg_try_advisory_lock) taşınır.
+    # çarpılır. Sonraki tur (YB-01): çok süreçte kiracı kilidi ve ayrıştırma yuvaları pg_try_advisory_lock'a
+    # taşınmalı; yuva sayısı makine belleğine göre süreç sayısıyla bölünmeli.
     cost_import_parse_concurrency: int = Field(2, ge=1)
     cost_import_retry_after_seconds: int = Field(5, ge=1)
 

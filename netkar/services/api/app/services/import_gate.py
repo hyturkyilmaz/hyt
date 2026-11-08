@@ -7,6 +7,10 @@ ve `Retry-After` döner.
 
 Sayaçlar süreç içidir: çok süreçli dağıtımda sınırlar süreç sayısıyla çarpılır. Kesin tek-uçuş
 gerekirse kiracı kilidi `pg_try_advisory_lock` ile veritabanına taşınmalıdır (ADR gerekir).
+
+Sonraki tur (denetim S3 YB-01): çok süreçte kiracı kilidi ve ayrıştırma yuvaları pg_try_advisory_lock'a
+taşınmalı (`--workers N` veya birden çok kopya öncesinde); yuva sayısı süreç sayısına bölünmeli.
+Bu bir NOTTUR, uygulama bu turda yoktur.
 """
 
 from __future__ import annotations

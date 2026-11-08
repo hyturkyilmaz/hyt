@@ -163,3 +163,4 @@ ADR-0004 §5, `netkar_app`'in şifreli sütunlarda SELECT yetkisini senkron iş�
 - Trendyol verisi artık kalıcı ve motorla uçtan uca doğrulanmış; senkron idempotent, kaldığı yerden devam eden ve hesap başına çakışmasız.
 - S2 D-05 tamamen kapandı: API, pazaryeri sırlarını veritabanından okuyamaz; yalnız worker okur ve RLS ikisi için de geçerlidir.
 - Sonraki tur: `/v1` rapor uçları (S3/S4), maliyet Excel içe aktarma, `ad_spend`, kiracı ayar tablosu, `sync_runs` saklama, planlayıcı geri çekilmesi, canlı pilotla fixture/tip adı/ceza metni doğrulaması.
+- Sonraki tur (S3 YB-01): çok süreçte kiracı kilidi ve ayrıştırma yuvaları `pg_try_advisory_lock`'a taşınmalı (maliyet içe aktarma kapısı `import_gate.py` bugün süreç içidir; `--workers N` veya çok kopya öncesinde yapılmalı, yuva sayısı süreç sayısına bölünmeli). Yalnız not; uygulama yok.

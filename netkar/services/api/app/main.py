@@ -22,9 +22,9 @@ from app.core.pwned import HibpPwnedChecker, NullPwnedChecker, PwnedPasswordChec
 from app.core.ratelimit import RateLimiter
 from app.core.security import PasswordWorker
 from app.db.session import create_engine, create_sessionmaker
-from app.services.cost_import import require_defusedxml
 from app.services.import_gate import ImportGate
 from app.services.marketplace_accounts import TrendyolClientFactory, default_client_factory
+from app.services.xlsx_stream import require_defusedxml
 from app.worker.queue import JobQueue, ProcrastinateJobQueue
 
 _WINDOW_LOGIN = 15 * 60

@@ -7,11 +7,15 @@ Güvenlik (OWASP ASVS V12 dosya yükleme, G06):
 - Bölüm izin listesi (yalnız gereken OOXML bölümleri), BÖLÜM başına açılmış boyut sınırı ve openpyxl'e
   verilmeden önce styles.xml (<xf>) ile sharedStrings.xml (<si>) için akışla öğe sayısı ön taraması
   (denetim S3 Y-01: küçük dosya, devasa bellek). Sınırlar `ImportLimits` ve config'tedir.
-- openpyxl `read_only=True, data_only=True` ile okunur (formül değerlendirilmez, önbellek değeri okunur);
-  defusedxml kuruludur ve openpyxl onu otomatik kullanır (XXE ve varlık genişletme kapalı).
+- Ayrıştırma openpyxl ile DEĞİL, `xlsx_stream` içindeki dar akışlı okuyucuyla yapılır (denetim S3 YK-01):
+  defusedxml iterparse, sabit bellek, hücre, satır, sütun ve tanınmayan öğe tavanları, Override içerik türü
+  ile dosya adı çapraz denetimi. Formül değerlendirilmez, önbellek değeri okunur. openpyxl çalışma zamanında
+  kullanılmaz (testlerde XLSX üretmek için kalır).
 - Satır sınırı 10.000. Barkod allowlist'tir (formül karakteriyle başlayamaz).
 - Hata raporu hücre içeriğini yansıtmaz; yalnız kontrol karakterleri temizlenmiş ilk 20 karakter döner.
-- Dışa aktarımda (`csv_safe_cell`) =, +, -, @, sekme, CR, LF ile başlayan hücrenin başına tek tırnak eklenir.
+- Dışa aktarımda (`csv_safe_cell`) =, +, -, @, sekme, CR, LF ile başlayan hücrenin başına tek tırnak eklenir;
+  ayırıcıdan, boşluktan veya tırnaktan sonra gelen formül karakteri de kaçırılır (tek geçişli tarama).
+  Hücre `MAX_TEMPLATE_CELL_CHARS` (500) karakterde kesilir (şablondaki ürün başlığı dahil).
 """
 
 from __future__ import annotations
@@ -28,7 +32,6 @@ from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from app.services.product_costs import (
-    FORMULA_PREFIXES,
     CostRow,
     RuleError,
     check_barcode,
@@ -36,6 +39,12 @@ from app.services.product_costs import (
     check_valid_from,
     check_vat_rate,
 )
+from app.services.xlsx_stream import (
+    StreamLimits,
+    XlsxFormatError,
+    read_first_sheet,
+)
+from app.services.xlsx_stream import require_defusedxml as require_defusedxml
 
 if TYPE_CHECKING:
     from app.core.config import Settings
@@ -61,6 +70,23 @@ class ImportLimits:
     max_other_part_bytes: int = 256 * 1024
     max_style_xfs: int = 10_000
     max_shared_strings: int = 200_000
+    # Akışlı okuyucu tavanları (YK-01): toplam hücre, tanınmayan öğe ve tutulan toplam metin.
+    max_sheet_cells: int = 600_000
+    max_other_elements: int = 50_000
+    max_text_chars: int = 16_000_000
+
+    @property
+    def stream(self) -> StreamLimits:
+        return StreamLimits(
+            max_rows=MAX_ROWS,
+            max_physical_rows=MAX_PHYSICAL_ROWS,
+            max_columns=MAX_COLUMNS,
+            max_cells=self.max_sheet_cells,
+            max_other_elements=self.max_other_elements,
+            max_style_xfs=self.max_style_xfs,
+            max_shared_strings=self.max_shared_strings,
+            max_text_chars=self.max_text_chars,
+        )
 
     @classmethod
     def from_settings(cls, settings: Settings) -> ImportLimits:
@@ -71,6 +97,9 @@ class ImportLimits:
             max_other_part_bytes=settings.cost_import_max_other_part_bytes,
             max_style_xfs=settings.cost_import_max_style_xfs,
             max_shared_strings=settings.cost_import_max_shared_strings,
+            max_sheet_cells=settings.cost_import_max_sheet_cells,
+            max_other_elements=settings.cost_import_max_other_elements,
+            max_text_chars=settings.cost_import_max_text_chars,
         )
 
 
@@ -213,7 +242,7 @@ def _part_limit(name: str, limits: ImportLimits) -> int | None:
     return None
 
 
-def _count_elements(buffer: bytes, pattern: re.Pattern[bytes], maximum: int) -> int:
+def _count_elements(buffer: bytes | bytearray, pattern: re.Pattern[bytes], maximum: int) -> int:
     """Etiket sayısı; tavan aşılır aşılmaz durur."""
     count = 0
     for _ in pattern.finditer(buffer):
@@ -223,7 +252,7 @@ def _count_elements(buffer: bytes, pattern: re.Pattern[bytes], maximum: int) -> 
     return count
 
 
-def _scan_part(name: str, buffer: bytes, limits: ImportLimits) -> None:
+def _scan_part(name: str, buffer: bytes | bytearray, limits: ImportLimits) -> None:
     """styles.xml ve sharedStrings.xml için öğe sayısı ön taraması (openpyxl'den ÖNCE)."""
     # UTF-16/32 gövdeler bayt düzeyinde etiket aramasından kaçar: ASCII uyumlu (UTF-8) olmayanı reddet.
     if buffer.startswith((b"\xff\xfe", b"\xfe\xff")) or b"\x00" in buffer[:8]:
@@ -289,25 +318,12 @@ def check_zip(data: bytes, limits: ImportLimits = DEFAULT_LIMITS) -> None:
                         if buffer is not None:
                             buffer.extend(chunk)
                 if buffer is not None:
-                    _scan_part(info.filename, bytes(buffer), limits)
+                    _scan_part(info.filename, buffer, limits)
     except ImportFileError:
         raise
     except Exception:
         # BadZipFile, şifreli girdi, bozuk akış vb.: ayrıntı sızdırılmaz.
         raise _invalid("XLSX arşivi okunamadı.") from None
-
-
-def require_defusedxml() -> None:
-    """XXE ve varlık genişletme korumasını (defusedxml) zorunlu kılar; kapalıysa RuntimeError (fail-closed).
-
-    openpyxl defusedxml'i yalnız kuruluysa ve OPENPYXL_DEFUSEDXML ortam değişkeni kapatılmadıysa kullanır.
-    Hem bayrağa hem de gerçekte kullanılan ayrıştırıcının modülüne bakılır.
-    """
-    import openpyxl.xml
-    import openpyxl.xml.functions as functions
-
-    if not openpyxl.xml.DEFUSEDXML or not functions.fromstring.__module__.startswith("defusedxml"):
-        raise RuntimeError("openpyxl defusedxml olmadan çalışıyor; XLSX içe aktarma güvenli değil.")
 
 
 # --- okuma (ham hücre satırları) --------------------------------------------------------------------
@@ -333,8 +349,6 @@ def _read_csv(data: bytes) -> list[list[Any]]:
 
 
 def _read_xlsx(data: bytes, limits: ImportLimits = DEFAULT_LIMITS) -> list[list[Any]]:
-    from openpyxl import load_workbook  # yavaş içe aktarma yalnız gerektiğinde
-
     try:
         require_defusedxml()
     except RuntimeError:
@@ -345,23 +359,20 @@ def _read_xlsx(data: bytes, limits: ImportLimits = DEFAULT_LIMITS) -> list[list[
             "XLSX içe aktarma geçici olarak kapalı. CSV kullanın veya destekle iletişime geçin.",
         ) from None
     check_zip(data, limits)
-    rows: list[list[Any]] = []
     try:
-        workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-        try:
-            sheet = workbook.worksheets[0]
-            for record in sheet.iter_rows(values_only=True, max_col=MAX_COLUMNS):
-                rows.append(list(record))
-                if len(rows) > MAX_PHYSICAL_ROWS + 1:
-                    raise _invalid("Dosyada çok fazla satır var.")
-        finally:
-            workbook.close()
-    except ImportFileError:
-        raise
+        return read_first_sheet(data, limits.stream)
+    except XlsxFormatError as exc:
+        if exc.kind == "rows":
+            raise ImportFileError(
+                422,
+                "Dosyada çok fazla satır var",
+                "import-too-many-rows",
+                "Dosya en çok 10.000 veri satırı içerebilir.",
+            ) from None
+        raise _invalid(exc.detail) from None
     except Exception:
         # defusedxml'in reddettiği varlık bildirimleri (XXE) dahil her okuma hatası: ayrıntı sızdırılmaz.
         raise _invalid("XLSX çalışma kitabı okunamadı.") from None
-    return rows
 
 
 # --- hücre dönüşümleri ------------------------------------------------------------------------------
@@ -629,30 +640,60 @@ def parse_import(
 # --- dışa aktarım -----------------------------------------------------------------------------------
 
 
-# Ayırıcıdan (; , sekme, satır sonu) hemen sonra (boşluklar serbest) gelen formül karakteri. Tam genişlik
-# varyantlar (＝ ＋ － ＠) bazı yerel ayarlarda formül sayılabilir; sağlamlaştırma olarak onlar da kaçırılır.
-# Hücrenin ilk karakteri olan ayırıcı (örn. başta sekme) baştaki tek tırnakla zaten kapsanır.
-_INNER_FORMULA = re.compile(r"(?<=[\s\S])([;,\t\r\n]\s*)(?=[=+\-@＝＋－＠])")
-_LEADING_FORMULA = re.compile(r"\s*[=+\-@＝＋－＠]")
+# Şablon hücresi üst sınırı: ürün başlığı (Trendyol'da uzunluk sınırı doğrulanmadı) bu uzunlukta KESİLİR.
+# Barkod zaten en çok 200 karakterdir, etkilenmez. Sınır hem doğrusal taramayı hem çıktıyı sınırlar.
+MAX_TEMPLATE_CELL_CHARS = 500
+# Formül başlatabilen karakterler (tam genişlik varyantlar bazı yerel ayarlarda formül sayılabilir).
+_FORMULA_CHARS = frozenset("=+-@＝＋－＠")
+_LEADING_CONTROLS = ("\t", "\r", "\n")
+# Hücre içinde "yeni hücre başlıyor" sayılan ayırıcılar (Excel liste ayırıcısı yerel ayara bağlıdır).
+_SEPARATORS = frozenset(";,\t\r\n")
+# Ayırıcı veya hücre başından sonra formül karakterini gizleyen dolgu: tırnak, BOM, sıfır genişlik (+ boşluk).
+_FILLER_EXTRA = frozenset('"\ufeff\u200b')
 
 
 def csv_safe_cell(value: str | None) -> str:
-    """CSV/formül enjeksiyonu (OWASP): tehlikeli önekli hücrenin başına tek tırnak eklenir.
+    """CSV/formül enjeksiyonu (OWASP): tehlikeli formül karakterinin önüne tek tırnak konur.
 
-    Excel dosyayı farklı liste ayırıcısıyla ("," yerine ";" gibi) açıp hücreyi bölebilir; bu yüzden
-    hücre içinde herhangi bir ayırıcıdan sonra gelen =, +, -, @ karakterinden önce de tek tırnak konur.
+    Excel dosyayı farklı liste ayırıcısıyla ("," yerine ";" gibi) açıp hücreyi bölebilir ve QUOTE_ALL'ın
+    ikilediği `""` tırnakları boş bir tırnaklı bölüm gibi okuyabilir. Bu yüzden formül karakteri HERHANGİ
+    bir ayırıcıdan (; , sekme, CR, LF) veya hücre başından sonra, yalnız boşluk ve tırnaklardan oluşan bir
+    dizinin ardından geliyorsa kaçırılır: hücre başındaysa tüm hücrenin başına, ortadaysa o karakterin
+    hemen önüne `'` eklenir (ayırıcı değiştirmeye gerek kalmaz: kaçış, bölünmüş hücrenin başına düşer).
+
+    Tek geçişli ve doğrusal zamanlıdır (regex yok: sekme dizisi gibi girdiler ikinci dereceden geri izleme
+    üretmez). Metin `MAX_TEMPLATE_CELL_CHARS` karakterde kesilir.
     """
-    text = value or ""
-    text = _INNER_FORMULA.sub(lambda m: f"{m.group(1)}'", text)
-    if text.startswith(FORMULA_PREFIXES) or _LEADING_FORMULA.match(text):
-        return f"'{text}"
-    return text
+    text = (value or "")[:MAX_TEMPLATE_CELL_CHARS]
+    out: list[str] = []
+    at_start = True  # henüz ayırıcı görülmedi: hücrenin baş dolgusundayız
+    after_boundary = True  # hücre başı veya ayırıcıdan sonra, yalnız dolgu görüldü
+    prefix = (
+        text[:1] in _LEADING_CONTROLS
+    )  # baştaki sekme/CR/LF Excel'de hücreyi bölebilir (eski kural korunur)
+    for char in text:
+        if char in _FORMULA_CHARS and after_boundary:
+            if at_start:
+                prefix = True
+            else:
+                out.append("'")
+        elif char in _SEPARATORS and not (at_start and char in _LEADING_CONTROLS):
+            at_start = False
+            after_boundary = True
+        elif not (char.isspace() or char in _FILLER_EXTRA):
+            at_start = False
+            after_boundary = False
+        out.append(char)
+    safe = "".join(out)
+    return f"'{safe}" if prefix else safe
 
 
 def build_template_csv(products: Sequence[tuple[str, str | None]]) -> bytes:
     """UTF-8 BOM'lu, ';' ayraçlı şablon (Türkçe Excel). Maliyet, KDV ve tarih sütunları boştur.
 
     Tüm hücreler tırnaklanır (QUOTE_ALL): ayırıcı uyuşmazlığında bile alan sınırları korunur.
+    NOT: ürün başlığı `MAX_TEMPLATE_CELL_CHARS` (500) karakterde kesilir; başlık bilgi amaçlıdır ve içe
+    aktarmada yok sayılır, bu yüzden kesilmesi veri kaybı sayılmaz.
     """
     buffer = io.StringIO(newline="")
     writer = csv.writer(buffer, delimiter=";", lineterminator="\r\n", quoting=csv.QUOTE_ALL)

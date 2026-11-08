@@ -17,7 +17,6 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-import openpyxl.xml
 import psycopg
 import pytest
 from starlette import formparsers
@@ -531,8 +530,18 @@ def test_b01_ascii_numbers_and_dates_still_work() -> None:
 # --- B-02: defusedxml zorunlu ----------------------------------------------------------------------------
 
 
+def _use_plain_xml_parser(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Okuyucunun ayrıştırıcısını defusedxml olmayan stdlib'e çevirir (YK-01 sonrası: openpyxl artık
+    çalışma zamanında ayrıştırmaz, bu yüzden B-02 koruması okuyucunun KENDİ ayrıştırıcısını sınar)."""
+    import xml.etree.ElementTree as plain
+
+    from app.services import xlsx_stream
+
+    monkeypatch.setattr(xlsx_stream, "_safe_iterparse", plain.iterparse)
+
+
 def test_b02_import_is_refused_when_defusedxml_is_off(shop: Shop, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(openpyxl.xml, "DEFUSEDXML", False)
+    _use_plain_xml_parser(monkeypatch)
     r = upload(shop, small_xlsx(), "m.xlsx")
     assert r.status_code == 503 and r.json()["type"] == "urn:netkar:problem:import-unavailable"
     assert upload(shop, csv_bytes(f"{B1};5;20;2026-10-01")).status_code == 200  # CSV XML kullanmaz
@@ -542,24 +551,20 @@ def test_b02_startup_fails_closed_when_defusedxml_is_off(
     settings: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     create_app(settings)  # normalde sorunsuz
-    monkeypatch.setattr(openpyxl.xml, "DEFUSEDXML", False)
+    _use_plain_xml_parser(monkeypatch)
     with pytest.raises(RuntimeError, match="defusedxml"):
         create_app(settings)
 
 
-def test_b02_openpyxl_parsers_really_come_from_defusedxml() -> None:
+def test_b02_reader_parser_really_comes_from_defusedxml() -> None:
     ci.require_defusedxml()
-    import openpyxl.xml.functions as functions
+    from app.services import xlsx_stream
 
-    assert functions.fromstring.__module__.startswith("defusedxml")
+    assert xlsx_stream._safe_iterparse.__module__.startswith("defusedxml")
 
 
 def test_b02_check_detects_a_swapped_parser(monkeypatch: pytest.MonkeyPatch) -> None:
-    import xml.etree.ElementTree as plain
-
-    import openpyxl.xml.functions as functions
-
-    monkeypatch.setattr(functions, "fromstring", plain.fromstring)
+    _use_plain_xml_parser(monkeypatch)
     with pytest.raises(RuntimeError, match="defusedxml"):
         ci.require_defusedxml()
 
