@@ -95,9 +95,12 @@ def test_y01_without_proxy_config_xff_is_ignored(make_api: Callable[..., Api]) -
 
 
 def test_y01_distinct_real_clients_do_not_consume_each_others_limit(
-    make_api: Callable[..., Api], proxy_config: dict[str, Any]
+    make_api: Callable[..., Api], proxy_config: dict[str, Any], frozen_ratelimit_clock: float
 ) -> None:
-    """PoC: BFF arkasında tüm kullanıcılar tek kovaydı; bir saldırgan herkesi 429'a düşürüyordu."""
+    """PoC: BFF arkasında tüm kullanıcılar tek kovaydı; bir saldırgan herkesi 429'a düşürüyordu.
+
+    Sayaç değeri kesin beklendiği için sınırlayıcı saati sabit (pencere sınırı CI'da kırıyordu).
+    """
     api = make_api(peer=WEB_PEER, rate_limit_login_ip=3, rate_limit_login_email=1000, **proxy_config)
     attacker, victim = _xff("203.0.113.7"), _xff("198.51.100.20")
     assert (

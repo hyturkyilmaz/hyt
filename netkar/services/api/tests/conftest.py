@@ -14,6 +14,7 @@ import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
 
@@ -27,6 +28,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.engine import URL, make_url
 
 from app.core import clock as clock_module
+from app.core import ratelimit as ratelimit_module
 from app.core.config import Settings
 from app.core.email import InMemoryOutbox
 from app.db.provision import provision_roles
@@ -320,3 +322,16 @@ def clock(monkeypatch: pytest.MonkeyPatch) -> FakeClock:
 @pytest.fixture
 def api(make_api: Callable[..., Api]) -> Api:
     return make_api()
+
+
+# Sabit pencereli sınırlayıcının (ADR-0001) saati: sayaç değerini kesin bekleyen testler bir pencere
+# sınırına denk gelince sayaç sıfırlanır ve test rastgele kırılır (CI'da iki kez görüldü). Bu sabit an
+# 60, 900, 3600 ve 86400 sn pencerelerinin hepsinde sınırdan uzaktır.
+FROZEN_RATELIMIT_NOW = 1_800_000_000.0 + 450.0
+
+
+@pytest.fixture
+def frozen_ratelimit_clock(monkeypatch: pytest.MonkeyPatch) -> float:
+    """Sınırlayıcının saatini sabitler; yalnız app.core.ratelimit etkilenir."""
+    monkeypatch.setattr(ratelimit_module, "time", SimpleNamespace(time=lambda: FROZEN_RATELIMIT_NOW))
+    return FROZEN_RATELIMIT_NOW
