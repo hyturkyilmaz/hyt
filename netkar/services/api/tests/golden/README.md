@@ -1,14 +1,18 @@
 # Kâr motoru altın testleri
 
 Bu klasördeki `G*.json` dosyaları NetKâr kâr motorunun (bkz. `netkar/docs/12_kar_motoru.md`) kuruşu kuruşuna
-uyması gereken beklenen çıktılardır. Dosyaları elle düzenlemeyin; üreten betik:
+uyması gereken beklenen çıktılardır. Dosyaları elle düzenlemeyin; üreten ve doğrulayan betik (v0.2, K01-K41):
 
 ```
-python3 netkar/calisma_dosyalari/altin_test_hesap.py
+python3 netkar/calisma_dosyalari/altin_test_hesap_ayarlar.py          # yalnız doğrula
+python3 netkar/calisma_dosyalari/altin_test_hesap_ayarlar.py --yaz    # doğrula ve G01-G48'i yaz
 ```
 
-Betik tüm `G*.json` dosyalarını silip yeniden yazar. Bir kural değişirse önce `12_kar_motoru.md`, sonra betik,
-sonra bu dosyalar güncellenir; üçü aynı commit'te olmalı.
+Betik `altin_test_hesap.py`'nin yardımcılarını ve G01-G41 tanımlarını içe aktarır; G01-G41'i eski ve yeni
+kurallarla hesaplayıp eski çıktının her alanının korunduğunu (izinli fark: yalnız G29 dönem marjı) ve yeni
+senaryoların elle hesaplanan değerlerini doğrular. **`altin_test_hesap.py`'yi tek başına çalıştırmayın**: tüm
+`G*.json` dosyalarını silip yalnız G01-G41'i v0.1 kurallarıyla yazar. Bir kural değişirse önce
+`12_kar_motoru.md`, sonra betik, sonra bu dosyalar güncellenir; üçü aynı commit'te olmalı.
 
 Tüm tutarlar kurgusaldır. Kargo tarifesi, platform hizmet bedeli tahmini ve ceza metinleri gerçek Trendyol
 değerleri değildir; yalnız kuralı sınamak içindir.
@@ -32,7 +36,7 @@ değerleri değildir; yalnız kuralı sınamak içindir.
   "etiketler": [...],
   "sema_surumu": "1",
   "girdi": {
-    "ayarlar": {...},                // varsayılanlarla birleştirilmiş tam ayar seti
+    "ayarlar": {...},                // tam ayar seti (aşağıda "Ayarlar bloğu")
     "donem": {"baslangic": "2026-10-01", "bitis": "2026-10-31"},
     "siparisler": [ShipmentPackage], // getShipmentPackages alt kümesi
     "urun_maliyetleri": [...],       // NetKâr kullanıcı verisi
@@ -51,6 +55,19 @@ değerleri değildir; yalnız kuralı sınamak içindir.
   }
 }
 ```
+
+### Ayarlar bloğu (v0.2 ekleri, docs/12 K33-K36)
+
+| Anahtar | Biçim |
+|---|---|
+| `kargo_tarifesi`, `satici_kargo_tarifesi` | `{}` = tarife yok. `{"Firma": [["üst desi", "KDV hariç fiyat"], ...]}` (başlangıçsız tek sürüm) ya da `{"Firma": [{"gecerlilik_baslangic": "YYYY-MM-DD", "kademeler": [[...], ...]}, ...]}`. `"*"` firması = diğer firmalar yedeği (K34) |
+| `varsayilan_desi` | `null` ya da `"3"` (siparişte `cargoDeci` ve `deci` yoksa, K34) |
+| `platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric` | `null` = tanımsız (eksik, K35); `"10.00"` (başlangıçsız) ya da `[{"gecerlilik_baslangic", "tutar_kdv_haric"}, ...]` |
+| `degisken_giderler[]` | mevcut alanlar + isteğe bağlı `gecerlilik_baslangic`, `gecerlilik_bitis` (K36) |
+
+Sistem parametreleri (`komisyon_tutari_kdv_dahil`, KDV oranları, `stopaj_orani`, `uyari_esikleri`,
+`kargo_faturasi_kdv_tespit_toleransi`) her dosyada açıkça yazılıdır; kullanıcı ayarı değildir. `siparisler[]`
+içinde `cargoDeci` `null` olabilir (G45).
 
 ### Girdi alanlarının kaynağı
 
@@ -85,27 +102,37 @@ Fixture'da Trendyol'un JSON number alanları string olarak yazılmıştır (ör.
 |---|---|
 | `durum` | `estimated`, `settled`, `adjusted`, `cancelled` (K22) |
 | `adet`, `adet_iade` | Satır adedi ve kabul edilmiş iade kalemi sayısı |
-| `kalemler` | Kâr kırılımı; satış alanları dışında hepsi KDV hariç gider: `brut_satis_kdv_dahil`, `satici_indirimi_kdv_dahil`, `trendyol_indirimi_kdv_dahil` (bilgi), `satis_kdv_dahil`, `satis_kdv_haric`, `iade_kdv_dahil`, `iade_kdv_haric`, `net_satis_kdv_haric`, `urun_maliyeti`, `komisyon`, `kargo_gonderi`, `kargo_iade`, `platform_hizmet_bedeli`, `ceza`, `reklam`, `degisken_giderler`, `toplam_gider`, `maliyet_haric_katki`, `net_kar`, `net_kar_marji_yuzde` |
+| `iade_kaydi_bekleyen_adet`, `askidaki_urun_maliyeti` | Claim'siz `Return`'de bekleyen adet ve stoğa dönerse geri gelecek maliyet (K41); yoksa 0 ve `null` |
+| `kesinlik` | `kesin`, `tahmini`, `eksik`, `iptal` (K40) |
+| `eksik_kalemler` | Kaynağı `eksik` olan kalemler, sıra: `urun_maliyeti`, `kargo_gonderi`, `platform_hizmet_bedeli` (K37); sıra önemlidir |
+| `kalemler` | Kâr kırılımı; satış alanları dışında hepsi KDV hariç gider: `brut_satis_kdv_dahil`, `satici_indirimi_kdv_dahil`, `trendyol_indirimi_kdv_dahil` (bilgi), `satis_kdv_dahil`, `satis_kdv_haric`, `iade_kdv_dahil`, `iade_kdv_haric`, `net_satis_kdv_haric`, `urun_maliyeti`, `komisyon`, `kargo_gonderi`, `kargo_iade`, `platform_hizmet_bedeli`, `ceza`, `reklam`, `degisken_giderler`, `toplam_gider`, `maliyet_haric_katki`, `eksik_giderler_haric_kar` (K37), `net_kar`, `net_kar_marji_yuzde` |
 | `kdv` | `satis_kdv`, `iade_kdv`, `komisyon_kdv`, `kargo_kdv`, `platform_hizmet_bedeli_kdv`, `ceza_kdv`, `urun_maliyeti_kdv`, `degisken_giderler_kdv`, `reklam_kdv`, `kdv_etkisi` (K20) |
 | `nakit_akisi` | `trendyol_hakedis`, `fatura_kesintileri_kdv_dahil`, `stopaj`, `beklenen_net_tahsilat` (K21) |
 | `kaynaklar` | Her kalemin kaynağı: `kesin`, `kesin_dagitim`, `tahmini`, `kullanici`, `eslesen`, `dagitim_tahmini`, `eksik`, `yok` |
 | `degisken_gider_detayi`, `reklam_detayi` | Dağıtılan kalemlerin kayıt bazında dökümü |
-| `karsilastirma` | Yalnız ekstre gelmiş satırlarda: tahmini ve kesin komisyon, gönderi kargo, hizmet bedeli; fark ve eşik (K23) |
-| `uyarilar` | `MALIYET_EKSIK`, `ZARAR`, `KARGO_DESI_FARKI`, `BEKLENMEYEN_KESINTI`, `KOMISYON_ORANI_FARKLI`, `EKSTRE_IC_TUTARSIZLIK`, `ESLESMEMIS_HAKEDIS_DUZELTMESI`, `KARGO_FATURASI_KDV_BELIRSIZ`, `KARGO_TARIFESI_EKSIK` |
+| `karsilastirma` | Yalnız ekstre gelmiş satırlarda: tahmini ve kesin komisyon, gönderi kargo, hizmet bedeli; fark ve eşik (K23). Tahmini tanımsız kalem `null` ve toplamlara girmez (K38) |
+| `uyarilar` | `MALIYET_EKSIK`, `ZARAR`, `KARGO_DESI_FARKI`, `BEKLENMEYEN_KESINTI`, `KOMISYON_ORANI_FARKLI`, `EKSTRE_IC_TUTARSIZLIK`, `ESLESMEMIS_HAKEDIS_DUZELTMESI`, `KARGO_FATURASI_KDV_BELIRSIZ`, `KARGO_TARIFESI_EKSIK`, `HIZMET_BEDELI_TAHMINI_EKSIK` (K35), `KARGO_DESI_VARSAYILAN` (K34), `IADE_KAYDI_BEKLENIYOR` (K41) |
 
-`urun_maliyeti` yoksa `urun_maliyeti`, `toplam_gider`, `net_kar`, `net_kar_marji_yuzde` `null` olur;
-`maliyet_haric_katki` yine hesaplanır.
+`eksik_kalemler` boş değilse (maliyet, kargo ya da hizmet bedeli eksik) `toplam_gider`, `net_kar`,
+`net_kar_marji_yuzde` `null` olur (maliyet eksikse `urun_maliyeti` de); `maliyet_haric_katki` ve
+`eksik_giderler_haric_kar` yine hesaplanır (K37).
 
 ### Beklenen: `urun_toplamlari[]` ve `donem_toplami`
 
 Ürün toplamları satırların yuvarlanmış değerlerinin toplamıdır (yeniden hesaplanmaz). Ek alanlar:
-`reklam_satissiz`, `reklam_harcamasi`, `reklam_cirosu`, `roas`, `basabas_roas`, `maliyet_eksik`, `stopaj`.
+`reklam_satissiz`, `reklam_harcamasi`, `reklam_cirosu`, `roas`, `basabas_roas`, `maliyet_eksik`, `stopaj`,
+`eksik_giderler_haric_kar`, `eksik_kalem_satir_sayilari`, `kesinlik` (v0.2).
 Dönem toplamı ayrıca `donem_duzeyi_giderler` (satışsız ürün reklamı, dağıtılamayan reklam, sipariş bağsız ceza,
 erken ödeme bedeli, sınıflandırılmamış kesinti), `donem_net_kar`, `net_kar_kismi`, `kdv_etkisi`, `nakit_akisi`
 (`stopaj_hesaplanan`, `stopaj_ekstre`, `erken_odeme_nakit_girisi`) ve dönem uyarılarını (`SINIFLANDIRILMAMIS_KESINTI`,
 `MALIYET_EKSIK_SATIRLAR_VAR`, `STOPAJ_EKSTRE_FARKI`) taşır. İptal satırları ürün ve dönem toplamlarına girmez.
+v0.2 (K39): `satir_net_kar_toplami` yalnız tam satırların (eksik kalemsiz) toplamıdır; `net_kar_kismi` herhangi
+bir eksik kalemde doğrudur ve o zaman dönem `net_kar_marji_yuzde` `null`'dır. Ek alanlar:
+`donem_duzeyi_giderler_toplami`, `tam_satirlar` (tam satırların kalem kalem kırılımı, `toplam_gider`, `net_kar`,
+`net_kar_marji_yuzde`), `eksik_kalem_satir_sayilari`, `kesinlik`, `kesinlik_satir_sayilari`; dönem uyarıları
+ayrıca `KARGO_EKSIK_SATIRLAR_VAR`, `HIZMET_BEDELI_EKSIK_SATIRLAR_VAR`, `IADE_KAYDI_BEKLENEN_SATIRLAR_VAR`.
 
-## Senaryo listesi (41)
+## Senaryo listesi (48)
 
 | Kimlik | Dosya | Kurallar | Etiketler | Beklenen durum ve satır net kârı |
 |---|---|---|---|---|
@@ -150,6 +177,13 @@ erken ödeme bedeli, sınıflandırılmamış kesinti), `donem_net_kar`, `net_ka
 | G39 | `G39_satici_anlasmali_kargo.json` | K08, K21 | kargo_satici_anlasmasi, settled | settled 126.09 |
 | G40 | `G40_komisyon_duzeltme_kaydi.json` | K05, K22, K23 | isaret_kurali, adjusted | adjusted 114.93 |
 | G41 | `G41_eslesmemis_hakedis_duzeltmesi.json` | K05, K22 | isaret_kurali, adjusted | adjusted 135.76 |
+| G42 | `G42_ayarsiz_uretim_varsayilani.json` | K33, K34, K35, K37, K39, K40 | ayar_yok, eksik_kalem, estimated | estimated null / estimated null |
+| G43 | `G43_ayarsiz_hizmet_bedeli_eksik.json` | K35, K37, K39, K40 | ayar_yok, eksik_kalem, maliyet_eksik, negatif_kar, estimated | estimated null / estimated null |
+| G44 | `G44_ayarli_surumlu_tam.json` | K33, K34, K35, K36, K37, K39, K40 | ayarli, surum, estimated | estimated 118.09 / estimated 111.59 |
+| G45 | `G45_ayarli_tarife_yedek_varsayilan_desi.json` | K34, K37, K40 | ayarli, kargo_tarife, eksik_kalem, estimated | estimated 51.67 / estimated null |
+| G46 | `G46_kismi_donem_marji.json` | K25, K37, K39 | kismi_donem, maliyet_eksik, donem, estimated | estimated 119.09 / estimated null |
+| G47 | `G47_claimsiz_iade.json` | K10, K40, K41 | tam_iade, kismi_iade, claim_yok, adjusted, negatif_kar | adjusted -280.00 / adjusted -64.16 |
+| G48 | `G48_sifir_tahmin_beklenmeyen_kesinti_yok.json` | K23, K35, K37, K38, K40 | ayar_yok, settled, beklenmeyen_kesinti_yok | settled 119.09 / settled null |
 
 ### İstenen kapsamın eşlemesi
 
@@ -172,4 +206,9 @@ erken ödeme bedeli, sınıflandırılmamış kesinti), `donem_net_kar`, `net_ka
 | Sıfır / negatif kâr | G31 / G16, G17, G19, G32, G33 |
 | Yuvarlama sınır vakaları | G33, G34 |
 | Stopajın nakit akışına yansıması | G35 (her senaryoda `nakit_akisi.stopaj`) |
+| Ayar yok (üretim varsayılanı) | G42, G48 (hizmet bedeli tanımsız G43) |
+| Ayar girilmiş, sürümlü, yedek firma, varsayılan desi | G44, G45 |
+| Kısmi dönem marjı ve tam satırlar | G46 (eski değer değişikliği: G29 dönem marjı null) |
+| Claim'siz iade | G47 |
+| Tanımsız tahminle beklenmeyen kesinti yok | G48 |
 | Ek | Maliyet geçerlilik tarihi G30, değişken giderler G36, erken ödeme G37, iptal G38, ekstre düzeltmeleri G40, G41 |

@@ -1,8 +1,13 @@
-# NetKâr · Kâr Motoru Kuralları (v0.1, 6 Kasım 2026)
+# NetKâr · Kâr Motoru Kuralları (v0.2, 9 Kasım 2026)
 
 Sahibi: kâr motoru alan modelcisi (docs/40_ajan_promptlari.md §3.2).
-Özet: docs/10_mimari.md §4. Altın testler: `services/api/tests/golden/` (41 senaryo), üreten betik:
-`calisma_dosyalari/altin_test_hesap.py`.
+Özet: docs/10_mimari.md §4. Altın testler: `services/api/tests/golden/` (48 senaryo), üreten ve doğrulayan
+betik: `calisma_dosyalari/altin_test_hesap_ayarlar.py` (K01-K41; K01-K32 hesap yardımcılarını ve G01-G41
+tanımlarını `calisma_dosyalari/altin_test_hesap.py`'den alır; o betik artık tek başına çalıştırılmaz, çünkü
+tüm `G*.json` dosyalarını silip yalnız G01-G41'i eski kurallarla yazar).
+
+v0.2 değişikliği: kâr ayarları ve eksik kalem kuralları (§12, K33-K41; denetim S4 Y-02, O-02, O-03, O-04,
+karar kaydı `docs/adr/0006-kar-ayarlari.md`). Mevcut kural numaraları değişmedi.
 
 > **Uyarı:** Bu belge mali müşavirlik görüşü değildir. "Güven" sütunu Düşük ya da Doğrulanmadı olan her kural
 > §9'daki teyit listesine bağlıdır. Teyit sonucu değişirse önce bu belge, sonra betik, sonra altın testler
@@ -123,6 +128,8 @@ Sayısal referans (altın test G01, tahmini): 499,90 TL KDV dahil, %20 KDV, %15 
 ---
 
 ## 4. Kurallar (kalem kalem)
+
+Kâr ayarları ve eksik kalem kuralları (K33-K41) §12'dedir; K08, K13, K16, K17 ve K23'ü tamamlarlar.
 
 ### K03 · Brüt satış ve indirim ayrımı
 - **Formül:** `brut = Σ lineGrossAmount` (her kalem için), `satici_ind = Σ lineItemSellerDiscount`,
@@ -457,7 +464,8 @@ Ekstre gelmiş her satırda (settled, adjusted) motor aynı satırın **tahmini*
 `karsilastirma` bloğunda saklar.
 
 - **Karşılaştırılan kalemler:** komisyon (iade ters kayıtları hariç, düzeltmeler dahil), gönderi kargo (yalnız
-  fatura geldiyse), platform hizmet bedeli (yalnız fatura dağıtıldıysa). Hepsi KDV hariç.
+  fatura geldiyse), platform hizmet bedeli (yalnız fatura dağıtıldıysa). Hepsi KDV hariç. v0.2: tahmini
+  tanımsız (tarife ya da hizmet bedeli ayarı yok) kalem karşılaştırmaya hiç girmez (K38).
 - **Fark:** `fark = kesin_toplam - tahmini_toplam`.
 - **Eşik:** `esik = max(5,00 TL; %5 x tahmini_toplam)`; `fark ≤ 0,05` yuvarlama sayılır.
 - **Uyarılar:**
@@ -483,22 +491,31 @@ Ayrıntılı JSON şeması: `services/api/tests/golden/README.md`.
 `kalemler` (satış ve iade alanları KDV dahil ve hariç; giderler KDV hariç), `kdv`, `nakit_akisi`, `kaynaklar`
 (her kalem: `kesin`, `kesin_dagitim`, `tahmini`, `kullanici`, `eslesen`, `dagitim_tahmini`, `eksik`, `yok`),
 `degisken_gider_detayi`, `reklam_detayi`, `karsilastirma`, `uyarilar`, `durum`.
+v0.2 ekleri (§12): `kesinlik` (K40), `eksik_kalemler` (K37), `kalemler.eksik_giderler_haric_kar` (K37),
+`iade_kaydi_bekleyen_adet` ve `askidaki_urun_maliyeti` (K41). `eksik_kalemler` boş değilse `net_kar`,
+`toplam_gider`, `net_kar_marji_yuzde` null'dır; `karsilastirma` içindeki tanımsız tahmin null'dır (K38).
 
 ### 7.2 Ürün (barkod) toplamı
 Satırların yuvarlanmış değerlerinin toplamı (iptaller hariç). Ek alanlar: `reklam_satissiz`, `reklam_harcamasi`
 (= satırlara dağıtılan + satışsız), `reklam_cirosu` (Excel), `roas`, `basabas_roas`, `maliyet_eksik`, `stopaj`.
-Ürünün net kârı = satır net kârları - `reklam_satissiz`; satırlardan biri maliyetsizse `null`.
+Ürünün net kârı = satır net kârları - `reklam_satissiz`; satırlardan birinde eksik kalem varsa (maliyet, kargo,
+hizmet bedeli; K37) `null`. v0.2 ekleri: `eksik_giderler_haric_kar`, `eksik_kalem_satir_sayilari`, `kesinlik`.
 
 ### 7.3 Dönem toplamı
 `satir_net_kar_toplami` (maliyeti olan satırlar) eksi dönem düzeyi giderler (`reklam_satissiz_urunler`,
 `reklam_dagitilamayan`, `dagitilmamis_ceza`, `erken_odeme_bedeli`, `siniflandirilmamis_kesinti`) = `donem_net_kar`.
 Ayrıca `net_kar_kismi`, `kdv_etkisi`, `nakit_akisi` (`stopaj_hesaplanan`, `stopaj_ekstre`,
-`erken_odeme_nakit_girisi`), dönem uyarıları.
+`erken_odeme_nakit_girisi`), dönem uyarıları. v0.2 (K39): `satir_net_kar_toplami` yalnız TAM satırları (eksik
+kalemi olmayan) toplar; `donem_duzeyi_giderler_toplami`, `tam_satirlar` bloğu (tam satırların kalem kalem
+kırılımı ve kendi marjı), `eksik_kalem_satir_sayilari`, `kesinlik`, `kesinlik_satir_sayilari`; kısmi dönemde
+`net_kar_marji_yuzde` null.
 
 ### 7.4 Tanımlar
 | Metrik | Formül | Not |
 |---|---|---|
-| Net kâr marjı % | `net_kar / net_satis_kdv_haric x 100` | Net satış 0 ise `null` (tam iade) |
+| Net kâr marjı % | `net_kar / net_satis_kdv_haric x 100` | Net satış 0 ise `null` (tam iade). Dönemde: kısmi dönemde `null` (K39) |
+| Tam satır marjı % | `tam_satirlar.net_kar / tam_satirlar.net_satis_kdv_haric x 100` | Dönem düzeyi giderler hariç; pay ve payda aynı satır kümesi (K39). G46: 119,09 / 416,58 = 28,59 |
+| Eksik giderler hariç kâr | `net_satis - bilinen giderler` | Eksik kalem 0 sayılmaz, hariç tutulur; etiketle gösterilir (K37) |
 | Maliyet hariç katkı | `net_satis - (tüm giderler - ürün maliyeti)` | Maliyeti olmayan ürün için de gösterilir |
 | ROAS | `reklam_cirosu / reklam_harcamasi` | Trendyol paneliyle aynı tanım; cironun KDV dahil olduğu varsayılır (Doğrulanmadı). Örnek 1.499,70 / 120,00 = 12,50 (G24) |
 | Başabaş ROAS | `net_satis_kdv_haric / (net_kar + reklam_harcamasi)` | Reklamın tüm katkıyı yediği ROAS (KDV hariç ciro bazında). G24: 1.249,75 / 407,28 = 3,07. Platform ROAS'ı ile karşılaştırırken ciroyu KDV hariçleştirin (12,50 / 1,20 = 10,42 > 3,07: kârlı) |
@@ -507,18 +524,25 @@ Ayrıca `net_kar_kismi`, `kdv_etkisi`, `nakit_akisi` (`stopaj_hesaplanan`, `stop
 
 ## 8. Ayarlar ve varsayılanlar
 
-| Ayar | Varsayılan | Kural |
-|---|---|---|
-| `komisyon_tutari_kdv_dahil` | `true` | K07 |
-| `komisyon_kdv_orani`, `kargo_kdv_orani`, `hizmet_bedeli_kdv_orani`, `reklam_kdv_orani` | `20` | K02 |
-| `stopaj_orani` | `1` | K18 |
-| `platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric` | kullanıcı / NetKâr tablosu | K13 |
-| `kargo_tarifesi`, `satici_kargo_tarifesi` | kullanıcı / NetKâr tablosu | K08 |
-| `kargo_faturasi_kdv_tespit_toleransi` | `0.05` | K08 |
-| `uyari_esikleri` | 5,00 TL; %5; 0,05; 0,01 puan | K23 |
-| `degisken_giderler` | boş | K17 |
+Ayrıntı K33-K36 (§12) ve `docs/adr/0006-kar-ayarlari.md`. "Kullanıcı" ayarları pazaryeri hesabı düzeyindedir,
+geçerlilik tarihlidir ve **varsayılanları tanımsızdır** (tanımsız 0 demek değildir). "Sistem" parametreleri
+motor sabitidir, kullanıcıya açılmaz.
 
-Testlerdeki tarife ve hizmet bedeli değerleri kurgusaldır; üretimde kullanılmaz.
+| Ayar (golden `ayarlar` anahtarı) | Tür | Varsayılan | Kural |
+|---|---|---|---|
+| `kargo_tarifesi` (Trendyol anlaşmalı), `satici_kargo_tarifesi` (whoPays=1) | Kullanıcı, sürümlü | boş (tarife yok) | K08, K34 |
+| `varsayilan_desi` | Kullanıcı | `null` | K34 |
+| `platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric` | Kullanıcı, sürümlü | `null` (tanımsız) | K13, K35 |
+| `degisken_giderler` | Kullanıcı, geçerlilik aralıklı | boş | K17, K36 |
+| `komisyon_tutari_kdv_dahil` | Sistem | `true` | K07 |
+| `komisyon_kdv_orani`, `kargo_kdv_orani`, `hizmet_bedeli_kdv_orani`, `reklam_kdv_orani` | Sistem | `20` | K02 |
+| `stopaj_orani` | Sistem | `1` | K18 |
+| `kargo_faturasi_kdv_tespit_toleransi` | Sistem | `0.05` | K08 |
+| `uyari_esikleri` | Sistem | 5,00 TL; %5; 0,05; 0,01 puan | K23 |
+
+Testlerdeki tarife, hizmet bedeli ve kargo firma adları ("Ornek Kargo" dahil) kurgusaldır; üretimde
+kullanılmaz. G01-G41 kurgusal tam ayar setiyle, G42 ve G48 üretim varsayılanıyla (hiç kullanıcı ayarı yok),
+G43 hizmet bedeli tanımsız, G44-G45 sürümlü ayarlarla çalışır.
 
 ---
 
@@ -541,6 +565,13 @@ Testlerdeki tarife ve hizmet bedeli değerleri kurgusaldır; üretimde kullanıl
 | 13 | Reklam Excel'inde harcama KDV dahil mi, ciro KDV dahil mi, kolon adları sabit mi? | ROAS ve reklam payı | Hasan'ın panelden örnek Excel'i | K15; G24, G25, G26 |
 | 14 | `parcelUniqueId` ile `cargoTrackingNumber` aynı mı (bölünmüş pakette kargo eşlemesi)? | Çok paketli siparişte kargo yanlış pakete gider | Pilot veri | K08, K09 |
 | 15 | Ürün maliyetinde satıcıların çoğu KDV dahil mi düşünüyor? Giriş ekranı varsayılanı ne olmalı? | Kullanıcı hatası maliyeti %20 şişirir | Hasan ile 5 satıcı görüşmesi | K16 |
+| 16 | Trendyol anlaşmalı kargo fiyatı nasıl belirleniyor: firma bazında desi kademeli mi, en yüksek kademe üstü (desi aşımı) nasıl fiyatlanıyor, ne sıklıkla değişiyor? Hasan'ın kendi anlaşması ve bir kargo faturası | K34 tarife modeli (firma x desi kademesi x sürüm) bunu varsayar; aşım ücreti modellenmedi (aşan desi "eksik" olur) | Hasan'ın satıcı panelindeki kargo fiyat ekranı ve bir aylık kargo faturası; research/01'de kaynak yok (Doğrulanmadı) | K34; G44, G45 |
+| 17 | Siparişteki `cargoProviderName` metni sabit mi (aynı firma farklı yazımla, ör. "Marketplace" ekiyle gelir mi)? `cargoDeci` boş gelen sipariş ne sıklıkta? | Tarife eşlemesi metin birebir; yazım farkı kargoyu "eksik" bırakır. Varsayılan desinin gerekliliği | Pilot hesabın 3 aylık siparişlerinde firma adı ve `cargoDeci` dağılımı | K34; G45 |
+| 18 | Platform hizmet bedeli sipariş başına sabit tek tutar mı, yoksa sepet tutarına ya da kategoriye göre kademeli mi? Güncel tutar ve son değişiklik tarihi? (madde 5 ile birlikte) | K35 yalnız sipariş başı tek tutarı (sürümlü) destekler; kademeli ise ayar şeması genişler | Hasan'ın panelindeki hizmet bedeli faturası ve Trendyol duyuruları | K13, K35; G43, G44 |
+| 19 | İadede sıra: `Return` ekstre satırı iade talebi (claim) kabulünden önce gelebilir mi? Claim'i hiç olmayan `Return` var mı (ör. teslim edilemeyen paket)? Claim gecikmesi kaç gün? | K41 bu durumu geçici sayar; kalıcıysa maliyet kuralı değişmeli (teslim edilemeyen paket stoğa döner) | Pilot hesapta `Return` satırları ile `getClaims` kayıtlarının tarih karşılaştırması | K10, K41; G47 |
+| 20 | Kısmi dönemde dönem düzeyi giderlerin (sınıflandırılmamış kesinti, bağsız ceza, erken ödeme bedeli, satışsız reklam) dönem net kârından tam düşülmesi müşavir açısından uygun mu? | K39 ihtiyatla tam düşer; dönem net kârı kısmi dönemde olduğundan düşük görünebilir | Müşavir görüşü | K39; G46 |
+| 21 | Eksik kalem varken panel "beklenen net tahsilat" ve "KDV etkisi"ni bilinen kalemlerle mi göstermeli, yoksa gizlemeli mi? | K37 bu blokları bilinen kalemlerle hesaplar ve `eksik_kalemler` ile etiketler; satıcı tahsilatı yanlış planlayabilir | Hasan (ürün kararı) | K37 |
+| 22 | Değişken giderler (paketleme, e-fatura) KDV dahil girilebilmeli mi? Satıcıların çoğu paketleme fiyatını KDV dahil mi biliyor? | K17/K36 KDV hariç tutar + oran ister; tarife ve hizmet bedeli için dahil/hariç seçimi var | Hasan ile satıcı görüşmesi (madde 15 ile aynı turda) | K17, K33, K36 |
 
 ---
 
@@ -580,6 +611,15 @@ Testlerdeki tarife ve hizmet bedeli değerleri kurgusaldır; üretimde kullanıl
 | K30 | Kurumsal faturalı sipariş | Düşük |
 | K31 | Kargo tazmini (TEX) | Düşük |
 | K32 | Gramaj provizyonu, işçilik bedeli | Düşük |
+| K33 | Kâr ayarlarının kapsamı, düzeyi, varsayılanları, doğrulama sınırları | Yüksek (iç kural) |
+| K34 | Kargo tarifesi çözümleme (firma, yedek, desi, sürüm) | Yüksek / Doğrulanmadı (tarife modeli) |
+| K35 | Platform hizmet bedeli tahmini: tanımsız 0 değildir | Yüksek |
+| K36 | Değişken gider geçerliliği | Yüksek |
+| K37 | Eksik kalem, net kâr, eksik giderler hariç kâr, kesin zarar | Yüksek |
+| K38 | Tanımsız tahmin fark karşılaştırmasına girmez | Yüksek |
+| K39 | Dönem kısmi kâr, marj ve tam satırlar | Yüksek / Orta (dönem düzeyi gider) |
+| K40 | Kesinlik etiketi | Yüksek |
+| K41 | İade kaydı gelmemiş tam iade | Orta |
 
 K29 ile K32 v1 altın testlerinde yoktur; pilot verisi ve §9 cevapları geldikten sonra senaryo eklenecek.
 
@@ -597,8 +637,12 @@ Bu bölüm kuralları değiştirmez; kuralların koddaki karşılığını ve ge
 - **Yalnız Decimal ve Fraction:** Bölme gerektiren her işlem tam hassasiyetli `Fraction` ile yapılır, kuruşa tek
   yuvarlama fonksiyonu (`money.rnd`, ROUND_HALF_UP) ile inilir (K01). Ara adımlar yuvarlanmaz.
 - **Girdi ve çıktı değişmezdir** (frozen dataclass); motorun iç birikim nesnesi (`work.LineWork`) dışarı sızmaz.
-- **Tahmin uydurulmaz:** ayar yoksa (kargo tarifesi, hizmet bedeli tahmini) kalem `eksik` kaynaklı olur ya da 0
-  kalır ve uyarı verir; K29-K32 için tahmini hesap yoktur, yalnız "teyit bekliyor" bayrağı vardır.
+- **Tahmin uydurulmaz, eksik kalem sessizce 0 sayılmaz (v0.2, K33-K38):** kullanıcı ayarı yoksa (kargo tarifesi
+  K34, hizmet bedeli tahmini K35) ya da maliyet yoksa (K16) kalem tutarı 0 yazılsa da kaynağı `eksik`tir, satır
+  uyarısı verilir, kalem `eksik_kalemler` listesine girer ve satırın `net_kar`, `toplam_gider`,
+  `net_kar_marji_yuzde` alanları null olur; bilinen giderlerle kâr ayrı alanda (`eksik_giderler_haric_kar`)
+  verilir (K37). Tanımsız tahmin K23 karşılaştırmasına girmez (K38). Motorun ayar varsayılanı "tanımsız"dır
+  (None), 0 değildir. K29-K32 için tahmini hesap yoktur, yalnız "teyit bekliyor" bayrağı vardır.
 
 ### 11.2 Modül yapısı ve kural eşlemesi
 
@@ -619,6 +663,12 @@ Bu bölüm kuralları değiştirmez; kuralların koddaki karşılığını ve ge
 | `engine.py` | Adımları sırayla çağıran giriş noktası | hepsi |
 | `schema_v1.py` | Altın test şeması (Trendyol alan adları + `netkar_` alanları) <-> alan modeli | README şeması |
 | `work.py`, `results.py` | İç birikim nesnesi; değişmez çıktı modeli (`wire` üst verisiyle şema anahtarları) | K25 |
+
+v0.2 (K33-K41) eşlemesi: `settings.py` sürümlü ayarlar ve gün bazlı çözümleme (K33-K36); `shipping.py` tarife
+seçimi, yedek firma, varsayılan desi (K34); `fees.py` tanımsız hizmet bedeli (K35); `costs.py` değişken gider
+geçerliliği ve claim'siz iade (K36, K41); `lines.py` eksik kalem, kesin zarar, karşılaştırma, kesinlik (K37,
+K38, K40); `aggregate.py` ürün ve dönem eksik sayıları, tam satırlar, kısmi marj, kesinlik (K37, K39, K40).
+Uygulama sırası ve kabul ölçütleri: `docs/adr/0006-kar-ayarlari.md` §6.
 
 Adım sırası (`engine.calculate_profit`): satır kurulumu -> ekstre eşleştirme ve satış/iade/komisyon -> iade
 kalemleri ve maliyet -> kargo -> platform hizmet bedeli -> diğer finansallar -> değişken giderler -> reklam ->
@@ -642,9 +692,10 @@ Bunlar altın testleri etkilemez; pilot verisi gelince §9 ile birlikte gözden 
    sayılmaz (referans yalnız `PaymentOrder`'ı atlar). `CashAdvance` erken ödeme nakit girişidir (K19).
 5. **Bilinmeyen ekstre tipi:** Komisyon işaret tablosunda olmayan `settlements` tipi hesaba katılmaz, satıra
    `teyit_bekliyor: ["K05"]` bayrağı konur (referans hata verir).
-6. **Varsayılan ayarlar:** `platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric` varsayılanı 0'dır, kargo
-   tarifeleri boştur (tarifesiz satırda `KARGO_TARIFESI_EKSIK`). Referans betiğin kurgusal tarifesi motorun
-   varsayılanı değildir; altın testler ayarları girdide taşır.
+6. **Varsayılan ayarlar (v0.2'de değişti, K33):** tüm kullanıcı ayarları tanımsızdır: hizmet bedeli tahmini
+   None (v0.1'de 0 idi ve "tahmini" etiketli uyarısız 0 üretiyordu, denetim S4 Y-02), kargo tarifeleri boş,
+   varsayılan desi None, değişken gider yok. Referans betiğin kurgusal tarifesi motorun varsayılanı değildir;
+   altın testler ayarları girdide taşır (G42, G48 üretim varsayılanını açıkça taşır).
 7. **Stopaj ekstre farkı toleransı** ayrı sabit değil, `yuvarlama_toleransi` (0,05) ayarıdır.
 8. **Uyarı sırası ve tekrarı:** Satır uyarıları ilk görülme sırasıyla tekrarsız listelenir; testler kümeyle
    karşılaştırır.
@@ -679,7 +730,7 @@ Bunlar altın testleri etkilemez; pilot verisi gelince §9 ile birlikte gözden 
 cd netkar && make test-profit    # tests/test_profit_*.py, app/profit satır VE dal kapsamı %100 (DB gerekmez)
 cd netkar && make lint && make test
 ```
-- `tests/test_profit_golden.py`: 41 senaryo parametrik, kuruşu kuruşuna (kural: golden README "Motorun testte yapması
+- `tests/test_profit_golden.py`: 48 senaryo (v0.1'de 41) parametrik, kuruşu kuruşuna (kural: golden README "Motorun testte yapması
   gereken").
 - `tests/test_profit_money.py`: yuvarlama sınırları (10,025; -0,005), KDV ayrımı, dağıtım (hypothesis: toplam
   korunur, negatif tutar ve ağırlık, sıfır ağırlık, boş liste, her parça tam payın 1 kuruş yakınında).
@@ -687,3 +738,237 @@ cd netkar && make lint && make test
   ürün ve dönem toplamının satır toplamı olması, stopajın kâra girmemesi, determinizm, tam iadede sıfır net satış.
 - `tests/test_profit_engine.py`, `test_profit_shipping_fees.py`, `test_profit_ads_aggregate.py`,
   `test_profit_schema.py`, `test_profit_purity.py`: kural dalları, K29-K32 bayrakları, saflık güvenceleri.
+
+---
+
+## 12. Kâr ayarları ve eksik kalemler (K33-K41, v0.2)
+
+Bağlam: denetim `docs/security/denetim_2026-11-09_S4_rapor.md` Y-02 (ayar yokken kargo ve hizmet bedeli 0,
+yanlış `BEKLENMEYEN_KESINTI`), O-02 (kısmi dönem marjı), O-03 (`basis` etiketi), O-04 (claim'siz iade). Karar
+kaydı, alternatifler, migrasyon ve API: `docs/adr/0006-kar-ayarlari.md`. Altın testler G42-G48; G01-G41'e
+yeni alanlar eklendi, tek değer değişikliği G29 dönem marjıdır (K39).
+
+Bu bölümün ilkesi: **bir gider kalemi yalnız üç yoldan değer alır: kesin kayıt (ekstre, fatura), kullanıcı
+beyanı (maliyet, tarife, hizmet bedeli tahmini, değişken gider) ya da bu ikisinden kurala bağlı dağıtım.
+Hiçbiri yoksa kalem "eksik"tir; eksik kalem 0 sayılarak net kâra karışmaz.**
+
+### K33 · Kâr ayarlarının kapsamı, düzeyi, varsayılanları ve doğrulama sınırları
+- **Düzey:** pazaryeri hesabı (`marketplace_accounts.id`) düzeyi; her kayıt `tenant_id` taşır, RLS ile korunur.
+  Kiracı düzeyi ortak varsayılan v1'de yoktur.
+- **Gerekçe:** kargo anlaşması ve platform hizmet bedeli Trendyol'da Satıcı ID'ye bağlıdır; bir kiracının iki
+  mağazası farklı kargo anlaşmasıyla çalışabilir. İki düzeyli (kiracı + hesap) birleştirme "hangisi geçerli"
+  belirsizliği üretir; ikinci mağaza için arayüzde "diğer hesaptan kopyala" yeterlidir.
+- **Kullanıcı ayarları:** Trendyol anlaşmalı kargo tarifesi, satıcı anlaşmalı (`whoPays=1`) kargo tarifesi,
+  varsayılan desi, platform hizmet bedeli tahmini, değişken giderler (§8 tablosu).
+- **Sistem parametreleri (kullanıcıya açık değil):** komisyonun KDV varsayımı (K07), komisyon/kargo/hizmet
+  bedeli/reklam KDV oranı (%20, K02), stopaj oranı (%1, K18), uyarı eşikleri (K23), kargo faturası KDV tespit
+  toleransı (K08). Gerekçe: bunlar mevzuat ya da platform olgusudur, satıcı tercihi değildir; §9 teyidi
+  geldiğinde tek yerde değişmeli; kullanıcının değiştirmesi en olası hata kaynağıdır.
+- **Varsayılanlar:** tüm kullanıcı ayarları **tanımsız** başlar ("kullanıcı girer, varsayılan yok"). research/01
+  Trendyol kargo tarifesi ya da hizmet bedeli tutarı için kaynak vermez; NetKâr hazır tarife tablosu sunmaz ve
+  rakam uydurmaz. **Tanımsız, 0 değildir:** kullanıcı bir kalemi bilerek 0 girebilir (örn. hizmet bedeli
+  kesilmiyorsa); bu durumda kalem "tahmini 0"dır ve eksik sayılmaz.
+- **Geçerlilik tarihi:** kargo tarifesi sürümü, hizmet bedeli tahmini sürümü ve değişken gider tanımı
+  `gecerlilik_baslangic` taşır (değişken giderde isteğe bağlı `gecerlilik_bitis`). Seçim K16 ile aynıdır: sipariş
+  günü (`orderDate`, İstanbul takvim günü) ile `başlangıç <= gün` olan en son sürüm. Başlangıçsız sürüm (eski
+  golden biçimi) en eski sayılır. Gerekçe: ayar değişikliği geçmiş dönem raporunu değiştirmemeli; özellikle
+  değişken giderler hiçbir zaman kesin kayıtla değişmediği için tarihsiz olsaydı paketleme fiyatı güncellemesi
+  geçmiş ayların kârını yeniden yazardı.
+- **KDV dahil/hariç girişi:** motor tüm ayar tutarlarını **KDV hariç** alır. Kullanıcı kargo tarifesini ve hizmet
+  bedelini KDV dahil ya da hariç girebilir; giriş biçimi kayıtta saklanır (`fiyat_kdv_dahil`), motora verilirken
+  K02 ile hariçleştirilir: `haric = rnd(dahil / (1 + kargo_kdv_orani/100))`, kademe ya da tutar başına bir kez
+  (K01). Örnek: 54,00 dahil -> 45,00; 50,00 dahil -> 41,67; 12,00 dahil hizmet bedeli -> 10,00. Arayüz iki
+  değeri de gösterir. Değişken gider K17 gibi KDV hariç tutar + KDV oranıdır (§9 madde 22).
+- **Doğrulama sınırları** (NetKâr akıl sağlığı sınırları, Trendyol değeri DEĞİLDİR; API 422 döner):
+
+| Alan | Kural |
+|---|---|
+| Firma adı | 1-100 karakter, kırpılmış; `*` ayrılmış ad ("diğer firmalar"); kontrol karakteri yok |
+| Kademe sayısı | sürüm başına 1-50 |
+| Kademe üst desi | `0 < desi <= 1000`, en çok 2 ondalık, kesin artan sırada, tekrar yok |
+| Kademe fiyatı | `0 <= fiyat <= 100.000,00`, en çok 2 ondalık (girildiği biçimde, dahil ya da hariç) |
+| Varsayılan desi | `null` ya da `0 < desi <= 1000`, en çok 2 ondalık |
+| Hizmet bedeli tahmini | `0 <= tutar <= 10.000,00`, en çok 2 ondalık |
+| Değişken gider | ad 1-80 karakter; tip `siparis_basi`, `adet_basi`, `satis_yuzdesi`; tutar `0 <= x <= 100.000,00` (2 ondalık, KDV hariç; yüzde tipinde yok); oran `0 < x <= 100` (en çok 4 ondalık; yalnız yüzde tipinde); KDV oranı 0, 1, 10, 20; hesap başına en çok 50 tanım |
+| Geçerlilik başlangıcı | `2000-01-01 <= tarih <= bugün + 366 gün` (maliyet içe aktarmayla aynı); bitiş başlangıçtan önce olamaz |
+| Tekillik | (hesap, anlaşma, firma, başlangıç) tarifede; (hesap, başlangıç) hizmet bedelinde |
+
+- **Güven:** Yüksek (iç kural). Ayar tutarları kullanıcı beyanıdır; doğruluğu kesin kayıt gelince K23 ile
+  izlenir.
+
+### K34 · Kargo tarifesi çözümleme (tahmini gönderi kargosu)
+- **Model:** tarife = anlaşma (`trendyol` | `satici`) x firma x sürüm; sürüm = artan üst desi kademeleri (üst
+  sınır dahil) ve kademe başına KDV hariç fiyat. Golden şeması: `{"Firma": [[desi, fiyat], ...]}` (başlangıçsız
+  tek sürüm, eski biçim) ya da `{"Firma": [{"gecerlilik_baslangic": "2026-10-10", "kademeler": [[desi, fiyat],
+  ...]}, ...]}`.
+- **Firma eşlemesi:** siparişin `cargoProviderName` metniyle birebir. Arayüz firma adını elle yazdırmaz;
+  hesabın siparişlerinde görülen adları önerir (ADR-0006 `carriers` ucu). `*` diğer tüm firmalar için yedektir.
+- **Sürüm ve kademe seçimi (sırayla):**
+  1. Firmanın sipariş gününde geçerli sürümü varsa **yalnız o** kullanılır. Desi en yüksek kademeyi aşıyorsa
+     ya da desi bilinmiyorsa kargo **eksiktir**; `*` yedeğine düşülmez (firma tarifesi bilinirken yedek fiyat
+     neredeyse kesin yanlıştır; aşım ücreti modeli §9 madde 16).
+  2. Firmanın o gün geçerli sürümü yoksa `*` yedeğinin o gün geçerli sürümü.
+  3. İkisi de yoksa kargo **eksik**.
+- **Desi sırası:** `cargoDeci` -> `ceil(deci)` -> hesabın `varsayilan_desi`'si -> yok. Varsayılan desi
+  kullanıldıysa satır uyarısı `KARGO_DESI_VARSAYILAN` (bilgi; kaynak yine `tahmini`). Varsayılan desi
+  `KARGO_DESI_FARKI` karşılaştırmasına girmez (yalnız siparişten gelen desi faturadaki desiyle karşılaştırılır).
+- **Eksik kargo:** tutar 0 yazılır ama kaynak `eksik`, uyarı `KARGO_TARIFESI_EKSIK`, kalem `eksik_kalemler`e
+  girer (K37). Kargo faturası (K08) gelince kalem `kesin` olur ve eksiklik kalkar; kesin kargo için tarife
+  gerekmez. Satıcı anlaşmalı siparişte aynı kural `satici` tarifesiyle uygulanır, kaynak `kullanici`.
+- **Örnekler:** G44: Trendyol Express tarifesi 10 Ekim'de değişti; 5 Ekim siparişi desi 2 -> 42,00 (eski
+  sürüm), 15 Ekim siparişi -> 45,00 (yeni sürüm). G45 satır 1: "Ornek Kargo" için tarife yok, siparişte desi yok;
+  varsayılan desi 3, `*` kademesi `<= 3` -> 50,00 + `KARGO_DESI_VARSAYILAN`. G45 satır 2: Trendyol Express desi 7,
+  en yüksek kademe 5 -> eksik (yedeğe düşmez). G42: tarife yok -> iki satırda da eksik.
+- **Kaynak:** [PKG] (`cargoProviderName`, `cargoDeci`, `deci`, `whoPays`), [KRG]. **Güven:** Yüksek (iç kural),
+  Doğrulanmadı (Trendyol kargo fiyatının firma x desi kademesi olarak ifade edilebildiği, §9 madde 16-17).
+
+### K35 · Platform hizmet bedeli tahmini: tanımsız 0 değildir
+- **Ayar:** `platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric`: `null` (tanımsız, varsayılan), tek tutar
+  (başlangıçsız) ya da `[{"gecerlilik_baslangic", "tutar_kdv_haric"}, ...]` sürümleri. Sipariş başı tutar,
+  sipariş içinde satış oranıyla dağıtılır (K13).
+- **Kural:** kesin fatura (K13) dağıtılmamış aktif siparişte:
+  - tahmin tanımlıysa (0 dahil): K13 tahmini, kaynak `tahmini`, uyarı yok;
+  - tanımsızsa: tutar 0, kaynak `eksik`, satır uyarısı `HIZMET_BEDELI_TAHMINI_EKSIK`, kalem `eksik_kalemler`e
+    girer (K37).
+- Kesin fatura siparişe dağıtıldıysa (`kesin_dagitim`) ayar gerekmez.
+- **Örnek:** G43 satır 1: kargo tahmini 45,00 tanımlı, hizmet bedeli tanımsız -> eksik giderler hariç kâr
+  416,58 - 180,00 - 62,49 - 45,00 = 129,09, net kâr null. G48 satır 1: ayar yok ama siparişe bağlı 12,00 KDV
+  dahil fatura -> 10,00 `kesin_dagitim`, eksik değil. G44: 5 Ekim 8,00, 15 Ekim 10,00 (sürüm).
+- **Kaynak:** [CHE], [OTH] (K13 ile aynı). **Güven:** Yüksek (iç kural); tutarın yapısı Doğrulanmadı (§9 madde 5,
+  18).
+
+### K36 · Değişken gider geçerliliği
+- **Kural:** her değişken gider tanımı (K17) yalnız sipariş günü `[gecerlilik_baslangic, gecerlilik_bitis]`
+  aralığında (uçlar dahil, boş uç sınırsız) olan aktif satırlara uygulanır; `siparis_basi` tipinde sipariş günü
+  esas alınır. Tutar değişikliği yeni tanım (yeni başlangıç) ve eskinin bitişi olarak girilir.
+- **Tanımsız değişken gider eksik sayılmaz:** kaynak `yok`. Gerekçe: değişken giderler isteğe bağlıdır ve
+  gerçekten 0 olabilir (paketlemeyi Trendyol yapıyor, e-fatura paket ücrete dahil); olmaması Trendyol tarafı
+  bir kesintinin unutulması değildir. Arayüz kurulumda hatırlatır (ADR-0006 tamlık bloğu).
+- **Örnek:** G44: "paketleme" 6,00 (1 Ocak - 9 Ekim) ve 7,50 (10 Ekim'den) -> 5 Ekim satırı 6,00, 15 Ekim
+  satırı 7,50.
+- **Güven:** Yüksek (iç kural).
+
+### K37 · Eksik kalem, net kâr, eksik giderler hariç kâr ve kesin zarar
+- **Eksik olabilen kalemler (kanonik sıra):** `urun_maliyeti` (K16), `kargo_gonderi` (K34), `platform_hizmet_bedeli`
+  (K35). Diğer kalemler eksik olamaz: komisyon her zaman sipariş satırının oranından tahmin edilir; iade kargo,
+  ceza ve reklam yalnız kayıt varsa vardır (kayıt yoksa 0 doğrudur, kaynak `yok`).
+- **Satır:** `eksik_kalemler` kaynağı `eksik` olan kalemlerin kanonik sıradaki listesidir. Boş değilse
+  `net_kar`, `toplam_gider`, `net_kar_marji_yuzde` **null**. Her aktif satırda ayrıca:
+  `eksik_giderler_haric_kar = net_satis_kdv_haric - (bilinen tüm giderler)`; tam satırda `net_kar`'a, yalnız
+  maliyeti eksik satırda `maliyet_haric_katki`'ya eşittir. İptal satırında 0,00 ve `eksik_kalemler` boştur.
+- **Diğer bloklar:** `maliyet_haric_katki`, `kdv` ve `nakit_akisi` bilinen kalemlerle hesaplanır (v0.1'de maliyet
+  eksikken de böyleydi); satırın `eksik_kalemler`i bu bloklar için de geçerlidir ve panel bunları "eksik kalemler
+  hariç" etiketiyle gösterir (§9 madde 21).
+- **ZARAR uyarısı:** `net_kar < 0` **ya da** (`net_kar` null **ve** `eksik_giderler_haric_kar < 0`). Gerekçe: eksik
+  kalemler negatif olamaz (maliyet, tarife fiyatı, hizmet bedeli `>= 0` doğrulanır), bilinen giderlerle zarar
+  eden satır kesin zarardadır (API `loss_reason` mantığıyla aynı, denetim D-02).
+- **Ürün:** aktif satırlarından birinde eksik kalem varsa `net_kar` ve marj null; `eksik_giderler_haric_kar`
+  = satırların toplamı - `reklam_satissiz`; `eksik_kalem_satir_sayilari` = kalem başına eksik satır sayısı.
+  `maliyet_eksik` alanı değişmeden yalnız maliyeti anlatır.
+- **Dönem:** `eksik_kalem_satir_sayilari`; özet uyarıları (satır uyarılarının sayımı, yeni kural değil):
+  `MALIYET_EKSIK_SATIRLAR_VAR` (mevcut), `KARGO_EKSIK_SATIRLAR_VAR`, `HIZMET_BEDELI_EKSIK_SATIRLAR_VAR`.
+- **Neden null, "kısmi bayraklı değer" değil:** eksik kalemi 0 sayıp `net_kar`'ı bir bayrakla döndürmek, bayrağı
+  okumayan her tüketicide (sıralama, "en kârlı ürünler", zarar süzgeci, CSV, e-posta özeti, ileride uyarı
+  motoru) sayıyı gerçek net kâr yapar; denetimde 4 altın senaryoda zarar bu yolla kâra dönmüştü. Null, hatayı
+  görünür boşluğa çevirir; etiketli üst sınır ayrı ve adı ne olduğunu söyleyen alanda (`eksik_giderler_haric_kar`)
+  durur. K16'nın maliyet için zaten uyguladığı kuralla tutarlıdır.
+- **Örnek:** G42 satır 1 (ayar yok): 416,58 - 180,00 - 62,49 = 174,09 eksik giderler hariç kâr, net kâr null,
+  `eksik_kalemler = [kargo_gonderi, platform_hizmet_bedeli]`, kesinlik `eksik`. v0.1'de aynı satır net kâr 174,09
+  olarak görünüyordu (denetim: "G01 119,09 -> 174,09"). G43 satır 2: maliyetsiz, hizmet bedeli tanımsız ucuz ürün,
+  41,67 - 6,25 - 40,00 = -4,58 -> net kâr null ama `ZARAR` (kesin zarar).
+- **Güven:** Yüksek (iç kural).
+
+### K38 · Tanımsız tahmin fark karşılaştırmasına girmez (K23 eki)
+- **Kural:** `karsilastirma.kargo_gonderi_tahmini`, tarife satırı fiyatlayamadıysa (K34 eksik) **null**;
+  `platform_hizmet_bedeli_tahmini`, tahmin tanımsızsa (K35) **null** (v0.1'de 0,00 idi). Bir kalem
+  `karsilastirilan_tahmini_toplam` ve `karsilastirilan_kesin_toplam`'a **yalnız tahmini tanımlı VE kesin değeri
+  gelmişse** girer; yoksa iki toplamdan da çıkar. Açıkça 0 girilmiş tahmin tanımlıdır ve girer (kullanıcının
+  beyanıyla gerçek kesinti farkı anlamlıdır). Komisyon tahmini her zaman tanımlıdır.
+- **Sonuç:** sıfır ya da tanımsız tahmin `BEKLENMEYEN_KESINTI` üretemez; uyarı yalnız kullanıcının (ya da
+  siparişin) beklentisiyle gerçek kesinti arasındaki farkı ölçer.
+- **Örnek:** G48 satır 1: ayar yok, kargo 45,00 ve hizmet bedeli 10,00 kesin geldi. v0.1: tahmini toplam 62,49,
+  kesin 117,49, fark 55,00 > 5,00 -> yanlış `BEKLENMEYEN_KESINTI`. v0.2: iki kalem de karşılaştırma dışı, fark 0,00.
+- **Ölçüm (betik):** G01-G41 üretim varsayılanıyla (ayar yok) hesaplandığında v0.1 kurallarıyla 28 satırda altın
+  sonuçta olmayan `BEKLENMEYEN_KESINTI` çıkıyor, v0.2 kurallarıyla 0.
+- **Güven:** Yüksek (iç kural).
+
+### K39 · Dönem kısmi kâr, marj ve tam satırlar (denetim O-02)
+- **Tam satır:** aktif (iptal değil) ve `eksik_kalemler` boş satır. `net_kar_kismi` = tam satır sayısı < aktif satır
+  sayısı (v0.1'de yalnız maliyet eksikliğine bakıyordu; artık kargo ve hizmet bedeli eksikliği de kısmi yapar).
+- **Pay:** `satir_net_kar_toplami` = tam satırların net kârı; `donem_net_kar` = `satir_net_kar_toplami` -
+  `donem_duzeyi_giderler_toplami`. Dönem düzeyi giderler (satışsız ürün reklamı, dağıtılamayan reklam, bağsız
+  ceza, erken ödeme bedeli, sınıflandırılmamış kesinti) dönemin tamamına aittir ve ihtiyatla tam düşülür
+  (§9 madde 20).
+- **Marj:** dönem `net_kar_marji_yuzde` tam dönemde `donem_net_kar / net_satis_kdv_haric x 100`; **kısmi dönemde
+  null** (pay tam satırlardan, payda tüm satırlardan gelirdi: v0.1 hatası). Kısmi dönemde gösterilebilecek tek
+  marj `tam_satirlar.net_kar_marji_yuzde`'dir: `tam_satirlar.net_kar / tam_satirlar.net_satis_kdv_haric x 100`,
+  pay ve payda aynı satır kümesinden, dönem düzeyi giderler hariç; panel etiketi "maliyeti ve giderleri tam
+  satırların marjı (dönem giderleri hariç)".
+- **`tam_satirlar` bloğu:** `satir_sayisi`, `net_satis_kdv_haric`, `urun_maliyeti`, `komisyon`, `kargo_gonderi`,
+  `kargo_iade`, `platform_hizmet_bedeli`, `ceza`, `reklam`, `degisken_giderler`, `toplam_gider`, `net_kar`,
+  `net_kar_marji_yuzde`; yalnız tam satırların yuvarlanmış değerlerinin toplamıdır.
+- **Özdeşlikler (betik ve motor testleri her senaryoda denetler):**
+  - (I1) `tam_satirlar.toplam_gider` = `tam_satirlar` gider alanlarının toplamı;
+  - (I2) `tam_satirlar.net_satis_kdv_haric - tam_satirlar.toplam_gider = tam_satirlar.net_kar = satir_net_kar_toplami`;
+  - (I3) `donem_duzeyi_giderler_toplami` = `donem_duzeyi_giderler` alanlarının toplamı ve
+    `satir_net_kar_toplami - donem_duzeyi_giderler_toplami = donem_net_kar`;
+  - (I4) `net_kar_kismi = false` ise üst düzey alanlarla `net_satis_kdv_haric - (urun_maliyeti + komisyon +
+    kargo_gonderi + kargo_iade + platform_hizmet_bedeli + ceza_satirlara_dagitilan + reklam_satirlara_dagitilan +
+    degisken_giderler) - donem_duzeyi_giderler_toplami = donem_net_kar`.
+- **Üst düzey kalem alanları** (`net_satis_kdv_haric`, `komisyon`, ...) tüm aktif satırların bilinen
+  değerleridir (eksik kalem 0); kısmi dönemde (I4) tutmaz, panel bunlardan şelale/toplam gider çizmez,
+  `tam_satirlar` bloğunu kullanır.
+- **Örnek:** G46: A tam (net 119,09), B maliyetsiz, 17,35 sınıflandırılmamış kesinti. `donem_net_kar` 101,74;
+  dönem marjı null (v0.1 kuralı 101,74 / 708,25 = 14,36 verirdi); `tam_satirlar`: net satış 416,58, toplam gider
+  297,49, net kâr 119,09, marj 28,59. G29 (değişen tek eski değer): dönem marjı 19,60 -> null; tam satır marjı
+  138,80 / 416,58 = 33,32.
+- **Güven:** Yüksek (tanım), Orta (dönem düzeyi giderlerin kısmi dönemde tam düşülmesi, §9 madde 20).
+
+### K40 · Kesinlik etiketi (denetim O-03)
+- **Satır `kesinlik`:**
+  - `iptal`: satır iptal (K26);
+  - `eksik`: `eksik_kalemler` boş değil;
+  - `kesin`: tüm kalem kaynakları (`kaynaklar` bloğunun her alanı, satış ve komisyon dahil) `kesin`,
+    `kesin_dagitim`, `kullanici`, `eslesen` ya da `yok` **ve** `teyit_bekliyor` boş;
+  - `tahmini`: diğer her durum (en az bir kalem `tahmini` ya da `dagitim_tahmini`, ya da K29-K32 teyidi bekliyor).
+- **Tanım:** "kesin" = hiçbir kalem NetKâr tahmini değil: değerler ekstre/fatura kaydından, kullanıcının kendi
+  beyanından (maliyet, satıcı anlaşmalı kargo tarifesi, değişken gider) ya da bunların kurala bağlı dağıtımından
+  gelir. Durum (`settled`) tek başına kesinlik değildir: ekstreli satırda kargo faturası ya da hizmet bedeli
+  faturası gelmemiş olabilir.
+- **Ürün ve dönem `kesinlik`:** aktif satır yoksa `yok`; herhangi biri `eksik` ise `eksik`; hepsi `kesin` ise
+  `kesin`; aksi halde `tahmini`. Dönem ayrıca `kesinlik_satir_sayilari` (`kesin`, `tahmini`, `eksik`) verir.
+- **API:** `basis` yalnız "ekstreli satır oranı" anlamında kalır (`statement_basis` adıyla); panelin "kesin"
+  rozeti yalnız motor `kesinlik = kesin`'den türetilir (ADR-0006 §5).
+- **Örnek:** G48 satır 1: ayar yok ama satış, komisyon, kargo (fatura), hizmet bedeli (siparişe bağlı fatura)
+  kesin, maliyet kullanıcı -> `kesin`. G02: settled ama hizmet bedeli tahmini -> `tahmini`. G23: dört satır
+  `kesin`. G47: settled/adjusted ama maliyet askıda (K41) -> `tahmini`. `teyit_bekliyor` kuralı altın testte yok
+  (K29-K32 senaryosu yok); motor birim testiyle kilitlenir.
+- **Güven:** Yüksek (iç kural).
+
+### K41 · İade kaydı (claim) gelmemiş tam iade (denetim O-04)
+- **Koşul:** satıra eşleşen `Return` satırlarında `Σ (debt - credit) > 0` **ve** satırın kabul edilmiş
+  (`Accepted`) iade kalemi sayısı 0. `ManualRefund` (K11, ürün müşteride) kapsam dışıdır.
+- **Davranış:**
+  - Ürün maliyeti K10'daki gibi **tam gider kalır** (ihtiyat; stoğa dönüş kanıtı claim'dir). Değer değişmez.
+  - `kaynaklar.urun_maliyeti = tahmini` (değer kesin değil; satır kesinliği en iyi `tahmini`, K40).
+  - Satır uyarısı `IADE_KAYDI_BEKLENIYOR`; dönem özeti `IADE_KAYDI_BEKLENEN_SATIRLAR_VAR`.
+  - Bilgi alanları: `iade_kaydi_bekleyen_adet = min(adet, max(1, rnd0(adet x iade_return_dahil /
+    satis_dahil)))` (`rnd0`: tam sayıya ROUND_HALF_UP; satış 0 ise `adet`) ve `askidaki_urun_maliyeti =
+    rnd(birim_maliyet_kdv_haric x iade_kaydi_bekleyen_adet)` (maliyet yoksa null). Panel: "iade kaydı bekleniyor;
+    ürün stoğa dönerse tahmini net kâr: net_kar + askidaki_urun_maliyeti". Koşul yoksa 0 ve null.
+  - Claim gelince standart K10 uygulanır; uyarı ve askıdaki tutar kendiliğinden kalkar (motor her senkronda
+    baştan hesaplar).
+- **Alternatifler:** (a) "stoğa döndü" varsayıp maliyeti düşürmek: reddedildi; kanıtsız maliyet düşürür, iade
+  nedeni (kusurlu, hasarlı) bilinmeden kârı şişirir; yanlış yönde hata (zararı kâr göstermek) ürünün vaadine
+  daha zararlıdır. (b) `net_kar` null: reddedildi; maliyet ve tutarlar bilinir, belirsiz olan yalnız iade
+  adedinin stok durumudur; null, claim gecikmesi boyunca zarar sinyalini listeden siler. (c) Seçilen: ihtiyatlı
+  değer + `tahmini` etiket + askıdaki tutarın açıkça gösterilmesi.
+- **Sınırlar:** motor saat kullanmaz; "Return'den N gün sonra hâlâ claim yok" yükseltmesi API/uyarı katmanının
+  işidir (§9 madde 19). Kısmen gelmiş claim (kabul edilen < beklenen) v1'de kapsam dışıdır (claim varsa claim
+  esas alınır).
+- **Örnek:** G47 satır 1: tam iade, claim yok; net satış 0, maliyet 180,00 gider, gönderi ve iade kargo 45 + 45,
+  hizmet bedeli 10 -> net kâr -280,00, `ZARAR` + `IADE_KAYDI_BEKLENIYOR`, bekleyen adet 1, askıdaki maliyet 180,00
+  (claim gelince G16 gibi -100,00). G47 satır 2: 2 adetten 100,00'lık iade; bekleyen adet rnd0(2 x 100 / 200) = 1;
+  net satış 83,34, maliyet 80,00, komisyon 12,50, kargo 45, hizmet 10 -> -64,16; askıdaki 40,00.
+- **Kaynak:** [CHE] (`Return`), [CLM]. **Güven:** Orta (Return ile claim arasındaki sıra ve gecikme
+  Doğrulanmadı, §9 madde 19).
