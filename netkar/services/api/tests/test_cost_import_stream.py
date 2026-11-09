@@ -235,12 +235,19 @@ def test_legit_large_workbook_streams_in_flat_memory() -> None:
         for n in range(1, 10_001)
     )
     data = with_sheet(rows, **{"xl/sharedStrings.xml": sst_xml(*unique)})
-    elapsed, peak, outcome = measure(lambda: read(data))
+    # Süre tracemalloc KAPALIYKEN ölçülür: tracemalloc her ayırmayı izleyip süreyi birkaç kat şişirir
+    # (CI'da kapsamla birlikte 21 sn görüldü). Eşik yalnız ikinci dereceden bir bozulmayı yakalamak
+    # içindir; 10.000 satırda ikinci dereceden okuyucu dakikalar sürerdi.
+    started = time.perf_counter()
+    first = read(data)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 30, f"{elapsed:.1f} sn"
+    _, peak, outcome = measure(lambda: read(data))
+    assert outcome == first
     assert isinstance(outcome, list) and len(outcome) == 10_000
     assert outcome[0] == ["8680000000000", 1.5, 20, date(2025, 12, 9)]  # 46000 = 2025-12-09
     assert outcome[9_999][0] == "8680000009999"
     assert peak < 50, f"{peak:.1f} MB"
-    assert elapsed < 10
 
 
 # --- mutlu yol -------------------------------------------------------------------------------------
