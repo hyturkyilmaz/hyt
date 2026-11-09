@@ -786,3 +786,279 @@ def test_template_cell_is_truncated_and_a_huge_tab_title_is_fast() -> None:
     rows = list(csv.reader(io.StringIO(data.decode("utf-8-sig"), newline=""), delimiter=";"))
     assert len(rows[1][1]) == ci.MAX_TEMPLATE_CELL_CHARS and rows[2][1] == "b" * ci.MAX_TEMPLATE_CELL_CHARS
     assert ci.csv_safe_cell("8681000000011") == "8681000000011"  # barkod (<= 200) kesilmez
+
+
+# --- Kapanış 2: YB-02 (gerçek Office çıktıları), YK-04 (öznitelik seli), YB-03 (yabancı ad alanı) --------
+
+CT_PRINTER = "application/vnd.openxmlformats-officedocument.spreadsheetml.printerSettings"
+CT_TABLE = "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"
+REAL_OFFICE_ROWS = (
+    '<row r="1"><c r="A1" t="inlineStr"><is><t>barkod</t></is></c>'
+    '<c r="B1" t="inlineStr"><is><t>birim_maliyet_kdv_haric</t></is></c>'
+    '<c r="C1" t="inlineStr"><is><t>kdv_orani</t></is></c></row>'
+    '<row r="2"><c r="A2" t="inlineStr"><is><t>8681234567890</t></is></c><c r="B2"><v>5</v></c><c r="C2"><v>20</v></c></row>'
+)
+
+
+def real_office_extras() -> dict[str, Any]:
+    """Excel, SharePoint ve LibreOffice paketlerinde sık görülen, okuyucunun açmadığı bölümler."""
+    extra = (
+        f'<Default Extension="bin" ContentType="{CT_PRINTER}"/>'
+        f'<Override PartName="/xl/tables/table1.xml" ContentType="{CT_TABLE}"/>'
+        '<Override PartName="/xl/comments1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"/>'
+        '<Override PartName="/xl/metadata.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml"/>'
+    )
+    return {
+        "[Content_Types].xml": content_types(extra=extra),
+        "xl/printerSettings/printerSettings1.bin": b"\x01\x00\x02\x00" * 400,
+        "xl/tables/table1.xml": f'<?xml version="1.0"?><table xmlns="{MAIN}" id="1" name="T" ref="A1:A2"/>',
+        "xl/tables/_rels/table1.xml.rels": f'<Relationships xmlns="{PKG_REL}"/>',
+        "xl/worksheets/_rels/sheet1.xml.rels": f'<Relationships xmlns="{PKG_REL}"/>',
+        "customXml/item1.xml": "<root><x>1</x></root>",
+        "customXml/itemProps1.xml": "<ds:datastoreItem xmlns:ds='x'/>",
+        "customXml/_rels/item1.xml.rels": f'<Relationships xmlns="{PKG_REL}"/>',
+        "xl/metadata.xml": f'<metadata xmlns="{MAIN}"/>',
+        "xl/drawings/drawing1.xml": "<xdr:wsDr xmlns:xdr='x'/>",
+        "xl/drawings/_rels/drawing1.xml.rels": f'<Relationships xmlns="{PKG_REL}"/>',
+        "xl/media/image1.png": b"\x89PNG\r\n\x1a\n" + bytes(range(256)) * 20,
+        "xl/comments1.xml": f'<comments xmlns="{MAIN}"><commentList/></comments>',
+        "xl/persons/person.xml": "<personList/>",
+        "xl/threadedComments/threadedComment1.xml": "<ThreadedComments/>",
+        "xl/externalLinks/externalLink1.xml": "<externalLink/>",
+        "docProps/app.xml": "<Properties/>",
+        "docProps/core.xml": "<cp:coreProperties xmlns:cp='x'/>",
+        "xl/theme/theme1.xml": "<a:theme xmlns:a='x'/>",
+        "xl/calcChain.xml": f'<calcChain xmlns="{MAIN}"/>',
+    }
+
+
+def test_yb02_real_office_extra_parts_are_ignored_not_rejected() -> None:
+    data = with_sheet(REAL_OFFICE_ROWS, **real_office_extras())
+    ci.check_zip(data)
+    assert read(data) == [["barkod", "birim_maliyet_kdv_haric", "kdv_orani"], ["8681234567890", 5, 20]]
+    result = ci.parse_import("m.xlsx", data, TODAY)
+    assert result.file_format == "xlsx" and result.valid == 1
+
+
+def test_yb02_openpyxl_workbook_with_table_comment_and_image_is_imported() -> None:
+    from openpyxl import Workbook
+    from openpyxl.comments import Comment
+    from openpyxl.worksheet.table import Table
+
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    for row in (["barkod", "birim_maliyet_kdv_haric", "kdv_orani"], ["8681234567890", 5, 20]):
+        sheet.append(row)
+    sheet.add_table(Table(displayName="Maliyet", ref="A1:C2"))
+    sheet["A2"].comment = Comment("not", "ben")
+    out = io.BytesIO()
+    workbook.save(out)
+    with zipfile.ZipFile(out, "a") as archive:  # PIL yok: küçük görsel bölümü elle eklenir
+        archive.writestr("xl/media/image1.png", b"\x89PNG\r\n\x1a\n" + bytes(range(256)) * 8)
+    data = out.getvalue()
+    names = zipfile.ZipFile(io.BytesIO(data)).namelist()
+    assert any(n.startswith("xl/tables/") for n in names) and any(n.startswith("xl/media/") for n in names)
+    result = ci.parse_import("m.xlsx", data, TODAY)
+    assert result.valid == 1 and result.total == 1
+
+
+def test_yb02_unknown_part_names_are_ignored_too() -> None:
+    for name in ("evil.txt", "xl/embeddings/oleObject1.bin", "xl/vbaProject.bin", "x/y/z.dat"):
+        ci.check_zip(package({name: b"<x/>"}))
+
+
+def test_yb02_ignored_parts_keep_size_and_total_limits() -> None:
+    limits = ci.ImportLimits(max_ignored_part_bytes=1000)
+    ci.check_zip(package({"xl/media/image1.png": bytes(range(256)) * 3}), limits)
+    for name in ("xl/media/image1.png", "xl/printerSettings/printerSettings1.bin", "customXml/item1.xml"):
+        with pytest.raises(ci.ImportFileError, match="Dosya geçersiz"):
+            ci.check_zip(package({name: random.Random(3).randbytes(1001)}), limits)
+    # gerçek açılım toplamı hâlâ 50 MB ile sınırlı: yalan söyleyen başlık dahil akışla sayılır
+    many: dict[str, str | bytes | None] = {
+        f"xl/media/image{i}.bin": random.Random(i).randbytes(600) for i in range(5)
+    }
+    ci.check_zip(package(many), limits)
+
+
+def test_yb02_ignored_parts_do_not_bypass_ratio_and_entry_limits() -> None:
+    zero: dict[str, str | bytes | None] = {f"customXml/item{i}.xml": b"0" * 900_000 for i in range(12)}
+    with pytest.raises(ci.ImportFileError):  # oran: ~10 MB açılmış, birkaç KB sıkıştırılmış
+        ci.check_zip(package(zero))
+    crowd: dict[str, str | bytes | None] = {f"customXml/i{i}.xml": b"<x/>" for i in range(ci.MAX_ZIP_ENTRIES)}
+    with pytest.raises(ci.ImportFileError):
+        ci.check_zip(package(crowd))
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["../evil.xml", "/abs.xml", "a/../../b.xml", "a\\b.xml", "x/\x01.xml", "k" * 300],
+)
+def test_yb02_unsafe_part_names_are_still_rejected(name: str) -> None:
+    out = io.BytesIO(package())
+    with zipfile.ZipFile(out, "a") as archive:
+        archive.writestr(zipfile.ZipInfo(name), b"<x/>")
+    with pytest.raises(ci.ImportFileError):
+        ci.check_zip(out.getvalue())
+
+
+def test_yb02_core_checks_are_unchanged_with_extra_parts() -> None:
+    extras = real_office_extras()
+    broken_ct = content_types(sheet_ct=xs._CT_SST)  # Override çapraz denetimi sürer
+    with pytest.raises(xs.XlsxFormatError):
+        read(with_sheet(REAL_OFFICE_ROWS, **{**extras, "[Content_Types].xml": broken_ct}))
+    with pytest.raises(ci.ImportFileError):
+        ci.check_zip(package({"xl/workbook.xml": None, **extras}))  # zorunlu bölüm eksik
+
+
+# --- YK-04: öznitelik / ad alanı seli ------------------------------------------------------------------
+
+
+def attribute_flood(count: int, prefix: str = "a") -> str:
+    rnd = random.Random(5)
+    return "".join(f' {prefix}{rnd.getrandbits(40):x}="0"' for _ in range(count))
+
+
+def poc_row_attributes() -> bytes:
+    flood = attribute_flood(60_000)
+    return with_sheet(f'<row r="1"{flood}><c t="inlineStr"><is><t>barkod</t></is></c></row>')
+
+
+def poc_root_namespaces() -> bytes:
+    flood = attribute_flood(60_000, "xmlns:p")
+    root = f'<?xml version="1.0"?><worksheet xmlns="{MAIN}"{flood}><sheetData/></worksheet>'
+    return package({"xl/worksheets/sheet1.xml": root})
+
+
+def poc_single_huge_attribute() -> bytes:
+    junk = "".join(random.Random(2).choices("abcdefgh", k=1_200_000))
+    return with_sheet(f'<row r="1" x="{junk}"><c t="inlineStr"><is><t>barkod</t></is></c></row>')
+
+
+@pytest.mark.parametrize(
+    "build",
+    [poc_row_attributes, poc_root_namespaces, poc_single_huge_attribute],
+    ids=["rowattrs", "rootns", "bigattr"],
+)
+def test_yk04_attribute_floods_are_rejected_before_parsing(build: Callable[[], bytes]) -> None:
+    data = build()
+    assert len(data) < 2 * MB
+    started = time.perf_counter()
+    with pytest.raises(ci.ImportFileError) as info:
+        ci.parse_import("poc.xlsx", data, TODAY)
+    elapsed = time.perf_counter() - started
+    assert info.value.status == 422
+    assert elapsed < 3.0, f"{elapsed:.2f} sn"  # geniş eşik: kapsam ve yüklü CI
+    _, peak, outcome = measure(lambda: ci.parse_import("poc.xlsx", data, TODAY))
+    assert isinstance(outcome, ci.ImportFileError), outcome
+    assert peak < 50, f"{peak:.1f} MB"
+
+
+def test_yk04_gt_inside_attribute_values_cannot_hide_a_long_tag() -> None:
+    value = ">" * 3
+    flood = "".join(
+        f' q{i:x}="{value}"' for i in range(4_000)
+    )  # tek etiket ~ 40 KB, '>' ile bölünmüş görünür
+    data = with_sheet(f'<row r="1"{flood}><c t="inlineStr"><is><t>b</t></is></c></row>')
+    with pytest.raises(ci.ImportFileError):
+        ci.check_zip(data)
+
+
+def test_yk04_many_tags_with_gt_in_values_do_not_make_the_scan_quadratic() -> None:
+    rows = "".join(f'<row r="{n}" k="a&gt;b" j=">"/>' for n in range(1, 3_000))
+    data = with_sheet(rows)
+    started = time.perf_counter()
+    with pytest.raises(ci.ImportFileError):
+        ci.check_zip(data)
+    assert time.perf_counter() - started < 3.0
+
+
+def test_yk04_tag_limit_is_configurable_and_a_split_across_chunks_is_caught() -> None:
+    attrs = "".join(f' p{i}="1"' for i in range(100))
+    pad = "<!-- " + "x" * 70_000 + " -->"  # etiket 64 KB parça sınırını aşan konumda başlar
+    data = with_sheet(f'{pad}<row r="1"{attrs}><c t="inlineStr"><is><t>b</t></is></c></row>')
+    with pytest.raises(ci.ImportFileError):
+        ci.check_zip(data, ci.ImportLimits(max_tag_bytes=500))
+    ci.check_zip(data, ci.ImportLimits(max_tag_bytes=2000))
+
+
+def test_yk04_attribute_count_is_capped_in_the_stream_reader() -> None:
+    few = "".join(f' p{i}="1"' for i in range(xs.MAX_ATTRIBUTES - 1))  # `r` ile birlikte tam tavan
+    many = "".join(f' p{i}="1"' for i in range(xs.MAX_ATTRIBUTES))
+    row = '<c t="inlineStr"><is><t>b</t></is></c></row>'
+    assert read(with_sheet(f'<row r="1"{few}>{row}')) == [["b"]]
+    rejected(with_sheet(f'<row r="1"{many}>{row}'))
+
+
+def test_yk04_excel_like_roots_with_many_namespaces_are_accepted() -> None:
+    root = (
+        f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<worksheet xmlns="{MAIN}" xmlns:r="{REL}" '
+        'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac xr xr2 xr3" '
+        'xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" '
+        'xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" '
+        'xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2" '
+        'xmlns:xr3="http://schemas.microsoft.com/office/spreadsheetml/2016/revision3" '
+        'xr:uid="{00000000-0001-0000-0000-000000000000}"><sheetData>'
+        '<row r="1" spans="1:1" x14ac:dyDescent="0.25"><c r="A1" t="inlineStr"><is><t>b</t></is></c></row>'
+        "</sheetData></worksheet>"
+    )
+    assert read(package({"xl/worksheets/sheet1.xml": root})) == [["b"]]
+
+
+def test_yk04_comments_cdata_and_long_text_are_not_tags() -> None:
+    big_text = "7" * 40_000
+    rows = f'<!-- {"c" * 30_000} --><row r="1"><c><v>{big_text}</v></c></row><row r="2"><c t="inlineStr"><is><t><![CDATA[{"d" * 20_000}]]></t></is></c></row>'
+    ci.check_zip(with_sheet(rows))
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        ("﻿" + sheet_xml("")).encode("utf-16"),
+        sheet_xml("").encode("cp037"),
+        b'<?xml version="1.0" encoding="cp037"?>' + sheet_xml("").encode(),
+        b'<?xml version="1.0" encoding="UTF-16"?>' + sheet_xml("").encode(),
+    ],
+    ids=["utf16", "ebcdic", "decl-cp037", "decl-utf16"],
+)
+def test_yk04_non_ascii_compatible_xml_cannot_bypass_the_tag_scan(payload: bytes) -> None:
+    with pytest.raises(ci.ImportFileError):
+        ci.check_zip(package({"xl/worksheets/sheet1.xml": payload}))
+
+
+def test_yk04_latin1_and_utf8_declarations_are_fine() -> None:
+    for enc in ("UTF-8", "utf-8", "ISO-8859-1", "US-ASCII"):
+        sheet = f'<?xml version="1.0" encoding="{enc}"?>' + sheet_xml("")
+        ci.check_zip(package({"xl/worksheets/sheet1.xml": sheet}))
+
+
+# --- YB-03: yabancı ad alanındaki veri öğesi sessizce atlanmaz ----------------------------------------------
+
+
+def test_yb03_foreign_namespace_row_is_an_explicit_error_not_silent_loss() -> None:
+    good = '<row r="1"><c t="inlineStr"><is><t>barkod</t></is></c></row>'
+    foreign = '<row xmlns="urn:baska" r="2"><c t="inlineStr"><is><t>8681234567890</t></is></c></row>'
+    error = rejected(with_sheet(good + foreign))
+    assert "ad alan" in error.detail
+    with pytest.raises(ci.ImportFileError) as info:
+        ci.parse_import("m.xlsx", with_sheet(good + foreign), TODAY)
+    assert info.value.status == 422
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        '<row r="1"><c xmlns="urn:x" t="inlineStr"><is><t>a</t></is></c></row>',
+        '<row r="1"><c t="inlineStr"><is xmlns="urn:x"><t>a</t></is></c></row>',
+        '<row r="1"><c><v xmlns="urn:x">1</v></c></row>',
+        '<x:q xmlns:x="urn:x"/>',
+    ],
+)
+def test_yb03_foreign_elements_anywhere_in_sheet_data_are_rejected(rows: str) -> None:
+    rejected(with_sheet(rows))
+
+
+def test_yb03_foreign_elements_outside_sheet_data_are_still_ignored_within_budget() -> None:
+    tail = '<mc:AlternateContent xmlns:mc="urn:mc"><mc:Choice/></mc:AlternateContent><extLst xmlns="urn:e"/>'
+    data = package({"xl/worksheets/sheet1.xml": sheet_xml('<row r="1"><c><v>1</v></c></row>', tail=tail)})
+    assert read(data) == [[1]]

@@ -160,10 +160,13 @@ def test_y01_shared_string_count_limit(monkeypatch: pytest.MonkeyPatch) -> None:
         ci.check_zip(with_part("xl/sharedStrings.xml", shared_strings_with(200_001)))
 
 
-def test_y01_unknown_parts_are_rejected_and_known_extras_pass() -> None:
+def test_y01_unknown_parts_are_ignored_but_still_counted_and_capped() -> None:
+    """YB-02: okuyucunun açmadığı bölümler (görsel, özel XML, gömülü nesne) dosyayı reddettirmez; ancak
+    boyut, oran ve girdi sayımında kalır (bölüm başına `max_ignored_part_bytes`)."""
     for name in ("xl/embeddings/oleObject1.bin", "customXml/item1.xml", "xl/media/image1.png", "evil.txt"):
+        ci.check_zip(with_part(name, b"<x/>"))
         with pytest.raises(ci.ImportFileError, match="Dosya geçersiz"):
-            ci.check_zip(with_part(name, b"<x/>"))
+            ci.check_zip(with_part(name, b"<x/>"), ci.ImportLimits(max_ignored_part_bytes=2))
     for name in ("docProps/custom.xml", "xl/calcChain.xml", "xl/worksheets/_rels/sheet1.xml.rels"):
         ci.check_zip(with_part(name, b"<x/>"))
     ci.check_zip(small_xlsx())  # openpyxl'in kendi çıktısı olduğu gibi geçer

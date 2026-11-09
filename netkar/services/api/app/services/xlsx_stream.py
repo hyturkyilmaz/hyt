@@ -67,6 +67,9 @@ _REDIRECTABLE = frozenset({_CT_WORKBOOK, _CT_STYLES, _CT_SST})
 _SHEET_PART = re.compile(r"xl/worksheets/sheet[0-9]{1,4}\.xml")
 
 MAX_DEPTH = 32
+# Tek öğedeki en çok öznitelik (YK-04). Gerçek dosyalarda en çok onlarca; etiket uzunluğu tavanı
+# (`cost_import._TagScanner`) bellek patlamasını önler, bu sınır ise kalan küçük etiketlerdeki seli keser.
+MAX_ATTRIBUTES = 64
 # Tek bir hücre veya paylaşılan dizede makul metin parçası (`<t>`, `<r>`) sayısı; fazlası bütçeden düşer.
 MAX_RUNS = 16
 # Hücre metni bu uzunlukta kesilir: barkod en çok 200, sayı 40, tarih 10 karakter; uzunu zaten geçersizdir.
@@ -159,6 +162,8 @@ def _events(
                     count += 1
                     if count > max_elements:
                         raise _bad("XLSX bölümünde çok fazla öğe var.")
+                    if len(elem.attrib) > MAX_ATTRIBUTES:
+                        raise _bad("XLSX öğesinde çok fazla öznitelik var.")
                     stack.append(elem)
                     depth = len(stack)
                     if depth > MAX_DEPTH:
@@ -524,6 +529,10 @@ class _SheetReader:
                     if names[0] != "worksheet":
                         raise _bad("Sayfa kökü geçersiz.")
                 elif kind is None:
+                    if names[-1] == "?" and names[1] == "sheetData":
+                        # Yabancı ad alanındaki veri öğesi (ör. xmlns="urn:baska" satırı) sessizce atlanırsa
+                        # kullanıcı verisi kaybolur (YB-03): açık hata.
+                        raise _bad("Sayfa verisinde tanınmayan ad alanında öğe var.")
                     other.hit()
                 elif kind == "row":
                     row_elements += 1

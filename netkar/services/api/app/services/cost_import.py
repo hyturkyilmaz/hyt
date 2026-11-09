@@ -68,6 +68,9 @@ class ImportLimits:
     max_shared_strings_bytes: int = 10 * 1024 * 1024
     max_sheet_bytes: int = 20 * 1024 * 1024
     max_other_part_bytes: int = 256 * 1024
+    # Okunmayan bölümler (YB-02) ve ayrıştırılan XML'de en uzun başlangıç etiketi (YK-04).
+    max_ignored_part_bytes: int = 1024 * 1024
+    max_tag_bytes: int = 16 * 1024
     max_style_xfs: int = 10_000
     max_shared_strings: int = 200_000
     # Akışlı okuyucu tavanları (YK-01): toplam hücre, tanınmayan öğe ve tutulan toplam metin.
@@ -95,6 +98,8 @@ class ImportLimits:
             max_shared_strings_bytes=settings.cost_import_max_shared_strings_bytes,
             max_sheet_bytes=settings.cost_import_max_sheet_bytes,
             max_other_part_bytes=settings.cost_import_max_other_part_bytes,
+            max_ignored_part_bytes=settings.cost_import_max_ignored_part_bytes,
+            max_tag_bytes=settings.cost_import_max_tag_bytes,
             max_style_xfs=settings.cost_import_max_style_xfs,
             max_shared_strings=settings.cost_import_max_shared_strings,
             max_sheet_cells=settings.cost_import_max_sheet_cells,
@@ -107,8 +112,14 @@ DEFAULT_LIMITS = ImportLimits()
 
 _STYLES = "xl/styles.xml"
 _SHARED_STRINGS = "xl/sharedStrings.xml"
-# openpyxl'in okuduğu ve Excel'in yazdığı zararsız bölümler. Listede olmayan her bölüm (gömülü nesne,
-# makro, görsel, özel XML vb.) reddedilir: işlevi yok, yalnız saldırı yüzeyi.
+# Çekirdek bölümler: okuyucu bunları AÇAR (bölüm başına `max_other_part_bytes`; sayfa, stil ve dize tablosu
+# kendi sınırlarını taşır). Listede olmayan her bölüm (yazıcı ayarı, tablo, görsel, özel XML, yorum, gömülü
+# nesne, makro vb., YB-02) reddedilmez: okuyucu onları hiç açmadığı için içerikleri ayrıştırılmaz ve yok
+# sayılır. Güvenlik: bu bölümler girdi sayısına, bildirilen ve GERÇEK açılmış toplama, sıkıştırma oranına ve
+# bölüm başına `max_ignored_part_bytes` sınırına tabidir; yol adı da güvenli olmalıdır (`_safe_part_name`).
+# Tamamen bilinmeyen adlar da aynı muameleyi görür: reddetmek bilinen bölümler kadar gerçek dosyayı kırar,
+# oysa dosya adı tek başına saldırı yüzeyi değildir (ad ile içerik türü eşleşmesini `xlsx_stream` ayrıca
+# denetler: dize tablosu, stil veya sayfa türü yalnız sabit adlarda kabul edilir).
 _ALLOWED_PARTS = frozenset(
     {
         "[Content_Types].xml",
@@ -117,7 +128,6 @@ _ALLOWED_PARTS = frozenset(
         "xl/_rels/workbook.xml.rels",
         _STYLES,
         _SHARED_STRINGS,
-        "xl/calcChain.xml",  # Excel yazar; openpyxl okumaz, yalnız boyutu sınırlı
     }
 )
 _ALLOWED_PART_PATTERNS = (
@@ -126,6 +136,7 @@ _ALLOWED_PART_PATTERNS = (
     re.compile(r"docProps/[A-Za-z0-9_.-]{1,64}"),
     re.compile(r"xl/theme/[A-Za-z0-9_.-]{1,64}"),
 )
+_MAX_PART_NAME = 256
 _SHEET_PART = re.compile(r"xl/worksheets/sheet[0-9]{1,4}\.xml")
 # Ad alanı önekli etiketler de sayılır (<x:xf ...>): openpyxl etiketi ad alanına göre eşler, önek serbesttir.
 _XF_TAG = re.compile(rb"<(?:[A-Za-z_][\w.\-]*:)?xf(?=[\s/>])")
@@ -229,8 +240,19 @@ def detect_format(filename: str | None, data: bytes) -> str:
     return "csv"
 
 
+def _safe_part_name(name: str) -> bool:
+    """Arşiv yolu güvenli mi: mutlak yol, `..`, ters eğik çizgi, kontrol karakteri ve aşırı uzunluk yok."""
+    if not name or len(name) > _MAX_PART_NAME or name.startswith("/") or "\\" in name:
+        return False
+    if any(ord(char) < 32 or ord(char) == 127 for char in name):
+        return False
+    return all(segment not in ("", ".", "..") for segment in name.rstrip("/").split("/"))
+
+
 def _part_limit(name: str, limits: ImportLimits) -> int | None:
-    """Bölümün açılmış boyut sınırı; izin listesinde değilse None."""
+    """Bölümün açılmış boyut sınırı; yol adı güvensizse None (okunmayan bölümler `max_ignored_part_bytes`)."""
+    if not _safe_part_name(name):
+        return None
     if name == _STYLES:
         return limits.max_styles_bytes
     if name == _SHARED_STRINGS:
@@ -239,7 +261,85 @@ def _part_limit(name: str, limits: ImportLimits) -> int | None:
         return limits.max_sheet_bytes
     if name in _ALLOWED_PARTS or any(p.fullmatch(name) for p in _ALLOWED_PART_PATTERNS):
         return limits.max_other_part_bytes
-    return None
+    return limits.max_ignored_part_bytes
+
+
+def _is_parsed(name: str) -> bool:
+    """Okuyucunun ayrıştırdığı XML bölümleri (etiket uzunluğu ve kodlama denetimi bunlara uygulanır)."""
+    return name in _PARSED_PARTS or _SHEET_PART.fullmatch(name) is not None
+
+
+_PARSED_PARTS = frozenset(
+    {"[Content_Types].xml", "xl/workbook.xml", "xl/_rels/workbook.xml.rels", _STYLES, _SHARED_STRINGS}
+)
+# Bayt düzeyinde taramanın güvenilir olması için ASCII uyumlu kodlamalar (expat başkalarını codec ile açar;
+# ör. EBCDIC `<` karakterini başka bir bayta çevirir ve taramadan kaçar).
+_ASCII_COMPATIBLE = frozenset(
+    {"utf-8", "us-ascii", "ascii", "iso-8859-1", "latin-1", "latin1", "windows-1252"}
+)
+_XML_DECL_ENCODING = re.compile(rb"\A<\?xml[^>]{0,200}?encoding\s*=\s*[\"']([^\"']{1,40})[\"']")
+# Etiket içinde tırnaklı değerde ham `>`: tek başına `<...>` taraması bu etiketi kısa gösterebilir.
+_QUOTED_GT = re.compile(rb"=\s*(?:\"[^\"<]*>|'[^'<]*>)")
+_QUOTED_OR_END = re.compile(rb"\"[^\"]*\"|'[^']*'|>")
+_MAX_QUOTED_GT_CHECKS = 256
+
+
+class _TagScanner:
+    """Ayrıştırmadan ÖNCE en uzun başlangıç etiketini sınırlar (denetim YK-04).
+
+    expat ve ElementTree bir etiketin TÜM özniteliklerini (ve xmlns bildirimlerini) `start` olayından önce
+    bellekte kurar; küçük bir dosyadaki tek etiket yüzlerce MB tutabilir. Burada akışla, parça sınırlarına
+    duyarlı (`limit` bayt örtüşme) doğrusal tarama yapılır: `<ad` ile başlayıp `limit` bayt boyunca `<`
+    veya `>` görmeyen etiket reddedilir. Tırnaklı değerde ham `>` ile etiketi bölerek kaçma, ayrı ve
+    sayısı sınırlı bir kesin ölçümle kapatılır (meşru dosyada yoktur: Excel ve LibreOffice `&gt;` yazar).
+    Yorum, CDATA ve işleme yönergesi etiket sayılmaz (`<` ardından ad karakteri aranır)."""
+
+    __slots__ = ("checks", "limit", "long_tag", "started", "tail")
+
+    def __init__(self, limit: int) -> None:
+        self.limit = limit
+        self.long_tag = re.compile(rb"<[A-Za-z_:\x80-\xff][^<>]{%d}" % limit)
+        self.tail = b""
+        self.started = False
+        self.checks = 0
+
+    def feed(self, chunk: bytes) -> None:
+        if not self.started:
+            self._check_prolog(chunk)
+            self.started = True
+        window = self.tail + chunk
+        if self.long_tag.search(window):
+            raise _invalid("XLSX bölümünde aşırı uzun etiket var.")
+        for match in _QUOTED_GT.finditer(window):
+            self.checks += 1
+            if self.checks > _MAX_QUOTED_GT_CHECKS:
+                raise _invalid("XLSX bölümünde olağandışı etiket yapısı var.")
+            self._measure(window, window.rfind(b"<", 0, match.start()))
+        self.tail = window[-(self.limit + 16) :]
+
+    def _measure(self, window: bytes, start: int) -> None:
+        if start < 0:
+            raise _invalid("XLSX bölümünde aşırı uzun etiket var.")
+        for token in _QUOTED_OR_END.finditer(window, start):
+            if token.start() - start > self.limit:
+                break
+            if token.group() == b">":
+                if token.end() - start > self.limit:
+                    break
+                return
+        else:
+            if len(window) - start <= self.limit:
+                return  # etiket sonraki parçada biter; örtüşen kuyruk onu yeniden görür
+        raise _invalid("XLSX bölümünde aşırı uzun etiket var.")
+
+    @staticmethod
+    def _check_prolog(chunk: bytes) -> None:
+        head = chunk[3:] if chunk.startswith(b"\xef\xbb\xbf") else chunk
+        if head.startswith((b"\xff\xfe", b"\xfe\xff")) or b"\x00" in head[:8] or head.lstrip()[:1] != b"<":
+            raise _invalid("XLSX bölümü UTF-8 değil.")
+        declared = _XML_DECL_ENCODING.match(head.lstrip())
+        if declared and declared.group(1).decode("ascii", "replace").lower() not in _ASCII_COMPATIBLE:
+            raise _invalid("XLSX bölümü desteklenmeyen kodlamada.")
 
 
 def _count_elements(buffer: bytes | bytearray, pattern: re.Pattern[bytes], maximum: int) -> int:
@@ -292,7 +392,7 @@ def check_zip(data: bytes, limits: ImportLimits = DEFAULT_LIMITS) -> None:
                     continue
                 cap = _part_limit(info.filename, limits)
                 if cap is None:
-                    raise _invalid("XLSX içinde izin verilmeyen bölüm var.")
+                    raise _invalid("XLSX içinde geçersiz bölüm adı var.")
                 if info.file_size > cap:
                     raise _invalid("XLSX içindeki bir bölüm izin verilen boyuttan büyük.")
                 caps[info.filename] = cap
@@ -306,6 +406,7 @@ def check_zip(data: bytes, limits: ImportLimits = DEFAULT_LIMITS) -> None:
                     continue
                 scanned = info.filename in {_STYLES, _SHARED_STRINGS}
                 buffer = bytearray() if scanned else None
+                tags = _TagScanner(limits.max_tag_bytes) if _is_parsed(info.filename) else None
                 part = 0
                 with archive.open(info) as stream:
                     while chunk := stream.read(_CHUNK):
@@ -317,6 +418,8 @@ def check_zip(data: bytes, limits: ImportLimits = DEFAULT_LIMITS) -> None:
                             raise _invalid("XLSX açıldığında çok büyük (en çok 50 MB).")
                         if buffer is not None:
                             buffer.extend(chunk)
+                        if tags is not None:
+                            tags.feed(chunk)
                 if buffer is not None:
                     _scan_part(info.filename, buffer, limits)
     except ImportFileError:
