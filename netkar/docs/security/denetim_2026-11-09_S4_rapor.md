@@ -287,3 +287,76 @@ Dosyalar oturumun geçici dizinindedir: `/tmp/claude-0/-home-user-hyt/9e0dcdb7-1
 - `test_poc_cursor_is_unsigned_plain_json_and_portable_across_tenants`: çözülmüş imleç düz JSON; başka kiracıda 200; `1E+999999` değerli uydurma imleç 200.
 - `test_poc_forged_cursor_content_runs_engine_before_422`: doğru parmak izli, `NaN` değerli imleç motoru 1 kez çalıştırıp 422.
 - `test_ok_errors_do_not_reflect_input` (6 durum) ve `test_ok_cross_account_same_tenant_barcode_and_order_404` geçti.
+
+## Kapanış doğrulaması (2026-11-09)
+
+- Doğrulanan sürüm: `ddd528b` ("NetKâr S4: bağlantı havuzu kilitlenmesini kapat (Y-01) ve rapor düzeltmeleri"). Kapsam: koordinatörün bildirdiği Y-01, O-01 (kısmi), D-01, D-02, B-01 düzeltmeleri ve yeni panel alanları (`settings_configured`, `tariff_missing_line_count`, `estimated_line_count`, `shipping_missing`, `loss_reason`). Y-02, O-02, O-03, O-04 bilinçli olarak kapsam dışı (ayrı P0 kart).
+- Okunan değişiklikler: `app/core/ratelimit.py`, `app/db/session.py`, `app/main.py`, `app/core/errors.py`, `app/core/config.py`, `app/services/report_gate.py` (yeni), `app/services/profit_report.py`, `app/api/v1/profit.py`, `app/services/profit_views.py`, `app/api/v1/profit_schemas.py`, `tests/test_denetim_s4_kapanis.py`.
+- Yöntem: ilk turun PoC dosyası (`test_poc_s4.py`) değiştirilmeden yeniden çalıştırıldı (artık başarısız olan `test_poc_*` testi = gözlem ortadan kalktı); atlatma denemeleri için yeni repo dışı dosya `test_poc_s4_kapanis.py` ve `cancel_check.py` yazıldı. Kod ve test dosyalarına dokunulmadı.
+- Tüm API test paketi (`uv run pytest -q`, `ddd528b`): 1502 geçti, 6 atlandı (reklam, bilinçli), 0 kaldı. İlk turun PoC'si: 6 `test_poc_*` artık başarısız (Y-01, O-01 bağlantı, D-01, B-01 gözlemleri ortadan kalktı), alan PoC'leri (Y-02, O-02, O-03, O-04, B-02) hâlâ geçiyor (kapsam dışı). Yeni atlatma PoC'leri: 9 test (2'si bilinçli olarak bulguyu kanıtlamak için sınır koşulunu yazdırır).
+
+### Bulgu durumu
+
+| Bulgu | Durum | Kanıt |
+|---|---|---|
+| Y-01 havuz kilitlenmesi | KAPANDI | Sayaç ayrı havuzda (`create_rate_limit_engine`: 5 bağlantı, taşma yok, 2 sn); ana havuz zaman aşımı 5 sn ve `PoolTimeoutError` -> 503 `db-busy`. İlk turun PoC'si: 20/30/45 eşzamanlı `summary` artık 0,2-0,4 sn'de biter, hiç 500 yok (kapı nedeniyle 2-6 x 200, gerisi 429 `report-in-progress`); 20'li dalgada `rate_limits` sayacı 20 (önceden 0); şablon ucu 20 x 200 (önceden 20 x 500); 45 istek altında `/v1/health/ready` 0,004 sn (önceden 28,9 sn), "idle in transaction" 0 (önceden 20). Karışık yük (60 rapor 5 farklı uçta + 20 şablon + 20 kimliksiz giriş, aynı anda, 100 istek): 0,77 sn, hiç 500 yok. Kalan kapasite riski YD-01. |
+| O-01 motor maliyeti | KISMEN | Kapandı: motor sırasında bağlantı iade ediliyor (PoC "idle in transaction" 0); kiracı başına 2 ve süreç başına 4 beklemeyen yuva (paralel motor ve bellek tavanı süreç başına 4 rapor); motor iş parçacığı en çok 4 olduğu için paylaşılan 40'lık iş parçacığı havuzu riski pratikte kapandı. Açık: önbellek yok, her sayfa ve her uç motoru yeniden çalıştırıyor; kapı adil değil (YO-01). |
+| D-01 sipariş dönemi tavanı | KAPANDI | `default_order_period` 92 günü aşan dönemsiz siparişte motoru çalıştırmadan 422; ilk turun PoC'si artık 422 alıyor (önceden 274 gün). |
+| D-02 zarar süzgeci | KAPANDI | `loss_reason` (`net_profit` / `contribution_before_cost`); PoC: maliyetsiz, katkısı negatif ürün (`8681000055555`) `filter=loss` içinde `loss_reason=contribution_before_cost`, `net_profit=null`. Alan açısından doğru: ürün maliyeti negatif olamayacağı için zarar kesin; katkı pozitif ve maliyet eksikse `null` (belirsiz) dönüyor, uydurma yok. |
+| D-03 READ COMMITTED | AÇIK (kapsam dışı) | Değişiklik yok. |
+| B-01 imleç | KAPANDI | AES-256-GCM; anahtar `derive_key(master, "report-cursor")` = HKDF-SHA256, `info="netkar:report-cursor"` (alan şifreleme anahtarından ayrı); 96 bit rastgele nonce (`os.urandom(12)`, her imleçte farklı, PoC); AAD = `tenant|account|` + sorgu parmak izi; parmak izi bileşenleri `|` içeremez (literal alanlar, barkod deseni), bu yüzden AAD birleştirmesi belirsiz değil. PoC: nonce, şifreli metin veya etikette tek bit değişimi, kesilmiş imleç, başka sıralama, başka dönem, başka uç (alerts), aynı kiracının başka hesabı: hepsi 422 ve motor çalışmadan; geçerli imlecin tekrarı 200 (beklenen). Barkod ve net kâr şifreli metinde görünmüyor. En uzun olası imleç 336 karakter (200 karakterlik barkod), sınır 400. Not YB-02. |
+| B-02 - B-05 | AÇIK (kapsam dışı, bilgi) | Değişiklik yok. |
+| Y-02, O-02, O-03, O-04 | AÇIK (ayrı P0 kart) | İlk turun alan PoC'leri değişmeden geçiyor. Yeni panel alanları Y-02 sunum kuralını destekliyor (`settings_configured=false`, `tariff_missing_line_count`, `shipping_missing`) ama motor sonucu ve yanlış `BEKLENMEYEN_KESINTI` aynı; hizmet bedelinin 0 olması hâlâ ayrı bir bayrakla gösterilmiyor (yalnız `settings_configured=false` ima ediyor). |
+
+### Atlatma denemeleri
+
+| Deneme | Sonuç |
+|---|---|
+| Sayaç havuzu doluyken hız sınırı devre dışı kalıyor mu (fail-open)? | HAYIR, kapalı tarafta başarısız (fail-closed). `RateLimiter._engine.connect` `PoolTimeoutError` verecek şekilde değiştirildiğinde rapor 503 `rate-limit-busy` + `Retry-After: 2` ve motor HİÇ çalışmadı; giriş ucu da 503. Sayaçsız geçen istek yok. |
+| Kapıyı dolu tutup başka kiracıları dışarıda bırakmak | MÜMKÜN: YO-01. |
+| Kapı yuvası sızıntısı (hata, iptal) | Hata ve anyio iptalinde yuva doğru bırakılıyor (geliştiricinin testleri + PoC). anyio iptal kapsamıyla iptalde yuva motor iş parçacığı BİTENE kadar tutuluyor (doğru). Yerel `asyncio.Task.cancel()` ile iptalde yuva iş parçacığı hâlâ çalışırken bırakılıyor: YB-01. |
+| İstemci kopması | Starlette 1.10 `BaseHTTPMiddleware` ve uvicorn HTTP/1.1, istemci kopunca uygulama görevini iptal etmiyor (kopma yalnız `receive` ile bildiriliyor); bu yüzden kopma yoluyla yuva boşaltılamıyor (kod incelemesi; canlı uvicorn ile denenmedi). |
+| Kapıdan kaçan motor yolu | Yok: `period_profit` API'de yalnız `_report` içinden, kapı altında çağrılıyor (`product_profit` kullanılmıyor). Kapı reddi hız sınırından SONRA olduğu için reddedilen istekler de sayılıyor. |
+| RLS bağlamı bağlantı iadesinden sonra | Doğru. Commit sonrası DB'ye dokunan yollar yalnız `products` ve `products/{barcode}` başlık sorgusu; ikisinde de önce `_restore_context`. PoC: başlık sorgusunda `current_setting('app.tenant_id')` isteği yapan kiracı. `_restore_context` boşa çıkarıldığında başlıklar `null` geliyor (sızıntı değil, kapalı tarafta başarısızlık; sorgular ayrıca açık `tenant_id` süzgeci taşıyor). `summary`, `orders`, `alerts` iadeden sonra DB'ye dokunmuyor. |
+| İmleç: kiracılar arası, hesaplar arası, sorgular arası kullanım ve sahtecilik | Kapalı (B-01 satırı). |
+| Ana havuz tükenince 500 | Kapalı: 503 `db-busy` + `Retry-After` (geliştiricinin testi; PoC'de ana havuz 45 istekte bile tükenmedi). |
+
+### Yeni bulgular
+
+| No | Ciddiyet | Başlık | Konum | Kanıt |
+|---|---|---|---|---|
+| YO-01 | Orta | Süreç kapısı adil değil: iki kiracı (her biri 2 yuva) süreçteki 4 rapor yuvasını doldurunca diğer TÜM kiracılar 503 `report-busy` alır | `app/services/report_gate.py:41-60`; `app/core/config.py` (`profit_report_tenant_concurrency=2`, `profit_report_process_concurrency=4`) | PoC |
+| YD-01 | Düşük | Sayaç havuzu (5 bağlantı) tüm hız sınırlı uçların ortak darboğazı: tek anahtardaki satır kilidi beklemesi havuzu doldurur, başka anahtarlar (giriş dahil) 2 sn sonra 503 | `app/db/session.py` (`create_rate_limit_engine`), `app/core/ratelimit.py:49-61` | PoC (yapay kilitle) |
+| YB-01 | Bilgi | Yerel görev iptalinde (`task.cancel()`) yuva, motor iş parçacığı bitmeden bırakılıyor | `app/services/report_gate.py:61-68`; `app/services/profit_report.py:70` | PoC (birim) |
+| YB-02 | Bilgi | İmleç base64 kodlaması kanonik değil: sona `==` ya da araya geçersiz karakter eklenmiş imleç kabul ediliyor (çözülen bayt aynı, etiket geçerli) | `app/services/profit_views.py` (`CursorCodec.decode`, `urlsafe_b64decode` doğrulamasız) | PoC |
+
+#### YO-01 (Orta) Rapor kapısında kiracılar arası açlık
+
+**Açıklama:** Kapı kiracı başına 2, süreç başına 4 yuva verir ve beklemez. Motoru uzun süren (büyük veri: 92 gün 30.000 satırda yaklaşık 10 sn) iki kiracı, her biri 2 eşzamanlı istekle, 4 yuvanın hepsini tutar; üçüncü kiracının (küçük, ucuz raporu olan dahil) her rapor isteği hemen 503 alır. PoC (`test_two_tenants_fill_process_slots_and_starve_third`): A ve B kiracısı ikişer `summary` ile motoru bekletirken C'nin isteği 503 `report-busy`, `active=4`. Dakikada 60 istek sınırı bunu durdurmaz: 10 sn süren raporla bir yuvayı sürekli dolu tutmak dakikada 6 istek ister. Kötü niyet gerekmez: aynı süreçte iki büyük satıcının olağan pano kullanımı küçük satıcıları sürekli 503'e düşürebilir. Y-01'e göre etki çok daha dardır (yalnız rapor uçları, kimlik doğrulama ve diğer uçlar çalışıyor), bu yüzden Orta.
+
+**Düzeltme önerisi:** (1) O-01'in açık kalan önbellek maddesi asıl çözümdür (aynı dönem için tekrarlanan motor çalışması yuvayı tutmaz). (2) Adalet: süreç yarıdan fazla doluyken kiracı başına yuva 1'e insin (yalnız boşta iken 2); ya da kiracı başına en az bir yuva ayrılmış kısa bekleme kuyruğu (örn. en çok 2 sn, sonra 503). (3) Maliyet tahmini: besleyiciden önce satır sayısı (`count(*)`) ile büyük raporlar ayrı, daha küçük bir "ağır rapor" havuzuna yönlendirilsin, küçük raporlar ayrı yuvalarla korunsun. (4) Süreç sayısı ve yuva sayısı dağıtımda birlikte ayarlanmalı (sınırlar süreç içi).
+
+**Test önerisi:** İki kiracı motoru bekletirken üçüncü kiracının raporu 200 almalı (en az bir yuva ayrılmış) ya da kısa beklemeden sonra 200.
+
+#### YD-01 (Düşük) Sayaç havuzu tek darboğaz
+
+**Açıklama:** Hız sınırı sayacı artık 5 bağlantılık ayrı havuzdadır ve dolunca kapalı tarafta 503 verir (doğru güvenlik tercihi). Ancak aynı (anahtar, pencere) satırına eşzamanlı UPSERT'ler satır kilidinde sıraya girer ve beklerken havuz bağlantısını tutar. PoC (`test_limiter_pool_head_of_line_blocking_by_hot_row`): kiracı A'nın rapor sayacı satırı ayrı bir işlemde kilitliyken 6 eşzamanlı rapor isteği 5 sayaç bağlantısını doldurdu; BAŞKA anahtarlı kimliksiz giriş isteği 2,01 sn sonra 503 `rate-limit-busy` aldı. Kilit bu PoC'de yapaydır; saldırganın satırı uzun süre kilitleyemeyeceği için gerçekte havuzu doldurmak çok yüksek hızda (tek anahtara saniyede binlerce istek) yük gerektirir; bu ölçek bu denetimde üretilmedi (doğrulanmadı). Etki: bu durumda giriş dahil tüm hız sınırlı uçlar 503 olur (sayaç sistemi kiracılar ve kimliksiz istekler için ortak).
+
+**Düzeltme önerisi:** Sayaç bağlantılarında `SET lock_timeout = '200ms'` ve `statement_timeout` (kilit beklemesi bağlantıyı uzun tutmasın; aşımda yalnız o anahtarın isteği 503 alsın); havuzu 10 civarına büyütmek; kimliksiz uçlar (giriş, kayıt) için ters vekil düzeyinde IP hız sınırı (sayaç havuzuna ulaşmadan); uzun vadede sayacın bellek içi/Redis ön kovası.
+
+**Test önerisi:** Bir sayaç satırı kilitliyken başka anahtarlı istek 1 sn altında yanıt almalı (200 veya 429), kilitli anahtarın istekleri `lock_timeout` sonrası 503.
+
+#### YB-01 (Bilgi) Yerel iptalde yuva erken bırakılıyor
+
+`cancel_check.py`: anyio iptal kapsamıyla (`move_on_after`) iptalde yuva motor iş parçacığı bitene dek tutuluyor (`active=1`, sonra 0); yerel `asyncio.Task.cancel()` ile iptalde yuva hemen bırakılıyor (`active=0`) ama iş parçacığı çalışmaya devam ediyor. Bu dağıtımda (uvicorn + `BaseHTTPMiddleware`) istemci kopması uygulama görevini iptal etmediği için istismar yolu bulunamadı; sunucu veya ara katman değişirse (kopmada görevi iptal eden ASGI sunucusu) kapı atlatılıp sınırsız arka plan motoru biriktirilebilir. Öneri: yuvanın serbest bırakılmasını iş parçacığının bitişine bağlamak (motoru kendi `CapacityLimiter`'ı ile çalışan ayrı bir yürütücüde, yuvayı iş parçacığının sonunda bırakan bir sarmalayıcıyla) ve bunu yerel iptalle test etmek.
+
+#### YB-02 (Bilgi) Kanonik olmayan imleç kodlaması
+
+`base64.urlsafe_b64decode` doğrulamasız çalıştığı için geçersiz karakterler atılıyor ve fazla dolgu kabul ediliyor; aynı imlecin farklı yazımları 200 alıyor. Etiket doğrulaması aynı baytlar üzerinde yapıldığı için sahtecilik veya bütünlük etkisi yok. Öneri: `binascii.a2b_base64(..., strict_mode=True)` ya da `[A-Za-z0-9_-]` deseni ile kanonik biçim zorlanabilir (önbellek anahtarı veya log eşlemesinde imleç kullanılırsa önem kazanır).
+
+### Sonuç (Kapanış doğrulaması)
+
+- Y-01 kapandı; yerine gelen sayaç havuzu ve rapor kapısı fail-closed davranıyor, sayaçsız geçen veya motoru kapı dışında çalıştıran yol bulunamadı. RLS bağlamı bağlantı iadesinden sonra her DB yolunda yeniden kuruluyor; imleç mühürleme (AES-256-GCM, HKDF ile amaç anahtarı, 96 bit rastgele nonce, kiracı/hesap/sorgu AAD) doğru.
+- Kapanan: Y-01, D-01, D-02, B-01. Kısmen: O-01 (önbellek ve adalet eksik). Açık (kapsam dışı): Y-02 (Yüksek, alan), O-02, O-03, O-04, D-03, B-02 - B-05.
+- Yeni bulgular: 4 (Orta 1: YO-01; Düşük 1: YD-01; Bilgi 2: YB-01, YB-02). Yeni Kritik veya Yüksek yok.
+- Güvenlik açısından merge engeli KALMADI (açık Yüksek güvenlik bulgusu yok). Açık tek Yüksek bulgu Y-02'dir (alan doğruluğu): kod merge'ünü engellemez, panelde net kâr gösterilmeden önce yayın engelidir. YO-01, büyük satıcılar canlıya alınmadan (önbellek ile birlikte) ele alınmalı.
