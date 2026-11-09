@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import os
 import re
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
@@ -20,9 +21,12 @@ from decimal import Decimal, InvalidOperation
 from typing import Literal
 from uuid import UUID
 
+from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.crypto import derive_key
 from app.models import Order, OrderLine, Product
 from app.profit.enums import Status, WarningCode
 from app.profit.results import LineResult, ProductTotals, ProfitResult
@@ -95,36 +99,69 @@ def resolve_period(
     return first, last
 
 
+def default_order_period(days: tuple[date, date]) -> tuple[date, date]:
+    """Sipariş ucunda dönem verilmediğinde siparişin kendi günleri; aralık yine `MAX_PERIOD_DAYS` ile
+    sınırlıdır (D-01).
+
+    Aşılırsa kullanıcı start/end vermelidir (motor hiç çalışmaz).
+    """
+    first, last = days
+    if (last - first).days + 1 > MAX_PERIOD_DAYS:
+        raise PeriodError(
+            "end",
+            "period_too_long",
+            f"Siparişin paketleri {MAX_PERIOD_DAYS} günden uzun bir aralığa yayılmış; start ve end verin.",
+        )
+    return first, last
+
+
 # --------------------------------------------------------------------------- imleç (keyset sayfalama)
 
 
 class CursorError(ValueError):
-    """İmleç bozuk ya da başka bir sorguya (sıralama, süzgeç, dönem) ait."""
+    """İmleç bozuk, başka bir sorguya (sıralama, süzgeç, dönem) ya da başka kiracıya/hesaba ait."""
 
 
-def encode_cursor(fingerprint: str, parts: Sequence[str]) -> str:
-    """Son öğenin sıralama anahtarı + sorgu parmak izi; opak, URL güvenli."""
-    raw = json.dumps({"f": fingerprint, "k": list(parts)}, separators=(",", ":"), ensure_ascii=False)
-    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+_NONCE_BYTES = 12
 
 
-def decode_cursor(cursor: str, fingerprint: str, size: int) -> list[str]:
-    try:
-        raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
-        data = json.loads(raw)
-    except (binascii.Error, ValueError):
-        raise CursorError from None
-    if not isinstance(data, dict):
-        raise CursorError
-    parts = data.get("k")
-    if (
-        data.get("f") != fingerprint
-        or not isinstance(parts, list)
-        or len(parts) != size
-        or not all(isinstance(p, str) and len(p) <= 200 for p in parts)
-    ):
-        raise CursorError
-    return parts
+class CursorCodec:
+    """İmleci mühürler: AES-256-GCM (şifreleme + doğrulama etiketi), amaca özel anahtar, kiracı/hesap bağlı.
+
+    - Opak: son öğenin sıralama değeri (net kâr) ve barkodu URL'de düz metin görünmez.
+    - Bütünlük: etiket doğrulanmadan içerik ayrıştırılmaz; uydurma ya da değiştirilmiş imleç reddedilir.
+    - Bağlama: kiracı, hesap ve sorgu parmak izi AAD'dir; başka kiracı/hesap/sorgunun imleci çözülemez.
+    Anahtar `derive_key(master, "report-cursor")` ile türetilir (alan şifreleme anahtarından ayrı).
+    """
+
+    def __init__(self, master: bytes, tenant_id: UUID, account_id: UUID) -> None:
+        self._aead = AESGCM(derive_key(master, "report-cursor"))
+        self._binding = f"{tenant_id}|{account_id}|".encode()
+
+    def encode(self, fingerprint: str, parts: Sequence[str]) -> str:
+        """Son öğenin sıralama anahtarı; opak, URL güvenli, dolgusuz."""
+        nonce = os.urandom(_NONCE_BYTES)
+        payload = json.dumps(list(parts), separators=(",", ":"), ensure_ascii=False).encode()
+        sealed = self._aead.encrypt(nonce, payload, self._binding + fingerprint.encode())
+        return base64.urlsafe_b64encode(nonce + sealed).decode().rstrip("=")
+
+    def decode(self, cursor: str, fingerprint: str, size: int) -> list[str]:
+        try:
+            raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
+            data = json.loads(
+                self._aead.decrypt(
+                    raw[:_NONCE_BYTES], raw[_NONCE_BYTES:], self._binding + fingerprint.encode()
+                )
+            )
+        except (binascii.Error, ValueError, InvalidTag):
+            raise CursorError from None
+        if (
+            not isinstance(data, list)
+            or len(data) != size
+            or not all(isinstance(p, str) and len(p) <= 200 for p in data)
+        ):
+            raise CursorError
+        return data
 
 
 def page_after[T](
@@ -144,6 +181,19 @@ SortField = Literal["net_profit", "net_margin", "sales", "units"]
 SortOrder = Literal["asc", "desc"]
 ProductFilter = Literal["all", "loss", "missing_cost"]
 Basis = Literal["estimated", "settled", "mixed", "none"]
+LossReason = Literal["net_profit", "contribution_before_cost"]
+
+
+def loss_reason(t: ProductTotals) -> LossReason | None:
+    """Ürün zararda mı ve neden biliniyor.
+
+    `net_profit`: net kâr hesaplandı ve negatif. `contribution_before_cost`: maliyet girilmediği için net kâr
+    hesaplanamıyor ama maliyet hariç katkı zaten negatif; ürün maliyeti negatif olamayacağından zarar kesindir
+    (docs/12 §7.4).
+    """
+    if t.net_profit is not None:
+        return "net_profit" if t.net_profit < 0 else None
+    return "contribution_before_cost" if t.contribution_before_cost < 0 else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +207,17 @@ class ProductRow:
     estimated_lines: int
     settled_lines: int
     adjusted_lines: int
+    # KARGO_TARIFESI_EKSIK uyarılı aktif satır sayısı (motor çıktısından sayım; yeni kural değil).
+    tariff_missing_lines: int = 0
+
+    @property
+    def shipping_missing(self) -> bool:
+        """En az bir aktif satırda kargo tarifesi tanımsız (gönderi kargosu 0 ve `eksik` kaynaklı)."""
+        return self.tariff_missing_lines > 0
+
+    @property
+    def loss_reason(self) -> LossReason | None:
+        return loss_reason(self.totals)
 
 
 def _basis(estimated: int, settled: int, adjusted: int) -> Basis:
@@ -185,11 +246,23 @@ def _total_expenses(p: ProductTotals) -> Decimal | None:
     )
 
 
+def tariff_missing_line_count(lines: Iterable[LineResult]) -> int:
+    """KARGO_TARIFESI_EKSIK uyarısı taşıyan aktif (iptal olmayan) satır sayısı."""
+    return sum(
+        1
+        for line in lines
+        if line.status is not Status.CANCELLED and WarningCode.CARGO_TARIFF_MISSING in line.warnings
+    )
+
+
 def build_product_rows(result: ProfitResult) -> list[ProductRow]:
     counts: dict[str, Counter[Status]] = {}
+    tariff_missing: Counter[str] = Counter()
     for line in result.lines:
         if line.status is not Status.CANCELLED:
             counts.setdefault(line.barcode, Counter())[line.status] += 1
+            if WarningCode.CARGO_TARIFF_MISSING in line.warnings:
+                tariff_missing[line.barcode] += 1
     rows = []
     for product in result.products:
         c = counts.get(product.barcode, Counter())
@@ -202,6 +275,7 @@ def build_product_rows(result: ProfitResult) -> list[ProductRow]:
                 estimated_lines=estimated,
                 settled_lines=settled,
                 adjusted_lines=adjusted,
+                tariff_missing_lines=tariff_missing[product.barcode],
             )
         )
     return rows
@@ -209,7 +283,7 @@ def build_product_rows(result: ProfitResult) -> list[ProductRow]:
 
 def filter_rows(rows: Iterable[ProductRow], name: ProductFilter) -> list[ProductRow]:
     if name == "loss":
-        return [r for r in rows if r.totals.net_profit is not None and r.totals.net_profit < 0]
+        return [r for r in rows if r.loss_reason is not None]
     if name == "missing_cost":
         return [r for r in rows if r.totals.cost_missing]
     return list(rows)
@@ -245,12 +319,13 @@ def product_page(
     limit: int,
     cursor: str | None,
     fingerprint: str,
+    codec: CursorCodec,
 ) -> tuple[list[ProductRow], str | None]:
-    """Sıralı ürün sayfası ve sonraki imleç. `rows` süzülmüş olmalıdır; imleç `fingerprint`'e bağlıdır."""
+    """Sıralı ürün sayfası ve sonraki imleç. `rows` süzülmüş olmalıdır; imleç parmak izine bağlıdır."""
     ordered = order_rows(rows, sort, order)
     cursor_key: tuple[object, ...] | None = None
     if cursor is not None:
-        flag, text, barcode = decode_cursor(cursor, fingerprint, 3)
+        flag, text, barcode = codec.decode(cursor, fingerprint, 3)
         raw: Decimal | None = None
         if flag not in ("0", "1"):
             raise CursorError
@@ -271,7 +346,7 @@ def product_page(
     if has_more:
         last = page[-1]
         value = sort_value(last, sort)
-        next_cursor = encode_cursor(
+        next_cursor = codec.encode(
             fingerprint,
             ["1", "", last.totals.barcode] if value is None else ["0", str(value), last.totals.barcode],
         )
@@ -306,13 +381,13 @@ def sort_lines(lines: Iterable[LineResult]) -> list[LineResult]:
 
 
 def lines_page(
-    lines: Sequence[LineResult], limit: int, cursor: str | None, fingerprint: str
+    lines: Sequence[LineResult], limit: int, cursor: str | None, fingerprint: str, codec: CursorCodec
 ) -> tuple[list[LineResult], str | None]:
     """Satırlar (sipariş no, paket, satır kimliği) sırasıyla; imleç son satırın anahtarıdır."""
     ordered = sort_lines(lines)
     cursor_key: tuple[object, ...] | None = None
     if cursor is not None:
-        number, package, line = decode_cursor(cursor, fingerprint, 3)
+        number, package, line = codec.decode(cursor, fingerprint, 3)
         try:
             cursor_key = (number, int(package), int(line))
         except ValueError:
@@ -321,7 +396,7 @@ def lines_page(
     next_cursor = None
     if has_more:
         last = page[-1]
-        next_cursor = encode_cursor(fingerprint, [last.order_number, str(last.package_id), str(last.line_id)])
+        next_cursor = codec.encode(fingerprint, [last.order_number, str(last.package_id), str(last.line_id)])
     return page, next_cursor
 
 
@@ -481,11 +556,11 @@ def alert_counts(alerts: Iterable[AlertItem]) -> dict[WarningCode, int]:
 
 
 def alerts_page(
-    alerts: Sequence[AlertItem], limit: int, cursor: str | None, fingerprint: str
+    alerts: Sequence[AlertItem], limit: int, cursor: str | None, fingerprint: str, codec: CursorCodec
 ) -> tuple[list[AlertItem], str | None]:
     cursor_key: tuple[object, ...] | None = None
     if cursor is not None:
-        scope, code, number, package, line = decode_cursor(cursor, fingerprint, 5)
+        scope, code, number, package, line = codec.decode(cursor, fingerprint, 5)
         try:
             cursor_key = (int(scope), code, number, int(package), int(line))
         except ValueError:
@@ -494,7 +569,7 @@ def alerts_page(
     next_cursor = None
     if has_more:
         k = _alert_key(page[-1])
-        next_cursor = encode_cursor(fingerprint, [str(k[0]), str(k[1]), str(k[2]), str(k[3]), str(k[4])])
+        next_cursor = codec.encode(fingerprint, [str(k[0]), str(k[1]), str(k[2]), str(k[3]), str(k[4])])
     return page, next_cursor
 
 

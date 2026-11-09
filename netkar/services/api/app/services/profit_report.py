@@ -54,9 +54,18 @@ async def period_profit(
     start: date,
     end: date,
     settings: ProfitSettings | None = None,
+    *,
+    release_connection: bool = False,
 ) -> PeriodReport:
-    """[start, end] (İstanbul günleri) için kâr motorunu veritabanı kayıtlarıyla çalıştırır."""
+    """[start, end] (İstanbul günleri) için kâr motorunu veritabanı kayıtlarıyla çalıştırır.
+
+    `release_connection`: besleyici okumaları bitince işlemi kapatıp bağlantıyı havuza iade eder; motor
+    bağlantısız ve "idle in transaction" kalmadan çalışır (denetim S4 O-01). İşlem yerel RLS bağlamı
+    commit ile sıfırlanır: bundan sonra veritabanına dokunacak çağıran `set_rls_context`'i yeniden kurmalıdır.
+    """
     feed = await build_profit_input(db, tenant_id, account_id, start, end, settings)
+    if release_connection:
+        await db.commit()
     # Motor saf ve CPU işidir (binlerce satırda yüzlerce ms): olay döngüsünü bloklamamak için iş parçacığında.
     result = await run_in_threadpool(calculate_profit, feed.profit_input)
     return PeriodReport(start, end, result, feed.notes)

@@ -24,6 +24,7 @@ from app.models import Role
 from app.services.auth import TOUCH_INTERVAL_SECONDS, AuthContext, lookup_session, touch_session
 from app.services.import_gate import ImportGate
 from app.services.marketplace_accounts import TrendyolClientFactory
+from app.services.report_gate import ReportGate
 from app.worker.queue import JobQueue
 
 
@@ -88,6 +89,11 @@ def get_import_gate(request: Request) -> ImportGate:
     return gate
 
 
+def get_report_gate(request: Request) -> ReportGate:
+    gate: ReportGate = request.app.state.report_gate
+    return gate
+
+
 def get_trendyol_factory(request: Request) -> TrendyolClientFactory:
     factory: TrendyolClientFactory = request.app.state.trendyol_client_factory
     return factory
@@ -102,6 +108,7 @@ EnvelopeDep = Annotated[EnvelopeCipher, Depends(get_envelope)]
 TrendyolFactoryDep = Annotated[TrendyolClientFactory, Depends(get_trendyol_factory)]
 JobQueueDep = Annotated[JobQueue, Depends(get_job_queue)]
 ImportGateDep = Annotated[ImportGate, Depends(get_import_gate)]
+ReportGateDep = Annotated[ReportGate, Depends(get_report_gate)]
 
 
 def client_ip(request: Request) -> str:

@@ -14,6 +14,7 @@ from decimal import Decimal
 from itertools import pairwise
 from itertools import product as cartesian
 from typing import Any, get_args
+from uuid import UUID
 
 import pytest
 
@@ -92,23 +93,27 @@ def test_resolve_period_invalid(start: Any, end: Any, name: Any, field: str, cod
 # --- imleç --------------------------------------------------------------------------------------------
 
 
+CODEC = views.CursorCodec(b"0123456789abcdef0123456789abcdef", UUID(int=1), UUID(int=2))
+
+
 def test_cursor_round_trip_and_rejections() -> None:
-    cursor = views.encode_cursor("fp", ["0", "12.50", "8681000000011"])
-    assert views.decode_cursor(cursor, "fp", 3) == ["0", "12.50", "8681000000011"]
+    """Ayrıntılı mühür testleri (kiracı/hesap bağlama, kurcalama) `test_denetim_s4_kapanis.py` içindedir."""
+    cursor = CODEC.encode("fp", ["0", "12.50", "8681000000011"])
+    assert CODEC.decode(cursor, "fp", 3) == ["0", "12.50", "8681000000011"]
     assert "=" not in cursor  # URL güvenli, dolgusuz
     bad = [
         (cursor, "other", 3),  # başka sorgunun imleci
         (cursor, "fp", 2),  # parça sayısı uyuşmuyor
         ("!!!", "fp", 3),  # base64 değil
-        (views.encode_cursor("fp", ["x" * 201]), "fp", 1),  # parça çok uzun
+        (CODEC.encode("fp", ["x" * 201]), "fp", 1),  # parça çok uzun
     ]
     for value, fp, size in bad:
         with pytest.raises(views.CursorError):
-            views.decode_cursor(value, fp, size)
+            CODEC.decode(value, fp, size)
     for raw in (b"[1,2]", b"not json", b'{"f":"fp","k":"x"}', b'{"f":"fp","k":[1,2,3]}'):
-        forged = base64.urlsafe_b64encode(raw).decode().rstrip("=")
+        forged = base64.urlsafe_b64encode(raw).decode().rstrip("=")  # mühürsüz: etiket doğrulanamaz
         with pytest.raises(views.CursorError):
-            views.decode_cursor(forged, "fp", 3)
+            CODEC.decode(forged, "fp", 3)
 
 
 # --- ürün listesi: sıralama, süzgeç, sayfalama ----------------------------------------------------------
@@ -169,7 +174,7 @@ def test_paging_walks_every_row_exactly_once_in_order(sort: Any, order: Any, lim
     seen: list[str] = []
     cursor = None
     for _ in range(50):
-        page, cursor = views.product_page(rows, sort, order, limit, cursor, "fp")
+        page, cursor = views.product_page(rows, sort, order, limit, cursor, "fp", CODEC)
         seen += [r.totals.barcode for r in page]
         if cursor is None:
             break
@@ -179,9 +184,9 @@ def test_paging_walks_every_row_exactly_once_in_order(sort: Any, order: Any, lim
 def test_paging_survives_rows_changing_between_pages() -> None:
     """Keyset imleci: araya yeni ürün girse bile görülen ürün tekrarlanmaz, kalan sırayla devam eder."""
     rows = synthetic_rows()
-    first, cursor = views.product_page(rows, "sales", "desc", 3, None, "fp")
+    first, cursor = views.product_page(rows, "sales", "desc", 3, None, "fp", CODEC)
     shrunk = [r for r in rows if r.totals.barcode not in {x.totals.barcode for x in first[:1]}]
-    second, _ = views.product_page(shrunk, "sales", "desc", 3, cursor, "fp")
+    second, _ = views.product_page(shrunk, "sales", "desc", 3, cursor, "fp", CODEC)
     assert not {r.totals.barcode for r in first} & {r.totals.barcode for r in second}
 
 
@@ -196,7 +201,7 @@ def test_paging_survives_rows_changing_between_pages() -> None:
 )
 def test_product_cursor_with_forged_value_is_rejected(forged: list[str]) -> None:
     with pytest.raises(views.CursorError):
-        views.product_page(synthetic_rows(), "net_profit", "asc", 5, views.encode_cursor("fp", forged), "fp")
+        views.product_page(synthetic_rows(), "net_profit", "asc", 5, CODEC.encode("fp", forged), "fp", CODEC)
 
 
 def test_filters() -> None:
@@ -282,14 +287,14 @@ def test_alerts_are_sorted_deterministically_and_paged() -> None:
     assert alerts == sorted(alerts, key=views._alert_key)
     walked, cursor = [], None
     for _ in range(100):
-        page, cursor = views.alerts_page(alerts, 2, cursor, "fp")
+        page, cursor = views.alerts_page(alerts, 2, cursor, "fp", CODEC)
         walked += page
         if cursor is None:
             break
     assert walked == alerts
     assert sum(views.alert_counts(alerts).values()) == len(alerts)
     with pytest.raises(views.CursorError):
-        views.alerts_page(alerts, 2, views.encode_cursor("fp", ["x", "A", "1", "1", "1"]), "fp")
+        views.alerts_page(alerts, 2, CODEC.encode("fp", ["x", "A", "1", "1", "1"]), "fp", CODEC)
 
 
 def test_every_engine_warning_code_has_a_message_and_unavailable_codes_are_not_engine_codes() -> None:
@@ -302,13 +307,13 @@ def test_lines_page_orders_and_pages_and_rejects_foreign_cursors() -> None:
     lines = list(golden_result("G23").lines)
     walked, cursor = [], None
     for _ in range(20):
-        page, cursor = views.lines_page(lines, 1, cursor, "fp")
+        page, cursor = views.lines_page(lines, 1, cursor, "fp", CODEC)
         walked += page
         if cursor is None:
             break
     assert walked == views.sort_lines(lines) and len(walked) == len(lines)
     with pytest.raises(views.CursorError):
-        views.lines_page(lines, 1, views.encode_cursor("fp", ["1", "abc", "2"]), "fp")
+        views.lines_page(lines, 1, CODEC.encode("fp", ["1", "abc", "2"]), "fp", CODEC)
 
 
 def test_comparison_summary_and_order_totals() -> None:

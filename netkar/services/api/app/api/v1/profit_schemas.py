@@ -279,6 +279,14 @@ class SummaryOut(ApiModel):
     totals: PeriodTotalsOut
     status_counts: StatusCountsOut
     missing_cost_line_count: int
+    settings_configured: bool = Field(
+        description="Kiracı kâr ayarları (kargo tarifesi, hizmet bedeli) tanımlı mı. Ayar tablosu gelene dek false: "
+        "motor varsayılanları kullanılır ve net kâr kargo ve hizmet bedeli hariç sunulmalıdır."
+    )
+    tariff_missing_line_count: int = Field(
+        description="KARGO_TARIFESI_EKSIK uyarılı aktif satır sayısı (gönderi kargosu 0 ve eksik kaynaklı)."
+    )
+    estimated_line_count: int = Field(description="Durumu tahmini (ekstresiz) olan satır sayısı.")
     feed_notes: FeedNotesOut
 
 
@@ -300,6 +308,14 @@ class ProductProfitItemOut(ApiModel):
     roas: Amount | None
     breakeven_roas: Amount | None
     cost_missing: bool
+    loss_reason: Literal["net_profit", "contribution_before_cost"] | None = Field(
+        description="Ürün zararda ise nedeni. net_profit: net kâr hesaplandı ve negatif. contribution_before_cost: "
+        "maliyet girilmediği için net kâr hesaplanamıyor ama maliyet hariç katkı negatif (zarar kesin). "
+        "Zararda değilse ya da belirsizse null."
+    )
+    shipping_missing: bool = Field(
+        description="Ürünün en az bir aktif satırında KARGO_TARIFESI_EKSIK var (gönderi kargosu 0 ve eksik kaynaklı)."
+    )
     basis: BasisLabel = Field(
         description="estimated: hiç ekstreli satır yok; settled: tüm aktif satırlar ekstreli (settled/adjusted); "
         "mixed: karışık; none: aktif satır yok."

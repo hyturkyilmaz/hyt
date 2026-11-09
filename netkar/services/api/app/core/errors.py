@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+log = logging.getLogger(__name__)
 
 PROBLEM_MEDIA_TYPE = "application/problem+json"
 _TYPE_PREFIX = "urn:netkar:problem:"
@@ -78,6 +82,20 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ProblemError)
     async def _problem(request: Request, exc: ProblemError) -> JSONResponse:
         return problem_response(request, exc.status, exc.title, exc.slug, exc.detail, exc.headers, exc.extra)
+
+    @app.exception_handler(PoolTimeoutError)
+    async def _pool_timeout(request: Request, exc: PoolTimeoutError) -> JSONResponse:
+        # Ana bağlantı havuzu tükendi (denetim S4 Y-01): ayrıntı (havuz boyutu) yalnız logda; istemciye 503.
+        log.warning("db_pool_timeout path=%s", request.url.path)
+        retry_after = str(max(1, request.app.state.settings.db_busy_retry_after_seconds))
+        return problem_response(
+            request,
+            503,
+            "Hizmet yoğun",
+            "db-busy",
+            "Şu an çok sayıda istek işleniyor. Kısa süre sonra tekrar deneyin.",
+            headers={"Retry-After": retry_after},
+        )
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(request: Request, exc: StarletteHTTPException) -> JSONResponse:

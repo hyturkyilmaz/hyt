@@ -21,9 +21,10 @@ from app.core.middleware import CsrfMiddleware, RequestContextMiddleware, Securi
 from app.core.pwned import HibpPwnedChecker, NullPwnedChecker, PwnedPasswordChecker
 from app.core.ratelimit import RateLimiter
 from app.core.security import PasswordWorker
-from app.db.session import create_engine, create_sessionmaker
+from app.db.session import create_engine, create_rate_limit_engine, create_sessionmaker
 from app.services.import_gate import ImportGate
 from app.services.marketplace_accounts import TrendyolClientFactory, default_client_factory
+from app.services.report_gate import ReportGate
 from app.services.xlsx_stream import require_defusedxml
 from app.worker.queue import JobQueue, ProcrastinateJobQueue
 
@@ -61,19 +62,38 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        engine = create_engine(settings.database_url)
+        engine = create_engine(
+            settings.database_url,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_timeout=settings.db_pool_timeout_seconds,
+        )
         app.state.engine = engine
         app.state.sessionmaker = create_sessionmaker(engine)
-        app.state.rate_limiter = RateLimiter(engine)
+        # Hız sınırı sayacı oturum havuzundan AYRI havuz kullanır (denetim S4 Y-01, kilitlenme).
+        limiter_engine = create_rate_limit_engine(
+            settings.database_url,
+            pool_size=settings.rate_limit_pool_size,
+            pool_timeout=settings.rate_limit_pool_timeout_seconds,
+        )
+        app.state.rate_limiter_engine = limiter_engine
+        app.state.rate_limiter = RateLimiter(limiter_engine, settings.rate_limit_busy_retry_after_seconds)
         # CapacityLimiter olay döngüsüne bağlıdır; bu yüzden lifespan içinde üretilir.
         app.state.password_worker = PasswordWorker(settings.password_hash_concurrency)
         # Maliyet içe aktarma: süreç başına ayrıştırma yuvaları ve kiracı kilidi (denetim S3 Y-01).
         app.state.import_gate = ImportGate(
             settings.cost_import_parse_concurrency, settings.cost_import_retry_after_seconds
         )
+        # Rapor motoru: kiracı ve süreç başına beklemeyen eşzamanlılık kapısı (denetim S4 Y-01, O-01).
+        app.state.report_gate = ReportGate(
+            settings.profit_report_process_concurrency,
+            settings.profit_report_tenant_concurrency,
+            settings.profit_report_retry_after_seconds,
+        )
         try:
             yield
         finally:
+            await limiter_engine.dispose()
             await engine.dispose()
 
     app = FastAPI(

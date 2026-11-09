@@ -81,6 +81,7 @@ Seçenekler: (a) süreç içi sabit pencere, (b) PostgreSQL tablosu, (c) Redis. 
 - Sabit pencere (giriş ve TOTP 15 dk, kayıt ve sıfırlama 1 saat). Pencere sınırında en fazla 2x ani artış kabul edilen bir ödünleşimdir; kaba kuvvet için yeterlidir.
 - Anahtarlar: `login:ip:<hmac>`, `login:email:<hmac>`, `register:ip`, `reset:ip`, `reset:email`, `reset-confirm:ip`, `totp:user`. Anahtarlar HMAC özetidir; tabloda ham IP veya e-posta bulunmaz.
 - Sayaç kendi bağlantısında ve autocommit ile yazılır; isteğin işlemi geri alınsa bile deneme sayılır.
+- Sayaç, istek oturumundan AYRI küçük bir havuzdan (`RATE_LIMIT_POOL_SIZE`, taşma yok, `RATE_LIMIT_POOL_TIMEOUT_SECONDS` kısa) bağlanır: oturum bağlantısı tutulurken aynı havuzdan ikinci bağlantı istemek, havuz kadar eşzamanlı istekte tut-ve-bekle kilitlenmesi doğurur (denetim S4 Y-01). Ayrı havuz doluysa beklemeden 503 + `Retry-After` döner (sayılamayan istek geçirilmez).
 - Eşikler ayarlanabilirdir (`RATE_LIMIT_*`). Aşımda 429 + `Retry-After` (RFC 9457 gövdesiyle).
 - Eski pencereler `netkar.prune_rate_limits` periyodik görevi ile 24 saat sonra silinir (operasyonel sayaç, kullanıcı verisi değil).
 - İstemci IP'si: güvenilir vekil yapılandırması yoksa bağlantının eş adresi; vardır ise `X-Forwarded-For` sağdan sola güvenilir vekiller atlanarak okunur. (İlk sürümün `TRUST_PROXY_HEADERS` varsayımı BFF topolojisinde yanlış çıktı; bkz. ADR-0002, denetim Y-01.) IP sınırları gövde ayrıştırılmadan önce ASGI ara katmanında uygulanır.

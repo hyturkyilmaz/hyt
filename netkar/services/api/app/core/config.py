@@ -122,6 +122,22 @@ class Settings(BaseSettings):
     rate_limit_cost_template_tenant: int = Field(60, ge=1)
     # Kâr raporu uçları (/profit/*): kiracı başına DAKİKADA istek sayısı (her rapor isteği motoru çalıştırır).
     rate_limit_profit_report_tenant: int = Field(60, ge=1)
+    # Rapor eşzamanlılık kapısı (denetim S4 Y-01/O-01): beklemez, doluysa 429 (kiracı) ya da 503 (süreç).
+    # Her rapor motoru çalıştırır (CPU ve yüzlerce MB bellek); sınırlar süreç içidir (çok süreçte çarpılır).
+    profit_report_tenant_concurrency: int = Field(2, ge=1)
+    profit_report_process_concurrency: int = Field(4, ge=1)
+    profit_report_retry_after_seconds: int = Field(2, ge=1)
+    # Ana havuz (istek oturumları): havuz tükenince en çok bu kadar beklenir, sonra 503 + Retry-After.
+    # Varsayılan 30 sn kilitlenmeyi büyütüyordu (denetim S4 Y-01).
+    db_pool_size: int = Field(10, ge=1)
+    db_max_overflow: int = Field(10, ge=0)
+    db_pool_timeout_seconds: float = Field(5.0, gt=0)
+    db_busy_retry_after_seconds: int = Field(2, ge=1)
+    # Hız sınırı sayacının AYRI, küçük havuzu: sayaç yazımı oturum bağlantısı tutulurken ikinci bir
+    # bağlantı istemez (tut-ve-bekle kilitlenmesi olmaz). Zaman aşımı kısa; aşımda 503 + Retry-After.
+    rate_limit_pool_size: int = Field(5, ge=1)
+    rate_limit_pool_timeout_seconds: float = Field(2.0, gt=0)
+    rate_limit_busy_retry_after_seconds: int = Field(2, ge=1)
     # XLSX bölüm sınırları (denetim S3 Y-01): açılmış bayt sınırı BÖLÜM başına uygulanır; başlıktaki
     # boyuta güvenilmez, akışta sayılır. Gerekçe: 2 MiB'lik dosyada 10.000 satırlık gerçekçi bir maliyet
     # kitabı styles.xml ~ onlarca KB, sharedStrings.xml ~ 0,5 MB, sayfa ~ 3 MB tutar; sınırlar bunun

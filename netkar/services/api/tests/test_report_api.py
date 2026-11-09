@@ -738,7 +738,8 @@ async def test_engine_runs_off_the_event_loop_thread(
 
 
 def test_cursor_with_the_right_fingerprint_but_forged_contents_is_still_a_422(shop: Shop) -> None:
-    """İmleç opak ve imzasız: parmak izi doğru olsa bile içeriği bozuksa motor sonrası da reddedilir."""
+    """Doğru mühürlü (anahtar sahibi üretmiş) ama içeriği bozuk imleç: parmak izi geçse de 422."""
+    codec = views.CursorCodec(shop.api.client.app.state.settings.master_key, shop.tenant_id, shop.account_id)  # type: ignore[attr-defined]
     base = f"{START}|{END}"
     forged: dict[str, tuple[str, list[str]]] = {
         "products": ("products|net_profit|desc|all|" + base, ["0", "NaN", B1]),
@@ -746,7 +747,7 @@ def test_cursor_with_the_right_fingerprint_but_forged_contents_is_still_a_422(sh
         "alerts": ("alerts||" + base, ["1", "ZARAR", "1001", "x", "1"]),
     }
     for path, (fingerprint, parts) in forged.items():
-        cursor = views.encode_cursor(fingerprint, parts)
+        cursor = codec.encode(fingerprint, parts)
         r = call(shop, path, cursor=cursor)
         assert r.status_code == 422, path
         assert {"field": "cursor", "code": "cursor_invalid"} in r.json()["errors"]
