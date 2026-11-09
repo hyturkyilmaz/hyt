@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
-from app.profit.enums import InvoiceVatStatus, Source, Status, WarningCode
+from app.profit.enums import Certainty, InvoiceVatStatus, MissingItem, Source, Status, WarningCode
 
 
 def wire(name: str) -> Any:
@@ -42,6 +42,8 @@ class LineItems:
     variable_expenses: Decimal = wire("degisken_giderler")
     total_expenses: Decimal | None = wire("toplam_gider")
     contribution_before_cost: Decimal = wire("maliyet_haric_katki")
+    # K37: bilinen tüm giderlerle kâr (eksik kalem 0 sayılmaz, hariç tutulur). Tam satırda net kâra eşittir.
+    known_expenses_profit: Decimal = wire("eksik_giderler_haric_kar")
     net_profit: Decimal | None = wire("net_kar")
     net_margin_percent: Decimal | None = wire("net_kar_marji_yuzde")
 
@@ -102,13 +104,14 @@ class AdDetail:
 
 @dataclass(frozen=True, slots=True)
 class LineComparison:
-    """K23: ekstre gelmiş satırda tahmini ve kesin değerlerin karşılaştırması (KDV hariç)."""
+    """K23, K38: ekstre gelmiş satırda tahmini ve kesin değerlerin karşılaştırması (KDV hariç)."""
 
     commission_estimated: Decimal = wire("komisyon_tahmini")
     commission_actual: Decimal = wire("komisyon_kesin")
-    shipping_outbound_estimated: Decimal = wire("kargo_gonderi_tahmini")
+    # K38: tahmini tanımsızsa (tarife ya da hizmet bedeli ayarı yok) None; toplamlara girmez.
+    shipping_outbound_estimated: Decimal | None = wire("kargo_gonderi_tahmini")
     shipping_outbound_actual: Decimal | None = wire("kargo_gonderi_kesin")
-    platform_service_fee_estimated: Decimal = wire("platform_hizmet_bedeli_tahmini")
+    platform_service_fee_estimated: Decimal | None = wire("platform_hizmet_bedeli_tahmini")
     platform_service_fee_actual: Decimal | None = wire("platform_hizmet_bedeli_kesin")
     compared_estimated_total: Decimal = wire("karsilastirilan_tahmini_toplam")
     compared_actual_total: Decimal = wire("karsilastirilan_kesin_toplam")
@@ -127,6 +130,12 @@ class LineResult:
     status: Status = wire("durum")
     quantity: int = wire("adet")
     refunded_quantity: int = wire("adet_iade")
+    # K41: claim'siz `Return`'de bekleyen adet ve stoğa dönerse geri gelecek maliyet (yoksa 0 ve None).
+    pending_refund_quantity: int = wire("iade_kaydi_bekleyen_adet")
+    suspended_product_cost: Decimal | None = wire("askidaki_urun_maliyeti")
+    # K40: kesin, tahmini, eksik, iptal. K37: kaynağı `eksik` olan kalemler (kanonik sıra).
+    certainty: Certainty = wire("kesinlik")
+    missing_items: tuple[MissingItem, ...] = wire("eksik_kalemler")
     items: LineItems = wire("kalemler")
     vat: LineVat = wire("kdv")
     cash_flow: LineCashFlow = wire("nakit_akisi")
@@ -137,6 +146,24 @@ class LineResult:
     warnings: tuple[WarningCode, ...] = wire("uyarilar")
     # K29-K32 (düşük güven): bu satırda teyit bekleyen kural kimlikleri; hesaba tahmini katılmaz.
     pending_confirmation: tuple[str, ...] = wire("teyit_bekliyor")
+
+
+@dataclass(frozen=True, slots=True)
+class MissingCounts:
+    """K37: kalem başına eksik satır sayısı (ürün ve dönem)."""
+
+    product_cost: int = wire("urun_maliyeti")
+    outbound_shipping: int = wire("kargo_gonderi")
+    platform_service_fee: int = wire("platform_hizmet_bedeli")
+
+
+@dataclass(frozen=True, slots=True)
+class CertaintyCounts:
+    """K40: dönemin aktif satırlarının kesinlik dağılımı."""
+
+    certain: int = wire("kesin")
+    estimated: int = wire("tahmini")
+    missing: int = wire("eksik")
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,9 +185,12 @@ class ProductTotals:
     advertising_without_sales: Decimal = wire("reklam_satissiz")
     variable_expenses: Decimal = wire("degisken_giderler")
     contribution_before_cost: Decimal = wire("maliyet_haric_katki")
+    known_expenses_profit: Decimal = wire("eksik_giderler_haric_kar")
     net_profit: Decimal | None = wire("net_kar")
     net_margin_percent: Decimal | None = wire("net_kar_marji_yuzde")
     cost_missing: bool = wire("maliyet_eksik")
+    missing_line_counts: MissingCounts = wire("eksik_kalem_satir_sayilari")
+    certainty: Certainty = wire("kesinlik")
     advertising_spend: Decimal = wire("reklam_harcamasi")
     advertising_revenue: Decimal | None = wire("reklam_cirosu")
     roas: Decimal | None = wire("roas")
@@ -189,6 +219,25 @@ class PeriodCashFlow:
 
 
 @dataclass(frozen=True, slots=True)
+class FullLinesTotals:
+    """K39: yalnız tam satırların (eksik kalemsiz) kalem kalem toplamı; pay ve payda aynı satır kümesi."""
+
+    line_count: int = wire("satir_sayisi")
+    net_sales_excl_vat: Decimal = wire("net_satis_kdv_haric")
+    product_cost: Decimal = wire("urun_maliyeti")
+    commission: Decimal = wire("komisyon")
+    shipping_outbound: Decimal = wire("kargo_gonderi")
+    shipping_return: Decimal = wire("kargo_iade")
+    platform_service_fee: Decimal = wire("platform_hizmet_bedeli")
+    penalty: Decimal = wire("ceza")
+    advertising: Decimal = wire("reklam")
+    variable_expenses: Decimal = wire("degisken_giderler")
+    total_expenses: Decimal = wire("toplam_gider")
+    net_profit: Decimal = wire("net_kar")
+    net_margin_percent: Decimal | None = wire("net_kar_marji_yuzde")
+
+
+@dataclass(frozen=True, slots=True)
 class PeriodTotals:
     """Dönem toplamı (K25, docs/12 §7.3). İptal satırları girmez."""
 
@@ -203,12 +252,19 @@ class PeriodTotals:
     penalty_allocated: Decimal = wire("ceza_satirlara_dagitilan")
     advertising_allocated: Decimal = wire("reklam_satirlara_dagitilan")
     variable_expenses: Decimal = wire("degisken_giderler")
+    # K39: yalnız tam satırların net kârı; dönem düzeyi giderler ayrıca düşülür.
     line_net_profit_total: Decimal = wire("satir_net_kar_toplami")
     period_level_expenses: PeriodLevelExpenses = wire("donem_duzeyi_giderler")
+    period_level_expenses_total: Decimal = wire("donem_duzeyi_giderler_toplami")
     period_net_profit: Decimal = wire("donem_net_kar")
     net_profit_partial: bool = wire("net_kar_kismi")
     missing_cost_line_count: int = wire("maliyet_eksik_satir_sayisi")
+    missing_line_counts: MissingCounts = wire("eksik_kalem_satir_sayilari")
+    # Kısmi dönemde None (K39); gösterilebilecek tek marj `full_lines.net_margin_percent`.
     net_margin_percent: Decimal | None = wire("net_kar_marji_yuzde")
+    full_lines: FullLinesTotals = wire("tam_satirlar")
+    certainty: Certainty = wire("kesinlik")
+    certainty_line_counts: CertaintyCounts = wire("kesinlik_satir_sayilari")
     vat_effect: Decimal = wire("kdv_etkisi")
     cash_flow: PeriodCashFlow = wire("nakit_akisi")
     warnings: tuple[WarningCode, ...] = wire("uyarilar")

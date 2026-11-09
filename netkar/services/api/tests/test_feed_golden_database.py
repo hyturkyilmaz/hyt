@@ -113,6 +113,67 @@ def add_user_data(
                     )
 
 
+def add_user_settings(
+    conn: psycopg.Connection[Any], tenant_id: Any, account_id: Any, user_id: Any, ayarlar: dict[str, Any]
+) -> None:
+    """Altın `ayarlar` bloğundaki KULLANICI ayarlarını (tarife, hizmet bedeli, varsayılan desi, değişken gider)
+    hesabın ayar tablolarına yazar (ADR-0006). Sistem parametreleri (KDV oranları, stopaj, eşikler) tabloda yoktur.
+    Girişler KDV hariçtir; başlangıçsız sürüm `2000-01-01`'den (en eski) başlar."""
+    base = (tenant_id, account_id, user_id)
+    undated = "2000-01-01"
+    for agreement, key in (("trendyol", "kargo_tarifesi"), ("seller", "satici_kargo_tarifesi")):
+        for carrier, versions in (ayarlar.get(key) or {}).items():
+            dated = (
+                [(v.get("gecerlilik_baslangic") or undated, v["kademeler"]) for v in versions]
+                if versions and isinstance(versions[0], dict)
+                else [(undated, versions)]
+            )
+            for valid_from, brackets in dated:
+                payload = json.dumps(
+                    [{"max_desi": str(desi), "price": str(price)} for desi, price in brackets]
+                )
+                conn.execute(
+                    "INSERT INTO cargo_tariffs (tenant_id, marketplace_account_id, entered_by, agreement, carrier, "
+                    "valid_from, price_includes_vat, brackets) VALUES (%s, %s, %s, %s, %s, %s, false, %s)",
+                    (*base, agreement, carrier, valid_from, payload),
+                )
+    fee = ayarlar.get("platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric")
+    fee_versions = (
+        []
+        if fee is None
+        else [(v.get("gecerlilik_baslangic") or undated, v["tutar_kdv_haric"]) for v in fee]
+        if isinstance(fee, list)
+        else [(undated, fee)]
+    )
+    for valid_from, amount in fee_versions:
+        conn.execute(
+            "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, entered_by, valid_from, "
+            "amount, amount_includes_vat) VALUES (%s, %s, %s, %s, %s, false)",
+            (*base, valid_from, amount),
+        )
+    for expense in ayarlar.get("degisken_giderler", []):
+        conn.execute(
+            "INSERT INTO variable_expenses (tenant_id, marketplace_account_id, entered_by, name, kind, "
+            "amount_excl_vat, percent, vat_rate, valid_from, valid_to) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                *base,
+                expense["ad"],
+                expense["tip"],
+                expense.get("tutar_kdv_haric"),
+                expense.get("oran_yuzde"),
+                expense.get("kdv_orani", "20"),
+                expense.get("gecerlilik_baslangic") or undated,
+                expense.get("gecerlilik_bitis"),
+            ),
+        )
+    if ayarlar.get("varsayilan_desi") is not None:
+        conn.execute(
+            "INSERT INTO profit_settings (tenant_id, marketplace_account_id, updated_by, default_desi) "
+            "VALUES (%s, %s, %s, %s)",
+            (*base, ayarlar["varsayilan_desi"]),
+        )
+
+
 @pytest.fixture
 async def engines(database: DatabaseInfo) -> AsyncIterator[tuple[Any, Any]]:
     worker = create_engine(database.worker_url.render_as_string(hide_password=False))

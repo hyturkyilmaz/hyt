@@ -70,7 +70,8 @@
         "yuvarlama_toleransi": "0.05",
         "komisyon_orani_tolerans_puan": "0.01"
       },
-      "degisken_giderler": []
+      "degisken_giderler": [],
+      "varsayilan_desi": null
     },
     "siparisler": [
       {
@@ -135,6 +136,10 @@
         "durum": "cancelled",
         "adet": 1,
         "adet_iade": 0,
+        "iade_kaydi_bekleyen_adet": 0,
+        "askidaki_urun_maliyeti": null,
+        "kesinlik": "iptal",
+        "eksik_kalemler": [],
         "kalemler": {
           "brut_satis_kdv_dahil": "499.90",
           "satici_indirimi_kdv_dahil": "0.00",
@@ -154,6 +159,7 @@
           "degisken_giderler": "0.00",
           "toplam_gider": "0.00",
           "maliyet_haric_katki": "0.00",
+          "eksik_giderler_haric_kar": "0.00",
           "net_kar": "0.00",
           "net_kar_marji_yuzde": null
         },
@@ -205,9 +211,16 @@
         "reklam_satissiz": "0.00",
         "degisken_giderler": "0.00",
         "maliyet_haric_katki": "0.00",
+        "eksik_giderler_haric_kar": "0.00",
         "net_kar": "0.00",
         "net_kar_marji_yuzde": null,
         "maliyet_eksik": false,
+        "eksik_kalem_satir_sayilari": {
+          "urun_maliyeti": 0,
+          "kargo_gonderi": 0,
+          "platform_hizmet_bedeli": 0
+        },
+        "kesinlik": "yok",
         "reklam_harcamasi": "0.00",
         "reklam_cirosu": null,
         "roas": null,
@@ -235,10 +248,37 @@
         "erken_odeme_bedeli": "0.00",
         "siniflandirilmamis_kesinti": "0.00"
       },
+      "donem_duzeyi_giderler_toplami": "0.00",
       "donem_net_kar": "0.00",
       "net_kar_kismi": false,
       "maliyet_eksik_satir_sayisi": 0,
+      "eksik_kalem_satir_sayilari": {
+        "urun_maliyeti": 0,
+        "kargo_gonderi": 0,
+        "platform_hizmet_bedeli": 0
+      },
       "net_kar_marji_yuzde": null,
+      "tam_satirlar": {
+        "satir_sayisi": 0,
+        "net_satis_kdv_haric": "0.00",
+        "urun_maliyeti": "0.00",
+        "komisyon": "0.00",
+        "kargo_gonderi": "0.00",
+        "kargo_iade": "0.00",
+        "platform_hizmet_bedeli": "0.00",
+        "ceza": "0.00",
+        "reklam": "0.00",
+        "degisken_giderler": "0.00",
+        "toplam_gider": "0.00",
+        "net_kar": "0.00",
+        "net_kar_marji_yuzde": null
+      },
+      "kesinlik": "yok",
+      "kesinlik_satir_sayilari": {
+        "kesin": 0,
+        "tahmini": 0,
+        "eksik": 0
+      },
       "kdv_etkisi": "0.00",
       "nakit_akisi": {
         "stopaj_hesaplanan": "0.00",

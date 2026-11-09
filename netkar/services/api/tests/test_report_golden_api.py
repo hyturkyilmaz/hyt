@@ -3,29 +3,40 @@
 Her senaryo (reklamsız 38 tanesi) gerçek senkron yürütücüyle bir kiracının hesabına yazılır, sonra GİRİŞ YAPMIŞ
 kullanıcı olarak beş rapor ucu çağrılır. Yanıtlar (a) altın `beklenen` ile kuruşu kuruşuna ve (b) doğrudan
 motor çıktısının kablo biçimiyle (`render_result`) BİREBİR aynı olmalıdır; yani API ne bir tutarı yuvarlar,
-ne bir alanı düşürür, ne de uydurur. Kâr ayarları kiracı tablosu gelene dek `profit_settings_for` üzerinden
-verilir (testte senaryonun `ayarlar` bloğu).
+ne bir alanı düşürür, ne de uydurur. Kâr ayarları GERÇEK yoldan okunur (ADR-0006): senaryonun `ayarlar` bloğundaki
+kullanıcı ayarları (tarife, hizmet bedeli, varsayılan desi, değişken gider) hesabın ayar tablolarına yazılır ve
+`profit_settings_for` onları okur; yalnız tabloda olmayan SİSTEM parametreleri (KDV oranları, komisyon KDV varsayımı,
+stopaj, eşikler) senaryodan üstüne bindirilir.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import psycopg
 import pytest
 
 from app.api.v1 import profit as profit_module
 from app.db.session import create_engine
-from app.profit import calculate_profit
+from app.profit import ProfitSettings, calculate_profit
 from app.profit.schema_v1 import parse_input, parse_settings, render_result
+from app.services.profit_settings import profit_settings_for as real_settings_for
 from app.services.sync.runner import SyncRunner
 from tests.conftest import Api, DatabaseInfo
 from tests.product_cost_helpers import Shop, fixed_today, make_shop_factory  # noqa: F401
 from tests.sync_helpers import client_factory, envelope_for_tests
-from tests.test_feed_golden_database import NOW, add_user_data, fake_api_from, scenario_param
+from tests.test_feed_golden_database import (
+    NOW,
+    add_user_data,
+    add_user_settings,
+    fake_api_from,
+    scenario_param,
+)
 from tests.test_profit_golden import GOLDEN_FILES, assert_matches
 
 pytestmark = pytest.mark.usefixtures("fixed_today")
@@ -67,8 +78,25 @@ async def test_golden_scenario_through_the_report_api(
     ).run(shop.account_id, "backfill")
     assert outcome.status == "completed", outcome.summary()
     add_user_data(admin_conn, shop.tenant_id, shop.account_id, shop.user_id, girdi)
-    settings = parse_settings(girdi.get("ayarlar", {}))
-    monkeypatch.setattr(profit_module, "profit_settings_for", lambda tenant_id, account_id: settings)
+    add_user_settings(admin_conn, shop.tenant_id, shop.account_id, shop.user_id, girdi.get("ayarlar", {}))
+    golden = parse_settings(girdi.get("ayarlar", {}))
+
+    async def settings_from_database(db: Any, tenant_id: UUID, account_id: UUID) -> ProfitSettings:
+        """Kullanıcı ayarları veritabanından; sistem parametreleri (tabloda yok) senaryodan."""
+        stored = await real_settings_for(db, tenant_id, account_id)
+        return dataclasses.replace(
+            stored,
+            commission_includes_vat=golden.commission_includes_vat,
+            commission_vat_rate=golden.commission_vat_rate,
+            shipping_vat_rate=golden.shipping_vat_rate,
+            service_fee_vat_rate=golden.service_fee_vat_rate,
+            ad_vat_rate=golden.ad_vat_rate,
+            withholding_rate=golden.withholding_rate,
+            cargo_invoice_vat_tolerance=golden.cargo_invoice_vat_tolerance,
+            thresholds=golden.thresholds,
+        )
+
+    monkeypatch.setattr(profit_module, "profit_settings_for", settings_from_database)
     direct = render_result(calculate_profit(parse_input(girdi)))
 
     def get(suffix: str, **params: Any) -> Any:
@@ -83,6 +111,27 @@ async def test_golden_scenario_through_the_report_api(
     assert_matches(expected["donem_toplami"], summary["totals"], f"{scenario['senaryo_id']}.donem")
     assert sum(summary["status_counts"].values()) == len(direct["siparis_satirlari"])
     assert summary["missing_cost_line_count"] == direct["donem_toplami"]["maliyet_eksik_satir_sayisi"]
+    # K37-K40 ve ADR-0006 §5: eksik kalem sayısı, kesinlik ve tamlık motor/ayar durumundan gelir.
+    assert (
+        summary["tariff_missing_line_count"]
+        == expected["donem_toplami"]["eksik_kalem_satir_sayilari"]["kargo_gonderi"]
+    )
+    assert summary["totals"]["kesinlik"] == expected["donem_toplami"]["kesinlik"]
+    ayarlar = girdi.get("ayarlar", {})
+    fee = ayarlar.get("platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric")
+    assert summary["completeness"] == {
+        "cargo_tariff_defined": bool(ayarlar.get("kargo_tarifesi")),
+        "seller_cargo_tariff_defined": bool(ayarlar.get("satici_kargo_tarifesi")),
+        "service_fee_estimate_defined": fee is not None and fee != [],
+        "variable_expenses_defined": any(
+            e.get("gecerlilik_bitis") is None for e in ayarlar.get("degisken_giderler", [])
+        ),
+        "default_desi_defined": ayarlar.get("varsayilan_desi") is not None,
+    }
+    assert summary["settings_configured"] == (
+        summary["completeness"]["cargo_tariff_defined"]
+        and summary["completeness"]["service_fee_estimate_defined"]
+    )
 
     # 2. Ürün listesi: her ürün için altın ürün toplamının ana alanları.
     listing = get("products", limit=200)
@@ -95,9 +144,24 @@ async def test_golden_scenario_through_the_report_api(
         assert item["net_margin_percent"] == product["net_kar_marji_yuzde"]
         assert item["cost_missing"] == product["maliyet_eksik"]
         assert item["advertising_spend"] == product["reklam_harcamasi"]
+        # ADR-0006 §5: kesinlik motordan, eksik kalemler ve eksik giderler hariç kâr ürün toplamından.
+        assert item["certainty"] == product["kesinlik"]
+        assert item["contribution_excl_missing"] == product["eksik_giderler_haric_kar"]
+        assert item["missing_items"] == [k for k, n in product["eksik_kalem_satir_sayilari"].items() if n > 0]
+        assert item["statement_basis"] == item["basis"]
+        # K37 kesin zarar: net kâr varsa o, yoksa bilinen giderlerle kâr negatifse zarar (neden ayrı).
+        if product["net_kar"] is not None:
+            assert (item["loss_reason"] == "net_profit") == (float(product["net_kar"]) < 0)
+        else:
+            assert (item["loss_reason"] is not None) == (float(product["eksik_giderler_haric_kar"]) < 0)
         if product["net_kar"] is not None:  # net satış - toplam gider = net kâr (görünüm özdeşliği)
             gap = float(item["net_sales_excl_vat"]) - float(item["total_expenses"])
             assert abs(gap - float(item["net_profit"])) < 0.005
+
+    losses = get("products", limit=200, filter="loss")
+    assert {i["barcode"] for i in losses["items"]} == {
+        i["barcode"] for i in listing["items"] if i["loss_reason"] is not None
+    }
 
     # 3. Ürün kırılımı: ürün toplamı ve satırlar motorun kablo çıktısıyla birebir.
     for product in direct["urun_toplamlari"]:

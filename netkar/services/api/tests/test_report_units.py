@@ -21,7 +21,7 @@ import pytest
 from app.api.v1 import profit_schemas as schemas
 from app.profit import ProfitResult, calculate_profit
 from app.profit import results as engine_results
-from app.profit.enums import Status, WarningCode
+from app.profit.enums import MissingItem, Status, WarningCode
 from app.profit.schema_v1 import parse_input, to_wire
 from app.services import profit_views as views
 from tests.test_profit_golden import GOLDEN_FILES
@@ -220,7 +220,9 @@ def test_product_total_expenses_equal_net_sales_minus_net_profit_in_every_golden
         for row in views.build_product_rows(result):
             t = row.totals
             if t.net_profit is None:
-                assert row.total_expenses is None and t.cost_missing, scenario
+                # Net kâr null yalnız eksik kalem (maliyet, kargo ya da hizmet bedeli; K37) varken olur.
+                assert row.total_expenses is None and row.missing_items, scenario
+                assert (t.cost_missing, t.net_margin_percent) in {(True, None), (False, None)}
                 continue
             assert row.total_expenses is not None
             assert t.net_sales_excl_vat - row.total_expenses == t.net_profit, (scenario, t.barcode)
@@ -335,7 +337,12 @@ def test_order_totals_never_invent_a_profit_when_a_cost_is_missing() -> None:
             active = [line for line in lines if line.status is not Status.CANCELLED]
             assert totals.line_count == len(active), scenario
             if any(line.items.net_profit is None for line in active):
-                assert (totals.net_profit, totals.total_expenses, totals.cost_missing) == (None, None, True)
+                # Net kâr null yalnız eksik kalemle (maliyet, kargo, hizmet bedeli; K37): `cost_missing` artık
+                # yalnız maliyeti anlatır, kalemler `missing_items`'tadır.
+                assert (totals.net_profit, totals.total_expenses) == (None, None)
+                assert totals.missing_items and totals.cost_missing == (
+                    MissingItem.PRODUCT_COST in totals.missing_items
+                )
                 seen_missing += 1
             else:
                 assert totals.net_profit is not None and not totals.cost_missing

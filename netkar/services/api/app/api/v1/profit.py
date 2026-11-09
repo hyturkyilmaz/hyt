@@ -9,8 +9,10 @@ Dönem: `start`+`end` (YYYY-AA-GG, İstanbul günü, uçlar dahil) ya da `range=
 hiçbiri verilmezse `30d`. En fazla 92 gün (sipariş ucunda dönemsiz istekte siparişin kendi günleri de dahil).
 
 Yük sınırları: kiracı başına dakikalık sayaç (ayrı küçük havuz), kiracı ve süreç başına beklemeyen eşzamanlılık
-kapısı (429/503 + Retry-After) ve motor çalışırken veritabanı bağlantısı TUTULMAZ (denetim S4 Y-01, O-01). Kâr ayarları (kargo tarifesi, hizmet bedeli) henüz kiracı tablosunda
-değildir: motorun varsayılanları kullanılır (tarifesiz satır `KARGO_TARIFESI_EKSIK` uyarısı alır).
+kapısı (429/503 + Retry-After) ve motor çalışırken veritabanı bağlantısı TUTULMAZ (denetim S4 Y-01, O-01).
+Kâr ayarları (kargo tarifesi, hizmet bedeli, değişken gider, varsayılan desi) hesap düzeyinde veritabanından
+okunur (`app.services.profit_settings.profit_settings_for`, ADR-0006); ayar yoksa motor "tanımsız" çalışır:
+eksik kalem 0 sayılmaz, net kâr null olur (K33-K37).
 """
 
 from __future__ import annotations
@@ -45,17 +47,22 @@ from app.api.v1.profit_schemas import (
     SummaryOut,
     UnavailableAlertOut,
 )
+from app.api.v1.profit_settings_schemas import CompletenessOut
 from app.core.clock import today_istanbul
 from app.core.config import Settings
 from app.core.errors import ProblemError
 from app.core.ratelimit import digest
 from app.db.rls import set_rls_context
-from app.profit import ProfitInputError, ProfitSettings
-from app.profit.enums import Status, WarningCode
+from app.profit import ProfitInputError
+from app.profit.enums import Certainty, Status, WarningCode
 from app.services import product_costs as costs
 from app.services import profit_views as views
 from app.services.auth import AuthContext
 from app.services.profit_report import PeriodReport, period_profit
+from app.services.profit_settings import (
+    profit_settings_completeness,
+    profit_settings_for,
+)
 from app.services.report_gate import ReportGate
 
 router = APIRouter(prefix="/marketplace-accounts/{account_id}/profit", tags=["profit"])
@@ -144,22 +151,6 @@ async def _guard(
     await limiter.hit(key, settings.rate_limit_profit_report_tenant, _MINUTE)
 
 
-def profit_settings_for(tenant_id: UUID, account_id: UUID) -> ProfitSettings:
-    """Hesabın kâr ayarları. Kiracı ayar tablosu henüz yok (ADR-0005 §10): motorun varsayılanları.
-
-    Ayar tablosu gelince tek değişiklik noktası burasıdır (tarife, hizmet bedeli, değişken giderler).
-    """
-    return ProfitSettings()
-
-
-def profit_settings_configured(tenant_id: UUID, account_id: UUID) -> bool:
-    """Hesap için kiracı ayarı tanımlı mı. Ayar tablosu yok: `profit_settings_for` varsayılan döndürdüğü için False.
-
-    Panel bu bayrakla net kârı "kargo ve hizmet bedeli hariç" etiketiyle sunar (denetim S4 Y-02 sunum kuralı).
-    """
-    return False
-
-
 async def _report(
     db: AsyncSession, ctx: AuthContext, account_id: UUID, period: Period, gate: ReportGate
 ) -> PeriodReport:
@@ -170,7 +161,7 @@ async def _report(
     """
     async with gate.slot(ctx.tenant_id):
         try:
-            settings = profit_settings_for(ctx.tenant_id, account_id)
+            settings = await profit_settings_for(db, ctx.tenant_id, account_id)
             return await period_profit(
                 db, ctx.tenant_id, account_id, period.start, period.end, settings, release_connection=True
             )
@@ -221,19 +212,26 @@ async def summary(
 ) -> SummaryOut:
     """Dönem toplamları (motorun dönem toplamı), durum dağılımı, maliyeti eksik satırlar ve besleyici notları.
 
-    Panel sunum alanları motor çıktısından türetilir (yeni kural yok): `settings_configured` (kiracı ayarı
-    tanımlı mı), `tariff_missing_line_count` (KARGO_TARIFESI_EKSIK uyarılı aktif satır) ve `estimated_line_count`.
+    Panel sunum alanları motor çıktısından türetilir (yeni kural yok): `completeness` (ayar tamlığı, bugün geçerli
+    sürüm var mı), `settings_configured` (eski alan: kargo tarifesi VE hizmet bedeli tanımlı mı),
+    `tariff_missing_line_count` (motorun `eksik_kalem_satir_sayilari.kargo_gonderi` sayımı) ve
+    `estimated_line_count`. Eksik kalemli dönemde `totals.net_kar_kismi` doğrudur ve dönem marjı null'dır (K39).
     """
     await _guard(db, ctx, account_id, limiter, settings)
     report = await _report(db, ctx, account_id, period, gate)
+    await _restore_context(
+        db, ctx
+    )  # rapor bağlantıyı iade etti: ayar tamlığı okuması için bağlam yeniden kurulur
+    completeness = await profit_settings_completeness(db, ctx.tenant_id, account_id, today_istanbul())
     counts = views.status_counts(report.result.lines)
     return SummaryOut(
         period=period.out(),
         totals=PeriodTotalsOut.model_validate(report.totals),
         status_counts=StatusCountsOut(**counts),
         missing_cost_line_count=report.totals.missing_cost_line_count,
-        settings_configured=profit_settings_configured(ctx.tenant_id, account_id),
-        tariff_missing_line_count=views.tariff_missing_line_count(report.result.lines),
+        completeness=CompletenessOut.model_validate(completeness, from_attributes=True),
+        settings_configured=completeness.configured,
+        tariff_missing_line_count=report.totals.missing_line_counts.outbound_shipping,
         estimated_line_count=counts[Status.ESTIMATED.value],
         feed_notes=FeedNotesOut.model_validate(report.notes),
     )
@@ -293,9 +291,13 @@ async def list_products(
                 roas=r.totals.roas,
                 breakeven_roas=r.totals.breakeven_roas,
                 cost_missing=r.totals.cost_missing,
+                certainty=r.certainty,
+                missing_items=r.missing_items,
+                contribution_excl_missing=r.totals.known_expenses_profit,
                 loss_reason=r.loss_reason,
                 shipping_missing=r.shipping_missing,
                 basis=r.basis,
+                statement_basis=r.basis,
                 estimated_line_count=r.estimated_lines,
                 settled_line_count=r.settled_lines,
                 adjusted_line_count=r.adjusted_lines,
@@ -341,7 +343,9 @@ async def product_detail(
         barcode=barcode,
         title=titles.get(barcode),
         product=None if product is None else ProductTotalsOut.model_validate(product),
+        certainty=row.certainty if row else Certainty.NONE,
         basis=row.basis if row else "none",
+        statement_basis=row.basis if row else "none",
         comparison=ComparisonSummaryOut.model_validate(views.comparison_summary(mine)),
         total_lines=len(mine),
         lines=[LineOut.model_validate(line) for line in page],

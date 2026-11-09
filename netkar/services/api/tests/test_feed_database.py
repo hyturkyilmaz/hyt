@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.db.rls import tenant_transaction
 from app.db.session import create_engine
 from app.profit import ProfitSettings
+from app.profit.settings import DatedAmount
 from app.services.financial_classes import ClassRule, classify_other_financial
 from app.services.profit_feed import FeedNotes, build_profit_input, epoch_ms, period_bounds
 from app.services.profit_report import period_profit, product_profit
@@ -461,7 +462,7 @@ async def test_period_and_product_profit_use_the_engine_with_database_records(
         "vat_rate, entered_by) VALUES (%s, %s, %s, '2026-01-01', 50, 20, %s)",
         (seller.tenant_id, seller.account_id, B1, seller.user_id),
     )
-    settings = ProfitSettings(estimated_service_fee_per_order_excl_vat=D("0"))
+    settings = ProfitSettings(service_fee_estimates=(DatedAmount(D("0")),))
     async with tenant_transaction(sessions, seller.tenant_id) as session:
         report = await period_profit(
             session, seller.tenant_id, seller.account_id, date(2026, 10, 1), date(2026, 10, 31), settings

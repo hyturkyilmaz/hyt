@@ -230,6 +230,12 @@ class Api:
             headers["X-CSRF-Token"] = self.client.cookies.get("__Host-nk_csrf") or self.csrf()
         return self.client.put(url, json=json, headers=headers, **kw)
 
+    def delete(self, url: str, csrf: bool = True, **kw: Any) -> Any:
+        headers = dict(kw.pop("headers", {}))
+        if csrf:
+            headers["X-CSRF-Token"] = self.client.cookies.get("__Host-nk_csrf") or self.csrf()
+        return self.client.delete(url, headers=headers, **kw)
+
     def get(self, url: str, **kw: Any) -> Any:
         return self.client.get(url, **kw)
 

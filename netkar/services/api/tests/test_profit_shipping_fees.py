@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from app.profit import calculate_profit
@@ -24,13 +25,14 @@ def statement(serial: str, debt: str) -> OtherFinancialRow:
 
 # --------------------------------------------------------------------------- tahmini kargo (K08)
 def test_cargo_tariff_lookup_edges() -> None:
-    tariff = CargoTariff({"X": ((D("1"), D("10")), (D("3"), D("20")))})
-    assert tariff.lookup("X", D("1")) == D("10")
-    assert tariff.lookup("X", D("1.5")) == D("20")
-    assert tariff.lookup("X", D("3.01")) is None  # basamak aşıldı
-    assert tariff.lookup("X", None) is None
-    assert tariff.lookup("Y", D("1")) is None
-    assert CargoTariff().lookup("X", D("1")) is None
+    tariff = CargoTariff.unversioned({"X": ((D("1"), D("10")), (D("3"), D("20")))})
+    day = date(2026, 10, 5)
+    assert tariff.lookup("X", D("1"), day) == D("10")
+    assert tariff.lookup("X", D("1.5"), day) == D("20")
+    assert tariff.lookup("X", D("3.01"), day) is None  # basamak aşıldı
+    assert tariff.lookup("X", None, day) is None
+    assert tariff.lookup("Y", D("1"), day) is None
+    assert CargoTariff().lookup("X", D("1"), day) is None
 
 
 def test_estimated_desi_prefers_cargo_deci_then_ceil_of_deci() -> None:

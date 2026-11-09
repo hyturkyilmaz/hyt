@@ -60,9 +60,10 @@ def apply_service_fees(
     settings: ProfitSettings,
     acc: PeriodAccumulator,
 ) -> None:
-    """K13: kesin fatura satırı siparişlere (ya da aynı ödeme emrindeki satışlı siparişlere) eşit dağıtılır.
+    """K13, K35: kesin fatura satırı siparişlere (ya da aynı ödeme emrindeki satışlı siparişlere) dağıtılır.
 
-    Sipariş içinde satış oranıyla dağıtılır (K24). Faturası gelmemiş sipariş tahmini kalır.
+    Sipariş içinde satış oranıyla dağıtılır (K24). Faturası gelmemiş sipariş tahmini kalır; tahmin tanımsızsa
+    kalem eksiktir (tutar 0, kaynak `eksik`, uyarı `HIZMET_BEDELI_TAHMINI_EKSIK`).
     Hiçbir siparişe bağlanamayan fatura satırı sınıflandırılmamış kesinti olur.
     """
     by_order = group_by(works, lambda w: w.order.order_number)
@@ -100,13 +101,19 @@ def apply_service_fees(
                 w.fee_actual = True
             covered.add(number)
 
-    est_excl, est_vat = split_exclusive(
-        settings.estimated_service_fee_per_order_excl_vat, settings.service_fee_vat_rate
-    )
     for number, order_group in by_order.items():
         group = active_only(order_group)
         if not group:
             continue
+        # K35: tanımsız tahmin 0 değildir; sürüm sipariş gününe göre seçilir (K33).
+        estimate = settings.service_fee_estimate_on(group[0].order.order_day)
+        if estimate is None:
+            if number not in covered:
+                for w in group:
+                    w.src_fee = Source.MISSING
+                    w.warnings.append(WarningCode.SERVICE_FEE_ESTIMATE_MISSING)
+            continue
+        est_excl, est_vat = split_exclusive(estimate, settings.service_fee_vat_rate)
         weights = sales_weights(group)
         for w, part_excl, part_vat in zip(
             group, allocate(est_excl, weights), allocate(est_vat, weights), strict=True

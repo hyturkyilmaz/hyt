@@ -35,6 +35,8 @@ class LineWork:
     # K04, K06: tam hassasiyetli (yuvarlanmamış) satış, iade ve komisyon (KDV dahil).
     sales_incl: Fraction = Fraction(0)
     refund_incl: Fraction = Fraction(0)
+    # K41: yalnız `Return` satırlarından gelen iade (KDV dahil, tam hassasiyet).
+    refund_return_incl: Fraction = Fraction(0)
     commission_exact: Fraction = Fraction(0)
     commission_estimated_excl: Decimal = ZERO
     commission_actual_sales_excl: Decimal = ZERO
@@ -50,16 +52,20 @@ class LineWork:
     refunded_scrapped: int = 0
     cost_excl: Decimal | None = ZERO
     cost_vat: Decimal | None = ZERO
+    # K41: iade kaydı (claim) gelmemiş `Return` için bekleyen adet ve stoğa dönerse geri gelecek maliyet.
+    pending_refund_quantity: int = 0
+    suspended_cost: Decimal | None = None
     # K08, K12, K13, K14, K15, K17: diğer kalemler (KDV hariç ve KDV).
     ship_out_excl: Decimal = ZERO
     ship_out_vat: Decimal = ZERO
-    ship_out_estimated_excl: Decimal = ZERO
+    # K23, K38: tahmini tutar tanımsızsa (tarife yok) None; 0 değildir.
+    ship_out_estimated_excl: Decimal | None = None
     ship_out_actual: bool = False
     ship_ret_excl: Decimal = ZERO
     ship_ret_vat: Decimal = ZERO
     fee_excl: Decimal = ZERO
     fee_vat: Decimal = ZERO
-    fee_estimated_excl: Decimal = ZERO
+    fee_estimated_excl: Decimal | None = None
     fee_actual: bool = False
     penalty_excl: Decimal = ZERO
     penalty_vat: Decimal = ZERO

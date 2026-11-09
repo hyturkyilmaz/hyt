@@ -73,7 +73,8 @@
         "yuvarlama_toleransi": "0.05",
         "komisyon_orani_tolerans_puan": "0.01"
       },
-      "degisken_giderler": []
+      "degisken_giderler": [],
+      "varsayilan_desi": null
     },
     "siparisler": [
       {
@@ -190,6 +191,10 @@
         "durum": "estimated",
         "adet": 1,
         "adet_iade": 0,
+        "iade_kaydi_bekleyen_adet": 0,
+        "askidaki_urun_maliyeti": null,
+        "kesinlik": "tahmini",
+        "eksik_kalemler": [],
         "kalemler": {
           "brut_satis_kdv_dahil": "100.00",
           "satici_indirimi_kdv_dahil": "0.00",
@@ -209,6 +214,7 @@
           "degisken_giderler": "0.00",
           "toplam_gider": "59.18",
           "maliyet_haric_katki": "54.15",
+          "eksik_giderler_haric_kar": "24.15",
           "net_kar": "24.15",
           "net_kar_marji_yuzde": "28.98"
         },
@@ -252,6 +258,10 @@
         "durum": "estimated",
         "adet": 1,
         "adet_iade": 0,
+        "iade_kaydi_bekleyen_adet": 0,
+        "askidaki_urun_maliyeti": null,
+        "kesinlik": "tahmini",
+        "eksik_kalemler": [],
         "kalemler": {
           "brut_satis_kdv_dahil": "100.00",
           "satici_indirimi_kdv_dahil": "0.00",
@@ -271,6 +281,7 @@
           "degisken_giderler": "0.00",
           "toplam_gider": "59.16",
           "maliyet_haric_katki": "54.17",
+          "eksik_giderler_haric_kar": "24.17",
           "net_kar": "24.17",
           "net_kar_marji_yuzde": "29.01"
         },
@@ -314,6 +325,10 @@
         "durum": "estimated",
         "adet": 1,
         "adet_iade": 0,
+        "iade_kaydi_bekleyen_adet": 0,
+        "askidaki_urun_maliyeti": null,
+        "kesinlik": "tahmini",
+        "eksik_kalemler": [],
         "kalemler": {
           "brut_satis_kdv_dahil": "100.00",
           "satici_indirimi_kdv_dahil": "0.00",
@@ -333,6 +348,7 @@
           "degisken_giderler": "0.00",
           "toplam_gider": "59.16",
           "maliyet_haric_katki": "54.17",
+          "eksik_giderler_haric_kar": "24.17",
           "net_kar": "24.17",
           "net_kar_marji_yuzde": "29.01"
         },
@@ -386,9 +402,16 @@
         "reklam_satissiz": "0.00",
         "degisken_giderler": "0.00",
         "maliyet_haric_katki": "54.15",
+        "eksik_giderler_haric_kar": "24.15",
         "net_kar": "24.15",
         "net_kar_marji_yuzde": "28.98",
         "maliyet_eksik": false,
+        "eksik_kalem_satir_sayilari": {
+          "urun_maliyeti": 0,
+          "kargo_gonderi": 0,
+          "platform_hizmet_bedeli": 0
+        },
+        "kesinlik": "tahmini",
         "reklam_harcamasi": "0.00",
         "reklam_cirosu": null,
         "roas": null,
@@ -411,9 +434,16 @@
         "reklam_satissiz": "0.00",
         "degisken_giderler": "0.00",
         "maliyet_haric_katki": "54.17",
+        "eksik_giderler_haric_kar": "24.17",
         "net_kar": "24.17",
         "net_kar_marji_yuzde": "29.01",
         "maliyet_eksik": false,
+        "eksik_kalem_satir_sayilari": {
+          "urun_maliyeti": 0,
+          "kargo_gonderi": 0,
+          "platform_hizmet_bedeli": 0
+        },
+        "kesinlik": "tahmini",
         "reklam_harcamasi": "0.00",
         "reklam_cirosu": null,
         "roas": null,
@@ -436,9 +466,16 @@
         "reklam_satissiz": "0.00",
         "degisken_giderler": "0.00",
         "maliyet_haric_katki": "54.17",
+        "eksik_giderler_haric_kar": "24.17",
         "net_kar": "24.17",
         "net_kar_marji_yuzde": "29.01",
         "maliyet_eksik": false,
+        "eksik_kalem_satir_sayilari": {
+          "urun_maliyeti": 0,
+          "kargo_gonderi": 0,
+          "platform_hizmet_bedeli": 0
+        },
+        "kesinlik": "tahmini",
         "reklam_harcamasi": "0.00",
         "reklam_cirosu": null,
         "roas": null,
@@ -466,10 +503,37 @@
         "erken_odeme_bedeli": "0.00",
         "siniflandirilmamis_kesinti": "0.00"
       },
+      "donem_duzeyi_giderler_toplami": "0.00",
       "donem_net_kar": "72.49",
       "net_kar_kismi": false,
       "maliyet_eksik_satir_sayisi": 0,
+      "eksik_kalem_satir_sayilari": {
+        "urun_maliyeti": 0,
+        "kargo_gonderi": 0,
+        "platform_hizmet_bedeli": 0
+      },
       "net_kar_marji_yuzde": "29.00",
+      "tam_satirlar": {
+        "satir_sayisi": 3,
+        "net_satis_kdv_haric": "249.99",
+        "urun_maliyeti": "90.00",
+        "komisyon": "37.50",
+        "kargo_gonderi": "40.00",
+        "kargo_iade": "0.00",
+        "platform_hizmet_bedeli": "10.00",
+        "ceza": "0.00",
+        "reklam": "0.00",
+        "degisken_giderler": "0.00",
+        "toplam_gider": "177.50",
+        "net_kar": "72.49",
+        "net_kar_marji_yuzde": "29.00"
+      },
+      "kesinlik": "tahmini",
+      "kesinlik_satir_sayilari": {
+        "kesin": 0,
+        "tahmini": 3,
+        "eksik": 0
+      },
       "kdv_etkisi": "14.51",
       "nakit_akisi": {
         "stopaj_hesaplanan": "2.49",

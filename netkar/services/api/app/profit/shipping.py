@@ -1,4 +1,4 @@
-"""Kargo: tahmini tarife, kesin fatura, KDV durumu tespiti, dağıtım, iade kargosu (K08, K09, K12)."""
+"""Kargo: tahmini tarife (K34), kesin fatura, KDV durumu tespiti, dağıtım, iade kargosu (K08, K09, K12)."""
 
 from __future__ import annotations
 
@@ -66,8 +66,8 @@ def _items_total(
     return excl_a + excl_b, vat_a + vat_b, uncertain
 
 
-def _estimated_desi(order: Order) -> Decimal | None:
-    """K08: tahminde `cargoDeci`, yoksa `ceil(deci)`."""
+def _order_desi(order: Order) -> Decimal | None:
+    """K08, K34: siparişten gelen desi: `cargoDeci`, yoksa `ceil(deci)`. `KARGO_DESI_FARKI` yalnız bununla."""
     if order.cargo_deci is not None:
         return order.cargo_deci
     if order.deci is not None:
@@ -99,16 +99,21 @@ def apply_shipping(works: Sequence[LineWork], data: ProfitInput) -> dict[str, In
         order = active[0].order
         seller_pays = order.who_pays == SELLER_PAYS_CARGO
         tariff = settings.seller_cargo_tariff if seller_pays else settings.cargo_tariff
-        price = tariff.lookup(order.carrier, _estimated_desi(order))
+        # K34 desi sırası: siparişten gelen desi, yoksa hesabın varsayılan desisi (uyarılı), yoksa bilinmiyor.
+        order_desi = _order_desi(order)
+        default_used = order_desi is None and settings.default_desi is not None
+        desi = settings.default_desi if default_used else order_desi
+        price = tariff.lookup(order.carrier, desi, order.order_day)
         weights = distribution_weights(active)
         estimate = None if price is None else split_exclusive(price, settings.shipping_vat_rate)
         if estimate is not None:
-            # K23 karşılaştırması için tahmini tutar her zaman hesaplanır.
+            # K23 karşılaştırması için tahmini tutar hesaplanır; tarife fiyatlayamadıysa None kalır (K38).
             for w, part in zip(active, allocate(estimate[0], weights), strict=True):
                 w.ship_out_estimated_excl = part
         if actual_items[number] and not seller_pays:
             continue  # kesin tutar aşağıda sipariş düzeyinde yazılır
         if estimate is None:
+            # K37: eksik kalem 0 yazılır ama kaynağı `eksik`tir (net kâra karışmaz).
             for w in active:
                 w.src_ship_out = Source.MISSING
                 w.warnings.append(WarningCode.CARGO_TARIFF_MISSING)
@@ -118,6 +123,8 @@ def apply_shipping(works: Sequence[LineWork], data: ProfitInput) -> dict[str, In
             active, allocate(estimate[0], weights), allocate(estimate[1], weights), strict=True
         ):
             w.ship_out_excl, w.ship_out_vat, w.src_ship_out = part_excl, part_vat, source
+            if default_used:
+                w.warnings.append(WarningCode.CARGO_DESI_DEFAULT)
 
     for number, items in actual_items.items():
         targets = active_only(w for w in by_order[number] if w.order.who_pays != SELLER_PAYS_CARGO)
@@ -144,7 +151,7 @@ def _warn_actual_cargo(
 ) -> None:
     """K23: faturadaki desi siparişteki tahmini desiden farklıysa; K08: KDV durumu bilinmiyorsa."""
     package_orders = {w.order.package_id: w.order for w in targets}
-    estimates = [_estimated_desi(order) for order in package_orders.values()]
+    estimates = [_order_desi(order) for order in package_orders.values()]
     actual_desi = sum(item.desi for item, _ in items)
     if all(e is not None for e in estimates) and Fraction(actual_desi) != sum(
         (Fraction(e) for e in estimates if e is not None), Fraction(0)

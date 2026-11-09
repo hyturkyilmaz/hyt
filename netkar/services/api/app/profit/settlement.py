@@ -95,6 +95,11 @@ def apply_settlement(w: LineWork, settings: ProfitSettings) -> None:
             ),
             Fraction(0),
         )
+        # K41: yalnız `Return` satırlarından gelen iade (claim'siz iade tespiti için).
+        w.refund_return_incl = sum(
+            (share * Fraction(row.debt - row.credit) for row, share in known if row.request_type == "Return"),
+            Fraction(0),
+        )
         commission = sum((share * _signed_commission(row) for row, share in known), Fraction(0))
         # K23: karşılaştırmaya giren kesin komisyon, iade ters kayıtları hariç, düzeltmeler dahil.
         commission_sales = sum(

@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import derive_key
 from app.models import Order, OrderLine, Product
-from app.profit.enums import Status, WarningCode
+from app.profit.enums import Certainty, MissingItem, Status, WarningCode
 from app.profit.results import LineResult, ProductTotals, ProfitResult
 from app.profit.schema_v1 import ISTANBUL
 
@@ -181,19 +181,24 @@ SortField = Literal["net_profit", "net_margin", "sales", "units"]
 SortOrder = Literal["asc", "desc"]
 ProductFilter = Literal["all", "loss", "missing_cost"]
 Basis = Literal["estimated", "settled", "mixed", "none"]
-LossReason = Literal["net_profit", "contribution_before_cost"]
+LossReason = Literal["net_profit", "contribution_before_cost", "known_expenses"]
 
 
 def loss_reason(t: ProductTotals) -> LossReason | None:
-    """Ürün zararda mı ve neden biliniyor.
+    """Ürün zararda mı ve neden biliniyor (K37 "kesin zarar": eksik kalemler negatif olamaz).
 
-    `net_profit`: net kâr hesaplandı ve negatif. `contribution_before_cost`: maliyet girilmediği için net kâr
-    hesaplanamıyor ama maliyet hariç katkı zaten negatif; ürün maliyeti negatif olamayacağından zarar kesindir
-    (docs/12 §7.4).
+    `net_profit`: net kâr hesaplandı ve negatif. Net kâr null ise (eksik kalem var) ve eksik giderler hariç
+    kâr negatifse zarar kesindir: yalnız maliyet eksikse `contribution_before_cost` (docs/12 §7.4), kargo
+    ya da hizmet bedeli de eksikse `known_expenses`. Eksik giderler hariç kâr negatif değilse belirsizdir.
     """
     if t.net_profit is not None:
         return "net_profit" if t.net_profit < 0 else None
-    return "contribution_before_cost" if t.contribution_before_cost < 0 else None
+    if t.known_expenses_profit >= 0:
+        return None
+    counts = t.missing_line_counts
+    if counts.product_cost and not counts.outbound_shipping and not counts.platform_service_fee:
+        return "contribution_before_cost"
+    return "known_expenses"
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,19 +206,33 @@ class ProductRow:
     """Ürün toplamı + liste için türetilmiş alanlar."""
 
     totals: ProductTotals
-    # Maliyet bilinmiyorsa None (toplam gider ürün maliyetini de içerir).
+    # Eksik kalem varsa None (toplam gider ürün maliyetini ve eksik kalemleri de içerir).
     total_expenses: Decimal | None
+    # Ekstreli satır oranı (K40: kesinlik DEĞİL); kesinlik `totals.certainty`'dedir.
     basis: Basis
     estimated_lines: int
     settled_lines: int
     adjusted_lines: int
-    # KARGO_TARIFESI_EKSIK uyarılı aktif satır sayısı (motor çıktısından sayım; yeni kural değil).
-    tariff_missing_lines: int = 0
 
     @property
     def shipping_missing(self) -> bool:
-        """En az bir aktif satırda kargo tarifesi tanımsız (gönderi kargosu 0 ve `eksik` kaynaklı)."""
-        return self.tariff_missing_lines > 0
+        """En az bir aktif satırda gönderi kargosu eksik (motor sayımı, K37)."""
+        return self.totals.missing_line_counts.outbound_shipping > 0
+
+    @property
+    def certainty(self) -> Certainty:
+        return self.totals.certainty
+
+    @property
+    def missing_items(self) -> list[MissingItem]:
+        """Ürünün aktif satırlarında eksik olan kalemler (kanonik sıra; motor sayımı)."""
+        counts = self.totals.missing_line_counts
+        present = {
+            MissingItem.PRODUCT_COST: counts.product_cost,
+            MissingItem.OUTBOUND_SHIPPING: counts.outbound_shipping,
+            MissingItem.PLATFORM_SERVICE_FEE: counts.platform_service_fee,
+        }
+        return [item for item in MissingItem if present[item] > 0]
 
     @property
     def loss_reason(self) -> LossReason | None:
@@ -231,8 +250,10 @@ def _basis(estimated: int, settled: int, adjusted: int) -> Basis:
 
 
 def _total_expenses(p: ProductTotals) -> Decimal | None:
-    """Ürün giderlerinin toplamı (KDV hariç): net satış - toplam gider = net kâr özdeşliği testlidir."""
-    if p.product_cost is None:
+    """Ürün giderlerinin toplamı (KDV hariç): net satış - toplam gider = net kâr özdeşliği testlidir.
+
+    Eksik kalem (maliyet, kargo, hizmet bedeli) varsa toplam gider bilinemez: None (K37)."""
+    if p.net_profit is None or p.product_cost is None:
         return None
     return (
         p.product_cost
@@ -246,23 +267,11 @@ def _total_expenses(p: ProductTotals) -> Decimal | None:
     )
 
 
-def tariff_missing_line_count(lines: Iterable[LineResult]) -> int:
-    """KARGO_TARIFESI_EKSIK uyarısı taşıyan aktif (iptal olmayan) satır sayısı."""
-    return sum(
-        1
-        for line in lines
-        if line.status is not Status.CANCELLED and WarningCode.CARGO_TARIFF_MISSING in line.warnings
-    )
-
-
 def build_product_rows(result: ProfitResult) -> list[ProductRow]:
     counts: dict[str, Counter[Status]] = {}
-    tariff_missing: Counter[str] = Counter()
     for line in result.lines:
         if line.status is not Status.CANCELLED:
             counts.setdefault(line.barcode, Counter())[line.status] += 1
-            if WarningCode.CARGO_TARIFF_MISSING in line.warnings:
-                tariff_missing[line.barcode] += 1
     rows = []
     for product in result.products:
         c = counts.get(product.barcode, Counter())
@@ -275,7 +284,6 @@ def build_product_rows(result: ProfitResult) -> list[ProductRow]:
                 estimated_lines=estimated,
                 settled_lines=settled,
                 adjusted_lines=adjusted,
-                tariff_missing_lines=tariff_missing[product.barcode],
             )
         )
     return rows
@@ -431,21 +439,30 @@ class OrderTotals:
 
     line_count: int
     net_sales_excl_vat: Decimal
-    # Aktif satırlardan biri maliyetsizse None (motorun ürün toplamıyla aynı ilke: maliyet uydurulmaz).
+    # Aktif satırlardan biri eksik kalemliyse None (motorun ürün toplamıyla aynı ilke, K37).
     total_expenses: Decimal | None
     net_profit: Decimal | None
+    # Bilinen giderlerle kâr (K37): eksik kalem 0 sayılmaz, hariç tutulur; eksik yoksa net kâra eşittir.
+    known_expenses_profit: Decimal
+    # Yalnız ürün maliyeti eksik mi (kargo ve hizmet bedeli eksikliği `missing_items`'tadır).
     cost_missing: bool
+    missing_items: list[MissingItem]
 
 
 def order_totals(lines: Iterable[LineResult]) -> OrderTotals:
     active = [line for line in lines if line.status is not Status.CANCELLED]
-    missing = any(line.items.net_profit is None for line in active)
+    incomplete = any(line.missing_items for line in active)
+    present = {item for line in active for item in line.missing_items}
     return OrderTotals(
         line_count=len(active),
         net_sales_excl_vat=sum((line.items.net_sales_excl_vat for line in active), ZERO),
-        total_expenses=None if missing else sum((line.items.total_expenses or ZERO for line in active), ZERO),
-        net_profit=None if missing else sum((line.items.net_profit or ZERO for line in active), ZERO),
-        cost_missing=missing,
+        total_expenses=None
+        if incomplete
+        else sum((line.items.total_expenses or ZERO for line in active), ZERO),
+        net_profit=None if incomplete else sum((line.items.net_profit or ZERO for line in active), ZERO),
+        known_expenses_profit=sum((line.items.known_expenses_profit for line in active), ZERO),
+        cost_missing=MissingItem.PRODUCT_COST in present,
+        missing_items=[item for item in MissingItem if item in present],
     )
 
 
@@ -474,7 +491,9 @@ async def order_days(
 # Motorun ürettiği her uyarı kodu için kısa Türkçe açıklama (docs/12 K05, K08, K14, K16, K18, K23, K28).
 ALERT_MESSAGES: dict[WarningCode, str] = {
     WarningCode.MISSING_COST: "Ürün maliyeti girilmemiş; bu satırın net kârı hesaplanamıyor.",
-    WarningCode.LOSS: "Zararına satış: satırın net kârı sıfırın altında.",
+    WarningCode.LOSS: (
+        "Zararına satış: satırın net kârı (eksik kalem varsa bilinen giderlerle kâr) sıfırın altında."
+    ),
     WarningCode.CARGO_DESI_MISMATCH: "Kargo faturasındaki desi, siparişteki desiden farklı.",
     WarningCode.UNEXPECTED_DEDUCTION: "Beklenmeyen kesinti: ekstredeki kesinti tahmini aşıyor.",
     WarningCode.COMMISSION_RATE_DIFFERENT: "Ekstredeki komisyon oranı sipariş satırındakinden farklı.",
@@ -485,6 +504,16 @@ ALERT_MESSAGES: dict[WarningCode, str] = {
     WarningCode.UNCLASSIFIED_DEDUCTION: "Sınıflandırılamayan kesinti var; ihtiyatla kâra yansıtıldı.",
     WarningCode.MISSING_COST_LINES: "Dönemde maliyeti girilmemiş satırlar var; dönem net kârı kısmi.",
     WarningCode.WITHHOLDING_STATEMENT_DIFF: "Hesaplanan stopaj ile ekstredeki stopaj farklı.",
+    WarningCode.SERVICE_FEE_ESTIMATE_MISSING: (
+        "Platform hizmet bedeli tahmini tanımlı değil; bu satırın net kârı hesaplanamıyor."
+    ),
+    WarningCode.CARGO_DESI_DEFAULT: "Siparişte desi yok; hesabın varsayılan desisiyle tarife arandı.",
+    WarningCode.REFUND_RECORD_PENDING: (
+        "İade kaydı (claim) henüz gelmedi; ürün maliyeti ihtiyatla gider bırakıldı."
+    ),
+    WarningCode.CARGO_MISSING_LINES: "Dönemde gönderi kargosu eksik satırlar var; dönem net kârı kısmi.",
+    WarningCode.SERVICE_FEE_MISSING_LINES: "Dönemde hizmet bedeli eksik satırlar var; dönem net kârı kısmi.",
+    WarningCode.REFUND_RECORD_PENDING_LINES: "Dönemde iade kaydı beklenen satırlar var.",
 }
 
 # Panelde beklenen ama motorun/besleyicinin BUGÜN üretmediği uyarılar (docs/30 S6, docs/research/05).
@@ -507,8 +536,10 @@ class AlertItem:
     package_id: int | None = None
     line_id: int | None = None
     barcode: str | None = None
-    # ZARAR için satırın net kârı; BEKLENMEYEN_KESINTI için karşılaştırmanın farkı ve eşiği.
+    # ZARAR için satırın net kârı (eksik kalem varsa null) ve bilinen giderlerle kâr (K37 kesin zarar);
+    # BEKLENMEYEN_KESINTI için karşılaştırmanın farkı ve eşiği.
     net_profit: Decimal | None = None
+    known_expenses_profit: Decimal | None = None
     difference: Decimal | None = None
     threshold: Decimal | None = None
 
@@ -539,6 +570,9 @@ def build_alerts(result: ProfitResult) -> list[AlertItem]:
                     line_id=line.line_id,
                     barcode=line.barcode,
                     net_profit=line.items.net_profit if code is WarningCode.LOSS else None,
+                    known_expenses_profit=line.items.known_expenses_profit
+                    if code is WarningCode.LOSS
+                    else None,
                     difference=line.comparison.difference
                     if code is WarningCode.UNEXPECTED_DEDUCTION and line.comparison
                     else None,

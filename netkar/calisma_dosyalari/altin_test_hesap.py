@@ -6,8 +6,9 @@ hesaplanmış karşılığını üretmek ve services/api/tests/golden/*.json dos
 yazmak. Bu dosya üretim motoru DEĞİLDİR; motorun çıktısını karşılaştırmak için
 beklenen değerleri yeniden üretilebilir kılan bir hesap tablosudur.
 
-Çalıştırma (repo kökünden):
-    python3 netkar/calisma_dosyalari/altin_test_hesap.py
+Çalıştırma: bu betik artık TEK BAŞINA ÇALIŞTIRILMAZ (G42-G48'i silerdi); doğrudan çalıştırılırsa
+altin_test_hesap_ayarlar.py'ye yönlendirilir. Dosyaları üretmek için:
+    python3 netkar/calisma_dosyalari/altin_test_hesap_ayarlar.py --yaz
 
 Kurallar:
 - Tüm tutarlar Decimal; girdi string olarak okunur (float yok).
@@ -1481,4 +1482,16 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # v0.1 `main()` tüm G*.json dosyalarını silip yalnız G01-G41'i eski kurallarla yazar; bu G42-G48'i yok eder
+    # ve G01-G41'in yeni alanlarını siler. Doğrudan çalıştırma bu yüzden yeni betiğe yönlendirilir (bu betik
+    # yalnız içe aktarılan yardımcılar ve G01-G41 tanımları içindir). Argümanlar (`--yaz`) aynen aktarılır.
+    import sys
+
+    sys.stderr.write(
+        "UYARI: altin_test_hesap.py tek başına çalıştırılmaz (G42-G48'i silerdi); "
+        "altin_test_hesap_ayarlar.py'ye yönlendiriliyor.\n"
+    )
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from altin_test_hesap_ayarlar import main as ayarlar_main
+
+    sys.exit(ayarlar_main())

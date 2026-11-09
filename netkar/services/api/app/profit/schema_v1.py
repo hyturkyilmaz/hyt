@@ -32,7 +32,14 @@ from app.profit.inputs import (
 )
 from app.profit.money import fmt, to_decimal
 from app.profit.results import ProfitResult
-from app.profit.settings import CargoTariff, ProfitSettings, VariableExpense, WarningThresholds
+from app.profit.settings import (
+    CargoTariff,
+    DatedAmount,
+    ProfitSettings,
+    TariffVersion,
+    VariableExpense,
+    WarningThresholds,
+)
 
 # Europe/Istanbul 2016'dan beri sabit UTC+3 (K16). Saat bağımlılığı değil, sabit dönüşümdür.
 ISTANBUL = timezone(timedelta(hours=3))
@@ -56,11 +63,6 @@ _SETTING_FIELDS: tuple[tuple[str, str, Callable[[Any], Any]], ...] = (
     ("hizmet_bedeli_kdv_orani", "service_fee_vat_rate", to_decimal),
     ("reklam_kdv_orani", "ad_vat_rate", to_decimal),
     ("stopaj_orani", "withholding_rate", to_decimal),
-    (
-        "platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric",
-        "estimated_service_fee_per_order_excl_vat",
-        to_decimal,
-    ),
     ("kargo_faturasi_kdv_tespit_toleransi", "cargo_invoice_vat_tolerance", to_decimal),
 )
 _THRESHOLD_FIELDS: tuple[tuple[str, str], ...] = (
@@ -71,22 +73,52 @@ _THRESHOLD_FIELDS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _parse_tariff(raw: Mapping[str, Sequence[Sequence[Any]]]) -> CargoTariff:
-    return CargoTariff(
-        {
-            carrier: tuple((to_decimal(upper), to_decimal(price)) for upper, price in brackets)
-            for carrier, brackets in raw.items()
-        }
-    )
+def _optional_date(value: object) -> date | None:
+    return None if value is None else date.fromisoformat(str(value))
+
+
+def _parse_brackets(raw: Sequence[Sequence[Any]]) -> tuple[tuple[Decimal, Decimal], ...]:
+    return tuple((to_decimal(upper), to_decimal(price)) for upper, price in raw)
+
+
+def _parse_tariff(raw: Mapping[str, Sequence[Any]]) -> CargoTariff:
+    """K34: firma -> `[[desi, fiyat], ...]` (başlangıçsız tek sürüm) ya da
+    `[{"gecerlilik_baslangic", "kademeler"}, ...]` (sürümlü)."""
+    steps: dict[str, tuple[TariffVersion, ...]] = {}
+    for carrier, versions in raw.items():
+        if versions and isinstance(versions[0], Mapping):
+            steps[carrier] = tuple(
+                TariffVersion(_parse_brackets(v["kademeler"]), _optional_date(v.get("gecerlilik_baslangic")))
+                for v in versions
+            )
+        else:
+            steps[carrier] = (TariffVersion(_parse_brackets(versions)),)
+    return CargoTariff(steps)
+
+
+def _parse_service_fee(raw: Any) -> tuple[DatedAmount, ...]:
+    """K35: `null` = tanımsız; `"10.00"` = başlangıçsız tek tutar; liste = geçerlilik tarihli sürümler."""
+    if raw is None:
+        return ()
+    if isinstance(raw, list):
+        return tuple(
+            DatedAmount(to_decimal(v["tutar_kdv_haric"]), _optional_date(v.get("gecerlilik_baslangic")))
+            for v in raw
+        )
+    return (DatedAmount(to_decimal(raw)),)
 
 
 def parse_settings(raw: Mapping[str, Any]) -> ProfitSettings:
-    """`ayarlar` bloğu -> ProfitSettings. Eksik anahtarlar motor varsayılanlarında kalır."""
+    """`ayarlar` bloğu -> ProfitSettings. Eksik anahtarlar motor varsayılanlarında (tanımsız) kalır."""
     kwargs: dict[str, Any] = {attr: convert(raw[key]) for key, attr, convert in _SETTING_FIELDS if key in raw}
     if "kargo_tarifesi" in raw:
         kwargs["cargo_tariff"] = _parse_tariff(raw["kargo_tarifesi"])
     if "satici_kargo_tarifesi" in raw:
         kwargs["seller_cargo_tariff"] = _parse_tariff(raw["satici_kargo_tarifesi"])
+    kwargs["service_fee_estimates"] = _parse_service_fee(
+        raw.get("platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric")
+    )
+    kwargs["default_desi"] = _optional_decimal(raw.get("varsayilan_desi"))
     thresholds = raw.get("uyari_esikleri", {})
     kwargs["thresholds"] = WarningThresholds(
         **{attr: to_decimal(thresholds[key]) for key, attr in _THRESHOLD_FIELDS if key in thresholds}
@@ -98,6 +130,8 @@ def parse_settings(raw: Mapping[str, Any]) -> ProfitSettings:
             amount_excl_vat=to_decimal(item.get("tutar_kdv_haric", "0")),
             percent=to_decimal(item.get("oran_yuzde", "0")),
             vat_rate=to_decimal(item.get("kdv_orani", "20")),
+            valid_from=_optional_date(item.get("gecerlilik_baslangic")),
+            valid_to=_optional_date(item.get("gecerlilik_bitis")),
         )
         for item in raw.get("degisken_giderler", [])
     )

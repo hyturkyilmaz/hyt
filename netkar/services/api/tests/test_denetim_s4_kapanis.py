@@ -28,6 +28,7 @@ from app.core.errors import ProblemError
 from app.core.ratelimit import RateLimiter
 from app.profit import calculate_profit
 from app.profit.enums import Status, WarningCode
+from app.profit.results import MissingCounts
 from app.services import product_costs as costs_service
 from app.services import profit_report
 from app.services import profit_views as views
@@ -430,21 +431,31 @@ def test_d02_loss_reason_unit_cases() -> None:
     base = synthetic_rows()[0].totals
     known_loss = dataclasses.replace(base, net_profit=D("-1.00"), cost_missing=False)
     known_profit = dataclasses.replace(base, net_profit=D("1.00"), cost_missing=False)
-    certain_loss = dataclasses.replace(
-        base, net_profit=None, cost_missing=True, contribution_before_cost=D("-0.01")
-    )
-    unknown = dataclasses.replace(
-        base, net_profit=None, cost_missing=True, contribution_before_cost=D("0.00")
-    )
-    positive_unknown = dataclasses.replace(
-        base, net_profit=None, cost_missing=True, contribution_before_cost=D("5.00")
-    )
+    only_cost = MissingCounts(product_cost=1, outbound_shipping=0, platform_service_fee=0)
+    everything = MissingCounts(product_cost=1, outbound_shipping=1, platform_service_fee=1)
+
+    def unknown_net(profit: str, counts: MissingCounts) -> Any:
+        # K37: net kâr null iken zarar kararı "eksik giderler hariç kâr"a (known_expenses_profit) bakar.
+        return dataclasses.replace(
+            base,
+            net_profit=None,
+            cost_missing=True,
+            known_expenses_profit=D(profit),
+            missing_line_counts=counts,
+        )
+
+    certain_loss = unknown_net("-0.01", only_cost)
+    unknown = unknown_net("0.00", only_cost)
+    positive_unknown = unknown_net("5.00", only_cost)
+    known_expenses_loss = unknown_net("-3.00", everything)
     rows = [
         views.ProductRow(t, None, "estimated", 0, 0, 0)
-        for t in (known_loss, known_profit, certain_loss, unknown, positive_unknown)
+        for t in (known_loss, known_profit, certain_loss, unknown, positive_unknown, known_expenses_loss)
     ]
-    assert [r.loss_reason for r in rows] == ["net_profit", None, "contribution_before_cost", None, None]
-    assert [r for r in views.filter_rows(rows, "loss")] == [rows[0], rows[2]]
+    assert [r.loss_reason for r in rows] == [
+        "net_profit", None, "contribution_before_cost", None, None, "known_expenses",
+    ]  # fmt: skip
+    assert [r for r in views.filter_rows(rows, "loss")] == [rows[0], rows[2], rows[5]]
     assert views.filter_rows(rows, "missing_cost") == rows[2:]
 
 
@@ -463,7 +474,26 @@ def test_d02_loss_filter_includes_costless_product_with_negative_contribution(
     everything = {i["barcode"]: i for i in call(shop, "products").json()["items"]}
     item = everything[other]
     assert item["net_profit"] is None and item["cost_missing"] is True
+    # Hesapta kâr ayarı yok: kargo ve hizmet bedeli de eksik; bilinen giderlerle zarar yine kesin (K37).
+    assert item["loss_reason"] == "known_expenses" and D(item["contribution_excl_missing"]) < 0
+    # Ayar tanımlanınca (kargo tarifesi, varsayılan desi, hizmet bedeli 0) yalnız maliyet eksik kalır.
+    base = f"{shop.base}/profit-settings"
+    assert shop.api.put(f"{base}/defaults", {"default_desi": "1"}).status_code == 200
+    brackets = [{"max_desi": "1000", "price": "0"}]
+    tariff = {
+        "agreement": "trendyol",
+        "carrier": "*",
+        "valid_from": "2026-01-01",
+        "price_includes_vat": False,
+    }
+    assert shop.api.put(f"{base}/cargo-tariffs", {**tariff, "brackets": brackets}).status_code == 200
+    fee = {"valid_from": "2026-01-01", "amount": "0", "amount_includes_vat": False}
+    assert shop.api.put(f"{base}/service-fee-estimates", fee).status_code == 200
+    everything = {i["barcode"]: i for i in call(shop, "products").json()["items"]}
+    item = everything[other]
+    assert item["net_profit"] is None and item["cost_missing"] is True
     assert item["loss_reason"] == "contribution_before_cost"
+    assert item["missing_items"] == ["urun_maliyeti"]
     assert everything[B1]["loss_reason"] in ("net_profit", None)
     assert everything[B2]["loss_reason"] is None  # maliyetsiz ama katkısı pozitif
     losses = call(shop, "products", filter="loss").json()
@@ -471,7 +501,7 @@ def test_d02_loss_filter_includes_costless_product_with_negative_contribution(
     assert other in barcodes and B2 not in barcodes
     assert losses["total_count"] == len(barcodes)
     for i in losses["items"]:
-        assert i["loss_reason"] in ("net_profit", "contribution_before_cost")
+        assert i["loss_reason"] in ("net_profit", "contribution_before_cost", "known_expenses")
         if i["loss_reason"] == "net_profit":
             assert D(i["net_profit"]) < 0
     # missing_cost süzgeci değişmedi: kesin zararlı maliyetsiz ürün orada da durur.
@@ -578,7 +608,17 @@ def test_panel_summary_fields_are_derived_from_engine_output(
 ) -> None:
     shop = seeded_shop(make_shop, admin_conn)
     body = call(shop, "summary").json()
-    assert body["settings_configured"] is False  # kiracı ayar tablosu yok: motor varsayılanları
+    assert body["settings_configured"] is False  # hesapta kâr ayarı kaydı yok: motor "tanımsız" çalışır
+    assert body["completeness"] == dict.fromkeys(
+        (
+            "cargo_tariff_defined",
+            "seller_cargo_tariff_defined",
+            "service_fee_estimate_defined",
+            "variable_expenses_defined",
+            "default_desi_defined",
+        ),
+        False,
+    )
     lines = [line for o in ("1001", "1002", "1003") for line in call(shop, f"orders/{o}").json()["lines"]]
     tariff_missing = sum(1 for line in lines if "KARGO_TARIFESI_EKSIK" in line["uyarilar"])
     assert body["tariff_missing_line_count"] == tariff_missing > 0
@@ -606,7 +646,9 @@ def test_panel_helpers_match_engine_output_for_every_golden_scenario() -> None:
     for name, result in all_results():
         active = [line for line in result.lines if line.status is not Status.CANCELLED]
         expected = sum(1 for line in active if WarningCode.CARGO_TARIFF_MISSING in line.warnings)
-        assert views.tariff_missing_line_count(result.lines) == expected, name
+        # Sayım artık motorun `eksik_kalem_satir_sayilari.kargo_gonderi` alanından gelir (ADR-0006 §5); uyarıdan
+        # sayılan değerle aynı olmalıdır.
+        assert result.period.missing_line_counts.outbound_shipping == expected, name
         rows = {r.totals.barcode: r for r in views.build_product_rows(result)}
         for barcode, row in rows.items():
             has = any(
@@ -615,4 +657,4 @@ def test_panel_helpers_match_engine_output_for_every_golden_scenario() -> None:
                 if line.barcode == barcode
             )
             assert row.shipping_missing is has, (name, barcode)
-    assert views.tariff_missing_line_count(golden_result("G01").lines) >= 0
+    assert golden_result("G01").period.missing_line_counts.outbound_shipping == 0

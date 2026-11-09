@@ -50,7 +50,8 @@ def test_istanbul_day_uses_fixed_utc_plus_3() -> None:
 def test_parse_settings_defaults_and_overrides() -> None:
     defaults = parse_settings({})
     assert defaults == ProfitSettings()
-    assert defaults.estimated_service_fee_per_order_excl_vat == D("0")  # tahmin uydurulmaz
+    assert defaults.service_fee_estimates == ()  # tahmin uydurulmaz: tanımsız, 0 değil (K33, K35)
+    assert defaults.default_desi is None
     assert defaults.cargo_tariff.steps == {}
     parsed = parse_settings(
         {
@@ -67,14 +68,72 @@ def test_parse_settings_defaults_and_overrides() -> None:
     )
     assert parsed.commission_includes_vat is False
     assert parsed.withholding_rate == D("2")
-    assert parsed.cargo_tariff.lookup("X", D("2")) == D("20.00")
-    assert parsed.seller_cargo_tariff.lookup("Y", D("1")) == D("30.00")
+    assert parsed.cargo_tariff.lookup("X", D("2"), date(2026, 10, 5)) == D("20.00")
+    assert parsed.seller_cargo_tariff.lookup("Y", D("1"), date(2026, 10, 5)) == D("30.00")
     assert parsed.thresholds.unexpected_deduction_amount == D("9.00")
     assert parsed.thresholds.unexpected_deduction_percent == D("5")  # varsayılan korunur
     assert parsed.variable_expenses[0].kind is ExpenseKind.PER_ORDER
     assert parsed.variable_expenses[0].vat_rate == D("20")
     assert parsed.variable_expenses[1].vat_rate == D("10")
     assert parsed.variable_expenses[1].percent == D("0.5")
+
+
+def test_parse_settings_reads_both_tariff_forms_and_versioned_blocks() -> None:
+    """Golden README "Ayarlar bloğu": eski liste biçimi (başlangıçsız tek sürüm) ve sürümlü biçim, `*` yedeği."""
+    parsed = parse_settings(
+        {
+            "kargo_tarifesi": {
+                "Legacy": [["1", "10.00"], ["2", "20.00"]],
+                "TE": [
+                    {"gecerlilik_baslangic": "2026-01-01", "kademeler": [["2", "42.00"]]},
+                    {"gecerlilik_baslangic": "2026-10-10", "kademeler": [["2", "45.00"]]},
+                ],
+                "*": [{"kademeler": [["3", "50.00"]]}],  # başlangıçsız sürümlü kayıt
+            },
+            "varsayilan_desi": "3",
+            "degisken_giderler": [
+                {
+                    "ad": "paket",
+                    "tip": "siparis_basi",
+                    "tutar_kdv_haric": "6.00",
+                    "gecerlilik_baslangic": "2026-01-01",
+                    "gecerlilik_bitis": "2026-10-09",
+                },
+                {"ad": "paket", "tip": "siparis_basi", "tutar_kdv_haric": "7.50", "gecerlilik_bitis": None},
+            ],
+        }
+    )
+    tariff = parsed.cargo_tariff
+    assert tariff.lookup("Legacy", D("2"), date(1999, 1, 1)) == D("20.00")  # başlangıçsız: her günde geçerli
+    assert tariff.lookup("TE", D("2"), date(2026, 10, 9)) == D("42.00")
+    assert tariff.lookup("TE", D("2"), date(2026, 10, 10)) == D("45.00")
+    assert tariff.lookup("Baska", D("3"), date(2026, 10, 10)) == D("50.00")
+    assert parsed.default_desi == D("3")
+    first, second = parsed.variable_expenses
+    assert (first.valid_from, first.valid_to) == (date(2026, 1, 1), date(2026, 10, 9))
+    assert (second.valid_from, second.valid_to) == (None, None)
+
+
+def test_parse_settings_service_fee_forms() -> None:
+    key = "platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric"
+    day = date(2026, 10, 5)
+    assert parse_settings({key: None}).service_fee_estimates == ()  # null = tanımsız
+    assert parse_settings({key: None}).service_fee_estimate_on(day) is None
+    assert parse_settings({}).service_fee_estimate_on(day) is None
+    assert parse_settings({key: "10.00"}).service_fee_estimate_on(date(1999, 1, 1)) == D("10.00")
+    assert parse_settings({key: "0"}).service_fee_estimate_on(day) == D("0")  # bilerek 0: tanımlı
+    versioned = parse_settings(
+        {
+            key: [
+                {"gecerlilik_baslangic": "2026-01-01", "tutar_kdv_haric": "8.00"},
+                {"gecerlilik_baslangic": "2026-10-10", "tutar_kdv_haric": "10.00"},
+            ]
+        }
+    )
+    assert versioned.service_fee_estimate_on(day) == D("8.00")
+    assert versioned.service_fee_estimate_on(date(2026, 10, 10)) == D("10.00")
+    assert versioned.service_fee_estimate_on(date(2025, 12, 31)) is None
+    assert parse_settings({key: [{"tutar_kdv_haric": "5.00"}]}).service_fee_estimate_on(day) == D("5.00")
 
 
 def test_parse_settings_rejects_unknown_expense_kind() -> None:
@@ -208,4 +267,5 @@ def test_render_result_uses_wire_names() -> None:
     assert line["kalemler"]["net_satis_kdv_haric"] == "83.33"
     assert line["kalemler"]["net_kar"] is None  # maliyet yok
     assert line["teyit_bekliyor"] == []
-    assert set(line["uyarilar"]) == {"MALIYET_EKSIK", "KARGO_TARIFESI_EKSIK"}
+    # Ayarsız hesapta hizmet bedeli tahmini de tanımsızdır (K35): eksik, 0 değil.
+    assert set(line["uyarilar"]) == {"MALIYET_EKSIK", "KARGO_TARIFESI_EKSIK", "HIZMET_BEDELI_TAHMINI_EKSIK"}

@@ -1,4 +1,5 @@
-"""Satır kırılımı: durum makinesi, fark tespiti, KDV etkisi, nakit akışı (K18, K20, K21, K22, K23, K25)."""
+"""Satır kırılımı: durum makinesi, fark tespiti, eksik kalem, kesinlik, KDV etkisi, nakit akışı
+(K18, K20-K23, K25, K37, K38, K40)."""
 
 from __future__ import annotations
 
@@ -6,7 +7,7 @@ from decimal import Decimal
 from fractions import Fraction
 
 from app.profit.constants import SELLER_PAYS_CARGO
-from app.profit.enums import Status, WarningCode
+from app.profit.enums import Certainty, MissingItem, Source, Status, WarningCode
 from app.profit.money import percent_of, rnd
 from app.profit.results import (
     AdDetail,
@@ -22,6 +23,11 @@ from app.profit.settings import ProfitSettings
 from app.profit.work import LineWork
 
 ZERO = Decimal("0.00")
+
+# K40: bu kaynaklar NetKâr tahmini değildir (ekstre/fatura kaydı, kullanıcı beyanı ya da bunların dağıtımı).
+CERTAIN_SOURCES = frozenset(
+    {Source.ACTUAL, Source.ACTUAL_ALLOCATED, Source.USER, Source.MATCHED, Source.NONE}
+)
 
 
 def line_status(w: LineWork) -> Status:
@@ -42,23 +48,26 @@ def line_status(w: LineWork) -> Status:
 
 
 def compare_estimate(w: LineWork, settings: ProfitSettings) -> LineComparison | None:
-    """K23: ekstre gelmiş satırda tahmini ve kesin değerleri karşılaştırır (KDV hariç).
+    """K23, K38: ekstre gelmiş satırda tahmini ve kesin değerleri karşılaştırır (KDV hariç).
 
-    Karşılaştırılan kalemler: komisyon (iade ters kayıtları hariç), gönderi kargo (yalnız fatura geldiyse),
-    platform hizmet bedeli (yalnız fatura dağıtıldıysa). `BEKLENMEYEN_KESINTI` yalnız aleyhe farkta:
-    `fark > yuvarlama toleransı` ve `fark > max(mutlak eşik, oransal eşik)`.
+    Karşılaştırılan kalemler: komisyon (iade ters kayıtları hariç), gönderi kargo, platform hizmet bedeli.
+    Kargo ve hizmet bedeli kalemi YALNIZ tahmini tanımlı VE kesin değeri gelmişse iki toplama girer (K38);
+    tanımsız tahmin (tarife ya da hizmet bedeli ayarı yok) karşılaştırmaya girmez. `BEKLENMEYEN_KESINTI`
+    yalnız aleyhe farkta: `fark > yuvarlama toleransı` ve `fark > max(mutlak eşik, oransal eşik)`.
     """
     if not w.has_sale or w.cancelled:
         return None
     thresholds = settings.thresholds
     ship_actual = w.ship_out_excl if w.ship_out_actual else None
     fee_actual = w.fee_excl if w.fee_actual else None
-    estimated_total = (
-        w.commission_estimated_excl
-        + (w.ship_out_estimated_excl if ship_actual is not None else ZERO)
-        + (w.fee_estimated_excl if fee_actual is not None else ZERO)
-    )
-    actual_total = w.commission_actual_sales_excl + (ship_actual or ZERO) + (fee_actual or ZERO)
+    estimated_total = w.commission_estimated_excl
+    actual_total = w.commission_actual_sales_excl
+    if ship_actual is not None and w.ship_out_estimated_excl is not None:
+        estimated_total += w.ship_out_estimated_excl
+        actual_total += ship_actual
+    if fee_actual is not None and w.fee_estimated_excl is not None:
+        estimated_total += w.fee_estimated_excl
+        actual_total += fee_actual
     difference = actual_total - estimated_total
     threshold = max(
         thresholds.unexpected_deduction_amount,
@@ -80,6 +89,39 @@ def compare_estimate(w: LineWork, settings: ProfitSettings) -> LineComparison | 
     )
 
 
+def missing_items_of(w: LineWork) -> tuple[MissingItem, ...]:
+    """K37: kaynağı `eksik` olan kalemler, kanonik sırada (maliyet, gönderi kargo, platform hizmet bedeli)."""
+    sources = (
+        (MissingItem.PRODUCT_COST, w.src_cost),
+        (MissingItem.OUTBOUND_SHIPPING, w.src_ship_out),
+        (MissingItem.PLATFORM_SERVICE_FEE, w.src_fee),
+    )
+    return tuple(item for item, source in sources if source is Source.MISSING)
+
+
+def line_certainty(w: LineWork, missing: tuple[MissingItem, ...]) -> Certainty:
+    """K40: iptal; eksik kalem varsa eksik; tüm kaynaklar tahmin değilse ve teyit bekleyen kural yoksa kesin;
+    aksi halde tahmini. Durum (`settled`) tek başına kesinlik değildir."""
+    if w.cancelled:
+        return Certainty.CANCELLED
+    if missing:
+        return Certainty.MISSING
+    sources = (
+        w.src_sales,
+        w.src_commission,
+        w.src_cost,
+        w.src_ship_out,
+        w.src_ship_ret,
+        w.src_fee,
+        w.src_penalty,
+        w.src_var,
+        w.src_ad,
+    )
+    if all(source in CERTAIN_SOURCES for source in sources) and not w.pending:
+        return Certainty.CERTAIN
+    return Certainty.ESTIMATED
+
+
 def build_line_result(w: LineWork, settings: ProfitSettings) -> LineResult:
     """Tek satırın değişmez kâr kırılımını üretir (K25)."""
     expenses_without_cost = (
@@ -92,12 +134,17 @@ def build_line_result(w: LineWork, settings: ProfitSettings) -> LineResult:
         + w.var_excl
     )
     contribution = w.net_sales - expenses_without_cost
-    if w.cost_excl is None:
+    # K37: bilinen tüm giderlerle kâr; eksik kalem 0 sayılmaz, hariç tutulur.
+    known_expenses_profit = contribution - (w.cost_excl or ZERO)
+    missing = missing_items_of(w)
+    if missing:
         total_expenses = net_profit = None
     else:
-        total_expenses = expenses_without_cost + w.cost_excl
+        total_expenses = expenses_without_cost + (w.cost_excl or ZERO)
         net_profit = w.net_sales - total_expenses
-    if net_profit is not None and net_profit < 0 and not w.cancelled:
+    # K37: eksik kalemler negatif olamaz; bilinen giderlerle zarar eden satır kesin zarardadır.
+    loss = net_profit < 0 if net_profit is not None else known_expenses_profit < 0
+    if loss:
         w.warnings.append(WarningCode.LOSS)
 
     status = line_status(w)
@@ -140,6 +187,10 @@ def build_line_result(w: LineWork, settings: ProfitSettings) -> LineResult:
         status=status,
         quantity=w.quantity,
         refunded_quantity=w.refunded_in_stock + w.refunded_scrapped,
+        pending_refund_quantity=w.pending_refund_quantity,
+        suspended_product_cost=w.suspended_cost,
+        certainty=line_certainty(w, missing),
+        missing_items=missing,
         items=LineItems(
             gross_sales_incl_vat=w.gross,
             seller_discount_incl_vat=w.seller_discount,
@@ -159,6 +210,7 @@ def build_line_result(w: LineWork, settings: ProfitSettings) -> LineResult:
             variable_expenses=w.var_excl,
             total_expenses=total_expenses,
             contribution_before_cost=contribution,
+            known_expenses_profit=known_expenses_profit,
             net_profit=net_profit,
             net_margin_percent=None if net_profit is None else percent_of(net_profit, w.net_sales),
         ),

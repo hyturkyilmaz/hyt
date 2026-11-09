@@ -1,6 +1,12 @@
 """ORM modelleri."""
 
 from app.models.enums import MarketplaceAccountStatus, Platform, Role
+from app.models.profit_settings import (
+    CargoTariffRecord,
+    ProfitSettingsRecord,
+    ServiceFeeEstimateRecord,
+    VariableExpenseRecord,
+)
 from app.models.tables import (
     AuditLog,
     MarketplaceAccount,
@@ -25,6 +31,7 @@ from app.models.trendyol_data import (
 __all__ = [
     "AuditLog",
     "CargoInvoiceItem",
+    "CargoTariffRecord",
     "FinancialTransaction",
     "MarketplaceAccount",
     "MarketplaceAccountStatus",
@@ -34,12 +41,15 @@ __all__ = [
     "Platform",
     "Product",
     "ProductCost",
+    "ProfitSettingsRecord",
     "RateLimit",
     "Return",
     "Role",
+    "ServiceFeeEstimateRecord",
     "SessionRecord",
     "SyncCursor",
     "SyncRun",
     "Tenant",
     "User",
+    "VariableExpenseRecord",
 ]

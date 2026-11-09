@@ -86,9 +86,26 @@ def test_summary_returns_engine_totals_status_counts_and_feed_notes(shop: Shop) 
     # 1001 (100.00 KDV hariç) + 1002 (83.33) + 1003 (satış 25.00, tamamı iade: 0.00); 1004 iptal girmez.
     assert totals["siparis_sayisi"] == 3 and totals["satir_sayisi"] == 3
     assert totals["net_satis_kdv_haric"] == "183.33" and totals["komisyon"] == "18.33"
-    assert totals["urun_maliyeti"] == "100.00" and totals["donem_net_kar"] == "-10.00"
+    # Hesapta kâr ayarı yok: hiçbir satır tam değildir (kargo ve hizmet bedeli eksik, K37); tam satır olmadığından
+    # satır net kâr toplamı ve dönem net kârı 0,00, dönem marjı null'dır (K39).
+    assert totals["urun_maliyeti"] == "100.00" and totals["donem_net_kar"] == "0.00"
     assert totals["net_kar_kismi"] is True and totals["maliyet_eksik_satir_sayisi"] == 1
-    assert totals["uyarilar"] == ["MALIYET_EKSIK_SATIRLAR_VAR"] and totals["teyit_bekliyor"] == []
+    assert totals["net_kar_marji_yuzde"] is None and totals["tam_satirlar"]["satir_sayisi"] == 0
+    assert totals["eksik_kalem_satir_sayilari"] == {
+        "urun_maliyeti": 1, "kargo_gonderi": 3, "platform_hizmet_bedeli": 3,
+    }  # fmt: skip
+    assert totals["kesinlik"] == "eksik" and totals["kesinlik_satir_sayilari"] == {
+        "kesin": 0, "tahmini": 0, "eksik": 3,
+    }  # fmt: skip
+    assert totals["uyarilar"] == [
+        "MALIYET_EKSIK_SATIRLAR_VAR",
+        "KARGO_EKSIK_SATIRLAR_VAR",
+        "HIZMET_BEDELI_EKSIK_SATIRLAR_VAR",
+        "IADE_KAYDI_BEKLENEN_SATIRLAR_VAR",
+    ]
+    assert totals["teyit_bekliyor"] == []
+    assert body["settings_configured"] is False and not any(body["completeness"].values())
+    assert body["tariff_missing_line_count"] == totals["eksik_kalem_satir_sayilari"]["kargo_gonderi"]
     assert body["status_counts"] == {"estimated": 1, "settled": 1, "adjusted": 1, "cancelled": 1}
     assert body["missing_cost_line_count"] == 1
     assert body["feed_notes"] == {
@@ -161,7 +178,9 @@ def test_money_keeps_cent_precision_for_half_cent_inputs(
     )  # fmt: skip
     line = call(shop, "orders/1200").json()["lines"][0]["kalemler"]
     assert line["brut_satis_kdv_dahil"] == "99.99" and line["satis_kdv_haric"] == "83.33"
-    assert line["komisyon"] == "10.42" and line["net_kar"] == "22.91"  # 83.325 -> 83.33; 10.4163 -> 10.42
+    assert line["komisyon"] == "10.42"  # 83.325 -> 83.33; 10.4163 -> 10.42
+    # Kargo ve hizmet bedeli tanımsız: net kâr null, bilinen giderlerle kâr 83,33 - 10,42 - 50,00 (K37).
+    assert line["net_kar"] is None and line["eksik_giderler_haric_kar"] == "22.91"
 
 
 # --- dönem parametreleri ---------------------------------------------------------------------------------
@@ -277,17 +296,23 @@ def test_products_list_shape_titles_basis_and_unknown_values_last(shop: Shop) ->
     )
     b1, b2 = body["items"]
     assert (b1["barcode"], b1["title"]) == (B1, "Ürün Bir")
+    # Kargo ve hizmet bedeli tanımsız: toplam gider, net kâr ve marj null; bilinen giderlerle kâr ayrı alanda (K37).
     assert (b1["net_sales_excl_vat"], b1["product_cost"], b1["total_expenses"], b1["net_profit"]) == (
-        "100.00", "100.00", "110.00", "-10.00",
+        "100.00", "100.00", None, None,
     )  # fmt: skip
     assert (b1["net_margin_percent"], b1["quantity"], b1["line_count"], b1["cost_missing"]) == (
-        "-10.00", 2, 2, False,
+        None, 2, 2, False,
     )  # fmt: skip
+    assert b1["contribution_excl_missing"] == "-10.00" and b1["loss_reason"] == "known_expenses"
+    assert b1["missing_items"] == ["kargo_gonderi", "platform_hizmet_bedeli"] and b1["shipping_missing"]
+    assert (b1["certainty"], b1["statement_basis"]) == ("eksik", "mixed")
     assert (b1["basis"], b1["estimated_line_count"], b1["adjusted_line_count"]) == ("mixed", 1, 1)
     assert (b2["barcode"], b2["title"], b2["cost_missing"]) == (B2, "Ürün İki", True)
     assert b2["net_profit"] is None and b2["total_expenses"] is None and b2["net_margin_percent"] is None
     assert b2["basis"] == "settled" and b2["net_sales_excl_vat"] == "83.33"
-    # Maliyeti eksik ürün her yönde sonda: asc'de de.
+    assert b2["missing_items"] == ["urun_maliyeti", "kargo_gonderi", "platform_hizmet_bedeli"]
+    assert b2["contribution_excl_missing"] == "75.00" and b2["loss_reason"] is None
+    # Net kârı hesaplanamayan ürünler her yönde sonda (ikisi de null: barkoda göre kararlı): asc'de de.
     asc = call(shop, "products", order="asc").json()["items"]
     assert [i["barcode"] for i in asc] == [B1, B2]
 
@@ -377,7 +402,9 @@ def test_product_detail_has_lines_totals_and_estimate_vs_actual_comparison(shop:
         "mixed",
         3,
     )
-    assert body["product"]["net_kar"] == "-10.00" and body["product"]["adet"] == 2
+    assert body["product"]["net_kar"] is None and body["product"]["adet"] == 2
+    assert body["product"]["eksik_giderler_haric_kar"] == "-10.00"  # bilinen giderlerle kâr (K37)
+    assert (body["certainty"], body["statement_basis"]) == ("eksik", "mixed")
     lines = body["lines"]
     assert [(ln["orderNumber"], ln["durum"]) for ln in lines] == [
         ("1001", "estimated"), ("1003", "adjusted"), ("1004", "cancelled"),
@@ -386,7 +413,10 @@ def test_product_detail_has_lines_totals_and_estimate_vs_actual_comparison(shop:
     assert estimated["karsilastirma"] is None  # ekstre yok: karşılaştırma yok
     assert estimated["kaynaklar"]["satis"] == "tahmini" and adjusted["kaynaklar"]["satis"] == "kesin"
     assert adjusted["karsilastirma"]["fark"] == "0.00" and adjusted["karsilastirma"]["esik"] == "5.00"
-    assert adjusted["uyarilar"] == ["KARGO_TARIFESI_EKSIK", "ZARAR"]
+    assert set(adjusted["uyarilar"]) == {
+        "KARGO_TARIFESI_EKSIK", "HIZMET_BEDELI_TAHMINI_EKSIK", "IADE_KAYDI_BEKLENIYOR", "ZARAR",
+    }  # fmt: skip
+    assert adjusted["iade_kaydi_bekleyen_adet"] == 1 and adjusted["askidaki_urun_maliyeti"] == "50.00"
     assert cancelled["kalemler"]["net_kar"] == "0.00" and cancelled["kalemler"]["urun_maliyeti"] == "0.00"
     assert body["comparison"] == {
         "compared_line_count": 1, "estimated_total": "2.50", "actual_total": "2.50", "difference": "0.00",
@@ -426,8 +456,9 @@ def test_order_detail_has_lines_items_and_totals(shop: Shop) -> None:
     body = call(shop, "orders/1003").json()
     assert (body["order_number"], body["ordered_on"]) == ("1003", "2026-10-07")
     assert body["totals"] == {
-        "line_count": 1, "net_sales_excl_vat": "0.00", "total_expenses": "50.00",
-        "net_profit": "-50.00", "cost_missing": False,
+        "line_count": 1, "net_sales_excl_vat": "0.00", "total_expenses": None, "net_profit": None,
+        "known_expenses_profit": "-50.00", "cost_missing": False,
+        "missing_items": ["kargo_gonderi", "platform_hizmet_bedeli"],
     }  # fmt: skip
     assert body["status_counts"] == {"estimated": 0, "settled": 0, "adjusted": 1, "cancelled": 0}
     (line,) = body["lines"]
@@ -437,6 +468,7 @@ def test_order_detail_has_lines_items_and_totals(shop: Shop) -> None:
     assert cancelled["totals"]["line_count"] == 0 and cancelled["status_counts"]["cancelled"] == 1
     missing = call(shop, "orders/1002").json()  # maliyeti olmayan ürün: kâr uydurulmaz
     assert missing["totals"]["net_profit"] is None and missing["totals"]["cost_missing"] is True
+    assert missing["totals"]["missing_items"] == ["urun_maliyeti", "kargo_gonderi", "platform_hizmet_bedeli"]
 
 
 def test_order_without_a_period_uses_its_own_days_and_an_explicit_period_must_contain_it(shop: Shop) -> None:
@@ -447,7 +479,10 @@ def test_order_without_a_period_uses_its_own_days_and_an_explicit_period_must_co
         "end": "2026-10-05",
         "days": 1,
     }
-    assert r.json()["lines"][0]["kalemler"]["net_kar"] == "40.00"
+    line = r.json()["lines"][0]["kalemler"]
+    assert (
+        line["net_kar"] is None and line["eksik_giderler_haric_kar"] == "40.00"
+    )  # kargo, hizmet bedeli eksik
     outside = shop.api.get(f"{shop.base}/profit/orders/1001", params={"range": "7d"})
     assert outside.status_code == 404  # sipariş var ama seçilen dönemde değil
     assert shop.api.get(f"{shop.base}/profit/orders/9999").status_code == 404
@@ -527,19 +562,21 @@ def test_alerts_list_engine_warnings_with_counts_messages_and_unavailable_codes(
     body = call(shop, "alerts").json()
     counts = {c["code"]: c["count"] for c in body["counts"]}
     assert counts == {
+        "HIZMET_BEDELI_EKSIK_SATIRLAR_VAR": 1, "HIZMET_BEDELI_TAHMINI_EKSIK": 3,
+        "IADE_KAYDI_BEKLENEN_SATIRLAR_VAR": 1, "IADE_KAYDI_BEKLENIYOR": 1, "KARGO_EKSIK_SATIRLAR_VAR": 1,
         "KARGO_TARIFESI_EKSIK": 3, "MALIYET_EKSIK": 1, "MALIYET_EKSIK_SATIRLAR_VAR": 1, "ZARAR": 1,
     }  # fmt: skip
-    assert body["total_count"] == 6 and len(body["items"]) == 6 and body["next_cursor"] is None
+    assert body["total_count"] == 13 and len(body["items"]) == 13 and body["next_cursor"] is None
     first = body["items"][0]
     assert (first["code"], first["scope"], first["order_number"]) == (
-        "MALIYET_EKSIK_SATIRLAR_VAR",
+        "HIZMET_BEDELI_EKSIK_SATIRLAR_VAR",
         "period",
         None,
     )
     loss = next(i for i in body["items"] if i["code"] == "ZARAR")
-    assert (loss["scope"], loss["order_number"], loss["line_id"], loss["barcode"], loss["net_profit"]) == (
-        "line", "1003", 3, B1, "-50.00",
-    )  # fmt: skip
+    # Kesin zarar (K37): net kâr null (eksik kalem), bilinen giderlerle kâr negatif.
+    assert (loss["scope"], loss["order_number"], loss["line_id"], loss["barcode"]) == ("line", "1003", 3, B1)
+    assert (loss["net_profit"], loss["known_expenses_profit"]) == (None, "-50.00")
     assert all(i["message"] for i in body["items"]) and all(c["message"] for c in body["counts"])
     assert {u["code"] for u in body["not_yet_available"]} == {"REKLAM_KARI_YIYOR", "IADE_ORANI_ARTISI"}
     # İptal satırı (1004) uyarı üretmez.
@@ -549,7 +586,7 @@ def test_alerts_list_engine_warnings_with_counts_messages_and_unavailable_codes(
 def test_alerts_filter_by_code_and_page_with_a_cursor(shop: Shop) -> None:
     only = call(shop, "alerts", code="KARGO_TARIFESI_EKSIK").json()
     assert only["total_count"] == 3 and {i["code"] for i in only["items"]} == {"KARGO_TARIFESI_EKSIK"}
-    assert len(only["counts"]) == 4  # sayımlar süzgeçten bağımsız
+    assert len(only["counts"]) == 9  # sayımlar süzgeçten bağımsız
     seen, cursor = [], None
     for _ in range(10):
         page = call(shop, "alerts", limit=2, **({"cursor": cursor} if cursor else {})).json()
@@ -557,7 +594,7 @@ def test_alerts_filter_by_code_and_page_with_a_cursor(shop: Shop) -> None:
         cursor = page["next_cursor"]
         if cursor is None:
             break
-    assert len(seen) == 6 and len(set(seen)) == 6 and seen[0][0] == "MALIYET_EKSIK_SATIRLAR_VAR"
+    assert len(seen) == 13 and len(set(seen)) == 13 and seen[0][0] == "HIZMET_BEDELI_EKSIK_SATIRLAR_VAR"
     assert call(shop, "alerts", code="ZARAR", cursor=page["next_cursor"] or "x").status_code == 422
     r = call(shop, "alerts", limit=2).json()
     assert (

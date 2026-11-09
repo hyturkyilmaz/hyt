@@ -18,7 +18,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
 
-from app.profit.enums import Source, Status, WarningCode
+from app.api.v1.profit_settings_schemas import CompletenessOut
+from app.profit.enums import Certainty, MissingItem, Source, Status, WarningCode
 from app.profit.money import fmt
 
 
@@ -73,6 +74,7 @@ class LineItemsOut(WireModel):
     variable_expenses: Amount = w("degisken_giderler")
     total_expenses: Amount | None = w("toplam_gider")
     contribution_before_cost: Amount = w("maliyet_haric_katki")
+    known_expenses_profit: Amount = w("eksik_giderler_haric_kar")
     net_profit: Amount | None = w("net_kar")
     net_margin_percent: Amount | None = w("net_kar_marji_yuzde")
 
@@ -135,9 +137,9 @@ class LineComparisonOut(WireModel):
 
     commission_estimated: Amount = w("komisyon_tahmini")
     commission_actual: Amount = w("komisyon_kesin")
-    shipping_outbound_estimated: Amount = w("kargo_gonderi_tahmini")
+    shipping_outbound_estimated: Amount | None = w("kargo_gonderi_tahmini")
     shipping_outbound_actual: Amount | None = w("kargo_gonderi_kesin")
-    platform_service_fee_estimated: Amount = w("platform_hizmet_bedeli_tahmini")
+    platform_service_fee_estimated: Amount | None = w("platform_hizmet_bedeli_tahmini")
     platform_service_fee_actual: Amount | None = w("platform_hizmet_bedeli_kesin")
     compared_estimated_total: Amount = w("karsilastirilan_tahmini_toplam")
     compared_actual_total: Amount = w("karsilastirilan_kesin_toplam")
@@ -155,6 +157,10 @@ class LineOut(WireModel):
     status: Status = w("durum")
     quantity: int = w("adet")
     refunded_quantity: int = w("adet_iade")
+    pending_refund_quantity: int = w("iade_kaydi_bekleyen_adet")
+    suspended_product_cost: Amount | None = w("askidaki_urun_maliyeti")
+    certainty: Certainty = w("kesinlik")
+    missing_items: list[MissingItem] = w("eksik_kalemler")
     items: LineItemsOut = w("kalemler")
     vat: LineVatOut = w("kdv")
     cash_flow: LineCashFlowOut = w("nakit_akisi")
@@ -164,6 +170,22 @@ class LineOut(WireModel):
     comparison: LineComparisonOut | None = w("karsilastirma")
     warnings: list[WarningCode] = w("uyarilar")
     pending_confirmation: list[str] = w("teyit_bekliyor")
+
+
+class MissingCountsOut(WireModel):
+    """K37: kalem başına eksik satır sayısı (ürün ve dönem)."""
+
+    product_cost: int = w("urun_maliyeti")
+    outbound_shipping: int = w("kargo_gonderi")
+    platform_service_fee: int = w("platform_hizmet_bedeli")
+
+
+class CertaintyCountsOut(WireModel):
+    """K40: dönemin aktif satırlarının kesinlik dağılımı."""
+
+    certain: int = w("kesin")
+    estimated: int = w("tahmini")
+    missing: int = w("eksik")
 
 
 class ProductTotalsOut(WireModel):
@@ -184,9 +206,12 @@ class ProductTotalsOut(WireModel):
     advertising_without_sales: Amount = w("reklam_satissiz")
     variable_expenses: Amount = w("degisken_giderler")
     contribution_before_cost: Amount = w("maliyet_haric_katki")
+    known_expenses_profit: Amount = w("eksik_giderler_haric_kar")
     net_profit: Amount | None = w("net_kar")
     net_margin_percent: Amount | None = w("net_kar_marji_yuzde")
     cost_missing: bool = w("maliyet_eksik")
+    missing_line_counts: MissingCountsOut = w("eksik_kalem_satir_sayilari")
+    certainty: Certainty = w("kesinlik")
     advertising_spend: Amount = w("reklam_harcamasi")
     advertising_revenue: Amount | None = w("reklam_cirosu")
     roas: Amount | None = w("roas")
@@ -212,6 +237,24 @@ class PeriodCashFlowOut(WireModel):
     early_payment_cash_in: Amount = w("erken_odeme_nakit_girisi")
 
 
+class FullLinesTotalsOut(WireModel):
+    """K39: yalnız tam satırların (eksik kalemsiz) kalem kalem toplamı; pay ve payda aynı satır kümesi."""
+
+    line_count: int = w("satir_sayisi")
+    net_sales_excl_vat: Amount = w("net_satis_kdv_haric")
+    product_cost: Amount = w("urun_maliyeti")
+    commission: Amount = w("komisyon")
+    shipping_outbound: Amount = w("kargo_gonderi")
+    shipping_return: Amount = w("kargo_iade")
+    platform_service_fee: Amount = w("platform_hizmet_bedeli")
+    penalty: Amount = w("ceza")
+    advertising: Amount = w("reklam")
+    variable_expenses: Amount = w("degisken_giderler")
+    total_expenses: Amount = w("toplam_gider")
+    net_profit: Amount = w("net_kar")
+    net_margin_percent: Amount | None = w("net_kar_marji_yuzde")
+
+
 class PeriodTotalsOut(WireModel):
     """Dönem toplamı (K25, docs/12 §7.3). İptal satırları girmez."""
 
@@ -228,10 +271,15 @@ class PeriodTotalsOut(WireModel):
     variable_expenses: Amount = w("degisken_giderler")
     line_net_profit_total: Amount = w("satir_net_kar_toplami")
     period_level_expenses: PeriodLevelExpensesOut = w("donem_duzeyi_giderler")
+    period_level_expenses_total: Amount = w("donem_duzeyi_giderler_toplami")
     period_net_profit: Amount = w("donem_net_kar")
     net_profit_partial: bool = w("net_kar_kismi")
     missing_cost_line_count: int = w("maliyet_eksik_satir_sayisi")
+    missing_line_counts: MissingCountsOut = w("eksik_kalem_satir_sayilari")
     net_margin_percent: Amount | None = w("net_kar_marji_yuzde")
+    full_lines: FullLinesTotalsOut = w("tam_satirlar")
+    certainty: Certainty = w("kesinlik")
+    certainty_line_counts: CertaintyCountsOut = w("kesinlik_satir_sayilari")
     vat_effect: Amount = w("kdv_etkisi")
     cash_flow: PeriodCashFlowOut = w("nakit_akisi")
     warnings: list[WarningCode] = w("uyarilar")
@@ -241,6 +289,7 @@ class PeriodTotalsOut(WireModel):
 # --------------------------------------------------------------------------- zarflar (İngilizce adlar)
 
 BasisLabel = Literal["estimated", "settled", "mixed", "none"]
+LossReasonLabel = Literal["net_profit", "contribution_before_cost", "known_expenses"]
 
 
 class PeriodOut(ApiModel):
@@ -279,19 +328,26 @@ class SummaryOut(ApiModel):
     totals: PeriodTotalsOut
     status_counts: StatusCountsOut
     missing_cost_line_count: int
+    completeness: CompletenessOut = Field(
+        description="Kâr ayarları tamlığı (ADR-0006): bugün geçerli bir sürüm var mı (kargo tarifesi, satıcı "
+        "tarifesi, hizmet bedeli tahmini, değişken gider, varsayılan desi). Eksik kalem satır sayıları "
+        "`totals.eksik_kalem_satir_sayilari`, kesinlik `totals.kesinlik` ve `totals.kesinlik_satir_sayilari`dadır."
+    )
     settings_configured: bool = Field(
-        description="Kiracı kâr ayarları (kargo tarifesi, hizmet bedeli) tanımlı mı. Ayar tablosu gelene dek false: "
-        "motor varsayılanları kullanılır ve net kâr kargo ve hizmet bedeli hariç sunulmalıdır."
+        description="Eski alan (bir sürüm boyunca korunur): kargo tarifesi VE hizmet bedeli tahmini bugün tanımlı "
+        "mı (`completeness.cargo_tariff_defined and completeness.service_fee_estimate_defined`)."
     )
     tariff_missing_line_count: int = Field(
-        description="KARGO_TARIFESI_EKSIK uyarılı aktif satır sayısı (gönderi kargosu 0 ve eksik kaynaklı)."
+        description="Gönderi kargosu eksik aktif satır sayısı (`totals.eksik_kalem_satir_sayilari.kargo_gonderi`; "
+        "sayım motordan)."
     )
     estimated_line_count: int = Field(description="Durumu tahmini (ekstresiz) olan satır sayısı.")
     feed_notes: FeedNotesOut
 
 
 class ProductProfitItemOut(ApiModel):
-    """Ürün kârlılık satırı. Paralar KDV hariçtir. `basis`: satırların kaynağı (tahmini mi kesin mi)."""
+    """Ürün kârlılık satırı. Paralar KDV hariçtir. `certainty`: motorun kesinlik etiketi (K40); `statement_basis`:
+    ekstreli satır oranı (eski `basis`)."""
 
     barcode: str
     title: str | None
@@ -308,17 +364,33 @@ class ProductProfitItemOut(ApiModel):
     roas: Amount | None
     breakeven_roas: Amount | None
     cost_missing: bool
-    loss_reason: Literal["net_profit", "contribution_before_cost"] | None = Field(
-        description="Ürün zararda ise nedeni. net_profit: net kâr hesaplandı ve negatif. contribution_before_cost: "
-        "maliyet girilmediği için net kâr hesaplanamıyor ama maliyet hariç katkı negatif (zarar kesin). "
-        "Zararda değilse ya da belirsizse null."
+    certainty: Certainty = Field(
+        description="Motorun kesinlik etiketi (K40): kesin, tahmini, eksik, yok (aktif satır yok). Panelin "
+        "'kesin' rozeti yalnız buradan türetilir."
+    )
+    missing_items: list[MissingItem] = Field(
+        description="Eksik kalemler (K37): ürünün aktif satırlarında en az birinde kaynağı `eksik` olan kalemler "
+        "(kanonik sıra). Boş değilse `net_profit` null'dır."
+    )
+    contribution_excl_missing: Amount = Field(
+        description="Eksik giderler hariç kâr (K37): bilinen tüm giderlerle kâr; eksik kalem 0 sayılmaz, hariç "
+        "tutulur. Eksik kalem yoksa net kâra eşittir. Etiketsiz gösterilmemelidir."
+    )
+    loss_reason: LossReasonLabel | None = Field(
+        description="Ürün zararda ise nedeni (K37 kesin zarar kuralı). net_profit: net kâr hesaplandı ve negatif. "
+        "contribution_before_cost: net kâr yalnız maliyet eksik olduğu için null ama maliyet hariç katkı negatif. "
+        "known_expenses: kargo ya da hizmet bedeli de eksik, net kâr null ama eksik giderler hariç kâr negatif "
+        "(eksik kalemler negatif olamayacağından zarar kesin). Zararda değilse null."
     )
     shipping_missing: bool = Field(
-        description="Ürünün en az bir aktif satırında KARGO_TARIFESI_EKSIK var (gönderi kargosu 0 ve eksik kaynaklı)."
+        description="Ürünün en az bir aktif satırında gönderi kargosu eksik (tarife yok; motor sayımı)."
     )
     basis: BasisLabel = Field(
-        description="estimated: hiç ekstreli satır yok; settled: tüm aktif satırlar ekstreli (settled/adjusted); "
-        "mixed: karışık; none: aktif satır yok."
+        description="ESKİ ad (bir sürüm boyunca `statement_basis` ile aynı değer); kesinlik anlamı TAŞIMAZ."
+    )
+    statement_basis: BasisLabel = Field(
+        description="Ekstreli satır oranı: estimated: hiç ekstreli satır yok; settled: tüm aktif satırlar ekstreli "
+        "(settled/adjusted); mixed: karışık; none: aktif satır yok. Kesinlik değildir (bkz. certainty)."
     )
     estimated_line_count: int
     settled_line_count: int
@@ -353,7 +425,9 @@ class ProductProfitDetailOut(ApiModel):
     barcode: str
     title: str | None
     product: ProductTotalsOut | None
+    certainty: Certainty
     basis: BasisLabel
+    statement_basis: BasisLabel
     comparison: ComparisonSummaryOut
     total_lines: int
     lines: list[LineOut]
@@ -367,7 +441,9 @@ class OrderTotalsOut(ApiModel):
     net_sales_excl_vat: Amount
     total_expenses: Amount | None
     net_profit: Amount | None
+    known_expenses_profit: Amount
     cost_missing: bool
+    missing_items: list[MissingItem]
 
 
 class OrderDetailOut(ApiModel):
@@ -392,6 +468,7 @@ class AlertOut(ApiModel):
     line_id: int | None = None
     barcode: str | None = None
     net_profit: Amount | None = None
+    known_expenses_profit: Amount | None = None
     difference: Amount | None = None
     threshold: Amount | None = None
 

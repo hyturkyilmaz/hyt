@@ -15,6 +15,7 @@ from app.db.rls import tenant_transaction
 from app.db.session import create_engine
 from app.profit import ProfitSettings
 from app.profit.enums import WarningCode
+from app.profit.settings import DatedAmount
 from app.services.profit_report import period_profit, product_profit
 from tests.conftest import Api, DatabaseInfo
 from tests.product_cost_helpers import B1, Shop, csv_bytes, fixed_today, make_shop_factory, upload  # noqa: F401
@@ -23,7 +24,7 @@ from tests.test_feed_database import add_order
 
 D = Decimal
 pytestmark = pytest.mark.usefixtures("fixed_today")
-SETTINGS = ProfitSettings(estimated_service_fee_per_order_excl_vat=D("0"))
+SETTINGS = ProfitSettings(service_fee_estimates=(DatedAmount(D("0")),))
 
 
 @pytest.fixture

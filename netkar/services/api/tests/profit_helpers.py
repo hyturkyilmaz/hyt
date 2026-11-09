@@ -15,13 +15,15 @@ from app.profit.inputs import (
     OtherFinancialRow,
     SettlementRow,
 )
-from app.profit.settings import CargoTariff
+from app.profit.settings import CargoTariff, DatedAmount
 
 D = Decimal
 _ids = count(1)
 
-TARIFF = CargoTariff({"Trendyol Express": ((D("1"), D("40.00")), (D("2"), D("45.00")), (D("5"), D("60.00")))})
-SELLER_TARIFF = CargoTariff({"Aras": ((D("2"), D("38.00")),)})
+TARIFF = CargoTariff.unversioned(
+    {"Trendyol Express": ((D("1"), D("40.00")), (D("2"), D("45.00")), (D("5"), D("60.00")))}
+)
+SELLER_TARIFF = CargoTariff.unversioned({"Aras": ((D("2"), D("38.00")),)})
 
 
 def make_settings(**overrides: Any) -> ProfitSettings:
@@ -29,7 +31,7 @@ def make_settings(**overrides: Any) -> ProfitSettings:
     base: dict[str, Any] = {
         "cargo_tariff": TARIFF,
         "seller_cargo_tariff": SELLER_TARIFF,
-        "estimated_service_fee_per_order_excl_vat": D("10.00"),
+        "service_fee_estimates": (DatedAmount(D("10.00")),),
     }
     base.update(overrides)
     return ProfitSettings(**base)
