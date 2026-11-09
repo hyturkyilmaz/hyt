@@ -353,3 +353,75 @@ Kiracı kilidi (`set`) ve yuvalar (`asyncio.Semaphore`) süreç içidir. Bugünk
 
 - Kritik veya Yüksek açık bulgu YOK; **merge engeli kalktı.** Y-01'in kalıntısı YK-01 (Orta) lansman öncesi kapatılmalı; üretim sunucusu 4 GB veya altındaysa Yüksek sayılmalı ve merge/lansman engeli olarak ele alınmalıdır.
 - Yeni bulgu sayısı: 4 (Orta 1, Düşük 2, Bilgi 1).
+
+## Kapanış doğrulaması 2 (2026-11-09)
+
+- Doğrulanan sürüm: `94d7f1c` (akışlı okuyucu `app/services/xlsx_stream.py`, tek geçişli `csv_safe_cell`, şablon iş parçacığı havuzunda) ve `32f00bf` (yalnız test). Doğrulama anındaki HEAD `c647926`; arada `app/` değişikliği yok. Çalışma ağacındaki commit edilmemiş kâr raporu dosyaları (`profit*.py`) başka bir iş akışına ait, kapsam dışı. Denetçi kod değiştirmedi, commit yapmadı.
+- Testler: tüm API paketi 1189 geçti, 3 atlandı (reklam, bilinçli), 0 kaldı. Önceki kapanış PoC'leri (`test_poc_s3_kapanis.py`, kapı, işlem, multipart, yol) 7/7 yine geçti.
+- Yöntem: YK-01 dosyaları yeniden ölçüldü. Akışlı okuyucuya özel yeni saldırı dosyaları üretildi (`mkstream.py`); yapı ve ayrıştırma atlatma denemeleri yapıldı (`struct_tests.py`, `doctype_test.py`). Mutlu yol için Excel 2016 benzeri elle kurulmuş bir paket kullanıldı (`excel_like.py`): paylaşılan dizeler, `xml:space`, `phoneticPr`, zengin metin, `mc:Ignorable`, `x14ac` öznitelikleri, `numFmtId=14` ve özel `dd/mm/yyyy;@` tarih biçimi, formül önbelleği, iki sayfa, `definedNames`, `extLst`. Ölçümler ayrı süreçte `ru_maxrss` ile alındı (başlangıç yaklaşık 51 MB).
+
+### Bulgu durumu
+
+| No | Durum | Kanıt |
+|---|---|---|
+| YK-01 | **Kapandı** (kalıntı YK-04, Düşük) | Dosya sonuçları:<br>- `widerow` 0,03 sn'de 422 (satır sırası; ayrıca satır başına 50 hücre tavanı var).<br>- `sheetjunk` 0,12 sn'de 422 ("çok fazla tanınmayan öğe"), tepe 53 MB (önce 479 MB).<br>- `sstjunk` kabul edildi ama tepe 62 MB (önce 277 MB).<br>- `sstredirect` 422 ("bölüm beklenmeyen bir adla bildirilmiş"), tepe 77 MB.<br>- `bomb2`, `styles4` bölüm sınırında 422.<br>- `manyruns` (1,2 milyon `<r>`, inlineStr) 422 (tanınmayan öğe bütçesi).<br>Tavanlara yakın meşru dosya (10.000 satır x 50 sütun, 200.000 paylaşılan dizeye 500.000 başvuru, 15 milyon karakter): 3,7 sn, tepe 145 MB. Tek `<v>` içinde 19 MB rakam: 0,1 sn, 89 MB. Tek öznitelikte 19 MB değer: 0,13 sn, 107 MB. Öznitelik selinde bellek hâlâ yükseliyor (YK-04). |
+| YK-02 | **Kapandı** | `csv_safe_cell` tek geçişli; ayırıcı veya hücre başından sonra boşluk, `"`, BOM ve sıfır genişlik dolgusu atlanıp formül karakterinin önüne `'` konuyor; `QUOTE_ALL` korunuyor. 17 varyant şablondan geçirilip satır hem `,` hem `;` ile `csv` modülünde bölündü; soldan boşluk atılmış hiçbir hücre formül karakteriyle başlamadı. Denenen varyantlar: `x,"=1+1,y`, `x," =SUM(1;2),y`, `x;""=1`, `"=1`, `x,"""=1`, sekme, CR, NBSP, `＝` ve U+3000. Excel'de açılış DOĞRULANMADI. |
+| YK-03 | **Kapandı** | Regex kaldırıldı; hücre 500 karakterde kesiliyor. 20.000, 100.000 ve 1.000.000 sekmeli başlık ölçülemeyecek kadar kısa sürüyor (< 1 ms). Şablon `run_in_threadpool` ile üretiliyor (`product_costs.py:339-341`). Tarih biçimi deseni (`_FORMAT_NOISE`) için en kötü 256 karakterlik kod (`[[[[...`): 4.000 kod 0,19 sn. |
+| YB-01 | Açık (bilgi, not olarak belgelendi) | `import_gate.py:11-13` ve `config.py`'de sonraki tur notu; uygulama yok. Tek uvicorn süreciyle bugün geçerli. |
+
+### Atlatma denemeleri (bulgu yok)
+
+| Deneme | Sonuç |
+|---|---|
+| İlk sayfa sırası (`<sheets>` içinde boş sheet2 önce) | Okuyucu ilk `<sheet>` öğesini okuyor (Excel ve openpyxl ile aynı); boş sayfa 422 "Başlık satırı bulunamadı". |
+| rels hedefi `/xl/...` mutlak, `./`, `../xl/...` | Doğru sayfaya çözülüyor (mutlu yol). |
+| rels hedefi `worksheets/../../etc/passwd`, ters eğik çizgi, `WORKSHEETS/`, `#x` eki, `file:///` | Hepsi 422 (`_resolve` ve `_SHEET_PART` tam eşleşme, Override içerik türü denetimi). |
+| Paylaşılan dize tablosunu rels ve Override ile `xl/worksheets/sheet3.xml`'e taşıma | 422 (`_check_overrides`). |
+| 1,2 MB rastgele yorum önsözünden sonra iç DTD veya `SYSTEM` DOCTYPE; `sharedStrings.xml`'de DOCTYPE; tanımsız `&e;` başvurusu | Hepsi 422 "bölüm okunamadı" (defusedxml `forbid_dtd=True`; DTD yalnız önsözde olabileceği için erken durma onu kaçırmaz). |
+| Tüm sayfa öğeleri `x:` önekli (ad alanı ana ad alanına bağlı) | Doğru okunuyor (eşleme ad alanı URI'sine göre). |
+| CDATA ve karakter referansı (`&#50;&#x30;`) | Doğru okunuyor; karakter referansı metni büyütemez (kısaltır). |
+| `r="XFD3"` boş hücre / dolu hücre; `<row r="1048576">` | Boş: yok sayılıyor. Dolu: 422 (50 sütun). Satır: 422 (satır tavanı, boş satır listesi oluşturulmadan). |
+| 1,2 milyon `<r>` içeren inlineStr | 422 (tanınmayan öğe bütçesi). |
+
+### Yeni bulgular
+
+| No | Ciddiyet | Başlık | Konum |
+|---|---|---|---|
+| YK-04 | Düşük | Öğe ve hücre bütçeleri öznitelikleri saymıyor: tek öğede yaklaşık 1 milyon öznitelik veya ad alanı bildirimi yaklaşık 200-270 MB geçici bellek tüketiyor | `xlsx_stream.py:147-178` (`_events`), `cost_import.py` `check_zip` akış döngüsü |
+| YB-02 | Bilgi | Bölüm izin listesi gerçek Excel dosyalarındaki yaygın bölümleri reddediyor (işlevsel gerileme, `7c01b34`'ten beri) | `cost_import.py` `_ALLOWED_PARTS` / `_ALLOWED_PART_PATTERNS` |
+| YB-03 | Bilgi | Sessiz kabul durumları: yabancı ad alanındaki satır hiç uyarı vermeden atlanıyor; paylaşılan dize tablosunun gerekli dizelerden sonraki bozuk kısmı denetlenmiyor | `xlsx_stream.py:526-527, 676-677` |
+
+#### YK-04 (Düşük) Öznitelik seli bütçe dışında
+
+**Açıklama:** `_events` öğe sayısını, okuyucular hücre, satır ve tanınmayan öğe sayısını sınırlıyor; ancak expat ve ElementTree bir başlangıç etiketinin TÜM özniteliklerini `start` olayından önce sözlüğe çevirir ve öznitelik sayısı hiçbir yerde sınırlanmıyor. Sayfa bölüm sınırı (20 MB) ve 2 MiB dosya sınırı, sıkıştırılamayan benzersiz öznitelik adlarıyla yaklaşık 1 milyon özniteliğe izin veriyor. Ölçümler:
+
+| Dosya | Boyut | Sayfa (oran) | Süre | Tepe RSS |
+|---|---|---|---|---|
+| `rowattrs`: tek `<row>` üzerinde yaklaşık 1 milyon `aN="0"` | 1,82 MB | 9,4 MB (5,2) | 1,15 sn | 318 MB, kabul edildi |
+| `rootns`: kökte yaklaşık 1 milyon `xmlns:pN="0"` | 1,75 MB | 12,6 MB (7,2) | 0,95 sn | 255 MB, kabul edildi |
+| `rowattrs` x 2 eşzamanlı (yuva sayısı) | | | 2,4 sn | 347 MB |
+
+Kapı (kiracı başına 1, süreç başına 2 yuva) toplamı yaklaşık 350 MB ile sınırlıyor; bu yüzden ciddiyet Düşük. Önceki YK-01 tavanı 2 x 1,2 GB idi.
+
+**Düzeltme önerisi:** `check_zip`'in zaten her bölümü akışla açtığı döngüde, ayrıştırmadan ÖNCE en uzun başlangıç etiketi (iki `<` ... `>` arası bayt) için tavan, örn. 16 KB. Excel ve LibreOffice etiketleri birkaç yüz baytı geçmez. Parça sınırlarına dikkat edilerek doğrusal tarama yapılabilir. Alternatif: etiket başına `=` sayısı (örn. <= 64).
+
+**Test önerisi:** `rowattrs` ve `rootns` üreticileriyle dosya: 422, süre < 0,5 sn, `tracemalloc` tepe < 50 MB. Excel benzeri paket (en uzun etiket `mc:Ignorable` ve `xmlns` bildirimli kök, yaklaşık 600 bayt) kabul edilmeye devam etmeli.
+
+#### YB-02 (Bilgi) İzin listesi gerçek Excel dosyalarını reddediyor
+
+**Açıklama:** Excel benzeri pakete şu bölümlerden biri eklenince dosya 422 "izin verilmeyen bölüm" alıyor: `xl/printerSettings/printerSettings1.bin` (yazdırma ayarı yapılmış her sayfa), `xl/tables/table1.xml` ("Tablo olarak biçimlendir"), `customXml/*` (SharePoint/OneDrive'dan gelen dosyalar), `xl/metadata.xml` (dinamik dizi formülleri). Yorum, çizim ve kişi bölümleri de muhtemelen aynı durumda (denenmedi). İzin listesinin güvenlik gerekçesi openpyxl'in bu bölümleri ayrıştırmasıydı. Akışlı okuyucu yalnız sabit bir bölüm kümesini açtığı için diğer bölümler artık hiç ayrıştırılmıyor. Güvenlik sorunu değil; kullanıcı deneyimi gerilemesi.
+
+**Öneri:** Okuyucunun açmadığı bölümler reddedilmek yerine yok sayılsın; ama bölüm başına (örn. 1 MB) ve toplam açılmış boyut sayımında kalsınlar (zip bombası koruması sürer). En azından yukarıdaki dört bölüm türü izin listesine eklensin. Gerçek Excel, LibreOffice ve Google E-Tablolar çıktılarıyla birer uçtan uca test eklensin.
+
+#### YB-03 (Bilgi) Sessiz kabul durumları
+
+- Ana ad alanı dışında bildirilen `<row>` (örn. `xmlns="urn:baska"`) tanınmayan öğe sayılıyor ve uyarısız atlanıyor. PoC'de 3. satır rapora hiç girmedi (valid=1, invalid=0). Böyle bir dosyayı Excel üretmez; kötü niyetli bir dosyanın kullanıcıdan satır gizlemesi kendi verisini etkiler.
+- `_read_shared_strings` gerekli dizeleri bulunca duruyor; tablonun geri kalanındaki bozuk XML (`<<<bozuk`) kabul ediliyor. DTD ve varlık yalnız önsözde olabildiği için güvenlik etkisi yok.
+
+**Öneri:** Ana ad alanı dışındaki `sheetData` çocuğu için 422; isteğe bağlı olarak paylaşılan dize tablosunun sonuna kadar okunması (zaten tavanlı).
+
+### Sonuç (Kapanış doğrulaması 2)
+
+- YK-01, YK-02 ve YK-03 kapandı. YB-01 not olarak belgelendi (bugünkü tek süreçli dağıtımda geçerli).
+- Kritik veya Yüksek açık bulgu YOK; Orta açık bulgu da kalmadı. **Merge engeli yok.**
+- Yeni bulgu sayısı: 3 (Düşük 1: YK-04; Bilgi 2: YB-02, YB-03).
