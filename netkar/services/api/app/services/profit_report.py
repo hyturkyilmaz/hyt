@@ -1,7 +1,7 @@
 """Dönem ve ürün kâr özeti: besleyici + saf motor (ADR-0005 §7).
 
-Henüz API ucu yoktur (S3/S4 sonraki tur); uç noktalar bu işlevleri çağıracaktır. RLS bağlamı
-(`app.tenant_id`) çağıran tarafından kurulur. Kâr motoru dönemin TÜM satırlarıyla çalışır:
+API uçları (`app/api/v1/profit.py`) bu işlevleri çağırır; bir istek motoru EN FAZLA BİR KEZ çalıştırır.
+RLS bağlamı (`app.tenant_id`) çağıran tarafından kurulur. Kâr motoru dönemin TÜM satırlarıyla çalışır:
 ortak giderler (kargo, hizmet bedeli, reklam) satırlara dağıtıldığı için tek ürünü tek başına
 hesaplamak farklı sonuç verirdi; ürün özeti dönem sonucundan seçilir.
 """
@@ -13,6 +13,7 @@ from datetime import date
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.profit import ProfitSettings, calculate_profit
 from app.profit.results import LineResult, PeriodTotals, ProductTotals, ProfitResult
@@ -56,7 +57,9 @@ async def period_profit(
 ) -> PeriodReport:
     """[start, end] (İstanbul günleri) için kâr motorunu veritabanı kayıtlarıyla çalıştırır."""
     feed = await build_profit_input(db, tenant_id, account_id, start, end, settings)
-    return PeriodReport(start, end, calculate_profit(feed.profit_input), feed.notes)
+    # Motor saf ve CPU işidir (binlerce satırda yüzlerce ms): olay döngüsünü bloklamamak için iş parçacığında.
+    result = await run_in_threadpool(calculate_profit, feed.profit_input)
+    return PeriodReport(start, end, result, feed.notes)
 
 
 async def product_profit(
