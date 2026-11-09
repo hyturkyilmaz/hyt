@@ -48,6 +48,9 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@v6.3.1
         with:
+          # Sürüm sabit: "en son" sürüm her koşuda GitHub sürüm sayfasından indiriliyor ve 504 ile
+          # düşüyordu (8-9 Kas); sabit sürüm aynı zamanda tekrarlanabilir derleme ve tedarik zinciri için.
+          version: "0.11.32"
           enable-cache: true
           cache-dependency-glob: netkar/services/api/uv.lock
       - name: Bağımlılıkları kur
@@ -111,6 +114,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: astral-sh/setup-uv@v6.3.1
+        with:
+          version: "0.11.32"
       - name: Semgrep (p/owasp-top-ten, p/python)
         working-directory: netkar
         run: >-
