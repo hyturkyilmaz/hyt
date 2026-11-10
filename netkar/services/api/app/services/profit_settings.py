@@ -30,7 +30,7 @@ from itertools import pairwise
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, literal, or_, select
+from sqlalchemy import func, literal, or_, select, true
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -762,10 +762,18 @@ async def _current_id(
         .where(model.replaces_id == record.id, *scope)
         .cte("successors", recursive=True)
     )
+    # Her adım LATERAL + LIMIT 1 ile tek indeks aramasıdır; düz JOIN'de planlayıcı istatistiksiz tabloda her
+    # adımda hesabın bütün satırlarını tarıyordu (2000 halkada 0,8-1,8 sn; bununla birkaç ms).
+    step = (
+        select(model.id.label("id"), model.revision_to.label("revision_to"))
+        .where(model.replaces_id == chain.c.id, *scope)
+        .limit(1)
+        .lateral("step")
+    )
     chain = chain.union_all(
-        select(model.id, model.revision_to, chain.c.depth + 1)
-        .join(chain, model.replaces_id == chain.c.id)
-        .where(*scope, chain.c.revision_to.is_not(None), chain.c.depth < MAX_SUCCESSOR_CHAIN)
+        select(step.c.id, step.c.revision_to, chain.c.depth + 1)
+        .select_from(chain.join(step, true()))
+        .where(chain.c.revision_to.is_not(None), chain.c.depth < MAX_SUCCESSOR_CHAIN)
     )
     found = (
         await db.execute(select(chain.c.id).where(chain.c.revision_to.is_(None)).limit(1))

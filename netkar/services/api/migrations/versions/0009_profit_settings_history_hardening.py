@@ -146,8 +146,12 @@ ALTER TABLE profit_settings_changes ADD CONSTRAINT ck_profit_settings_changes_re
 
 UPGRADE_SQL = [
     # ---- YT-02: halef zinciri indeksi ----------------------------------------------------------------
+    # Kapsam sütunları da indekste: istatistiği henüz olmayan (yeni doldurulmuş) tabloda planlayıcı yalnız
+    # `replaces_id` indeksini değil (tenant, hesap, sürüm) indeksini seçip her adımda hesabın bütün satırlarını
+    # tarıyordu (2000 halkada CI'da 1,84 sn). Üç eşitliği karşılayan bu indeks istatistikten bağımsız seçilir.
     *[
-        f"CREATE INDEX ix_{t}_replaces ON {t} (replaces_id) WHERE replaces_id IS NOT NULL"
+        f"CREATE INDEX ix_{t}_replaces ON {t} (replaces_id, tenant_id, marketplace_account_id) "
+        "WHERE replaces_id IS NOT NULL"
         for t in VERSIONED
     ],
     # ---- YT-09: günlük kısıtı --------------------------------------------------------------------------

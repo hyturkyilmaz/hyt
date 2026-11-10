@@ -728,7 +728,8 @@ def test_replaces_indexes_exist_and_are_partial(admin_conn: psycopg.Connection[A
             "SELECT indexdef FROM pg_indexes WHERE indexname = %s", (f"ix_{table}_replaces",)
         ).fetchone()
         assert row is not None, table
-        assert "(replaces_id)" in row[0] and "replaces_id IS NOT NULL" in row[0], table
+        assert "(replaces_id, tenant_id, marketplace_account_id)" in row[0], table
+        assert "replaces_id IS NOT NULL" in row[0], table
 
 
 def test_0009_downgrade_removes_only_its_objects_and_roundtrips(
