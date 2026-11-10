@@ -266,3 +266,19 @@ Sıra docs/12 kuralı gereği: belge (bitti) -> betik (bitti) -> altın test (bi
 docs/12 §9 madde 16-22 (tarife modeli ve desi aşımı, firma adı yazımı, hizmet bedeli yapısı, Return/claim sırası,
 kısmi dönemde dönem düzeyi giderler, eksik kalemli nakit akışı sunumu, değişken giderde KDV dahil giriş). Hiçbiri
 uygulamayı bloklamaz; cevap modeli değiştirirse önce docs/12, sonra betik, sonra altın test, en son kod.
+
+## Revizyon 1 (10 Kasım 2026): denetim AO-02 ve AO-03
+
+Kaynak: `docs/security/denetim_2026-11-09_kar_ayarlari.md` (AO-02, AO-03). Karar kaydı ve gerekçe:
+`docs/adr/0007-ayar-tarihcesi-ve-donem-rakami.md`; kurallar: `docs/12_kar_motoru.md` v0.3 K39 Revizyon 1 ve
+K42-K44. Bu bölüm yukarıdaki metni silmez; aşağıdaki maddeler o metnin ilgili yerlerinin yerine geçer.
+
+| Bu ADR'deki yer | Revizyon 1 ile |
+|---|---|
+| §2 madde 5 (kısmi dönem: "dönem net kârı tam satırlardan") | Kısmi dönemde `donem_net_kar` ve `satir_net_kar_toplami` null; dönem için `donem_eksik_giderler_haric_kar` (Σ aktif satır eksik giderler hariç kâr - dönem düzeyi giderler). §2.1'deki "bayraklı kısmi sayı yok" ilkesi artık dönem düzeyinde de geçerlidir (K39 Revizyon 1) |
+| §2.1 tablosu | Dönem düzeyi alternatifleri docs/12 K39 Revizyon 1 tablosunda |
+| §3.2 yetkiler: `netkar_app` için `DELETE` ve tam `UPDATE` | 0008 ile `DELETE` ve iş alanı `UPDATE` geri alınır; yalnız kapanış sütunları güncellenebilir; tekillik yalnız etkin satırlarda; yeni `profit_settings_changes` günlüğü (ADR-0007 §4) |
+| §3.3 "aynı anahtarla upsert", "sürümü siler", denetim meta'sı | Değiştirme eski satırı kapatıp yeni satır ekler, silme geri çekmedir; geçmişi etkileyen yazım onay ister (409 `settings-past-change-unconfirmed`); denetim meta'sı kimlikleri taşır, tutar yine taşımaz; yeni `GET /history` (ADR-0007 §5.1) |
+| §3.4 rapor önbelleği anahtarı | Rapor yanıtları `settings_revision` taşır; yükleyici sürüm parametresi alır (K44) |
+| §5 panel: "kısmi dönemde dönem marjı gösterilmez" | Kısmi dönemde dönem net kârı da gösterilmez; panel kuralları ADR-0007 §5.2 |
+| §6 kabul ölçütleri: 48 senaryo | 49 senaryo (G49); ek ölçütler ADR-0007 §8 |

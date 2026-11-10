@@ -1,13 +1,20 @@
-# NetKâr · Kâr Motoru Kuralları (v0.2, 9 Kasım 2026)
+# NetKâr · Kâr Motoru Kuralları (v0.3, 10 Kasım 2026)
 
 Sahibi: kâr motoru alan modelcisi (docs/40_ajan_promptlari.md §3.2).
-Özet: docs/10_mimari.md §4. Altın testler: `services/api/tests/golden/` (48 senaryo), üreten ve doğrulayan
-betik: `calisma_dosyalari/altin_test_hesap_ayarlar.py` (K01-K41; K01-K32 hesap yardımcılarını ve G01-G41
+Özet: docs/10_mimari.md §4. Altın testler: `services/api/tests/golden/` (49 senaryo), üreten ve doğrulayan
+betik: `calisma_dosyalari/altin_test_hesap_ayarlar.py` (K01-K41, K39 Revizyon 1; K01-K32 hesap yardımcılarını ve G01-G41
 tanımlarını `calisma_dosyalari/altin_test_hesap.py`'den alır; o betik artık tek başına çalıştırılmaz, çünkü
 tüm `G*.json` dosyalarını silip yalnız G01-G41'i eski kurallarla yazar).
 
 v0.2 değişikliği: kâr ayarları ve eksik kalem kuralları (§12, K33-K41; denetim S4 Y-02, O-02, O-03, O-04,
 karar kaydı `docs/adr/0006-kar-ayarlari.md`). Mevcut kural numaraları değişmedi.
+
+v0.3 değişikliği (10 Kasım 2026, denetim `docs/security/denetim_2026-11-09_kar_ayarlari.md` AO-02, AO-03; karar
+kaydı `docs/adr/0007-ayar-tarihcesi-ve-donem-rakami.md`): **K39 Revizyon 1** (kısmi dönemde `donem_net_kar` ve
+`satir_net_kar_toplami` null, yeni `donem_eksik_giderler_haric_kar`, özdeşlikler I1-I6) ve yeni kurallar **K42**
+(ayar kayıtlarının değişmezliği ve tarihçesi), **K43** (geçmişi etkileyen ayar değişikliği), **K44** (rapor ayar
+damgası). Altın test G49 eklendi; G01-G48'de değişen eski değerler K39 Revizyon 1'de listelidir. Mevcut kural
+numaraları değişmedi.
 
 > **Uyarı:** Bu belge mali müşavirlik görüşü değildir. "Güven" sütunu Düşük ya da Doğrulanmadı olan her kural
 > §9'daki teyit listesine bağlıdır. Teyit sonucu değişirse önce bu belge, sonra betik, sonra altın testler
@@ -508,7 +515,9 @@ Ayrıca `net_kar_kismi`, `kdv_etkisi`, `nakit_akisi` (`stopaj_hesaplanan`, `stop
 `erken_odeme_nakit_girisi`), dönem uyarıları. v0.2 (K39): `satir_net_kar_toplami` yalnız TAM satırları (eksik
 kalemi olmayan) toplar; `donem_duzeyi_giderler_toplami`, `tam_satirlar` bloğu (tam satırların kalem kalem
 kırılımı ve kendi marjı), `eksik_kalem_satir_sayilari`, `kesinlik`, `kesinlik_satir_sayilari`; kısmi dönemde
-`net_kar_marji_yuzde` null.
+`net_kar_marji_yuzde` null. v0.3 (K39 Revizyon 1): kısmi dönemde `satir_net_kar_toplami` ve `donem_net_kar`
+null; her dönemde `donem_eksik_giderler_haric_kar` (tüm aktif satırların bilinen giderlerle kârı eksi dönem
+düzeyi giderler). API rapor yanıtları ayrıca `settings_revision` taşır (K44; motor alanı değildir).
 
 ### 7.4 Tanımlar
 | Metrik | Formül | Not |
@@ -516,6 +525,7 @@ kırılımı ve kendi marjı), `eksik_kalem_satir_sayilari`, `kesinlik`, `kesinl
 | Net kâr marjı % | `net_kar / net_satis_kdv_haric x 100` | Net satış 0 ise `null` (tam iade). Dönemde: kısmi dönemde `null` (K39) |
 | Tam satır marjı % | `tam_satirlar.net_kar / tam_satirlar.net_satis_kdv_haric x 100` | Dönem düzeyi giderler hariç; pay ve payda aynı satır kümesi (K39). G46: 119,09 / 416,58 = 28,59 |
 | Eksik giderler hariç kâr | `net_satis - bilinen giderler` | Eksik kalem 0 sayılmaz, hariç tutulur; etiketle gösterilir (K37) |
+| Dönem eksik giderler hariç kâr | `Σ aktif satır eksik_giderler_haric_kar - donem_duzeyi_giderler_toplami` | Tam dönemde `donem_net_kar`'a eşit; kısmi dönemde dönemin tek kâr rakamı, eksik kalemleri sayan etiketle (K39 Revizyon 1). G46: 119,09 + 184,17 - 17,35 = 285,91 |
 | Maliyet hariç katkı | `net_satis - (tüm giderler - ürün maliyeti)` | Maliyeti olmayan ürün için de gösterilir |
 | ROAS | `reklam_cirosu / reklam_harcamasi` | Trendyol paneliyle aynı tanım; cironun KDV dahil olduğu varsayılır (Doğrulanmadı). Örnek 1.499,70 / 120,00 = 12,50 (G24) |
 | Başabaş ROAS | `net_satis_kdv_haric / (net_kar + reklam_harcamasi)` | Reklamın tüm katkıyı yediği ROAS (KDV hariç ciro bazında). G24: 1.249,75 / 407,28 = 3,07. Platform ROAS'ı ile karşılaştırırken ciroyu KDV hariçleştirin (12,50 / 1,20 = 10,42 > 3,07: kârlı) |
@@ -541,7 +551,7 @@ motor sabitidir, kullanıcıya açılmaz.
 | `uyari_esikleri` | Sistem | 5,00 TL; %5; 0,05; 0,01 puan | K23 |
 
 Testlerdeki tarife, hizmet bedeli ve kargo firma adları ("Ornek Kargo" dahil) kurgusaldır; üretimde
-kullanılmaz. G01-G41 kurgusal tam ayar setiyle, G42 ve G48 üretim varsayılanıyla (hiç kullanıcı ayarı yok),
+kullanılmaz. G01-G41 kurgusal tam ayar setiyle, G42, G48 ve G49 üretim varsayılanıyla (hiç kullanıcı ayarı yok),
 G43 hizmet bedeli tanımsız, G44-G45 sürümlü ayarlarla çalışır.
 
 ---
@@ -569,9 +579,13 @@ G43 hizmet bedeli tanımsız, G44-G45 sürümlü ayarlarla çalışır.
 | 17 | Siparişteki `cargoProviderName` metni sabit mi (aynı firma farklı yazımla, ör. "Marketplace" ekiyle gelir mi)? `cargoDeci` boş gelen sipariş ne sıklıkta? | Tarife eşlemesi metin birebir; yazım farkı kargoyu "eksik" bırakır. Varsayılan desinin gerekliliği | Pilot hesabın 3 aylık siparişlerinde firma adı ve `cargoDeci` dağılımı | K34; G45 |
 | 18 | Platform hizmet bedeli sipariş başına sabit tek tutar mı, yoksa sepet tutarına ya da kategoriye göre kademeli mi? Güncel tutar ve son değişiklik tarihi? (madde 5 ile birlikte) | K35 yalnız sipariş başı tek tutarı (sürümlü) destekler; kademeli ise ayar şeması genişler | Hasan'ın panelindeki hizmet bedeli faturası ve Trendyol duyuruları | K13, K35; G43, G44 |
 | 19 | İadede sıra: `Return` ekstre satırı iade talebi (claim) kabulünden önce gelebilir mi? Claim'i hiç olmayan `Return` var mı (ör. teslim edilemeyen paket)? Claim gecikmesi kaç gün? | K41 bu durumu geçici sayar; kalıcıysa maliyet kuralı değişmeli (teslim edilemeyen paket stoğa döner) | Pilot hesapta `Return` satırları ile `getClaims` kayıtlarının tarih karşılaştırması | K10, K41; G47 |
-| 20 | Kısmi dönemde dönem düzeyi giderlerin (sınıflandırılmamış kesinti, bağsız ceza, erken ödeme bedeli, satışsız reklam) dönem net kârından tam düşülmesi müşavir açısından uygun mu? | K39 ihtiyatla tam düşer; dönem net kârı kısmi dönemde olduğundan düşük görünebilir | Müşavir görüşü | K39; G46 |
+| 20 | Dönem düzeyi giderlerin (sınıflandırılmamış kesinti, bağsız ceza, erken ödeme bedeli, satışsız reklam) dönem kârından tam düşülmesi müşavir açısından uygun mu? | K39 Revizyon 1 bunları tam dönemde `donem_net_kar`'dan, kısmi dönemde `donem_eksik_giderler_haric_kar`'dan tam düşer (kısmi dönemde dönem net kârı artık null) | Müşavir görüşü | K39; G46, G49 |
 | 21 | Eksik kalem varken panel "beklenen net tahsilat" ve "KDV etkisi"ni bilinen kalemlerle mi göstermeli, yoksa gizlemeli mi? | K37 bu blokları bilinen kalemlerle hesaplar ve `eksik_kalemler` ile etiketler; satıcı tahsilatı yanlış planlayabilir | Hasan (ürün kararı) | K37 |
 | 22 | Değişken giderler (paketleme, e-fatura) KDV dahil girilebilmeli mi? Satıcıların çoğu paketleme fiyatını KDV dahil mi biliyor? | K17/K36 KDV hariç tutar + oran ister; tarife ve hizmet bedeli için dahil/hariç seçimi var | Hasan ile satıcı görüşmesi (madde 15 ile aynı turda) | K17, K33, K36 |
+| 23 | Kısmi dönemde panelin ana rakamı "Dönem net kârı hesaplanamadı" + "Eksik giderler hariç dönem kârı (kargo ve hizmet bedeli hariç)" olarak satıcıya anlaşılır mı? Satıcı bu rakamı net kâr sanıyor mu? Etiket önerisi? | K39 Revizyon 1 dönem net kârını kısmi dönemde null yapar; yeni bağlanan her hesap ilk günlerde bu ekranı görür | Hasan ile 3-5 satıcıya panel taslağı gösterimi (ürün kararı) | K37, K39; G42, G49 |
+| 24 | Mali müşavir, daha önce kendisine verilmiş bir NetKâr dönem raporunun ayar değişikliğiyle (geriye tarihli tarife, düzeltilen hizmet bedeli) yeniden hesaplanmasını nasıl karşılar: düzeltilmiş raporu mu ister, yoksa verildiği günkü raporun aynen yeniden üretilebilmesini mi? "Kapanmış ay" (KDV beyannamesi verilmiş, ekstresi ödenmiş) için NetKâr'da kilit beklenir mi? | K43 geçmişi etkileyen değişikliği onaylı ve izli yapar, kilitlemez; K44 raporu ayar sürümüyle damgalar. Müşavir kilit isterse "dönem kapatma" ayrı özellik olur (ADR-0007 §2.2 seçenek b) | Müşavir görüşü; Hasan'ın müşaviriyle bir görüşme | K42, K43, K44 |
+| 25 | Muhasebede kayıtların silinmeyip düzeltme kaydıyla düzeltilmesi uygulamasının NetKâr ayar geçmişine benzetilmesi (geri çekilen ayar silinmez, "geri çekildi" işaretlenir) yerinde mi? Ayar geçmişinin saklama süresi hesabın diğer verileriyle aynı (abonelik süresi + 30 gün, research/03 §2.8 öneri tablosu) olmalı mı, yoksa dışa aktarılmış raporların daha uzun saklanması beklenir mi? | K42 saklama süresini hesabın diğer verilerine bağlar. NetKâr raporunun yasal defter ya da belge sayılmadığı bir varsayımdır (satıcının finans verisinde NetKâr veri işleyendir, research/03 §2.1); müşavirle teyit edilmeli | Müşavir görüşü (benzetme ve süre); KVKK yönü avukata (ADR-0007 §7) | K42 |
+| 26 | Varsayılan desi tarihsizdir (K34): değiştirmek siparişinde desi olmayan TÜM geçmiş satırların kargo tahminini değiştirir. Satıcılar varsayılan desiyi sık değiştirir mi; geçerlilik tarihli olmalı mı? | K43 her varsayılan desi değişikliğini (ilk giriş hariç) geçmişi etkileyen değişiklik sayar ve onay ister | Hasan; pilot hesapta `cargoDeci` boş sipariş oranı (madde 17 ile aynı ölçüm) | K34, K43 |
 
 ---
 
@@ -617,9 +631,12 @@ G43 hizmet bedeli tanımsız, G44-G45 sürümlü ayarlarla çalışır.
 | K36 | Değişken gider geçerliliği | Yüksek |
 | K37 | Eksik kalem, net kâr, eksik giderler hariç kâr, kesin zarar | Yüksek |
 | K38 | Tanımsız tahmin fark karşılaştırmasına girmez | Yüksek |
-| K39 | Dönem kısmi kâr, marj ve tam satırlar | Yüksek / Orta (dönem düzeyi gider) |
+| K39 | Dönem kısmi kâr, marj ve tam satırlar (Revizyon 1: kısmi dönemde dönem net kârı null, dönem eksik giderler hariç kâr) | Yüksek / Orta (dönem düzeyi gider) |
 | K40 | Kesinlik etiketi | Yüksek |
 | K41 | İade kaydı gelmemiş tam iade | Orta |
+| K42 | Ayar kayıtlarının değişmezliği ve tarihçesi | Yüksek (iç kural) |
+| K43 | Geçmişi etkileyen ayar değişikliği: etki tarihi ve onay | Yüksek (iç kural) / Doğrulanmadı (müşavir beklentisi, §9 madde 24) |
+| K44 | Rapor ayar damgası ve yeniden üretilebilirlik | Yüksek (iç kural) |
 
 K29 ile K32 v1 altın testlerinde yoktur; pilot verisi ve §9 cevapları geldikten sonra senaryo eklenecek.
 
@@ -730,7 +747,7 @@ Bunlar altın testleri etkilemez; pilot verisi gelince §9 ile birlikte gözden 
 cd netkar && make test-profit    # tests/test_profit_*.py, app/profit satır VE dal kapsamı %100 (DB gerekmez)
 cd netkar && make lint && make test
 ```
-- `tests/test_profit_golden.py`: 48 senaryo (v0.1'de 41) parametrik, kuruşu kuruşuna (kural: golden README "Motorun testte yapması
+- `tests/test_profit_golden.py`: 49 senaryo (v0.1'de 41, v0.2'de 48) parametrik, kuruşu kuruşuna (kural: golden README "Motorun testte yapması
   gereken").
 - `tests/test_profit_money.py`: yuvarlama sınırları (10,025; -0,005), KDV ayrımı, dağıtım (hypothesis: toplam
   korunur, negatif tutar ve ağırlık, sıfır ağırlık, boş liste, her parça tam payın 1 kuruş yakınında).
@@ -745,8 +762,10 @@ cd netkar && make lint && make test
 
 Bağlam: denetim `docs/security/denetim_2026-11-09_S4_rapor.md` Y-02 (ayar yokken kargo ve hizmet bedeli 0,
 yanlış `BEKLENMEYEN_KESINTI`), O-02 (kısmi dönem marjı), O-03 (`basis` etiketi), O-04 (claim'siz iade). Karar
-kaydı, alternatifler, migrasyon ve API: `docs/adr/0006-kar-ayarlari.md`. Altın testler G42-G48; G01-G41'e
-yeni alanlar eklendi, tek değer değişikliği G29 dönem marjıdır (K39).
+kaydı, alternatifler, migrasyon ve API: `docs/adr/0006-kar-ayarlari.md` (K42-K44 ve K39 Revizyon 1:
+`docs/adr/0007-ayar-tarihcesi-ve-donem-rakami.md`). Altın testler G42-G49; G01-G41'e
+yeni alanlar eklendi; v0.2'deki tek değer değişikliği G29 dönem marjıdır (K39), v0.3'te G29 `satir_net_kar_toplami`
+ve `donem_net_kar` de null oldu (K39 Revizyon 1).
 
 Bu bölümün ilkesi: **bir gider kalemi yalnız üç yoldan değer alır: kesin kayıt (ekstre, fatura), kullanıcı
 beyanı (maliyet, tarife, hizmet bedeli tahmini, değişken gider) ya da bu ikisinden kurala bağlı dağıtım.
@@ -907,8 +926,8 @@ Hiçbiri yoksa kalem "eksik"tir; eksik kalem 0 sayılarak net kâra karışmaz.*
 ### K39 · Dönem kısmi kâr, marj ve tam satırlar (denetim O-02)
 - **Tam satır:** aktif (iptal değil) ve `eksik_kalemler` boş satır. `net_kar_kismi` = tam satır sayısı < aktif satır
   sayısı (v0.1'de yalnız maliyet eksikliğine bakıyordu; artık kargo ve hizmet bedeli eksikliği de kısmi yapar).
-- **Pay:** `satir_net_kar_toplami` = tam satırların net kârı; `donem_net_kar` = `satir_net_kar_toplami` -
-  `donem_duzeyi_giderler_toplami`. Dönem düzeyi giderler (satışsız ürün reklamı, dağıtılamayan reklam, bağsız
+- **Pay** (**Revizyon 1 ile değişti**, aşağıda: kısmi dönemde bu iki alan null)**:** `satir_net_kar_toplami` =
+  tam satırların net kârı; `donem_net_kar` = `satir_net_kar_toplami` - `donem_duzeyi_giderler_toplami`. Dönem düzeyi giderler (satışsız ürün reklamı, dağıtılamayan reklam, bağsız
   ceza, erken ödeme bedeli, sınıflandırılmamış kesinti) dönemin tamamına aittir ve ihtiyatla tam düşülür
   (§9 madde 20).
 - **Marj:** dönem `net_kar_marji_yuzde` tam dönemde `donem_net_kar / net_satis_kdv_haric x 100`; **kısmi dönemde
@@ -919,7 +938,8 @@ Hiçbiri yoksa kalem "eksik"tir; eksik kalem 0 sayılarak net kâra karışmaz.*
 - **`tam_satirlar` bloğu:** `satir_sayisi`, `net_satis_kdv_haric`, `urun_maliyeti`, `komisyon`, `kargo_gonderi`,
   `kargo_iade`, `platform_hizmet_bedeli`, `ceza`, `reklam`, `degisken_giderler`, `toplam_gider`, `net_kar`,
   `net_kar_marji_yuzde`; yalnız tam satırların yuvarlanmış değerlerinin toplamıdır.
-- **Özdeşlikler (betik ve motor testleri her senaryoda denetler):**
+- **Özdeşlikler (betik ve motor testleri her senaryoda denetler; Revizyon 1 I2, I3'ü değiştirir ve I5, I6'yı
+  ekler):**
   - (I1) `tam_satirlar.toplam_gider` = `tam_satirlar` gider alanlarının toplamı;
   - (I2) `tam_satirlar.net_satis_kdv_haric - tam_satirlar.toplam_gider = tam_satirlar.net_kar = satir_net_kar_toplami`;
   - (I3) `donem_duzeyi_giderler_toplami` = `donem_duzeyi_giderler` alanlarının toplamı ve
@@ -930,11 +950,88 @@ Hiçbiri yoksa kalem "eksik"tir; eksik kalem 0 sayılarak net kâra karışmaz.*
 - **Üst düzey kalem alanları** (`net_satis_kdv_haric`, `komisyon`, ...) tüm aktif satırların bilinen
   değerleridir (eksik kalem 0); kısmi dönemde (I4) tutmaz, panel bunlardan şelale/toplam gider çizmez,
   `tam_satirlar` bloğunu kullanır.
-- **Örnek:** G46: A tam (net 119,09), B maliyetsiz, 17,35 sınıflandırılmamış kesinti. `donem_net_kar` 101,74;
-  dönem marjı null (v0.1 kuralı 101,74 / 708,25 = 14,36 verirdi); `tam_satirlar`: net satış 416,58, toplam gider
+- **Örnek** (v0.2; `donem_net_kar` değeri Revizyon 1 ile null oldu)**:** G46: A tam (net 119,09), B maliyetsiz,
+  17,35 sınıflandırılmamış kesinti. `donem_net_kar` 101,74; dönem marjı null (v0.1 kuralı 101,74 / 708,25 = 14,36 verirdi); `tam_satirlar`: net satış 416,58, toplam gider
   297,49, net kâr 119,09, marj 28,59. G29 (değişen tek eski değer): dönem marjı 19,60 -> null; tam satır marjı
   138,80 / 416,58 = 33,32.
 - **Güven:** Yüksek (tanım), Orta (dönem düzeyi giderlerin kısmi dönemde tam düşülmesi, §9 madde 20).
+
+#### K39 Revizyon 1 (10 Kasım 2026, denetim AO-03): kısmi dönemde dönem net kârı null
+
+**Durum:** yürürlükte; yukarıdaki K39 metninin "Pay" maddesini, I2 ve I3 özdeşliklerini ve G46 örneğindeki
+`donem_net_kar` değerini geçersiz kılar. Tam satır tanımı, `net_kar_kismi`, marj kuralı ve `tam_satirlar` bloğu
+aynen sürer. Karar kaydı: `docs/adr/0007-ayar-tarihcesi-ve-donem-rakami.md` §1.
+
+**Sorun (AO-03):** v0.2'de kısmi dönemde `donem_net_kar` = tam satırların net kârı eksi dönemin TÜM dönem düzeyi
+giderleri idi ve yanında yalnız `net_kar_kismi=true` bayrağı vardı. Bu, ADR-0006 §2.1'in satır düzeyinde
+reddettiği "bayraklı kısmi sayı" kalıbının dönem düzeyindeki karşılığıdır: bayrağı okumayan her tüketici (panel
+başlık rakamı, CSV, e-posta özeti, ileride uyarı motoru) sayıyı gerçek dönem net kârı sanar. Ayarsız yeni hesapta
+rakam 0,00 olur (G42), dönemde sınıflandırılmamış kesinti varsa uydurma bir zarar olur (G49: -17,35). Pay alt
+kümeden, dönem giderleri tüm dönemden gelir: O-02'de marj için düzeltilen karışık taban hatasının tutar biçimidir.
+
+**Kurallar:**
+1. `satir_net_kar_toplami`: tam dönemde tüm aktif satırların net kârı; **kısmi dönemde null** (toplamın bir
+   terimi bilinmiyorsa toplam bilinmez). Tam satırların toplamı her zaman `tam_satirlar.net_kar`'dadır.
+2. `donem_net_kar`: tam dönemde `satir_net_kar_toplami - donem_duzeyi_giderler_toplami`; **kısmi dönemde null**.
+   `net_kar_marji_yuzde` kısmi dönemde null kalır (değişmedi).
+3. **Yeni alan `donem_eksik_giderler_haric_kar`** (her dönemde sayı): `Σ aktif satır eksik_giderler_haric_kar -
+   donem_duzeyi_giderler_toplami`. Ürün düzeyindeki `eksik_giderler_haric_kar`'ın (K37) dönem karşılığıdır: tüm
+   aktif satırlar, bilinen tüm giderler, tüm dönem düzeyi giderler; yalnız eksik kalemler hariç. Tam dönemde
+   `donem_net_kar`'a eşittir. Kısmi dönemde eksik kalemler negatif olamadığı için (K37) gerçek dönem net kârının
+   **üst sınırıdır**; değeri 0'dan küçükse dönem bilinen giderlerle bile zarardadır (kesin dönem zararı; panel bunu
+   "bilinen giderlerle bile zarar" diye gösterir, yeni uyarı kodu yok). Bu alan için marj verilmez (üst sınırın
+   oranı yanıltıcıdır; ürün düzeyinde de yoktur).
+4. **Tam satır sayısı 0** (`tam_satirlar.satir_sayisi = 0`): `tam_satirlar` bloğu boş kümenin toplamıdır; para
+   alanları 0,00, marj null (net satış 0). Blok null yapılmaz (şema sabit kalır); panel bu durumda bloğu
+   göstermez. Dönemin gösterilebilecek tek kâr rakamı `donem_eksik_giderler_haric_kar`'dır, eksik kalem satır
+   sayılarıyla (`eksik_kalem_satir_sayilari`) ve kurulum bağlantısıyla birlikte (G42, G43, G49).
+5. Dönem kesinliği, uyarıları, `kdv_etkisi` ve `nakit_akisi` değişmedi (bilinen kalemlerle, K37 ve §9 madde 21).
+
+**Neden bu biçim (ADR-0006 §2.1 ile tutarlılık):** satırda olduğu gibi dönemde de "net kâr" adını taşıyan alan
+ya gerçek değeri taşır ya null'dır; bilinen kısım adı ne olduğunu söyleyen ayrı alandadır (`eksik_giderler_haric_kar`
+satırda ve üründe, `donem_eksik_giderler_haric_kar` dönemde). Reddedilenler:
+
+| Alternatif | Neden reddedildi |
+|---|---|
+| v0.2: `donem_net_kar` sayı + `net_kar_kismi` bayrağı | ADR-0006 §2.1'in satırda reddettiği kalıp; AO-03 |
+| Denetim önerisi: tam satırların dönem giderleri dahil net kârı ayrı alanda (`tam_satirlar_donem_giderleri_dahil_net_kar`) | Pay tam satır alt kümesinden, dönem giderleri tüm dönemden: karışık taban (O-02); adı doğru olsa da anlamlı bir büyüklük değil |
+| Yalnız `tam_satirlar.satir_sayisi = 0` iken null | 100 satırdan 1'i tam iken aynı yanıltıcı sayı sürer; kural keyfi bir eşiğe bağlanır |
+| Dönem giderlerini tam satırlara orantılı dağıtıp "tam satırların dönem net kârı" vermek | Dağıtım anahtarı uydurmadır; dönem giderleri tam da satıra bağlanamadığı için dönem düzeyindedir (K14, K15, K19) |
+| `donem_eksik_giderler_haric_kar` için marj | Üst sınırın oranı marj gibi okunur; kısmi dönemde gösterilebilecek marj yalnız `tam_satirlar.net_kar_marji_yuzde` |
+
+**Özdeşlikler (yeni hâli; betik `degismezler` ve motor özellik testleri her senaryoda denetler):**
+- (I1) değişmedi: `tam_satirlar.toplam_gider` = `tam_satirlar` gider alanlarının toplamı.
+- (I2) `tam_satirlar.net_satis_kdv_haric - tam_satirlar.toplam_gider = tam_satirlar.net_kar`; `net_kar_kismi =
+  false` ise ayrıca `= satir_net_kar_toplami`.
+- (I3) `donem_duzeyi_giderler_toplami` = `donem_duzeyi_giderler` alanlarının toplamı. `net_kar_kismi = false` ise
+  `satir_net_kar_toplami - donem_duzeyi_giderler_toplami = donem_net_kar`; `net_kar_kismi = true` ise
+  `satir_net_kar_toplami`, `donem_net_kar` ve `net_kar_marji_yuzde` null.
+- (I4) değişmedi: tam dönemde üst düzey kalem alanlarıyla `donem_net_kar`.
+- (I5, yeni) `donem_eksik_giderler_haric_kar = Σ aktif satır eksik_giderler_haric_kar - donem_duzeyi_giderler_toplami`;
+  `net_kar_kismi = false` ise `= donem_net_kar`.
+- (I6, yeni) `Σ ürün eksik_giderler_haric_kar - (donem_duzeyi_giderler_toplami - reklam_satissiz_urunler) =
+  donem_eksik_giderler_haric_kar` (ürün alanı satışsız reklamı zaten düşer).
+
+**Örnekler (elle):**
+- G46: `donem_net_kar` 101,74 -> null; `donem_eksik_giderler_haric_kar` = 119,09 + 184,17 - 17,35 = 285,91;
+  `tam_satirlar` aynen (net kâr 119,09, marj 28,59).
+- G49 (yeni): ayar yok, tek satır, 17,35 sınıflandırılmamış kesinti; tam satır 0. `donem_net_kar` null (v0.2:
+  0,00 - 17,35 = -17,35); `donem_eksik_giderler_haric_kar` = 174,09 - 17,35 = 156,74; `tam_satirlar` 0,00, marj null.
+- G42: 174,09 + 119,17 = 293,26 (v0.2 `donem_net_kar` 0,00). G43: 129,09 + (-4,58) = 124,51. G45: 51,67 + 89,17 =
+  140,84. G48: 119,09 + 74,17 = 193,26. G29: 138,80 + 214,46 = 353,26 (214,46 = 291,67 - 52,50 - 20,59 - 4,12).
+- Tam dönem: G44 229,68 = `donem_net_kar`; G47 -344,16 = `donem_net_kar`.
+
+**Değişen eski değerler** (betik `IZINLI_FARKLAR` ve `ELLE`): G29 `satir_net_kar_toplami` ve `donem_net_kar`
+138,80 -> null; G42 ve G43 ikisi 0,00 -> null; G45 51,67 -> null; G46 119,09 / 101,74 -> null; G48 119,09 ->
+null. Diğer tüm eski alanlar aynıdır; `donem_eksik_giderler_haric_kar` 49 senaryonun hepsine eklendi.
+
+**Ölçüm (betik, Y-02 tekrarı):** G01-G41 üretim varsayılanıyla (ayar yok) hesaplandığında 41 dönemin 39'u kısmidir;
+v0.2'de 39'unun hepsinde `donem_net_kar` sayıydı, Revizyon 1 ile 0.
+
+**API ve panel:** rapor `summary` yanıtında `donem_net_kar` ve `satir_net_kar_toplami` null olabilir (şema
+`Amount | None`), `donem_eksik_giderler_haric_kar` aynı adla eklenir. Panel kuralı ADR-0007 §5.
+
+**Güven:** Yüksek (tanım), Orta (dönem düzeyi giderlerin tam düşülmesi, §9 madde 20).
 
 ### K40 · Kesinlik etiketi (denetim O-03)
 - **Satır `kesinlik`:**
@@ -984,3 +1081,100 @@ Hiçbiri yoksa kalem "eksik"tir; eksik kalem 0 sayılarak net kâra karışmaz.*
   net satış 83,34, maliyet 80,00, komisyon 12,50, kargo 45, hizmet 10 -> -64,16; askıdaki 40,00.
 - **Kaynak:** [CHE] (`Return`), [CLM]. **Güven:** Orta (Return ile claim arasındaki sıra ve gecikme
   Doğrulanmadı, §9 madde 19).
+
+---
+
+## 13. Ayar tarihçesi ve geçmiş dönem raporu (K42-K44, v0.3)
+
+Bağlam: denetim `docs/security/denetim_2026-11-09_kar_ayarlari.md` AO-02. v0.2'de üç yol geçmiş dönem raporunu iz
+bırakmadan yeniden yazıyordu: aynı anahtarlı PUT kaydı yerinde eziyordu, DELETE kaydı kalıcı siliyordu, geriye
+tarihli yeni sürüm kapanmış dönemi değiştiriyordu; denetim izinde önceki değer ve silinen sürümün kimliği yoktu.
+K33'ün sürümleme gerekçesi ("ayar değişikliği geçmiş dönem raporunu değiştirmemeli") yalnız farklı başlangıçlı
+sürümler için sağlanıyordu. Karar kaydı, seçeneklerin değerlendirmesi, KVKK ve mali kayıt değerlendirmesi,
+migrasyon 0008 taslağı ve API: `docs/adr/0007-ayar-tarihcesi-ve-donem-rakami.md`.
+
+K42-K44 veritabanı, API ve ayar yükleyici kurallarıdır: motorun girdisi (`ProfitSettings`) ve hesap kuralları
+değişmez, altın senaryo eklenmez; kabul testleri ADR-0007 §8'dedir.
+
+### K42 · Ayar kayıtlarının değişmezliği ve tarihçesi
+- **Kapsam:** kargo tarifesi sürümü, hizmet bedeli tahmini sürümü, değişken gider tanımı (bundan sonra "ayar
+  satırı") ve hesabın varsayılan desisi. Ürün maliyeti kayıtları (`product_costs`, K16) kapsam dışıdır; aynı soru
+  orada da vardır (ADR-0007 §7 açık madde).
+- **Kural:** kaydedilmiş bir ayar satırının iş alanları (anlaşma, firma, başlangıç, bitiş, kademeler, tutar, oran,
+  KDV bayrağı ve oranı, ad, tip) bir daha değişmez ve satır uygulama tarafından silinmez. Her yazım üç işlemden
+  biridir; R yazımın ayar sürümüdür (`profit_settings.revision`, her yazımda +1, ADR-0006 §3.3):
+  - **ekle:** yeni satır, `revision_from = R`;
+  - **değiştir:** aynı anahtarlı etkin satır (tarife: anlaşma, firma, başlangıç; hizmet bedeli: başlangıç;
+    değişken gider: kayıt kimliği) `revision_to = R`, `end_reason = degistirildi` ile kapanır; yeni satır
+    `revision_from = R`, `replaces_id = <eski satır>`;
+  - **geri çek:** etkin satır `revision_to = R`, `end_reason = geri_cekildi` ile kapanır; yeni satır yoktur
+    (eski DELETE ucunun anlamı).
+- **Etkinlik:** `revision_to` boşsa satır etkindir. Satır R sürümünde etkindir: `revision_from <= R` ve
+  (`revision_to` boş ya da `R < revision_to`). Motor her zaman tek bir ayar sürümündeki etkin satırlarla çalışır
+  (varsayılan: güncel sürüm). Değişken giderin bitiş tarihini değiştirmek (K36 "eskinin bitişi + yeni tanım")
+  de bir "değiştir" işlemidir.
+- **Varsayılan desi:** hesap satırında (`profit_settings.default_desi`) güncel değer olarak kalır; her değişikliği
+  önceki ve yeni değeriyle ayar günlüğüne yazılır. R sürümündeki değer günlükten okunur.
+- **Ayar günlüğü:** her ayar sürümü için tek kayıt: sürüm, kim, ne zaman, kalem, işlem, ilgili satır kimlikleri
+  (yeni ve yerini aldığı), etki tarihi ve onay (K43). Tarife, hizmet bedeli ve gider tutarları günlükte yoktur
+  (değer değişmez satırdadır); varsayılan desi istisnadır (önceki ve yeni değer). Günlük ve satırlar kiracıya
+  görünürdür ("ayar geçmişi"), RLS altındadır.
+- **Aynı içerik:** etkin satırla birebir aynı içerikli yazım yeni satır, yeni sürüm, günlük ve denetim kaydı
+  üretmez (yanıt `changed: false`); tarihçe gürültüsü önlenir.
+- **Sınırlar (AO-01 ile):** sürüm sayısı sınırları (tarife 200, hizmet bedeli 200, değişken gider 50) yalnız
+  etkin satırları sayar; motor, `GET profit-settings` ve `carriers` yalnız etkin satırları okur. Kapanmış satır
+  sayısını yazma hız sınırı (kiracı başına saatte 600, ADR-0006 §3.3) sınırlar; geçmiş ucu sayfalıdır.
+- **Denetim izi:** `audit_log` meta'sı işlemin kimliklerini taşır (kalem, işlem, satır ve yerini aldığı satır
+  kimliği, anlaşma, firma, başlangıç, gider adı ve tipi, etki tarihi, onay, sürüm); **tutar taşımaz** (ADR-0006
+  kuralı sürer). Önceki değer denetim kaydından değil, değişmez satırdan okunur.
+- **Saklama:** ayar satırları ve günlük, hesabın diğer verileriyle aynı süre saklanır ve hesapla birlikte silinir
+  (research/03 §2.8 öneri tablosu: abonelik süresi + 30 gün). Değişmezlik uygulama rolü (`netkar_app`) içindir;
+  hesap silme ve imha işi ayrı, yetkili roldür ve imha kaydı tutar (ADR-0007 §3).
+- **Gerekçe:** sürümleme ancak eski değer okunabiliyorsa denetlenebilir. "Bu ay neden değişti" sorusunun cevabı
+  (hangi kayıt, kim, ne zaman, önceki değer ne) sistemde durmalıdır. Muhasebedeki "kayıt silinmez, düzeltme
+  ayrı kayıtla yapılır" uygulamasına benzer; NetKâr için yasal yükümlülük değil tasarım ilkesidir (§9 madde 25).
+- **Güven:** Yüksek (iç kural).
+
+### K43 · Geçmişi etkileyen ayar değişikliği: etki tarihi ve onay
+- **Etki tarihi (`affects_from`):** yazımın sonucunu değiştirebileceği en erken sipariş günü:
+  - tarife ve hizmet bedeli: ekle, değiştir ve geri çekte ilgili satırın başlangıcı (değiştirmede anahtar
+    başlangıcı içerdiği için eski ve yeni aynıdır);
+  - değişken gider: ekle ve geri çekte başlangıç; değiştirmede eski ve yeni başlangıcın küçüğü;
+  - varsayılan desi: tarihsizdir (`null`, "tüm dönemler"), çünkü K34 onu tarihsiz kullanır (§9 madde 26).
+  Etki tarihi ihtiyatlı bir alt sınırdır: daha sonra başlayan bir sürüm etkiyi erken kesse de tarih değişmez.
+- **Geçmişi etkiler:** etki tarihi bugünden (İstanbul takvim günü) önceyse ya da tarihsizse.
+- **Onay:** geçmişi etkileyen yazım açık onay olmadan uygulanmaz. API `confirm_past_change=true` görmeden 409
+  `past-change-confirmation-required` döner, etki tarihini bildirir ve hiçbir şey yazmaz (sürüm artmaz, günlük ve
+  denetim kaydı yok). Onaylı yazımın günlük ve denetim kaydında `past_change_confirmed = true` durur.
+- **İlk giriş istisnası:** yazım yalnız "eksik" olan bir kalemi dolduruyorsa onay gerekmez, çünkü geçmiş
+  raporlarda hiçbir sayı başka bir sayıya dönmez (null sayıya döner, K37):
+  - tarife **ekle** ve hesapta aynı anlaşmada (Trendyol ya da satıcı) hiç etkin tarife yok;
+  - hizmet bedeli **ekle** ve hesapta hiç etkin hizmet bedeli tahmini yok;
+  - varsayılan desi `null`'dan bir değere.
+  Değişken giderde istisna yoktur: tanımsız değişken gider eksik değil 0'dır (K36), eklemek net kâr sayılarını
+  değiştirir. İstisnada da kesin kargolu ya da kesin hizmet bedelli eski satırların K38 karşılaştırması
+  değişebilir (yeni `BEKLENMEYEN_KESINTI`); bu bir sayı değişikliği değil uyarıdır ve kabul edilir.
+- **Kilit yoktur:** NetKâr geriye tarihli değişikliği reddetmez. Gerekçe: (1) kurulumun olağan yolu geriye tarihli
+  girişidir (başlangıç tarihi hesabın ilk siparişinden önce önerilir, denetim AB-01); (2) NetKâr'da yetkili bir
+  "kapanmış dönem" yoktur: bir ayın ekstre, iade, kargo faturası ve düzeltme satırları haftalarca gelmeye devam
+  eder, `settled` kapanmış demek değildir (K22); (3) kilit yanlış girilmiş değeri kapanmış aylarda korur ve
+  düzeltmeyi engeller. Kullanıcının bilerek ayı dondurması ("dönem kapatma") ayrı bir özellik olarak §9 madde 24
+  cevabına bağlıdır (ADR-0007 §2.2).
+- **Güven:** Yüksek (iç kural); müşavirin kilit beklentisi Doğrulanmadı (§9 madde 24).
+
+### K44 · Rapor ayar damgası ve yeniden üretilebilirlik
+- **Damga:** her rapor yanıtı (`summary`, ürün listesi, ürün ve sipariş kırılımı, uyarılar) ve ileride her dışa
+  aktarım (CSV, e-posta özeti) hesaplandığı ayar sürümünü taşır: `settings_revision` (hesapta hiç ayar yazılmamışsa
+  0). Rapor önbelleği anahtarı bu sürümü içerir (ADR-0006 §3.4).
+- **Sürümle yükleme:** ayar yükleyici (`profit_settings_for`) isteğe bağlı bir ayar sürümü alır ve o sürümde etkin
+  satırlarla ve günlükteki varsayılan desiyle `ProfitSettings` kurar; güncel sürüm varsayılandır. Aynı sipariş ve
+  ekstre verisiyle aynı sürüm aynı sonucu verir. Rapor API'sinde `settings_revision` sorgu parametresi (eski ayarla
+  yeniden hesap) P1'dir; yükleyici parametresi ve testi P0'dadır (önbellek ve geçmiş ekranı için gerekir).
+- **Sınır:** damga raporu yalnız ayar açısından yeniden üretilebilir kılar. Sipariş, ekstre, kargo faturası,
+  iade ve ürün maliyeti verisi tasarım gereği değişmeye devam eder (tahmini -> kesin, K22); bir raporun aynen
+  yeniden üretilmesi veri anlık görüntüsü de ister ve v1 kapsamında değildir. Panel "ayarlar şu sürümde, veri şu
+  ana kadar senkron" bilgisini birlikte gösterir.
+- **0008 öncesi kayıtlar:** taşıma her hesabın mevcut satırlarını o anki ayar sürümüyle (`revision_from = güncel
+  sürüm`) ve günlükte bir `tasima` kaydıyla işaretler; bu sürümden eski bir sürümle yükleme istenirse yükleyici
+  "sürüm yeniden kurulamaz" hatası verir (API'de P1: 409 `settings-revision-unavailable`).
+- **Güven:** Yüksek (iç kural).
