@@ -77,7 +77,28 @@ OptionalDate = Annotated[date | None, BeforeValidator(lambda v: v if v is None e
 Carrier = Annotated[str, AfterValidator(lambda v: _run(ps.check_carrier, v))]
 ExpectedRevision = Annotated[int | None, Field(ge=0, le=2**62)]
 # K43: geçmişi etkileyen yazım için açık onay (ilk giriş istisnası dışında onaysız 409).
-ConfirmPastChange = Annotated[bool, Field(description="Geçmiş raporların değişeceğini onaylar (K43).")]
+# YT-07: onay etki tarihine bağlıdır; çıplak `confirm_past_change` artık yetmez (geriye uyum için kabul edilir,
+# karara etkisi yoktur).
+ConfirmPastChange = Annotated[
+    bool,
+    Field(
+        description=(
+            "KULLANIMDAN KALKTI: tek başına onay SAYILMAZ. Onay `confirm_affects_from` ile verilir "
+            "(ADR-0007 §5.1)."
+        )
+    ),
+]
+ConfirmAffectsFrom = Annotated[
+    date | Literal["all"] | None,
+    BeforeValidator(lambda v: v if v is None or v == "all" else _require_text(v)),
+    Field(
+        description=(
+            "Geçmiş raporların değişeceğinin onayı (K43): 409 `settings-past-change-unconfirmed` gövdesindeki "
+            "`affects_from` tarihi (YYYY-AA-GG) geri gönderilir, tarihsiz değişiklikte (`affects_from` null) "
+            "`all`. Sunucunun hesapladığı etki tarihiyle eşleşmezse yeniden 409."
+        )
+    ),
+]
 
 
 class _Strict(BaseModel):
@@ -101,6 +122,7 @@ class CargoTariffIn(_Strict):
     brackets: list[BracketIn]
     expected_revision: ExpectedRevision = None
     confirm_past_change: ConfirmPastChange = False
+    confirm_affects_from: ConfirmAffectsFrom = None
 
     @field_validator("brackets")
     @classmethod
@@ -119,6 +141,7 @@ class ServiceFeeIn(_Strict):
     amount_includes_vat: bool
     expected_revision: ExpectedRevision = None
     confirm_past_change: ConfirmPastChange = False
+    confirm_affects_from: ConfirmAffectsFrom = None
 
 
 class VariableExpenseIn(_Strict):
@@ -143,6 +166,7 @@ class VariableExpenseIn(_Strict):
     valid_to: OptionalDate = None
     expected_revision: ExpectedRevision = None
     confirm_past_change: ConfirmPastChange = False
+    confirm_affects_from: ConfirmAffectsFrom = None
 
     @field_validator("valid_to")
     @classmethod
@@ -167,6 +191,7 @@ class DefaultsIn(_Strict):
     ]
     expected_revision: ExpectedRevision = None
     confirm_past_change: ConfirmPastChange = False
+    confirm_affects_from: ConfirmAffectsFrom = None
 
 
 # --------------------------------------------------------------------------- yanıtlar

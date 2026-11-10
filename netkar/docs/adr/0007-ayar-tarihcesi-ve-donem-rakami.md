@@ -6,6 +6,10 @@
   `docs/12_kar_motoru.md` v0.3 (K39 Revizyon 1, K42-K44, §9 madde 20 ve 23-26); ADR-0006 (Revizyon 1 bölümü bu
   karara bağlanır); ADR-0001 (RLS); `docs/research/03_hukuk_ve_uyum.md` §2.1 (veri rolleri), §2.8 (saklama);
   altın test G49 ve betik `calisma_dosyalari/altin_test_hesap_ayarlar.py`.
+- **Revizyon 1 (10 Kasım 2026):** bağımsız denetim `docs/security/denetim_2026-11-10_ayar_tarihcesi.md` (YT-01..YT-10)
+  sonrası uygulama ve belge güncellemesi. Eski içerik silinmedi; değişen yerlerde "Revizyon 1" notu vardır: §3
+  (kullanıcı kimlikleri, tetikleyici ve `SET NULL`), §4 (`ck_..._replace` taslağı, başlıksız hesap taşıması, yeni
+  migrasyon 0009), §5.1 (`confirm_affects_from`, `changed_by`, mühürlü `GET /history` imleci), §7 madde 1.
 
 ## 1. Karar: kısmi dönemde dönem rakamı (AO-03, docs/12 K39 Revizyon 1)
 
@@ -87,6 +91,17 @@ satırlar bir kullanıcı kaydının silinmesini engeller. Kullanıcı hesabı k
 silinir, kimlik kalır) ya da bu sütunlar `ON DELETE SET NULL` olmalıdır. Hangisinin yeterli olduğu avukata sorulur
 (§7 madde 1). `audit_log.user_id` aynı durumdadır; yeni bir sorun değildir.
 
+> **Revizyon 1 (YT-05):** `ON DELETE SET NULL` bu tasarımda uygulandığı hâliyle işlemez: PostgreSQL referans eylemi
+> referans veren tabloda UPDATE yapar ve `profit_settings_version_guard` kapanmış satırdaki her güncellemeyi (ve
+> `entered_by`/`ended_by` dahil iş alanı değişikliğini) reddeder; kullanıcı silme hatayla durur. Bu yüzden
+> kimliksizleştirme (kullanıcı satırında ad ve e-postayı silip kimliği tutmak) tercih edilir. `SET NULL` seçilirse
+> tetikleyici ayrı bir migrasyonla `entered_by` ve `ended_by` için yalnız `NOT NULL -> NULL` geçişine izin vermelidir.
+> Sürümlü tablolarda veri doldurma migrasyonu önce doldurur sonra tetikleyiciyi kurar ya da aynı işlemde `ALTER TABLE
+> ... DISABLE TRIGGER trg_<tablo>_version_guard` / `ENABLE TRIGGER` kullanır (docs/12 K42 Revizyon 1). 0009'dan
+> itibaren `changed_by` ayrıca `(changed_by, tenant_id) -> memberships (user_id, tenant_id)` bileşik yabancı
+> anahtarıyla kiracı üyesine bağlıdır; üyelik silme özelliği yoktur (`netkar_app` memberships'te DELETE'e sahip
+> değil), eklenirse bu FK'ye takılır ve kimliksizleştirme (üyeliği tutmak) gerekir.
+
 **Mali kayıt düzeni.** NetKâr raporu bir yönetim raporudur; yasal defter ya da belge sayılmadığı **varsayımdır**
 (docs/12 §9 madde 25'te müşavire sorulur). Yasal defter ve belge saklama yükümlülükleri (research/03 §2.8: VUK
 m.253, TTK m.82) NetKâr'ın kendi faturaları ve ödeme kayıtları içindir; satıcının ayar tarihçesine uygulanmaz.
@@ -118,6 +133,13 @@ UPDATE cargo_tariffs t SET revision_from = p.revision
   FROM profit_settings p
  WHERE p.marketplace_account_id = t.marketplace_account_id AND p.tenant_id = t.tenant_id;
 UPDATE cargo_tariffs SET revision_from = 1 WHERE revision_from IS NULL;   -- savunma: ayar satırı olmayan hesap
+-- Revizyon 1 (YT-03): yukarıdaki savunma satırı UYGULANMADI ve taslaktan çıkarıldı sayılır. Ayar satırı olmayan
+-- hesap `revision_from = 1` alıp `tasima` kaydı almıyor, damga 0 iken etkin satırı olan tutarsız bir durum bırakıyor ve
+-- ilk değiştirmede `ck_..._ended` ihlaliyle 500 veriyordu. Uygulanan 0008 doldurmadan ÖNCE başlığı olmayan hesaplar için
+-- `INSERT INTO profit_settings (tenant_id, marketplace_account_id, revision, updated_by) SELECT DISTINCT ON
+-- (marketplace_account_id) tenant_id, marketplace_account_id, 1, entered_by FROM (üç tablonun satırları UNION ALL) ...
+-- WHERE NOT EXISTS (başlık) ORDER BY marketplace_account_id, created_at` çalıştırır; sonra doldurma ve `tasima` kaydı
+-- herkes için aynı yoldan işler (0008 hiçbir ortamda çalışmadan yerinde düzeltildi).
 ALTER TABLE cargo_tariffs ALTER COLUMN revision_from SET NOT NULL;
 ALTER TABLE cargo_tariffs ADD CONSTRAINT ck_cargo_tariffs_revision CHECK (revision_from >= 1);
 ALTER TABLE cargo_tariffs ADD CONSTRAINT ck_cargo_tariffs_ended CHECK (
@@ -186,6 +208,16 @@ CREATE TABLE profit_settings_changes (
     CONSTRAINT ck_profit_settings_changes_desi CHECK (
         item IN ('defaults', 'tasima') OR (default_desi_before IS NULL AND default_desi_after IS NULL)),
     CONSTRAINT ck_profit_settings_changes_replace CHECK ((action = 'degistir') = (replaced_record_id IS NOT NULL))
+    -- Revizyon 1 (YT-08, YT-09): bu taslak kendi içinde çelişkiliydi. K42 varsayılan desi değişikliğini günlüğe
+    -- `degistir` olarak yazdırır ama desinin satır kimliği yoktur; taslak `defaults` + `degistir` kaydını imkansız
+    -- kılardı. 0008 şu kısıtla uygulandı (`defaults` istisnası):
+    --   CHECK (item = 'defaults' OR (action = 'degistir') = (replaced_record_id IS NOT NULL))
+    -- İstisna fazla genişti (`defaults` kaydı `record_id`/`replaced_record_id` taşıyabiliyordu); 0009 şu daha sıkı
+    -- kısıtla değiştirdi:
+    --   CHECK ((item = 'defaults' AND record_id IS NULL AND replaced_record_id IS NULL
+    --           AND (action <> 'ekle' OR default_desi_before IS NULL)
+    --           AND (action <> 'geri_cek' OR default_desi_after IS NULL))
+    --       OR (item <> 'defaults' AND (action = 'degistir') = (replaced_record_id IS NOT NULL)))
 );
 CREATE INDEX ix_profit_settings_changes_tenant_account
     ON profit_settings_changes (tenant_id, marketplace_account_id, revision DESC);
@@ -207,6 +239,10 @@ SELECT tenant_id, marketplace_account_id, revision, now(), 'tasima', 'tasima', f
 - **Taşıma notu:** 0008 öncesi yazımların sürüm başına kaydı yoktur; mevcut satırlar o anki sürümle işaretlenir
   ve `tasima` kaydı bu sınırı belirtir. Daha eski bir sürümle yükleme "yeniden kurulamaz" hatasıdır (K44). Bugün
   canlı veri yoktur (P0 yayınlanmadı); taşıma test ve hazırlık ortamları içindir.
+  **Revizyon 1 (YT-03):** satırı olup `profit_settings` başlığı olmayan hesap için taşıma başlığı `revision = 1`
+  ile önce oluşturur (yukarıdaki SQL notu); böylece etkin satırı olan her hesapta damga en az 1'dir ve `tasima`
+  kaydı herkes için düşer. Test: 0007 şemasında başlıksız satır, upgrade sonrası başlık `revision = 1`, `tasima`
+  kaydı var, aynı anahtarlı `PUT` 200 ve sürüm 2.
 - **Geri alma (`downgrade`):** kapanmış satır (`revision_to IS NOT NULL`) ya da `tasima` dışı günlük kaydı varsa,
   bunlar eski şemaya sığmaz (aynı anahtarlı kapanmış satırlar eski tekillik kısıtını bozar) ve silinmeleri
   gerekir: downgrade Türkçe bir hatayla DURUR, veri kaybı `NETKAR_ALLOW_SETTINGS_HISTORY_LOSS=1` ile bilerek kabul
@@ -220,6 +256,28 @@ SELECT tenant_id, marketplace_account_id, revision, now(), 'tasima', 'tasima', f
   FROM cargo_tariffs` ve `UPDATE cargo_tariffs SET brackets = ...` yetki hatası; sahip rolle kapanmış satırın
   güncellenmesi tetikleyici hatası; etkin satırın yalnız kapanış sütunlarının güncellenmesi başarılı.
 
+### 4.1 Revizyon 1: migrasyon `0009_profit_settings_history_hardening.py` (revises `0008`; YT-02, YT-04, YT-09)
+
+Geri alınabilir ek migrasyon (0008'e eklenmedi; yalnız YT-03 0008'de düzeltildi). İçerik:
+
+- **YT-02:** `CREATE INDEX ix_<tablo>_replaces ON <tablo> (replaces_id) WHERE replaces_id IS NOT NULL` (üç sürümlü
+  tablo). `settings-record-ended` halef zinciri tek özyinelemeli sorguyla yürünür (üst sınır 10.000; aşılırsa
+  `current_id` null).
+- **YT-04 (derinlemesine savunma):** `netkar_app` INSERT ile tarihçeyi sahteleyebiliyordu. Eklenenler:
+  `BEFORE INSERT` tetikleyicisi (üç sürümlü tablo): satır baştan kapalı olamaz, `revision_from` aynı işlemde
+  artırılmış `profit_settings.revision`'a eşit olmalı (yazım akışı başlığı satırdan önce flush eder);
+  `profit_settings_version_guard` genişletildi: uygulama rolü satırı yalnız sayaçtaki sürümle kapatır
+  (`revision_to = sayaç`); `BEFORE INSERT` günlük tetikleyicisi: `revision` sayaca eşit, `tasima` kaydını uygulama
+  rolü yazamaz; `changed_by` için bileşik FK `(changed_by, tenant_id) -> memberships (user_id, tenant_id)`
+  (`changed_by` boşsa denetlenmez). **Sapma ve gerekçe:** sıra kuralları yalnız `current_user = 'netkar_app'` için
+  uygulanır; tablo sahibi zaten tetikleyiciyi kapatabilir ve sahip rolle çalışan veri doldurma migrasyonları
+  (YT-05) sıra kuralına takılmamalıdır. Değişmezlik tetikleyicisi (kapanmış satır, iş alanları) ve bileşik FK
+  herkesi bağlar. Denetimin beş sahte yazımının (geçmiş `revision_from`, baştan kapalı satır, sahte `tasima`, başka
+  kiracı kullanıcısı `changed_by`, sayaçtan kopuk `revision_to`) her biri testle reddedilir.
+- **YT-09:** `ck_profit_settings_changes_replace` yukarıdaki sıkı tanımla değiştirilir.
+- **Geri alma:** tetikleyiciler, işlevler, FK ve indeksler düşer; kapanış işlevi 0008 gövdesine, kısıt 0008
+  tanımına döner. Veri kaybı yoktur; test: downgrade, nesnelerin yokluğu, veri korunumu, upgrade.
+
 ## 5. API davranış değişikliği ve panel
 
 ### 5.1 Ayar API'si (`/v1/marketplace-accounts/{account_id}/profit-settings`)
@@ -232,7 +290,7 @@ SELECT tenant_id, marketplace_account_id, revision, now(), 'tasima', 'tasima', f
 | `DELETE .../{id}` (üç kalem) | satırı kalıcı siler | Satırı `geri_cekildi` ile kapatır; satır tabloda kalır |
 | `PUT /defaults` | yerinde günceller, iz yok | Yerinde günceller, önceki ve yeni değer günlüğe |
 | `GET /profit-settings` | tüm satırlar | Yalnız etkin satırlar (biçim aynı) |
-| `GET /profit-settings/history` | yok | Yeni: günlük, yeniden eskiye, imleçli (`cursor`, `limit` en çok 100); her kayıtta `revision`, `changed_at`, `changed_by` (kullanıcı kimliği ve görünen adı, üyeler listesindeki gibi), `item`, `action`, `affects_from`, `affects_past`, `past_change_confirmed`, `record` ve `replaced_record` (satırın tam içeriği: girilen ve KDV hariç değerler); varsayılan desi için önceki ve yeni değer. owner, admin, viewer; okuma sınırlayıcısını paylaşır (AD-02 sayacı) |
+| `GET /profit-settings/history` | yok | Yeni: günlük, yeniden eskiye, imleçli (`cursor`, `limit` en çok 100); her kayıtta `revision`, `changed_at`, `changed_by` (kullanıcı kimliği ve görünen adı, üyeler listesindeki gibi; **Revizyon 1 (YT-08): uygulandığı biçim `{user_id, role}`, görünen ad yoktur.** Üyeler listesi (`/v1/tenant/members`) de ad ya da e-posta döndürmez ve kullanıcı satırları RLS ile yalnız kendine açıktır; ad eklemek görüntüleyiciye yeni kişisel veri açardı (KVKK en aza indirme). `role` bugünkü roldür, değişiklik anındaki rol değildir; üyelik silindiyse `null`), `item`, `action`, `affects_from`, `affects_past`, `past_change_confirmed`, `record` ve `replaced_record` (satırın tam içeriği: girilen ve KDV hariç değerler); varsayılan desi için önceki ve yeni değer. owner, admin, viewer; okuma sınırlayıcısını paylaşır (AD-02 sayacı) |
 
 - **Onay alanı:** PUT ve POST gövdelerinde `confirm_past_change: bool = false`; DELETE'te aynı adlı sorgu
   parametresi (`expected_revision` kalıbı). K43'e göre geçmişi etkileyen ve ilk giriş istisnasına girmeyen yazım
@@ -240,9 +298,26 @@ SELECT tenant_id, marketplace_account_id, revision, now(), 'tasima', 'tasima', f
   current_revision}`; işlem geri alınır (sürüm artmaz, günlük ve denetim kaydı yok). Kontrol sırası: rol ve hesap
   -> hız sınırı -> `begin_write` (kilit, `expected_revision`) -> işlem türü ve etki tarihi -> onay -> yazım ->
   günlük -> denetim -> commit.
+  - **Revizyon 1 (YT-07, API değişikliği): onay etki tarihine bağlanır.** Çıplak `confirm_past_change` artık onay
+    SAYILMAZ (alan geriye uyum için kabul edilir, karara etkisi yoktur; web istemcisi henüz bu uca bağlı değildir).
+    İstemci 409 gövdesindeki `affects_from` değerini PUT/POST gövdesinde `confirm_affects_from` (YYYY-AA-GG) olarak
+    geri gönderir; `affects_from` null ise (varsayılan desi) `all`. DELETE'te aynı adlı sorgu parametresi
+    (`confirm_affects_from=2026-01-01` ya da `all`; geçersiz biçim 422). Sunucunun hesapladığı etki tarihiyle
+    eşleşmeyen ya da eksik onay (ilk giriş istisnası hariç) yeniden 409 `settings-past-change-unconfirmed` olur ve
+    hiçbir şey yazılmaz; gövde sunucunun `affects_from` değerini taşır. İlk giriş istisnasında onay gerekmez ama
+    gönderilmiş ve eşleşmeyen onay yine 409'dur; etki tarihi geçmiş değilse onay değerlendirilmez. Değişken gider
+    değiştirmede beklenen değer eski ve yeni başlangıcın küçüğüdür. Panel her onaylı yazımda 409 gövdesindeki
+    `current_revision`'ı `expected_revision` olarak da göndermelidir (araya giren başka yönetici değişikliği onayın
+    dışında kalmasın, denetim AB-03).
+  - **Revizyon 1 (YT-06): `GET /history` imleci mühürlüdür.** `next_cursor` opak bir dizgedir (AES-256-GCM,
+    rapor uçlarının `CursorCodec` deseni; kiracı, hesap ve sorgu parmak izi `settings-history` AAD). İstek imleci
+    bozuk, başka kiracı/hesap/sorguya ait ya da sürüm numarası geçersizse 422 `cursor_invalid` (`errors: [{field:
+    "cursor", code: "cursor_invalid"}]`). Önceki düz tamsayı imleci kabul edilmez.
 - **Kapanmış satıra yazım:** `PUT /variable-expenses/{id}` ya da `DELETE .../{id}` kapanmış satıra gelirse **409**
   `settings-record-ended`, gövde `{current_id}` (yerini alan etkin satır; geri çekilmişse `null`). Başka kiracının
   ya da hesabın kimliği yine 404.
+  **Revizyon 1 (YT-02):** `current_id` halef zinciri tek özyinelemeli sorguyla bulunur ve `replaces_id` indekslidir;
+  zincir 10.000 halkayı aşarsa `current_id` null döner.
 - **Yazım yanıtları** (`TariffWriteOut`, `ServiceFeeWriteOut`, `ExpenseWriteOut`, `DeleteOut`, `DefaultsOut`) ek
   alanlar: `changed` (bool), `action` (`created` | `replaced` | `retracted` | `unchanged`), `replaced_id`,
   `affects_from`, `affects_past`. `created` bir sürüm boyunca korunur (`action == "created"` ile aynı).
@@ -284,6 +359,9 @@ SELECT tenant_id, marketplace_account_id, revision, now(), 'tasima', 'tasima', f
    - Düğmeler: birincil "Değişikliği uygula" (`confirm_past_change=true` ile yeniden gönderir); tarife, hizmet
      bedeli ve gider eklemede ikincil "Yalnız bugünden itibaren uygula" (başlangıcı bugün olan yeni sürüm olarak
      gönderir, onay gerekmez); "Vazgeç".
+     **Revizyon 1 (YT-07):** "Değişikliği uygula" artık yalnız `confirm_past_change=true` göndermez; 409'daki
+     `affects_from` değerini `confirm_affects_from` olarak (tarihsizde `all`), 409'daki `current_revision`'ı
+     `expected_revision` olarak geri gönderir (§5.1 Revizyon 1).
 2. "Ayar geçmişi" sekmesi: `GET /history`; her kayıt "{tarih saat}, {kişi}: Trendyol Express tarifesi
    (başlangıç 1 Ekim 2026) değiştirildi: 2 desi 54,00 -> 60,00 (KDV dahil)" biçiminde; fark `record` ve
    `replaced_record`'dan panelde hesaplanır; "geri çekildi" ve "geçmişi etkiledi (onaylı)" rozetleri.
@@ -303,6 +381,8 @@ Panel ayar sürümünü ve son senkron zamanını birlikte gösterir.
 1. **Avukat (KVKK):** değişmez satırlardaki ve günlükteki kullanıcı kimlikleri için hesap kapatmada kullanıcı
    satırının kimliksizleştirilmesi yeterli mi, yoksa `ON DELETE SET NULL` mı gerekir (§3)? Ayar tarihçesinin
    saklama süresi hesabın diğer verileriyle aynı olmalı mı?
+   **Revizyon 1 (YT-05):** değişmezlik tetikleyicisi `ON DELETE SET NULL`'u engeller (§3 Revizyon notu); kimliksizleştirme
+   bu yüzden öntanımlı yöntemdir ve sorunun cevabı `SET NULL` ise tetikleyici ayrıca değiştirilir.
 2. **Ürün maliyeti (`product_costs`, K16):** maliyet kayıtları da yerinde güncelleniyor ve aynı AO-02 sorusu
    orada da var (maliyet en büyük gider kalemidir). K42'nin maliyete genişletilmesi ayrı karar; bu ADR kapsamı
    dışında, P0 kartına not.

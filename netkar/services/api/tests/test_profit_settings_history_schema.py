@@ -24,7 +24,8 @@ from app.models import (
     VariableExpenseRecord,
 )
 from tests.conftest import DatabaseInfo
-from tests.sync_helpers import Seller, make_seller
+from tests.sync_helpers import Seller
+from tests.sync_helpers import make_seller as make_plain_seller
 from tests.test_profit_settings_schema import BRACKETS, insert_all, role_tx
 
 VERSIONED = ("cargo_tariffs", "service_fee_estimates", "variable_expenses")
@@ -36,6 +37,16 @@ MODELS: tuple[type[Any], ...] = (
     VariableExpenseRecord,
     ProfitSettingsChange,
 )
+
+
+def make_seller(conn: psycopg.Connection[Any], **kw: Any) -> Seller:
+    """Kiracı + kullanıcı + hesap ve kullanıcının kiracı üyeliği (günlükte `changed_by` üye olmalıdır, 0009)."""
+    seller = make_plain_seller(conn, **kw)
+    conn.execute(
+        "INSERT INTO memberships (user_id, tenant_id, role) VALUES (%s, %s, 'owner')",
+        (seller.user_id, seller.tenant_id),
+    )
+    return seller
 
 
 def owner_dsn(database: DatabaseInfo) -> str:
@@ -225,6 +236,8 @@ def test_app_role_cannot_delete_or_change_work_fields_but_can_close_active_rows(
 ) -> None:
     seller = make_seller(admin_conn)
     insert_all(admin_conn, seller)
+    # 0009: uygulama rolü satırı yalnız ayar sayacındaki sürümle kapatır (CLOSE `revision_to = 2`).
+    admin_conn.execute("UPDATE profit_settings SET revision = 2")
     denied = (
         "DELETE FROM cargo_tariffs",
         "DELETE FROM service_fee_estimates",
@@ -287,6 +300,12 @@ def test_journal_is_tenant_isolated_for_read_and_write(
     b = make_seller(admin_conn, seller_id="9999")
     add_change(admin_conn, a, 1)
     add_change(admin_conn, b, 1)
+    for tenant in (a, b):  # uygulama rolünün günlük tetikleyicisi sayaçla karşılaştırır (0009)
+        admin_conn.execute(
+            "INSERT INTO profit_settings (tenant_id, marketplace_account_id, updated_by, revision) "
+            "VALUES (%s, %s, %s, 2)",
+            (tenant.tenant_id, tenant.account_id, tenant.user_id),
+        )
     with role_tx(database.app_dsn(), a.tenant_id) as conn:
         assert {r[0] for r in conn.execute("SELECT tenant_id FROM profit_settings_changes")} == {a.tenant_id}
     with role_tx(database.app_dsn()) as conn:  # bağlamsız oturum hiçbir satır görmez
@@ -295,10 +314,13 @@ def test_journal_is_tenant_isolated_for_read_and_write(
         assert conn.execute("SELECT count(*) FROM profit_settings_changes").fetchone() == (1,)
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute("DELETE FROM profit_settings_changes")
-    with role_tx(database.app_dsn(), a.tenant_id) as conn:
+    with role_tx(owner_dsn(database), a.tenant_id) as conn:
         with pytest.raises(
             psycopg.errors.InsufficientPrivilege
-        ):  # B kiracısı adına kayıt WITH CHECK ile reddedilir
+        ):  # B kiracısı adına kayıt RLS WITH CHECK ile reddedilir (sahip rolde tetikleyici devre dışıdır)
+            add_change(conn, b, 2)
+    with role_tx(database.app_dsn(), a.tenant_id) as conn:
+        with pytest.raises(psycopg.errors.CheckViolation):  # uygulama rolünde tetikleyici de reddeder
             add_change(conn, b, 2)
     with role_tx(database.app_dsn(), a.tenant_id) as conn:
         add_change(conn, a, 2)  # kendi kiracısına ekleyebilir
@@ -437,6 +459,7 @@ def test_downgrade_is_refused_while_history_exists_and_the_database_is_left_unto
         assert "0008" in message and "yedek" in message.lower()
         assert "NETKAR_ALLOW_SETTINGS_HISTORY_LOSS=1" in message
         assert "cargo_tariffs: 1 kapanmış satır" in message and "günlük: 1 kayıt" in message
+        # Alembic her migrasyonu ayrı işlemde çalıştırır: 0009 (yalnız kısıt ve tetikleyici) geri alındı, 0008 durdu.
         assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0008",)
         assert tables_state(admin_conn) == before
         forced = admin_conn.execute(
@@ -491,3 +514,263 @@ def test_flag_value_must_be_exactly_one(
             command.downgrade(alembic_cfg, "0007")
     finally:
         command.upgrade(alembic_cfg, "head")
+
+
+# --------------------------------------------------------------------------- 0008 Revizyon 1: başlıksız hesap (YT-03)
+def test_upgrade_creates_the_head_for_accounts_with_rows_but_no_head_and_writes_the_move_record(
+    alembic_cfg: Config, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """Denetim YT-03: ayar satırı olmayan ama satırı olan hesap, taşımada `revision = 1` başlık ve `tasima` alır."""
+    headless = make_seller(admin_conn)
+    empty = make_seller(admin_conn, seller_id="9999")  # hiç satırı yok: başlık da, taşıma kaydı da olmaz
+    try:
+        command.downgrade(alembic_cfg, "0007")
+        base = (headless.tenant_id, headless.account_id, headless.user_id)
+        admin_conn.execute(
+            "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, entered_by, valid_from, amount, "
+            "amount_includes_vat) VALUES (%s, %s, %s, '2026-01-01', 12, true)",
+            base,
+        )
+        admin_conn.execute(
+            "INSERT INTO variable_expenses (tenant_id, marketplace_account_id, entered_by, name, kind, "
+            "amount_excl_vat, vat_rate, valid_from) VALUES (%s, %s, %s, 'paket', 'siparis_basi', 6, 20, '2026-01-01')",
+            base,
+        )
+        assert admin_conn.execute("SELECT count(*) FROM profit_settings").fetchone() == (0,)
+        command.upgrade(alembic_cfg, "head")
+        head = admin_conn.execute(
+            "SELECT marketplace_account_id, revision, updated_by, default_desi FROM profit_settings"
+        ).fetchall()
+        assert head == [(headless.account_id, 1, headless.user_id, None)]  # başlık 1; boş hesapta yok
+        for table in ("service_fee_estimates", "variable_expenses"):
+            row = admin_conn.execute(f"SELECT revision_from, revision_to FROM {table}").fetchone()
+            assert row == (1, None), table  # etkin satır, damga 0 DEĞİL
+        moves = admin_conn.execute(
+            "SELECT marketplace_account_id, revision, item, default_desi_after, changed_by "
+            "FROM profit_settings_changes"
+        ).fetchall()
+        assert moves == [(headless.account_id, 1, "tasima", None, None)]
+        assert empty.account_id not in {m[0] for m in moves}
+    finally:
+        command.upgrade(alembic_cfg, "head")
+
+
+# --------------------------------------------------------------------------- 0009: YT-04 sahte kayıt denemeleri
+def seed_forgery_target(conn: psycopg.Connection[Any]) -> tuple[Seller, Seller]:
+    """A kiracısı (ayar sayacı 5, sürüm 1 etkin satırlar) ve başka bir kiracı B."""
+    a = make_seller(conn)
+    b = make_seller(conn, seller_id="9999")
+    insert_all(conn, a)
+    conn.execute("UPDATE profit_settings SET revision = 5 WHERE marketplace_account_id = %s", (a.account_id,))
+    return a, b
+
+
+TARIFF_INSERT = (
+    "INSERT INTO cargo_tariffs (revision_from, revision_to, ended_at, ended_by, end_reason, tenant_id, "
+    "marketplace_account_id, agreement, carrier, valid_from, price_includes_vat, brackets, entered_by) "
+    "VALUES (%s, %s, %s, %s, %s, %s, %s, 'seller', 'FORGED', '2026-01-01', true, %s, %s)"
+)
+
+
+def forged_tariff(
+    conn: psycopg.Connection[Any], seller: Seller, revision_from: int, closed_at: int | None
+) -> None:
+    ended = closed_at is not None
+    conn.execute(
+        TARIFF_INSERT,
+        (
+            revision_from,
+            closed_at,
+            "2026-11-10T10:00:00+00:00" if ended else None,
+            seller.user_id if ended else None,
+            "degistirildi" if ended else None,
+            seller.tenant_id,
+            seller.account_id,
+            BRACKETS,
+            seller.user_id,
+        ),
+    )
+
+
+def test_app_role_cannot_forge_history_rows_the_five_audit_attempts(
+    admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    """Denetim YT-04 PoC A.3: `netkar_app` ile beş sahte yazımın beşi de reddedilir."""
+    a, b = seed_forgery_target(admin_conn)
+    dsn = database.app_dsn()
+    # 1. geçmiş `revision_from` (sayaç 5 iken 1)
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation, match="sayacina"):
+        forged_tariff(conn, a, 1, None)
+    # 2. baştan kapalı satır (doğru `revision_from`, `revision_to` dolu)
+    with (
+        role_tx(dsn, a.tenant_id) as conn,
+        pytest.raises(psycopg.errors.CheckViolation, match="bastan kapali"),
+    ):
+        forged_tariff(conn, a, 5, 6)
+    # 3. sahte `tasima` kaydı
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation, match="tasima"):
+        add_change(conn, a, 5, item="tasima", action="tasima", changed_by=None, default_desi_after=2)
+    # 4. başka kiracının kullanıcısı `changed_by`
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.ForeignKeyViolation):
+        add_change(conn, a, 5, changed_by=b.user_id)
+    # 5. etkin satırı sayaçtan kopuk bir `revision_to` ile kapatmak
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation, match="sayacindaki"):
+        conn.execute(
+            f"UPDATE cargo_tariffs SET {CLOSE.replace('revision_to = 2', 'revision_to = 1000000')}",
+            (a.user_id,),
+        )
+    # ek: sayacın ilerisi ve geçmiş günlük sürümü
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation, match="sayacina"):
+        forged_tariff(conn, a, 6, None)
+    for revision in (4, 6):
+        with (
+            role_tx(dsn, a.tenant_id) as conn,
+            pytest.raises(psycopg.errors.CheckViolation, match="sayacina"),
+        ):
+            add_change(conn, a, revision)
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation):
+        add_change(conn, b, 5)  # başka kiracı adına: sayaç bağlamda görünmez
+    assert admin_conn.execute("SELECT count(*) FROM profit_settings_changes").fetchone() == (0,)
+    assert admin_conn.execute("SELECT count(*) FROM cargo_tariffs").fetchone() == (1,)
+
+
+def test_app_role_honest_write_sequence_still_passes_the_guards(
+    admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    """Yazım akışının yaptığı dizi geçer: satır sayaca eşit sürümle eklenir, eski satır sayaçla kapanır, günlük sayaçla."""
+    a, _ = seed_forgery_target(admin_conn)
+    with role_tx(database.app_dsn(), a.tenant_id) as conn:
+        assert (
+            conn.execute(
+                f"UPDATE cargo_tariffs SET {CLOSE.replace('revision_to = 2', 'revision_to = 5')}",
+                (a.user_id,),
+            ).rowcount
+            == 1
+        )
+        forged_tariff(conn, a, 5, None)
+        add_change(conn, a, 5, action="degistir", replaced_record_id=uuid4(), record_id=uuid4())
+        for table in ("service_fee_estimates", "variable_expenses"):
+            assert (
+                conn.execute(
+                    f"UPDATE {table} SET {CLOSE.replace('revision_to = 2', 'revision_to = 5')}", (a.user_id,)
+                ).rowcount
+                == 1
+            )
+
+
+def test_sequence_guards_bind_only_the_app_role_but_immutability_binds_everyone(
+    admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    """Sıra kuralları `netkar_app`'e özgüdür (sahip rolün veri doldurması takılmaz); değişmezlik herkesi bağlar."""
+    a, _ = seed_forgery_target(admin_conn)
+    with role_tx(owner_dsn(database), a.tenant_id) as conn:
+        forged_tariff(conn, a, 1, None)  # sahip rol: sayaçtan bağımsız eklenebilir (doldurma migrasyonu)
+        add_change(conn, a, 1, item="tasima", action="tasima", changed_by=None)
+    forged_tariff(admin_conn, a, 1, None)  # yönetici de
+    with (
+        role_tx(owner_dsn(database), a.tenant_id) as conn,
+        pytest.raises(psycopg.errors.CheckViolation, match="is alanlari"),
+    ):
+        conn.execute("UPDATE cargo_tariffs SET brackets = '[]'::jsonb")
+
+
+def test_journal_changed_by_must_be_a_member_of_the_row_tenant_for_every_role(
+    admin_conn: psycopg.Connection[Any],
+) -> None:
+    """Bileşik FK `(changed_by, tenant_id) -> memberships`: üye olmayan ya da başka kiracı kullanıcısı yazılamaz."""
+    a, b = seed_forgery_target(admin_conn)
+    stranger = uuid4()
+    admin_conn.execute(
+        "INSERT INTO users (id, email, password_hash) VALUES (%s, 'yabanci@example.com', 'x')", (stranger,)
+    )
+    for who in (b.user_id, stranger):  # başka kiracının üyesi; hiçbir kiracının üyesi değil
+        with pytest.raises(psycopg.errors.ForeignKeyViolation):
+            add_change(admin_conn, a, 1, changed_by=who)
+    add_change(admin_conn, a, 1)  # kendi kiracısının üyesi
+    add_change(admin_conn, a, 2, item="tasima", action="tasima", changed_by=None)  # tasima: changed_by boş
+
+
+def test_journal_defaults_rows_are_tight_ck_replace(admin_conn: psycopg.Connection[Any]) -> None:
+    """Denetim YT-09: `defaults` kaydı satır kimliği taşımaz; `ekle` önceki, `geri_cek` sonraki desiyi taşımaz."""
+    a, _ = seed_forgery_target(admin_conn)
+    bad: list[dict[str, Any]] = [
+        {"action": "ekle", "record_id": uuid4(), "default_desi_after": 2},
+        {
+            "action": "degistir",
+            "replaced_record_id": uuid4(),
+            "default_desi_before": 1,
+            "default_desi_after": 2,
+        },
+        {"action": "ekle", "default_desi_before": 1, "default_desi_after": 2},  # ekle: önceki desi yok
+        {
+            "action": "geri_cek",
+            "default_desi_before": 1,
+            "default_desi_after": 2,
+        },  # geri_cek: sonraki desi yok
+    ]
+    for index, over in enumerate(bad):
+        with pytest.raises(psycopg.errors.CheckViolation):
+            add_change(admin_conn, a, 10 + index, item="defaults", **over)
+    add_change(admin_conn, a, 20, item="defaults", action="ekle", default_desi_after=2)
+    add_change(
+        admin_conn, a, 21, item="defaults", action="degistir", default_desi_before=2, default_desi_after=3
+    )
+    add_change(admin_conn, a, 22, item="defaults", action="geri_cek", default_desi_before=3)
+    # diğer kalemlerde eski kural geçerli
+    with pytest.raises(psycopg.errors.CheckViolation):
+        add_change(admin_conn, a, 23, action="degistir")
+
+
+def test_replaces_indexes_exist_and_are_partial(admin_conn: psycopg.Connection[Any]) -> None:
+    """Denetim YT-02: halef zinciri indekslidir."""
+    for table in VERSIONED:
+        row = admin_conn.execute(
+            "SELECT indexdef FROM pg_indexes WHERE indexname = %s", (f"ix_{table}_replaces",)
+        ).fetchone()
+        assert row is not None, table
+        assert "(replaces_id)" in row[0] and "replaces_id IS NOT NULL" in row[0], table
+
+
+def test_0009_downgrade_removes_only_its_objects_and_roundtrips(
+    alembic_cfg: Config, admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    """0009 geri alınabilir: nesneler düşer, 0008 gövdesi ve kısıtı döner, veri korunur; yeniden upgrade tam kurar."""
+    a, _ = seed_forgery_target(admin_conn)
+    before = tables_state(admin_conn)
+
+    def names(kind: str) -> set[str]:
+        sql = {
+            "trigger": "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE '%guard'",
+            "index": "SELECT indexname FROM pg_indexes WHERE indexname LIKE 'ix_%_replaces'",
+            "fk": "SELECT conname FROM pg_constraint WHERE conname = 'fk_profit_settings_changes_member'",
+            "function": "SELECT proname FROM pg_proc WHERE proname IN "
+            "('profit_settings_insert_guard', 'profit_settings_changes_guard')",
+        }[kind]
+        return {r[0] for r in admin_conn.execute(sql)}
+
+    full_triggers = {f"trg_{t}_version_guard" for t in VERSIONED}
+    new_triggers = {f"trg_{t}_insert_guard" for t in VERSIONED} | {"trg_profit_settings_changes_guard"}
+    assert names("trigger") == full_triggers | new_triggers
+    try:
+        command.downgrade(alembic_cfg, "0008")
+        assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0008",)
+        assert names("trigger") == full_triggers  # değişmezlik tetikleyicisi kalır
+        assert names("index") == set() and names("fk") == set() and names("function") == set()
+        assert tables_state(admin_conn) == before  # veri kaybı yok
+        # 0008 gövdesi: uygulama rolü sayaçtan kopuk revision_to yazabilir (bu yüzden 0009 vardır)
+        with role_tx(database.app_dsn(), a.tenant_id) as conn:
+            assert (
+                conn.execute(
+                    f"UPDATE cargo_tariffs SET {CLOSE.replace('revision_to = 2', 'revision_to = 1000000')}",
+                    (a.user_id,),
+                ).rowcount
+                == 1
+            )
+        # 0008 kısıtı: defaults kaydı satır kimliği taşıyabilir
+        add_change(admin_conn, a, 40, item="defaults", action="ekle", record_id=uuid4(), default_desi_after=2)
+        admin_conn.execute("DELETE FROM profit_settings_changes")
+    finally:
+        command.upgrade(alembic_cfg, "head")
+    assert names("trigger") == full_triggers | new_triggers
+    assert len(names("index")) == 3 and names("fk") != set() and len(names("function")) == 2
+    assert tables_state(admin_conn) == {**before, "profit_settings_changes": 0}

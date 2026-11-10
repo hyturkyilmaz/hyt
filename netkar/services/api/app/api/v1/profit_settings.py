@@ -9,13 +9,16 @@ ADR-0007 (K42-K44): ayar satırları DEĞİŞMEZDİR, hiçbir uç satır silmez 
 etkin satırı kapatıp yeni satır ekler (`action = replaced`), yoksa ekler (`created`), aynı içerikse hiçbir şey
 yazmaz (`changed = false`); DELETE satırı geri çeker (`retracted`, satır tabloda kalır). Her yazım ayar günlüğüne
 (`GET /history`) tek kayıt düşer. Geçmişi etkileyen yazım (etki tarihi bugünden önce ya da tarihsiz) açık onay
-ister (`confirm_past_change`); onaysızsa 409 `settings-past-change-unconfirmed` ve hiçbir şey yazılmaz, yalnız
-"eksik"i dolduran ilk giriş istisnadır. Kapanmış satıra yazım 409 `settings-record-ended`.
+ister: istemci 409'daki `affects_from` tarihini (tarihsizde `all`) `confirm_affects_from` ile geri gönderir; eşleşmeyen
+ya da eksik onayda 409 `settings-past-change-unconfirmed` ve hiçbir şey yazılmaz (çıplak `confirm_past_change` artık
+yetmez, denetim YT-07); yalnız "eksik"i dolduran ilk giriş istisnadır. Kapanmış satıra yazım 409
+`settings-record-ended`. `GET /history` imleci mühürlüdür (AES-GCM, kiracı + hesap + sorgu parmak izi; YT-06).
 """
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from datetime import date
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -58,6 +61,7 @@ from app.profit.money import rnd
 from app.profit.settings import ProfitSettings
 from app.services import product_costs as costs
 from app.services import profit_settings as ps
+from app.services import profit_views as views
 from app.services.audit import record_audit
 from app.services.auth import AuthContext
 
@@ -69,10 +73,29 @@ ExpectedRevisionQuery = Annotated[
     int | None, Query(ge=0, le=2**62, description="Beklenen ayar sürümü (409 için).")
 ]
 ConfirmQuery = Annotated[
-    bool, Query(description="Geçmiş raporların değişeceğini onaylar (K43); onaysız geçmiş etkili yazım 409.")
+    bool,
+    Query(
+        description="KULLANIMDAN KALKTI: tek başına onay SAYILMAZ; `confirm_affects_from` kullanın (YT-07).",
+        deprecated=True,
+    ),
+]
+ConfirmAffectsQuery = Annotated[
+    str | None,
+    Query(
+        max_length=10,
+        pattern=r"^(all|[0-9]{4}-[0-9]{2}-[0-9]{2})$",
+        description=(
+            "Geçmiş etkili yazımın onayı (K43): 409'daki `affects_from` tarihi (YYYY-AA-GG) ya da tarihsizde "
+            "`all`; sunucunun hesapladığı etki tarihiyle eşleşmezse yeniden 409."
+        ),
+    ),
 ]
 HistoryLimit = Annotated[int, Query(ge=1, le=100)]
-HistoryCursor = Annotated[int | None, Query(ge=1, le=2**62, description="Önceki sayfanın `next_cursor`'ı.")]
+HistoryCursor = Annotated[
+    str | None,
+    Query(min_length=1, max_length=200, description="Önceki sayfanın `next_cursor`'ı (opak, mühürlü)."),
+]
+HISTORY_FINGERPRINT = "settings-history"
 
 _HOURLY = 60 * 60
 _MINUTE = 60
@@ -81,6 +104,30 @@ _BASE = ProfitSettings()
 
 def _not_found() -> ProblemError:
     return ProblemError(404, "Bulunamadı", "not-found")
+
+
+def confirm_dep(
+    confirm_affects_from: ConfirmAffectsQuery = None,
+    confirm_past_change: ConfirmQuery = False,
+) -> ps.Confirmation:
+    """DELETE sorgu onayı: `all`, tarih ya da yok. Geçersiz takvim tarihi 422 (girdi değeri yansıtılmaz)."""
+    if confirm_affects_from is None:
+        return None
+    if confirm_affects_from == "all":
+        return "all"
+    try:
+        return date.fromisoformat(confirm_affects_from)
+    except ValueError:
+        raise ProblemError(
+            422,
+            "Doğrulama hatası",
+            "validation-error",
+            "Onay tarihi geçerli bir YYYY-AA-GG tarihi ya da 'all' olmalıdır.",
+            extra={"errors": [{"field": "confirm_affects_from", "code": "date_invalid"}]},
+        ) from None
+
+
+ConfirmDep = Annotated[ps.Confirmation, Depends(confirm_dep)]
 
 
 def _limit_error(exc: ps.LimitError) -> ProblemError:
@@ -100,7 +147,8 @@ def _past_unconfirmed(exc: ps.PastChangeUnconfirmed) -> ProblemError:
         409,
         "Onay gerekli",
         "settings-past-change-unconfirmed",
-        "Bu değişiklik geçmiş dönemlerin kâr hesabını değiştirir; onaylamak için confirm_past_change=true gönderin.",
+        "Bu değişiklik geçmiş dönemlerin kâr hesabını değiştirir; onaylamak için gösterilen etki tarihini "
+        "confirm_affects_from olarak gönderin (tarihsizse all).",
         extra={
             "affects_from": None if exc.affects_from is None else exc.affects_from.isoformat(),
             "affects_past": True,
@@ -390,7 +438,7 @@ async def put_cargo_tariff(
 
     async def operation(ticket: ps.WriteTicket) -> ps.WriteOutcome:
         return await ps.write_cargo_tariff(
-            db, ctx.tenant_id, account_id, ctx.user_id, ticket, data, today, body.confirm_past_change
+            db, ctx.tenant_id, account_id, ctx.user_id, ticket, data, today, body.confirm_affects_from
         )
 
     def build(outcome: ps.WriteOutcome) -> TariffWriteOut:
@@ -421,8 +469,8 @@ async def delete_cargo_tariff(
     db: DbDep,
     settings: SettingsDep,
     limiter: RateLimiterDep,
+    confirm: ConfirmDep,
     expected_revision: ExpectedRevisionQuery = None,
-    confirm_past_change: ConfirmQuery = False,
 ) -> DeleteOut:
     """Tarife sürümünü geri çeker (satır silinmez, `geri_cekildi` ile kapanır); diğer sürümler korunur."""
     return await _retract(
@@ -434,7 +482,7 @@ async def delete_cargo_tariff(
         account_id,
         item_id,
         expected_revision,
-        confirm_past_change,
+        confirm,
         CargoTariffRecord,
         "cargo_tariff",
     )
@@ -464,7 +512,7 @@ async def put_service_fee(
             body.amount,
             body.amount_includes_vat,
             today,
-            body.confirm_past_change,
+            body.confirm_affects_from,
         )
 
     def build(outcome: ps.WriteOutcome) -> ServiceFeeWriteOut:
@@ -495,8 +543,8 @@ async def delete_service_fee(
     db: DbDep,
     settings: SettingsDep,
     limiter: RateLimiterDep,
+    confirm: ConfirmDep,
     expected_revision: ExpectedRevisionQuery = None,
-    confirm_past_change: ConfirmQuery = False,
 ) -> DeleteOut:
     """Hizmet bedeli sürümünü geri çeker."""
     return await _retract(
@@ -508,7 +556,7 @@ async def delete_service_fee(
         account_id,
         item_id,
         expected_revision,
-        confirm_past_change,
+        confirm,
         ServiceFeeEstimateRecord,
         "service_fee_estimate",
     )
@@ -548,7 +596,7 @@ async def create_variable_expense(
             ticket,
             _expense_input(body),
             today,
-            body.confirm_past_change,
+            body.confirm_affects_from,
         )
 
     def build(outcome: ps.WriteOutcome) -> ExpenseWriteOut:
@@ -592,7 +640,7 @@ async def update_variable_expense(
             item_id,
             _expense_input(body),
             today,
-            body.confirm_past_change,
+            body.confirm_affects_from,
         )
 
     def build(outcome: ps.WriteOutcome) -> ExpenseWriteOut:
@@ -621,8 +669,8 @@ async def delete_variable_expense(
     db: DbDep,
     settings: SettingsDep,
     limiter: RateLimiterDep,
+    confirm: ConfirmDep,
     expected_revision: ExpectedRevisionQuery = None,
-    confirm_past_change: ConfirmQuery = False,
 ) -> DeleteOut:
     """Değişken gider tanımını geri çeker."""
     return await _retract(
@@ -634,7 +682,7 @@ async def delete_variable_expense(
         account_id,
         item_id,
         expected_revision,
-        confirm_past_change,
+        confirm,
         VariableExpenseRecord,
         "variable_expense",
     )
@@ -658,7 +706,7 @@ async def put_defaults(
 
     async def operation(ticket: ps.WriteTicket) -> ps.WriteOutcome:
         return await ps.write_default_desi(
-            db, ctx.tenant_id, account_id, ctx.user_id, ticket, body.default_desi, body.confirm_past_change
+            db, ctx.tenant_id, account_id, ctx.user_id, ticket, body.default_desi, body.confirm_affects_from
         )
 
     def build(outcome: ps.WriteOutcome) -> DefaultsOut:
@@ -678,7 +726,7 @@ async def _retract(
     account_id: UUID,
     item_id: UUID,
     expected_revision: int | None,
-    confirm: bool,
+    confirm: ps.Confirmation,
     model: type[CargoTariffRecord] | type[ServiceFeeEstimateRecord] | type[VariableExpenseRecord],
     item: str,
 ) -> DeleteOut:
@@ -708,6 +756,26 @@ def _history_record(item: str, record: Any) -> CargoTariffOut | ServiceFeeOut | 
     return _expense_out(record)
 
 
+def _history_cursor(cursor: str | None, codec: views.CursorCodec) -> int | None:
+    """Mühürlü imleci sürüm numarasına çözer; bozuk, yabancı kiracı/hesap/sorgu imleci 422 `cursor_invalid`."""
+    if cursor is None:
+        return None
+    try:
+        (text,) = codec.decode(cursor, HISTORY_FINGERPRINT, 1)
+        revision = int(text)
+        if not text.isascii() or not 1 <= revision <= 2**62:
+            raise views.CursorError
+    except (views.CursorError, ValueError):
+        raise ProblemError(
+            422,
+            "Doğrulama hatası",
+            "validation-error",
+            "İmleç geçersiz ya da bu sorguya ait değil.",
+            extra={"errors": [{"field": "cursor", "code": "cursor_invalid"}]},
+        ) from None
+    return revision
+
+
 @router.get("/history", response_model=HistoryOut)
 async def read_history(
     account_id: UUID,
@@ -721,7 +789,9 @@ async def read_history(
     """Ayar günlüğü (ayar geçmişi), yeniden eskiye, imleçli. Her kayıt satırın tam içeriğini taşır; fark panelde
     `record` ile `replaced_record` karşılaştırılarak hesaplanır. Okuma sınırı diğer okumalarla aynı sayaçtadır."""
     await _read_guard(db, ctx, account_id, limiter, settings)
-    page = await ps.read_history(db, ctx.tenant_id, account_id, cursor, limit)
+    codec = views.CursorCodec(settings.master_key, ctx.tenant_id, account_id)
+    after = _history_cursor(cursor, codec)
+    page = await ps.read_history(db, ctx.tenant_id, account_id, after, limit)
     return HistoryOut(
         items=[
             HistoryItemOut(
@@ -742,5 +812,7 @@ async def read_history(
             )
             for e in page.entries
         ],
-        next_cursor=None if page.next_cursor is None else str(page.next_cursor),
+        next_cursor=None
+        if page.next_cursor is None
+        else codec.encode(HISTORY_FINGERPRINT, [str(page.next_cursor)]),
     )

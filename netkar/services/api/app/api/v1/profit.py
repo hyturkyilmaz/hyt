@@ -60,10 +60,7 @@ from app.services import product_costs as costs
 from app.services import profit_views as views
 from app.services.auth import AuthContext
 from app.services.profit_report import PeriodReport, period_profit
-from app.services.profit_settings import (
-    load_profit_settings,
-    profit_settings_completeness,
-)
+from app.services.profit_settings import LoadedSettings, completeness_of, load_profit_settings
 from app.services.report_gate import ReportGate
 
 router = APIRouter(prefix="/marketplace-accounts/{account_id}/profit", tags=["profit"])
@@ -154,8 +151,8 @@ async def _guard(
 
 async def _report(
     db: AsyncSession, ctx: AuthContext, account_id: UUID, period: Period, gate: ReportGate
-) -> tuple[PeriodReport, int]:
-    """Motoru dönem için bir kez çalıştırır; raporla birlikte hesaplandığı ayar sürümünü (K44) döndürür. Girdi tutarsızlığı iç ayrıntı sızdırmadan 500 olur.
+) -> tuple[PeriodReport, LoadedSettings]:
+    """Motoru dönem için bir kez çalıştırır; raporla birlikte hesaplandığı ayarları (sürüm damgası K44 ve tamlık için demet) döndürür. Girdi tutarsızlığı iç ayrıntı sızdırmadan 500 olur.
 
     Kapı beklemez (doluysa 429/503). Besleyici okumaları bitince bağlantı havuza iade edilir; veritabanına
     sonradan dokunan uçlar `_restore_context` çağırmalıdır.
@@ -172,7 +169,7 @@ async def _report(
                 loaded.settings,
                 release_connection=True,
             )
-            return report, loaded.revision
+            return report, loaded
         except ProfitInputError as exc:
             # Ayrıntı (sipariş no, tutar) log'a yazılmaz: yalnız hesap kimliği ve hata sınıfı.
             log.error("profit_calculation_failed account=%s error=%s", account_id, type(exc).__name__)
@@ -226,15 +223,14 @@ async def summary(
     `estimated_line_count`. Eksik kalemli dönemde `totals.net_kar_kismi` doğrudur ve dönem marjı null'dır (K39).
     """
     await _guard(db, ctx, account_id, limiter, settings)
-    report, settings_revision = await _report(db, ctx, account_id, period, gate)
-    await _restore_context(
-        db, ctx
-    )  # rapor bağlantıyı iade etti: ayar tamlığı okuması için bağlam yeniden kurulur
-    completeness = await profit_settings_completeness(db, ctx.tenant_id, account_id, today_istanbul())
+    report, loaded = await _report(db, ctx, account_id, period, gate)
+    # Tamlık motorla AYNI ayar demetinden hesaplanır (YT-01, AB-02): yanıtta damga, rakamlar ve tamlık tek sürümdür
+    # ve bağlantı iade edildikten sonra ayrı bir ayar okuması yapılmaz.
+    completeness = completeness_of(loaded.bundle, today_istanbul())
     counts = views.status_counts(report.result.lines)
     return SummaryOut(
         period=period.out(),
-        settings_revision=settings_revision,
+        settings_revision=loaded.revision,
         totals=PeriodTotalsOut.model_validate(report.totals),
         status_counts=StatusCountsOut(**counts),
         missing_cost_line_count=report.totals.missing_cost_line_count,
@@ -269,7 +265,7 @@ async def list_products(
     fingerprint = f"products|{sort}|{order}|{filter}|{period.start}|{period.end}"
     codec = _codec(settings, ctx, account_id)
     _check_cursor(cursor, fingerprint, 3, codec)
-    report, settings_revision = await _report(db, ctx, account_id, period, gate)
+    report, loaded = await _report(db, ctx, account_id, period, gate)
     rows = views.filter_rows(views.build_product_rows(report.result), filter)
     try:
         page, next_cursor = views.product_page(rows, sort, order, limit, cursor, fingerprint, codec)
@@ -279,7 +275,7 @@ async def list_products(
     titles = await views.product_titles(db, ctx.tenant_id, account_id, [r.totals.barcode for r in page])
     return ProductProfitListOut(
         period=period.out(),
-        settings_revision=settings_revision,
+        settings_revision=loaded.revision,
         sort=sort,
         order=order,
         filter=filter,
@@ -338,7 +334,7 @@ async def product_detail(
     fingerprint = f"lines|{barcode}|{period.start}|{period.end}"
     codec = _codec(settings, ctx, account_id)
     _check_cursor(cursor, fingerprint, 3, codec)
-    report, settings_revision = await _report(db, ctx, account_id, period, gate)
+    report, loaded = await _report(db, ctx, account_id, period, gate)
     mine = [line for line in report.result.lines if line.barcode == barcode]
     product = next((p for p in report.result.products if p.barcode == barcode), None)
     try:
@@ -350,7 +346,7 @@ async def product_detail(
     titles = await views.product_titles(db, ctx.tenant_id, account_id, [barcode])
     return ProductProfitDetailOut(
         period=period.out(),
-        settings_revision=settings_revision,
+        settings_revision=loaded.revision,
         barcode=barcode,
         title=titles.get(barcode),
         product=None if product is None else ProductTotalsOut.model_validate(product),
@@ -391,13 +387,13 @@ async def order_detail(
             raise _invalid(exc.field, exc.code, exc.message) from None
     else:
         used = period
-    report, settings_revision = await _report(db, ctx, account_id, used, gate)
+    report, loaded = await _report(db, ctx, account_id, used, gate)
     lines = views.sort_lines(line for line in report.result.lines if line.order_number == order_number)
     if not lines:
         raise _not_found()  # sipariş var ama seçilen dönemde değil (ya da motora verilmedi)
     return OrderDetailOut(
         period=used.out(),
-        settings_revision=settings_revision,
+        settings_revision=loaded.revision,
         order_number=order_number,
         ordered_on=days[0],
         totals=OrderTotalsOut.model_validate(views.order_totals(lines)),
@@ -425,7 +421,7 @@ async def alerts(
     fingerprint = f"alerts|{code.value if code else ''}|{period.start}|{period.end}"
     codec = _codec(settings, ctx, account_id)
     _check_cursor(cursor, fingerprint, 5, codec)
-    report, settings_revision = await _report(db, ctx, account_id, period, gate)
+    report, loaded = await _report(db, ctx, account_id, period, gate)
     everything = views.build_alerts(report.result)
     selected = [a for a in everything if code is None or a.code is code]
     try:
@@ -434,7 +430,7 @@ async def alerts(
         raise _cursor_error() from None
     return AlertsOut(
         period=period.out(),
-        settings_revision=settings_revision,
+        settings_revision=loaded.revision,
         counts=[
             AlertCountOut(code=c, count=n, message=views.ALERT_MESSAGES[c])
             for c, n in views.alert_counts(everything).items()

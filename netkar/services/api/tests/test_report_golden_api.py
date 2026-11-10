@@ -97,7 +97,7 @@ async def test_golden_scenario_through_the_report_api(
             cargo_invoice_vat_tolerance=golden.cargo_invoice_vat_tolerance,
             thresholds=golden.thresholds,
         )
-        return LoadedSettings(merged, loaded.revision)
+        return LoadedSettings(merged, loaded.revision, loaded.bundle)
 
     monkeypatch.setattr(profit_module, "load_profit_settings", settings_from_database)
     direct = render_result(calculate_profit(parse_input(girdi)))

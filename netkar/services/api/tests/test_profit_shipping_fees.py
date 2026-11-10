@@ -273,13 +273,12 @@ def test_other_financials_classification() -> None:
     assert period.warnings.count(WarningCode.UNCLASSIFIED_DEDUCTION) == 1
     # stopaj, erken ödeme nakit girişi ve nakit hareketleri satır kârına girmez
     assert result.lines[0].items.penalty == D("0.00")
-    # K39 Revizyon 1: bu senaryoda satırın eksik kalemi varsa dönem net kârı null, bilinen kısım ayrı alandadır.
+    # K39 Revizyon 1: senaryo ayarsızdır (`ProfitSettings()`), kargo ve hizmet bedeli tanımsız; bu yüzden dönem HER
+    # ZAMAN kısmidir: dönem net kârı null, bilinen kısım ayrı alandadır (denetim YT-10: dal sabitlendi, ölü dal yok).
+    assert period.net_profit_partial is True
+    assert period.period_net_profit is None
     line_known = result.lines[0].items.known_expenses_profit
     assert period.period_known_expenses_profit == line_known - D("105.00") - D("57.00") - D("18.00")
-    if period.net_profit_partial:
-        assert period.period_net_profit is None
-    else:
-        assert period.period_net_profit == period.period_known_expenses_profit
     # 0,80 ekstre, 0,83 hesaplanan: fark 0,03 yuvarlama toleransı içinde
     assert WarningCode.WITHHOLDING_STATEMENT_DIFF not in period.warnings
 

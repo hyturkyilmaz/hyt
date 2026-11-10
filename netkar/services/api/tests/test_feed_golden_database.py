@@ -121,6 +121,13 @@ def add_user_settings(
     Girişler KDV hariçtir; başlangıçsız sürüm `2000-01-01`'den (en eski) başlar."""
     base = (tenant_id, account_id, user_id)
     undated = "2000-01-01"
+    # Ayar başlığı HER ZAMAN eklenir (revision 1): satırlar başlıktaki sürümle okunur (K44, denetim YT-01) ve
+    # başlıksız satır gerçek veride olmaz (0008 taşıması da başlığı oluşturur, YT-03).
+    conn.execute(
+        "INSERT INTO profit_settings (tenant_id, marketplace_account_id, updated_by, default_desi) "
+        "VALUES (%s, %s, %s, %s)",
+        (*base, ayarlar.get("varsayilan_desi")),
+    )
     for agreement, key in (("trendyol", "kargo_tarifesi"), ("seller", "satici_kargo_tarifesi")):
         for carrier, versions in (ayarlar.get(key) or {}).items():
             dated = (
@@ -165,12 +172,6 @@ def add_user_settings(
                 expense.get("gecerlilik_baslangic") or undated,
                 expense.get("gecerlilik_bitis"),
             ),
-        )
-    if ayarlar.get("varsayilan_desi") is not None:
-        conn.execute(
-            "INSERT INTO profit_settings (tenant_id, marketplace_account_id, updated_by, default_desi) "
-            "VALUES (%s, %s, %s, %s)",
-            (*base, ayarlar["varsayilan_desi"]),
         )
 
 

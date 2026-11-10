@@ -30,7 +30,7 @@ from itertools import pairwise
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, literal, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -73,6 +73,8 @@ MAX_TARIFF_VERSIONS = 200
 # Hizmet bedeli tahmini sürümü: tarifeyle aynı sınır (denetim AO-01); sınırsızken rapor maliyeti sürüm
 # sayısıyla çarpılıyordu. Değişken gider için MAX_EXPENSES (50) zaten vardır.
 MAX_SERVICE_FEE_VERSIONS = 200
+# `settings-record-ended` halef zinciri üst sınırı (denetim YT-02): aşılırsa `current_id` null döner.
+MAX_SUCCESSOR_CHAIN = 10_000
 CARRIER_LOOKBACK_DAYS = 92
 _CENT = Decimal("0.01")
 _BASIS_POINT = Decimal("0.0001")
@@ -255,10 +257,12 @@ class RevisionUnavailable(Exception):
         self.current = current
 
 
-def _in_force(model: Any, at_revision: int | None) -> list[Any]:
-    """Etkinlik: güncel sürümde `revision_to IS NULL`; R sürümünde `revision_from <= R < revision_to`."""
-    if at_revision is None:
-        return [model.revision_to.is_(None)]
+def _in_force(model: Any, at_revision: int) -> list[Any]:
+    """Etkinlik: R sürümünde `revision_from <= R < revision_to` (`revision_to` boşsa hâlâ etkin).
+
+    Güncel sürüm okumasında da R, başlıktan okunan sürümdür (denetim YT-01): başlıktan SONRA commit edilen
+    yazımın (`revision_from > R` satırları, `revision_to`'su R'yi aşan kapanışlar) hiçbir okumaya sızmaz.
+    """
     return [
         model.revision_from <= at_revision,
         or_(model.revision_to.is_(None), model.revision_to > at_revision),
@@ -312,11 +316,14 @@ async def load_bundle(
         ).scalar_one()
         if moved is not None and as_of < moved:
             raise RevisionUnavailable(as_of, current)
+    # Satırlar da başlıkta okunan sürümle süzülür (denetim YT-01): her ifade kendi anlık görüntüsünü alsa bile
+    # (READ COMMITTED) sonuç tek bir sürümün tutarlı görünümüdür; satırlar değişmez olduğu için bu yeterlidir.
+    at = current if as_of is None else as_of
     tariffs = (
         (
             await db.execute(
                 select(CargoTariffRecord)
-                .where(*scoped(CargoTariffRecord), *_in_force(CargoTariffRecord, as_of))
+                .where(*scoped(CargoTariffRecord), *_in_force(CargoTariffRecord, at))
                 .order_by(
                     CargoTariffRecord.agreement, CargoTariffRecord.carrier, CargoTariffRecord.valid_from
                 )
@@ -329,7 +336,7 @@ async def load_bundle(
         (
             await db.execute(
                 select(ServiceFeeEstimateRecord)
-                .where(*scoped(ServiceFeeEstimateRecord), *_in_force(ServiceFeeEstimateRecord, as_of))
+                .where(*scoped(ServiceFeeEstimateRecord), *_in_force(ServiceFeeEstimateRecord, at))
                 .order_by(ServiceFeeEstimateRecord.valid_from)
             )
         )
@@ -340,7 +347,7 @@ async def load_bundle(
         (
             await db.execute(
                 select(VariableExpenseRecord)
-                .where(*scoped(VariableExpenseRecord), *_in_force(VariableExpenseRecord, as_of))
+                .where(*scoped(VariableExpenseRecord), *_in_force(VariableExpenseRecord, at))
                 # Tanım sırası: değiştirme `created_at`'i devralır; motor gider dökümü sırası bozulmaz.
                 .order_by(VariableExpenseRecord.created_at, VariableExpenseRecord.id)
             )
@@ -351,10 +358,10 @@ async def load_bundle(
     if as_of is not None:
         desi = await _desi_at(db, tenant_id, account_id, as_of)
     else:
-        desi = None if head is None else head.default_desi
+        desi = None if head is None else head.default_desi  # başlıkla aynı satır: damgayla tutarlı
     return SettingsBundle(
         default_desi=desi,
-        revision=current if as_of is None else as_of,
+        revision=at,
         tariffs=tuple(tariffs),
         fees=tuple(fees),
         expenses=tuple(expenses),
@@ -411,10 +418,15 @@ async def profit_settings_for(
 
 @dataclass(frozen=True, slots=True)
 class LoadedSettings:
-    """Motor ayarı ve ona karşılık gelen ayar sürümü (rapor damgası `settings_revision`, K44)."""
+    """Motor ayarı, ona karşılık gelen ayar sürümü (rapor damgası `settings_revision`, K44) ve kaynak demeti.
+
+    Demet de taşınır: rapor tamlığı (`completeness_of`) motorla AYNI okumadan hesaplanır (denetim YT-01,
+    önceki denetimin AB-02'si); yanıtta üç ayrı ayar okuması olmaz.
+    """
 
     settings: ProfitSettings
     revision: int
+    bundle: SettingsBundle
 
 
 async def load_profit_settings(
@@ -422,7 +434,7 @@ async def load_profit_settings(
 ) -> LoadedSettings:
     """`profit_settings_for` ile aynı, ama okunan sürümü de verir (ayar ve damga tek okumada tutarlı)."""
     bundle = await load_bundle(db, tenant_id, account_id, at_revision)
-    return LoadedSettings(to_profit_settings(bundle), bundle.revision)
+    return LoadedSettings(to_profit_settings(bundle), bundle.revision, bundle)
 
 
 @dataclass(frozen=True, slots=True)
@@ -574,13 +586,19 @@ async def begin_write(
     return WriteTicket(row, previous, created)
 
 
-def finish_write(ticket: WriteTicket, user_id: UUID) -> int:
-    """Yazım değişiklik yapıyor: sürümü +1 yapar (aynı işlemde) ve yeni sürümü döndürür."""
+async def finish_write(db: AsyncSession, ticket: WriteTicket, user_id: UUID) -> int:
+    """Yazım değişiklik yapıyor: sürümü +1 yapar (aynı işlemde) ve yeni sürümü döndürür.
+
+    Başlık güncellemesi HEMEN gönderilir (flush): sonraki satır ekleme, kapanış ve günlük kaydı veritabanı
+    tetikleyicilerinde (0009, denetim YT-04) başlıktaki yeni sürümle karşılaştırılır; sıra ORM'in
+    sıralamasına bırakılmaz.
+    """
     revision = ticket.next
     if not ticket.created:
         ticket.row.revision = revision
         ticket.row.updated_by = user_id
         ticket.row.updated_at = func.now()
+        await db.flush()
     return revision
 
 
@@ -623,17 +641,31 @@ def is_past(affects_from: date | None, today: date) -> bool:
     return affects_from is None or affects_from < today
 
 
-def _confirm(
-    ticket: WriteTicket, affects_from: date | None, today: date, confirmed: bool, first_entry: bool
-) -> bool:
-    """Onay kuralı: geçmişi etkileyen, istisnasız yazım onaysızsa `PastChangeUnconfirmed`.
+# Onay değeri (YT-07): etki tarihi (`date`) ya da tarihsiz yazım için `"all"` (tüm dönemler); yok = onay yok.
+Confirmation = date | Literal["all"] | None
 
-    Dönüş: günlüğe yazılacak `past_change_confirmed` (geçmişi etkiledi VE kullanıcı onayladı).
+
+def _confirm(
+    ticket: WriteTicket, affects_from: date | None, today: date, confirm: Confirmation, first_entry: bool
+) -> bool:
+    """Onay kuralı: geçmişi etkileyen, istisnasız yazım, sunucunun hesapladığı etki tarihine bağlı onay ister.
+
+    Onay, istemcinin gösterilen etki tarihini (`confirm_affects_from`) geri göndermesidir. Sunucunun
+    hesapladığı etki tarihiyle (`affects_from`, tarihsizde `"all"`) eşleşmiyorsa `PastChangeUnconfirmed`
+    (YT-07: onay başka bir tarih için alınmış olamaz). İlk giriş istisnasında onay gerekmez, ama gönderilmiş
+    ve eşleşmeyen onay yine reddedilir. Dönüş: günlüğe yazılacak `past_change_confirmed` (geçmişi etkiledi
+    VE onay eşleşti).
     """
-    past = is_past(affects_from, today)
-    if past and not first_entry and not confirmed:
+    if not is_past(affects_from, today):
+        return False
+    expected: date | Literal["all"] = "all" if affects_from is None else affects_from
+    if confirm is None:
+        if first_entry:
+            return False
         raise PastChangeUnconfirmed(affects_from, ticket.previous)
-    return past and confirmed
+    if confirm != expected:
+        raise PastChangeUnconfirmed(affects_from, ticket.previous)
+    return True
 
 
 def _journal(
@@ -716,20 +748,29 @@ async def get_record(
 async def _current_id(
     db: AsyncSession, model: Any, tenant_id: UUID, account_id: UUID, record: Any
 ) -> UUID | None:
-    """Kapanmış satırın yerini alan etkin satırın kimliği (zincir izlenir); geri çekilmişse None."""
-    current = record
-    while current.end_reason != "geri_cekildi":
-        successor = (
-            await db.execute(
-                select(model).where(model.replaces_id == current.id, *_scope(model, tenant_id, account_id))
-            )
-        ).scalar_one_or_none()
-        if successor is None:  # savunma: değiştirilmiş ama halefi olmayan satır olmaz
-            return None
-        if successor.revision_to is None:
-            return UUID(str(successor.id))
-        current = successor
-    return None
+    """Kapanmış satırın yerini alan etkin satırın kimliği; geri çekilmişse ya da zincir kopuksa None.
+
+    Halef zinciri TEK özyinelemeli sorguyla yürünür (denetim YT-02: halka başına sorgu, hesap ayar kilidi ve
+    bağlantı süresini zincir uzunluğuyla büyütüyordu); `replaces_id` indeksi (0009) her adımı indeksli yapar.
+    Zincir `MAX_SUCCESSOR_CHAIN` ile sınırlıdır: aşılırsa (ya da halef yoksa) `None` döner.
+    """
+    if record.end_reason == "geri_cekildi":
+        return None
+    scope = _scope(model, tenant_id, account_id)
+    chain = (
+        select(model.id.label("id"), model.revision_to.label("revision_to"), literal(1).label("depth"))
+        .where(model.replaces_id == record.id, *scope)
+        .cte("successors", recursive=True)
+    )
+    chain = chain.union_all(
+        select(model.id, model.revision_to, chain.c.depth + 1)
+        .join(chain, model.replaces_id == chain.c.id)
+        .where(*scope, chain.c.revision_to.is_not(None), chain.c.depth < MAX_SUCCESSOR_CHAIN)
+    )
+    found = (
+        await db.execute(select(chain.c.id).where(chain.c.revision_to.is_(None)).limit(1))
+    ).scalar_one_or_none()
+    return None if found is None else UUID(str(found))
 
 
 @dataclass(frozen=True, slots=True)
@@ -749,7 +790,7 @@ async def write_cargo_tariff(
     ticket: WriteTicket,
     data: TariffInput,
     today: date,
-    confirmed: bool,
+    confirm: Confirmation,
 ) -> WriteOutcome:
     """(anlaşma, firma, başlangıç) anahtarıyla ekle / değiştir / değişmedi (K42, K43). Hiçbir şey silinmez."""
     stored = [{"max_desi": format(d, "f"), "price": format(p, "f")} for d, p in data.brackets]
@@ -783,8 +824,8 @@ async def write_cargo_tariff(
         first_entry = not await _active_count(
             db, CargoTariffRecord, tenant_id, account_id, CargoTariffRecord.agreement == data.agreement
         )
-    flag = _confirm(ticket, affects_from, today, confirmed, first_entry)
-    revision = finish_write(ticket, user_id)
+    flag = _confirm(ticket, affects_from, today, confirm, first_entry)
+    revision = await finish_write(db, ticket, user_id)
     if active is not None:
         await _close(db, active, revision, user_id, "degistirildi")
     record = CargoTariffRecord(
@@ -834,7 +875,7 @@ async def write_service_fee(
     amount: Decimal,
     includes_vat: bool,
     today: date,
-    confirmed: bool,
+    confirm: Confirmation,
 ) -> WriteOutcome:
     """Başlangıç tarihiyle ekle / değiştir / değişmedi (K42, K43)."""
     active = (
@@ -863,8 +904,8 @@ async def write_service_fee(
             )
         # İlk giriş istisnası: hesapta hiç etkin hizmet bedeli tahmini yok (K43).
         first_entry = not await _active_count(db, ServiceFeeEstimateRecord, tenant_id, account_id)
-    flag = _confirm(ticket, valid_from, today, confirmed, first_entry)
-    revision = finish_write(ticket, user_id)
+    flag = _confirm(ticket, valid_from, today, confirm, first_entry)
+    revision = await finish_write(db, ticket, user_id)
     if active is not None:
         await _close(db, active, revision, user_id, "degistirildi")
     record = ServiceFeeEstimateRecord(
@@ -960,13 +1001,13 @@ async def create_expense(
     ticket: WriteTicket,
     data: ExpenseInput,
     today: date,
-    confirmed: bool,
+    confirm: Confirmation,
 ) -> WriteOutcome:
     """Değişken gider ekler (etkin en çok 50). İlk giriş istisnası yoktur: tanımsız gider 0'dır (K36, K43)."""
     if await _active_count(db, VariableExpenseRecord, tenant_id, account_id) >= MAX_EXPENSES:
         raise LimitError("name", "too_many_expenses", f"Hesap başına en çok {MAX_EXPENSES} değişken gider.")
-    flag = _confirm(ticket, data.valid_from, today, confirmed, False)
-    revision = finish_write(ticket, user_id)
+    flag = _confirm(ticket, data.valid_from, today, confirm, False)
+    revision = await finish_write(db, ticket, user_id)
     record = _new_expense(tenant_id, account_id, user_id, revision, data, None)
     db.add(record)
     await db.flush()
@@ -986,7 +1027,7 @@ async def replace_expense(
     expense_id: UUID,
     data: ExpenseInput,
     today: date,
-    confirmed: bool,
+    confirm: Confirmation,
 ) -> WriteOutcome | None:
     """Gider tanımını değiştirir (eski kapanır, yeni kimlikle yeni satır) ya da değişmedi. Yoksa None (404).
 
@@ -1002,8 +1043,8 @@ async def replace_expense(
     past = is_past(affects_from, today)
     if _expense_same(old, data):
         return WriteOutcome("unchanged", ticket.previous, affects_from, past, old)
-    flag = _confirm(ticket, affects_from, today, confirmed, False)
-    revision = finish_write(ticket, user_id)
+    flag = _confirm(ticket, affects_from, today, confirm, False)
+    revision = await finish_write(db, ticket, user_id)
     await _close(db, old, revision, user_id, "degistirildi")
     record = _new_expense(tenant_id, account_id, user_id, revision, data, old)
     db.add(record)
@@ -1023,7 +1064,7 @@ async def retract_record(
     ticket: WriteTicket,
     record_id: UUID,
     today: date,
-    confirmed: bool,
+    confirm: Confirmation,
 ) -> WriteOutcome | None:
     """Etkin satırı geri çeker (kapatır, yeni satır yok; eski DELETE'in anlamı). Yoksa None (404).
 
@@ -1036,8 +1077,8 @@ async def retract_record(
     if record.revision_to is not None:
         raise RecordEnded(await _current_id(db, model, tenant_id, account_id, record))
     affects_from = record.valid_from
-    flag = _confirm(ticket, affects_from, today, confirmed, False)
-    revision = finish_write(ticket, user_id)
+    flag = _confirm(ticket, affects_from, today, confirm, False)
+    revision = await finish_write(db, ticket, user_id)
     await _close(db, record, revision, user_id, "geri_cekildi")
     outcome = WriteOutcome(
         "retracted", revision, affects_from, is_past(affects_from, today), record, None, flag
@@ -1053,7 +1094,7 @@ async def write_default_desi(
     user_id: UUID,
     ticket: WriteTicket,
     value: Decimal | None,
-    confirmed: bool,
+    confirm: Confirmation,
 ) -> WriteOutcome:
     """Varsayılan desi (tarihsiz: "tüm dönemler", K43). Yerinde güncellenir; önceki ve yeni değer günlüğe.
 
@@ -1062,8 +1103,8 @@ async def write_default_desi(
     before = ticket.row.default_desi
     if before == value:
         return WriteOutcome("unchanged", ticket.previous, None, True, None)
-    flag = _confirm(ticket, None, date.min, confirmed, before is None)  # tarihsiz: her zaman geçmişi etkiler
-    revision = finish_write(ticket, user_id)
+    flag = _confirm(ticket, None, date.min, confirm, before is None)  # tarihsiz: her zaman geçmişi etkiler
+    revision = await finish_write(db, ticket, user_id)
     ticket.row.default_desi = value
     await db.flush()
     action: Literal["created", "replaced", "retracted"]

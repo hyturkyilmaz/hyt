@@ -1133,6 +1133,41 @@ değişmez, altın senaryo eklenmez; kabul testleri ADR-0007 §8'dedir.
 - **Gerekçe:** sürümleme ancak eski değer okunabiliyorsa denetlenebilir. "Bu ay neden değişti" sorusunun cevabı
   (hangi kayıt, kim, ne zaman, önceki değer ne) sistemde durmalıdır. Muhasebedeki "kayıt silinmez, düzeltme
   ayrı kayıtla yapılır" uygulamasına benzer; NetKâr için yasal yükümlülük değil tasarım ilkesidir (§9 madde 25).
+- **Revizyon 1 (10 Kasım 2026, bağımsız denetim `docs/security/denetim_2026-11-10_ayar_tarihcesi.md`
+  YT-01..YT-10; eski içerik yukarıda aynen durur):**
+  - **`created_at` devralma kuralı (YT-08, uygulayıcı sapması 4):** değişken gider "değiştir" işleminde yeni satır
+    eskinin `created_at`'ini taşır. Amaç gider dökümünün tanım sırasını korumaktır: yükleyici giderleri
+    `created_at, id` ile sıralar; bu kural olmasa değiştirilen gider listenin sonuna gider ve sürümle yükleme R'de
+    ve R+1'de farklı sıra verirdi. Bedeli: `created_at` bu kalemde "satırın eklendiği an" değil "tanımın ilk
+    oluşturulduğu an"dır. Satırın gerçekten eklendiği an için güvenilir kaynaklar ayar günlüğündeki `changed_at`
+    ve eski satırın `ended_at`'idir (adli incelemede `created_at`'e dayanılmaz). Tarife ve hizmet bedeli satırları
+    bu kuralı kullanmaz (varsayılan `now()`). Uzun vadede sıralama için ayrı bir `defined_at` ya da `lineage_id`
+    sütunu önerilir; o zaman `created_at` gerçek ekleme anı olarak bırakılır.
+  - **Değişmezlik tetikleyicisi, `ON DELETE SET NULL` ve veri doldurma (YT-05):** `profit_settings_version_guard`
+    kapanmış satırdaki HER güncellemeyi ve etkin satırda kapanış sütunları dışındaki her değişikliği reddeder;
+    `entered_by` ve `ended_by` istisna değildir. PostgreSQL referans eylemi (`ON DELETE SET NULL`) referans veren
+    tabloda UPDATE yapar ve kullanıcı tetikleyicilerini tetikler: kullanıcı silmede `SET NULL` seçilirse silme
+    "kapanmis kar ayari surumu degistirilemez" hatasıyla durur. Aynı çakışma, bir migrasyonun yeni bir sütunu
+    mevcut satırlarda `UPDATE` ile doldurmasında doğar (her satır reddedilir). Nasıl aşılır: (1) kullanıcı hesabı
+    kapatmada kullanıcı satırını silmek yerine kimliksizleştirmek (ad ve e-posta silinir, kimlik kalır) tercih
+    edilir; `SET NULL` kesin seçilirse tetikleyici gövdesi `entered_by`/`ended_by` için yalnız `NOT NULL -> NULL`
+    geçişine izin verecek biçimde ayrı bir migrasyonla değiştirilir. (2) Sürümlü tablolarda veri doldurma önce
+    doldurup SONRA tetikleyiciyi kurar (0008'in `revision_from` doldurması böyle yapıldı) ya da aynı işlemde
+    `ALTER TABLE <tablo> DISABLE TRIGGER trg_<tablo>_version_guard` ... `ENABLE TRIGGER` ile çalışır (tablo sahibi
+    rol; işlem sonunda tetikleyicinin yeniden açıldığı testle doğrulanır). 0009'un sıra kuralı tetikleyicileri
+    (ekleme, kapanış sürümü, günlük) yalnız `netkar_app` rolüne uygulanır; sahip rolün doldurması onlara takılmaz.
+  - **Yükleyici tek sürüm okur (YT-01):** `load_bundle` satırları da başlıkta okunan sürümle süzer
+    (`revision_from <= R` ve `revision_to` boş ya da `> R`); başlıktan sonra commit edilen yazım demete sızmaz.
+    `summary` tamlığı (`completeness`) motorla aynı demetten hesaplanır; yanıtta damga, rakamlar ve tamlık tek
+    sürümdür (önceki denetim AB-02 kapandı).
+  - **Başlıksız hesap (YT-03):** 0008 taşıması satırı olup `profit_settings` başlığı olmayan hesap için başlığı
+    `revision = 1` ile önce oluşturur; böylece etkin satırı olan hesapta damga 0 olmaz ve ilk değiştirme/geri çekme
+    500 vermez.
+  - **Şema sertleştirmesi, migrasyon 0009 (YT-02, YT-04, YT-09):** `replaces_id` kısmi indeksleri ve halef
+    zincirinin tek özyinelemeli sorguyla (üst sınır 10.000) yürünmesi; `netkar_app` için ekleme (`revision_from`
+    sayaca eşit, baştan kapalı satır yok), kapanış (`revision_to` sayaca eşit) ve günlük (`revision` sayaca eşit,
+    `tasima` yalnız taşıma) kuralları; `changed_by` için `(changed_by, tenant_id) -> memberships (user_id,
+    tenant_id)` bileşik yabancı anahtarı; `defaults` günlük kaydı için sıkı CHECK (ADR-0007 §4 Revizyon 1).
 - **Güven:** Yüksek (iç kural).
 
 ### K43 · Geçmişi etkileyen ayar değişikliği: etki tarihi ve onay
@@ -1144,8 +1179,18 @@ değişmez, altın senaryo eklenmez; kabul testleri ADR-0007 §8'dedir.
   Etki tarihi ihtiyatlı bir alt sınırdır: daha sonra başlayan bir sürüm etkiyi erken kesse de tarih değişmez.
 - **Geçmişi etkiler:** etki tarihi bugünden (İstanbul takvim günü) önceyse ya da tarihsizse.
 - **Onay:** geçmişi etkileyen yazım açık onay olmadan uygulanmaz. API `confirm_past_change=true` görmeden 409
-  `past-change-confirmation-required` döner, etki tarihini bildirir ve hiçbir şey yazmaz (sürüm artmaz, günlük ve
+  `settings-past-change-unconfirmed` döner, etki tarihini bildirir ve hiçbir şey yazmaz (sürüm artmaz, günlük ve
   denetim kaydı yok). Onaylı yazımın günlük ve denetim kaydında `past_change_confirmed = true` durur.
+  - **Revizyon (YT-08, 10 Kasım 2026):** hata türü adı bu belgede `past-change-confirmation-required` yazılmıştı;
+    API sözleşmesinin sahibi ADR-0007 §5.1 ve §8'dir (ADR-0006 satır 281): `settings-past-change-unconfirmed`
+    (diğer ayar hatalarıyla aynı önek). Belge düzeltildi.
+  - **Revizyon (YT-07, 10 Kasım 2026): onay etki tarihine bağlıdır.** Çıplak `confirm_past_change=true` artık
+    onay SAYILMAZ (alan geriye uyum için kabul edilir, karara etkisi yoktur). İstemci 409 gövdesindeki
+    `affects_from` tarihini `confirm_affects_from` olarak geri gönderir (tarihsiz varsayılan desi için `all`;
+    gövdede `affects_from` null olduğunda). Sunucunun hesapladığı etki tarihiyle eşleşmezse yeniden 409
+    `settings-past-change-unconfirmed` (gövde sunucunun tarihini taşır) ve hiçbir şey yazılmaz. Böylece "1 Ekim
+    için" alınan onay "1 Ocak"tan itibaren değişen bir gövdede kullanılamaz. Etki tarihi geçmiş değilse onay
+    değerlendirilmez; ilk giriş istisnasında onay gerekmez ama gönderilmiş ve eşleşmeyen onay yine 409'dur.
 - **İlk giriş istisnası:** yazım yalnız "eksik" olan bir kalemi dolduruyorsa onay gerekmez, çünkü geçmiş
   raporlarda hiçbir sayı başka bir sayıya dönmez (null sayıya döner, K37):
   - tarife **ekle** ve hesapta aynı anlaşmada (Trendyol ya da satıcı) hiç etkin tarife yok;
@@ -1177,4 +1222,9 @@ değişmez, altın senaryo eklenmez; kabul testleri ADR-0007 §8'dedir.
 - **0008 öncesi kayıtlar:** taşıma her hesabın mevcut satırlarını o anki ayar sürümüyle (`revision_from = güncel
   sürüm`) ve günlükte bir `tasima` kaydıyla işaretler; bu sürümden eski bir sürümle yükleme istenirse yükleyici
   "sürüm yeniden kurulamaz" hatası verir (API'de P1: 409 `settings-revision-unavailable`).
+- **Revizyon 1 (10 Kasım 2026, YT-01 ve YT-03):** (a) Damga ve rakamlar aynı sürümden okunur: yükleyici satırları
+  başlıkta okunan sürümle süzer (K42 Revizyon 1), dolayısıyla eşzamanlı bir yazım "damga R, satırlar R+1" yanıtı
+  üretemez ve rapor önbelleği anahtarı `settings_revision` içerdiğinde yanlış anahtarlı girdi yazılmaz. `summary`
+  tamlığı aynı demetten hesaplanır. (b) Başlıksız hesapta damga 0 yalnız "hiç ayar satırı yok" demektir: taşıma
+  satırı olan hesaba başlığı `revision = 1` ile oluşturur, etkin satırı olup damgası 0 olan hesap oluşamaz.
 - **Güven:** Yüksek (iç kural).

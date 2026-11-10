@@ -25,7 +25,7 @@ from app.services import profit_settings as ps
 from tests.conftest import Api
 from tests.product_cost_helpers import Shop, fixed_today, make_shop_factory  # noqa: F401
 from tests.sync_helpers import make_seller
-from tests.test_profit_settings_api import seed_head
+from tests.test_profit_settings_api import confirmed, seed_head
 from tests.test_profit_settings_schema import TABLES, insert_all
 
 pytestmark = pytest.mark.usefixtures("fixed_today")
@@ -46,15 +46,14 @@ def url(shop: Shop, suffix: str = "") -> str:
 
 
 def put_fee(shop: Shop, **over: Any) -> Any:
-    # Başlangıç geçmiş olduğundan (K43) bu yardımcı geçmiş etkiyi varsayılan olarak onaylar.
+    # Başlangıç geçmiş olduğundan (K43) bu yardımcı geçmiş etkiyi varsayılan olarak onaylar (YT-07: etki tarihiyle).
     body = {
         "valid_from": "2026-10-01",
         "amount": "12.00",
         "amount_includes_vat": True,
-        "confirm_past_change": True,
     }
     body.update(over)
-    return shop.api.put(url(shop, "/service-fee-estimates"), body)
+    return shop.api.put(url(shop, "/service-fee-estimates"), confirmed(body))
 
 
 def revision_in_db(conn: psycopg.Connection[Any], shop: Shop) -> int | None:

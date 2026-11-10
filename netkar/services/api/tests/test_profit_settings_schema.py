@@ -344,13 +344,24 @@ def test_tenants_see_only_their_own_rows_and_cannot_write_across(
                 ).rowcount
                 == 0
             )
-        # B kiracısı adına satır eklemek WITH CHECK ile reddedilir
-        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        # B kiracısı adına satır eklemek reddedilir: uygulama rolünde 0009 tetikleyicisi RLS WITH CHECK'ten ÖNCE
+        # çalışır (B'nin ayar sayacı A bağlamında görünmez), sahip rolde yalnız RLS WITH CHECK vardır.
+        with pytest.raises((psycopg.errors.InsufficientPrivilege, psycopg.errors.CheckViolation)):
             conn.execute(
                 "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, valid_from, amount, "
                 "amount_includes_vat, entered_by) VALUES (1, %s, %s, '2026-02-01', 1, true, %s)",
                 (b.tenant_id, b.account_id, b.user_id),
             )
+    owner_dsn = database.owner_url.set(drivername="postgresql").render_as_string(hide_password=False)
+    with (
+        role_tx(owner_dsn, a.tenant_id) as conn,
+        pytest.raises(psycopg.errors.InsufficientPrivilege),
+    ):
+        conn.execute(
+            "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, valid_from, amount, "
+            "amount_includes_vat, entered_by) VALUES (1, %s, %s, '2026-02-01', 1, true, %s)",
+            (b.tenant_id, b.account_id, b.user_id),
+        )
     with (
         role_tx(database.app_dsn(), a.tenant_id) as conn,
         pytest.raises(psycopg.errors.InsufficientPrivilege),

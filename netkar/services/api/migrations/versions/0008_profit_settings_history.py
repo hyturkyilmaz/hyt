@@ -14,6 +14,12 @@
 - Taşıma: mevcut satırlar o anki ayar sürümüyle işaretlenir ve her hesap için günlükte bir `tasima` kaydı
   düşer (daha eski sürümle yükleme "yeniden kurulamaz" olur, K44).
 
+Revizyon 1 (denetim YT-03, 10 Kasım 2026; 0008 hiçbir ortamda çalışmadan yerinde düzeltildi): ayar başlığı
+(`profit_settings`) olmayan ama satırı olan hesaplar için taşıma ÖNCE başlığı `revision = 1` ile oluşturur.
+Eski savunma satırı (`revision_from = 1`, başlıksız ve `tasima` kaydısız) kaldırıldı: o durum etkin satırlı
+ama damgası 0 bir hesap bırakıyor ve her ilk değiştirme/geri çekmede `ck_<tablo>_ended` ihlaliyle 500
+üretiyordu.
+
 ADR taslağından tek sapma: `ck_profit_settings_changes_replace` kısıtı varsayılan desiyi (`defaults`) kapsam dışı
 bırakır; desinin değişmesi satır değiştirmesi değildir, `degistir` eyleminde `replaced_record_id` taşıyacak satır
 yoktur (taslaktaki kısıt `defaults` + `degistir` kaydını imkansız kılardı).
@@ -42,6 +48,10 @@ VERSIONED = ("cargo_tariffs", "service_fee_estimates", "variable_expenses")
 CLOSE_COLUMNS = ("revision_to", "ended_at", "ended_by", "end_reason")
 ALLOW_HISTORY_LOSS_ENV = "NETKAR_ALLOW_SETTINGS_HISTORY_LOSS"
 GUARD_FUNCTION = "profit_settings_version_guard"
+# Üç tablonun satır sahipleri (başlığı olmayan hesapları bulmak için, YT-03).
+ALL_ROWS = " UNION ALL ".join(
+    f"SELECT tenant_id, marketplace_account_id, entered_by, created_at FROM {t}" for t in VERSIONED
+)
 
 
 def _columns(table: str) -> str:
@@ -61,7 +71,6 @@ def _backfill_and_checks(table: str) -> list[str]:
         UPDATE {table} t SET revision_from = p.revision
           FROM profit_settings p
          WHERE p.marketplace_account_id = t.marketplace_account_id AND p.tenant_id = t.tenant_id""",
-        f"UPDATE {table} SET revision_from = 1 WHERE revision_from IS NULL",  # savunma: ayar satırı olmayan hesap
         f"ALTER TABLE {table} ALTER COLUMN revision_from SET NOT NULL",
         f"ALTER TABLE {table} ADD CONSTRAINT ck_{table}_revision CHECK (revision_from >= 1)",
         f"""
@@ -92,6 +101,17 @@ UPGRADE_SQL = [
     # ---- Doldurma için FORCE RLS geçici kapatılır (sahip rol satır göremezdi); sonda geri açılır ------
     "ALTER TABLE profit_settings NO FORCE ROW LEVEL SECURITY",
     *[f"ALTER TABLE {t} NO FORCE ROW LEVEL SECURITY" for t in VERSIONED],
+    # ---- 0. Ayar başlığı olmayan hesaplar (denetim YT-03): üç tablodan birinde satırı olup `profit_settings`
+    # satırı olmayan hesap için başlık `revision = 1` ile önce oluşturulur. Böylece doldurma ve `tasima` kaydı
+    # her hesap için aynı yoldan çalışır; damga 0 iken etkin satır olan tutarsız durum (ve ilk değiştirmede
+    # 500) hiç doğmaz. `updated_by`: hesabın en eski satırını giren kullanıcı.
+    f"""
+    INSERT INTO profit_settings (tenant_id, marketplace_account_id, revision, updated_by)
+    SELECT DISTINCT ON (marketplace_account_id) tenant_id, marketplace_account_id, 1, entered_by
+      FROM ({ALL_ROWS}) rows
+     WHERE NOT EXISTS (SELECT 1 FROM profit_settings p WHERE p.marketplace_account_id = rows.marketplace_account_id)
+     ORDER BY marketplace_account_id, created_at, entered_by
+    """,
     # ---- 1. Sütunlar, doldurma, kısıtlar, indeksler -----------------------------------------------
     *[_columns(t) for t in VERSIONED],
     # Değişmezlik tetikleyicisi (ADR-0007 §4 madde 4): kapanmış satır ve iş alanları değişmez.

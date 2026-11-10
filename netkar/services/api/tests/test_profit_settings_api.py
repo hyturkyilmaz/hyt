@@ -49,6 +49,25 @@ def url(shop: Shop, suffix: str = "") -> str:
     return f"{shop.base}/profit-settings{suffix}"
 
 
+def confirmed(body: dict[str, Any]) -> dict[str, Any]:
+    """Başlangıç tarihi geçmiş olduğundan (K43) test yardımcıları geçmiş etkiyi varsayılan olarak ONAYLAR: panelin
+    409'daki etki tarihini geri göndermesi gibi `confirm_affects_from = valid_from` (ADR-0007 §5.1, YT-07).
+    Onay kuralını sınayan testler `confirm_past_change=False` verir (onay gönderilmez); `confirm_affects_from`
+    açıkça verilirse korunur."""
+    if body.pop("confirm_past_change", True):
+        body.setdefault("confirm_affects_from", body["valid_from"])
+    return body
+
+
+def delete_confirmed(shop: Shop, suffix: str, **params: Any) -> Any:
+    """DELETE; geçmiş etkili onay istenirse panelin yaptığı gibi 409'daki etki tarihiyle yeniden gönderir."""
+    first = shop.api.delete(url(shop, suffix), params=params)
+    if first.status_code != 409 or not first.json()["type"].endswith("settings-past-change-unconfirmed"):
+        return first
+    affects = first.json()["affects_from"] or "all"
+    return shop.api.delete(url(shop, suffix), params={**params, "confirm_affects_from": affects})
+
+
 def tariff_body(**over: Any) -> dict[str, Any]:
     body = {
         "agreement": "trendyol",
@@ -56,12 +75,9 @@ def tariff_body(**over: Any) -> dict[str, Any]:
         "valid_from": "2026-10-01",
         "price_includes_vat": True,
         "brackets": [{"max_desi": "2", "price": "54.00"}, {"max_desi": "5", "price": "50.00"}],
-        # Başlangıç tarihi geçmiş olduğundan (K43) bu yardımcı geçmiş etkiyi varsayılan olarak onaylar;
-        # onay kuralını sınayan testler alanı açıkça `False` yapar.
-        "confirm_past_change": True,
     }
     body.update(over)
-    return body
+    return confirmed(body)
 
 
 def expense_body(**over: Any) -> dict[str, Any]:
@@ -72,10 +88,9 @@ def expense_body(**over: Any) -> dict[str, Any]:
         "vat_rate": 20,
         "valid_from": "2026-10-01",
         "valid_to": None,
-        "confirm_past_change": True,
     }
     body.update(over)
-    return body
+    return confirmed(body)
 
 
 def put_tariff(shop: Shop, **over: Any) -> Any:
@@ -83,14 +98,9 @@ def put_tariff(shop: Shop, **over: Any) -> Any:
 
 
 def put_fee(shop: Shop, **over: Any) -> Any:
-    body = {
-        "valid_from": "2026-10-01",
-        "amount": "12.00",
-        "amount_includes_vat": True,
-        "confirm_past_change": True,
-    }
+    body = {"valid_from": "2026-10-01", "amount": "12.00", "amount_includes_vat": True}
     body.update(over)
-    return shop.api.put(url(shop, "/service-fee-estimates"), body)
+    return shop.api.put(url(shop, "/service-fee-estimates"), confirmed(body))
 
 
 def read(shop: Shop) -> dict[str, Any]:
@@ -219,7 +229,9 @@ def test_defaults_and_variable_expenses_round_trip(shop: Shop) -> None:
     body = read(shop)
     assert body["default_desi"] == "3.00" and len(body["variable_expenses"]) == 2
     assert body["completeness"]["variable_expenses_defined"] and body["completeness"]["default_desi_defined"]
-    cleared = shop.api.put(url(shop, "/defaults"), {"default_desi": None, "confirm_past_change": True}).json()
+    cleared = shop.api.put(
+        url(shop, "/defaults"), {"default_desi": None, "confirm_affects_from": "all"}
+    ).json()
     assert cleared["default_desi"] is None and read(shop)["completeness"]["default_desi_defined"] is False
 
 
@@ -244,12 +256,12 @@ def test_variable_expense_replace_and_retract(shop: Shop) -> None:
     stale = shop.api.put(url(shop, f"/variable-expenses/{created['id']}"), expense_body())
     assert stale.status_code == 409 and stale.json()["type"].endswith("settings-record-ended")
     assert stale.json()["current_id"] == new_id
-    stale_delete = shop.api.delete(url(shop, f"/variable-expenses/{created['id']}?confirm_past_change=true"))
+    stale_delete = delete_confirmed(shop, f"/variable-expenses/{created['id']}")
     assert stale_delete.status_code == 409 and stale_delete.json()["current_id"] == new_id
-    gone = shop.api.delete(url(shop, f"/variable-expenses/{new_id}?confirm_past_change=true"))
+    gone = delete_confirmed(shop, f"/variable-expenses/{new_id}")
     assert gone.status_code == 200 and gone.json()["revision"] == 3 and gone.json()["action"] == "retracted"
     assert read(shop)["variable_expenses"] == []
-    again = shop.api.delete(url(shop, f"/variable-expenses/{new_id}?confirm_past_change=true"))
+    again = delete_confirmed(shop, f"/variable-expenses/{new_id}")
     assert again.status_code == 409 and again.json()["current_id"] is None  # geri çekilmiş: halef yok
     missing_update = shop.api.put(url(shop, f"/variable-expenses/{uuid4()}"), expense_body())
     assert missing_update.status_code == 404
@@ -261,12 +273,11 @@ def test_deleting_one_version_keeps_the_rest_and_missing_delete_does_not_bump_re
     old = put_tariff(shop, valid_from="2026-01-01").json()["tariff"]
     new = put_tariff(shop, valid_from="2026-10-10").json()["tariff"]
     fee = put_fee(shop).json()["estimate"]
-    ok = "?confirm_past_change=true"
-    assert shop.api.delete(url(shop, f"/cargo-tariffs/{new['id']}{ok}")).json()["revision"] == 4
+    assert delete_confirmed(shop, f"/cargo-tariffs/{new['id']}").json()["revision"] == 4
     assert [t["id"] for t in read(shop)["cargo_tariffs"]] == [old["id"]]
-    assert shop.api.delete(url(shop, f"/service-fee-estimates/{fee['id']}{ok}")).json()["revision"] == 5
+    assert delete_confirmed(shop, f"/service-fee-estimates/{fee['id']}").json()["revision"] == 5
     before = revision_in_db(admin_conn, shop)
-    assert shop.api.delete(url(shop, f"/cargo-tariffs/{uuid4()}{ok}")).status_code == 404
+    assert delete_confirmed(shop, f"/cargo-tariffs/{uuid4()}").status_code == 404
     assert revision_in_db(admin_conn, shop) == before  # bulunamayan silme sürümü artırmaz
 
 
@@ -391,7 +402,7 @@ def test_default_desi_validation(shop: Shop, value: str) -> None:
 
 def test_default_desi_boundaries_are_accepted(shop: Shop) -> None:
     for value in ("0.01", "1000", "1000.00"):
-        r = shop.api.put(url(shop, "/defaults"), {"default_desi": value, "confirm_past_change": True})
+        r = shop.api.put(url(shop, "/defaults"), {"default_desi": value, "confirm_affects_from": "all"})
         assert r.status_code == 200
 
 
@@ -525,10 +536,9 @@ def test_every_write_is_audited_without_amounts(shop: Shop, admin_conn: psycopg.
         "expense"
     ]
     shop.api.put(url(shop, "/defaults"), {"default_desi": "3.21"})
-    ok = "?confirm_past_change=true"
-    shop.api.delete(url(shop, f"/variable-expenses/{expense['id']}{ok}"))
-    shop.api.delete(url(shop, f"/cargo-tariffs/{tariff['id']}{ok}"))
-    shop.api.delete(url(shop, f"/service-fee-estimates/{fee['id']}{ok}"))
+    delete_confirmed(shop, f"/variable-expenses/{expense['id']}")
+    delete_confirmed(shop, f"/cargo-tariffs/{tariff['id']}")
+    delete_confirmed(shop, f"/service-fee-estimates/{fee['id']}")
     rows = audit_rows(admin_conn, shop)
     assert [r[0] for r in rows] == [
         "profit_settings.cargo_tariff.create",
