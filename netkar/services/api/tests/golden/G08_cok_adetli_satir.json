@@ -336,6 +336,7 @@
       },
       "donem_duzeyi_giderler_toplami": "0.00",
       "donem_net_kar": "48.12",
+      "donem_eksik_giderler_haric_kar": "48.12",
       "net_kar_kismi": false,
       "maliyet_eksik_satir_sayisi": 0,
       "eksik_kalem_satir_sayilari": {

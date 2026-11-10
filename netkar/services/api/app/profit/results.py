@@ -256,11 +256,14 @@ class PeriodTotals:
     penalty_allocated: Decimal = wire("ceza_satirlara_dagitilan")
     advertising_allocated: Decimal = wire("reklam_satirlara_dagitilan")
     variable_expenses: Decimal = wire("degisken_giderler")
-    # K39: yalnız tam satırların net kârı; dönem düzeyi giderler ayrıca düşülür.
-    line_net_profit_total: Decimal = wire("satir_net_kar_toplami")
+    # K39 Revizyon 1: tam dönemde tüm aktif satırların net kârı; kısmi dönemde None (bilinmeyen terim).
+    line_net_profit_total: Decimal | None = wire("satir_net_kar_toplami")
     period_level_expenses: PeriodLevelExpenses = wire("donem_duzeyi_giderler")
     period_level_expenses_total: Decimal = wire("donem_duzeyi_giderler_toplami")
-    period_net_profit: Decimal = wire("donem_net_kar")
+    # K39 Revizyon 1: kısmi dönemde None; bilinen kısım `period_known_expenses_profit`'tedir.
+    period_net_profit: Decimal | None = wire("donem_net_kar")
+    # K39 Revizyon 1: her dönemde sayı; aktif satırların bilinen giderlerle kârı eksi dönem düzeyi giderler.
+    period_known_expenses_profit: Decimal = wire("donem_eksik_giderler_haric_kar")
     net_profit_partial: bool = wire("net_kar_kismi")
     missing_cost_line_count: int = wire("maliyet_eksik_satir_sayisi")
     missing_line_counts: MissingCounts = wire("eksik_kalem_satir_sayilari")

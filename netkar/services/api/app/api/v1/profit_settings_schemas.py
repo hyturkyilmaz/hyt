@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -76,6 +76,8 @@ ValidFrom = Annotated[date, BeforeValidator(_require_text), AfterValidator(_vali
 OptionalDate = Annotated[date | None, BeforeValidator(lambda v: v if v is None else _require_text(v))]
 Carrier = Annotated[str, AfterValidator(lambda v: _run(ps.check_carrier, v))]
 ExpectedRevision = Annotated[int | None, Field(ge=0, le=2**62)]
+# K43: geçmişi etkileyen yazım için açık onay (ilk giriş istisnası dışında onaysız 409).
+ConfirmPastChange = Annotated[bool, Field(description="Geçmiş raporların değişeceğini onaylar (K43).")]
 
 
 class _Strict(BaseModel):
@@ -98,6 +100,7 @@ class CargoTariffIn(_Strict):
     price_includes_vat: bool
     brackets: list[BracketIn]
     expected_revision: ExpectedRevision = None
+    confirm_past_change: ConfirmPastChange = False
 
     @field_validator("brackets")
     @classmethod
@@ -115,6 +118,7 @@ class ServiceFeeIn(_Strict):
     ]
     amount_includes_vat: bool
     expected_revision: ExpectedRevision = None
+    confirm_past_change: ConfirmPastChange = False
 
 
 class VariableExpenseIn(_Strict):
@@ -138,6 +142,7 @@ class VariableExpenseIn(_Strict):
     valid_from: ValidFrom
     valid_to: OptionalDate = None
     expected_revision: ExpectedRevision = None
+    confirm_past_change: ConfirmPastChange = False
 
     @field_validator("valid_to")
     @classmethod
@@ -161,6 +166,7 @@ class DefaultsIn(_Strict):
         AfterValidator(lambda v: v if v is None else _run(ps.check_desi, v)),
     ]
     expected_revision: ExpectedRevision = None
+    confirm_past_change: ConfirmPastChange = False
 
 
 # --------------------------------------------------------------------------- yanıtlar
@@ -229,27 +235,66 @@ class CarriersOut(BaseModel):
     items: list[CarrierOut]
 
 
-class TariffWriteOut(BaseModel):
+WriteAction = Literal["created", "replaced", "retracted", "unchanged"]
+
+
+class WriteInfo(BaseModel):
+    """Her yazım yanıtının ortak alanları (K42, K43). `changed = false`: içerik aynıydı, hiçbir şey yazılmadı."""
+
     revision: int
-    created: bool
+    changed: bool
+    action: WriteAction
+    replaced_id: str | None
+    affects_from: date | None
+    affects_past: bool
+
+
+class TariffWriteOut(WriteInfo):
+    created: bool  # `action == "created"` ile aynı (bir sürüm boyunca korunur)
     tariff: CargoTariffOut
 
 
-class ServiceFeeWriteOut(BaseModel):
-    revision: int
+class ServiceFeeWriteOut(WriteInfo):
     created: bool
     estimate: ServiceFeeOut
 
 
-class ExpenseWriteOut(BaseModel):
-    revision: int
+class ExpenseWriteOut(WriteInfo):
     expense: VariableExpenseOut
 
 
-class DefaultsOut(BaseModel):
-    revision: int
+class DefaultsOut(WriteInfo):
     default_desi: Decimal | None
 
 
-class DeleteOut(BaseModel):
+class DeleteOut(WriteInfo):
+    """Geri çekme (eski DELETE): satır silinmez, `end_reason = geri_cekildi` ile kapanır."""
+
+
+class ChangedByOut(BaseModel):
+    """Değiştiren kullanıcı: kimlik ve kiracıdaki rol (üyeler listesindeki gibi; ad ve e-posta tutulmaz)."""
+
+    user_id: str
+    role: str | None
+
+
+class HistoryItemOut(BaseModel):
+    """Ayar günlüğü kaydı (ADR-0007 §5.1). `record` ve `replaced_record` satırın tam içeriğidir."""
+
     revision: int
+    changed_at: datetime
+    changed_by: ChangedByOut | None
+    item: Literal["cargo_tariff", "service_fee_estimate", "variable_expense", "defaults", "tasima"]
+    action: Literal["ekle", "degistir", "geri_cek", "tasima"]
+    affects_from: date | None
+    affects_past: bool
+    past_change_confirmed: bool
+    record: CargoTariffOut | ServiceFeeOut | VariableExpenseOut | None
+    replaced_record: CargoTariffOut | ServiceFeeOut | VariableExpenseOut | None
+    default_desi_before: Decimal | None
+    default_desi_after: Decimal | None
+
+
+class HistoryOut(BaseModel):
+    items: list[HistoryItemOut]
+    next_cursor: str | None

@@ -169,7 +169,9 @@ def test_product_and_period_totals_are_sums_of_rounded_lines(orders: list[Order]
     assert result.period.commission == sum((r.items.commission for r in active), D(0))
     assert result.period.vat_effect == sum((r.vat.vat_effect for r in active), D(0))
     expected_line_profit = sum((r.items.net_profit for r in active if r.items.net_profit is not None), D(0))
-    assert result.period.line_net_profit_total == expected_line_profit
+    # K39 Revizyon 1: kısmi dönemde toplam ve dönem net kârı null; tam dönemde tüm aktif satırların toplamı.
+    partial = result.period.net_profit_partial
+    assert result.period.line_net_profit_total == (None if partial else expected_line_profit)
     expenses = result.period.period_level_expenses
     period_level = (
         expenses.advertising_unsold_products
@@ -178,7 +180,9 @@ def test_product_and_period_totals_are_sums_of_rounded_lines(orders: list[Order]
         + expenses.early_payment_fee
         + expenses.unclassified_deduction
     )
-    assert result.period.period_net_profit == expected_line_profit - period_level
+    assert result.period.period_net_profit == (None if partial else expected_line_profit - period_level)
+    known = sum((r.items.known_expenses_profit for r in active), D(0))
+    assert result.period.period_known_expenses_profit == known - period_level
     for product in result.products:
         rows = [r for r in active if r.barcode == product.barcode]
         assert product.net_sales_excl_vat == sum((r.items.net_sales_excl_vat for r in rows), D(0))
@@ -230,7 +234,7 @@ def test_full_refund_settles_to_zero_net_sales_and_negative_or_zero_profit(order
 
 # --------------------------------------------------------------------------- K37-K40 özdeşlikleri (I1-I4)
 def assert_period_identities(result: ProfitResult) -> None:
-    """docs/12 K39 (I1-I4) ve K37/K40 satır ilişkileri; nesne düzeyinde."""
+    """docs/12 K39 Revizyon 1 (I1-I6) ve K37/K40 satır ilişkileri; nesne düzeyinde."""
     p = result.period
     active = [r for r in result.lines if r.status is not Status.CANCELLED]
     full = [r for r in active if not r.missing_items]
@@ -246,8 +250,10 @@ def assert_period_identities(result: ProfitResult) -> None:
         + f.advertising
         + f.variable_expenses
     )
-    # I2
-    assert f.net_sales_excl_vat - f.total_expenses == f.net_profit == p.line_net_profit_total
+    # I2: tam satırlar bloğu her zaman; tam dönemde ayrıca satır net kâr toplamı
+    assert f.net_sales_excl_vat - f.total_expenses == f.net_profit
+    if not p.net_profit_partial:
+        assert f.net_profit == p.line_net_profit_total
     assert f.line_count == len(full)
     # I3
     level = p.period_level_expenses
@@ -259,12 +265,15 @@ def assert_period_identities(result: ProfitResult) -> None:
         + level.unclassified_deduction
     )
     assert p.period_level_expenses_total == level_total
-    assert p.line_net_profit_total - level_total == p.period_net_profit
     # K39: kısmi tanımı ve marj
     assert p.net_profit_partial == (len(full) != len(active))
     if p.net_profit_partial:
+        assert p.line_net_profit_total is None
+        assert p.period_net_profit is None
         assert p.net_margin_percent is None
     else:
+        assert p.line_net_profit_total is not None
+        assert p.line_net_profit_total - level_total == p.period_net_profit
         # I4: tam dönemde üst düzey kalem alanları net kârı verir
         top = (
             p.product_cost
@@ -277,6 +286,16 @@ def assert_period_identities(result: ProfitResult) -> None:
             + p.variable_expenses
         )
         assert p.net_sales_excl_vat - top - level_total == p.period_net_profit
+    # I5: dönem eksik giderler hariç kârı her dönemde sayıdır; tam dönemde net kâra eşittir
+    known = sum((r.items.known_expenses_profit for r in active), D(0))
+    assert p.period_known_expenses_profit == known - level_total
+    if not p.net_profit_partial:
+        assert p.period_known_expenses_profit == p.period_net_profit
+    # I6: ürün alanı satışsız reklamı zaten düşer
+    products_total = sum((x.known_expenses_profit for x in result.products), D(0))
+    assert (
+        products_total - (level_total - level.advertising_unsold_products) == p.period_known_expenses_profit
+    )
     for r in active:
         assert (r.items.net_profit is None) == bool(r.missing_items)  # K37: eksik kalem varken net kâr null
         assert (r.items.total_expenses is None) == bool(r.missing_items)
@@ -434,7 +453,7 @@ def unconfigured_raw(girdi: dict[str, Any]) -> dict[str, Any]:
 
 @pytest.mark.parametrize("path", GOLDEN_FILES, ids=lambda p: p.stem)
 def test_golden_scenarios_recomputed_without_settings(path: Path) -> None:
-    """ADR-0006 §6 kabul ölçütü: G01-G48 ayarsız hesaplandığında altın sonuçta olmayan BEKLENMEYEN_KESINTI yok,
+    """ADR-0006 §6 ve ADR-0007 §8 kabul ölçütü: G01-G49 ayarsız hesaplandığında altın sonuçta olmayan BEKLENMEYEN_KESINTI yok,
     eksik kalemli satırda net kâr sayı değil, kısmi dönemde marj null ve özdeşlikler tutar."""
     scenario = json.loads(path.read_text(encoding="utf-8"))
     golden_lines = scenario["beklenen"]["siparis_satirlari"]
@@ -446,8 +465,13 @@ def test_golden_scenarios_recomputed_without_settings(path: Path) -> None:
             assert "BEKLENMEYEN_KESINTI" in golden["uyarilar"], "altın sonuçta olmayan BEKLENMEYEN_KESINTI"
         if mine["eksik_kalemler"]:
             assert mine["kalemler"]["net_kar"] is None
-    if rendered["donem_toplami"]["net_kar_kismi"]:
-        assert rendered["donem_toplami"]["net_kar_marji_yuzde"] is None
+    period = rendered["donem_toplami"]
+    if period["net_kar_kismi"]:
+        # K39 Revizyon 1: kısmi dönemde dönem net kârı ve satır toplamı null, marj null.
+        assert period["net_kar_marji_yuzde"] is None
+        assert period["donem_net_kar"] is None
+        assert period["satir_net_kar_toplami"] is None
+    assert period["donem_eksik_giderler_haric_kar"] is not None
     assert_period_identities(result)
 
 

@@ -56,6 +56,9 @@ def tariff_body(**over: Any) -> dict[str, Any]:
         "valid_from": "2026-10-01",
         "price_includes_vat": True,
         "brackets": [{"max_desi": "2", "price": "54.00"}, {"max_desi": "5", "price": "50.00"}],
+        # Başlangıç tarihi geçmiş olduğundan (K43) bu yardımcı geçmiş etkiyi varsayılan olarak onaylar;
+        # onay kuralını sınayan testler alanı açıkça `False` yapar.
+        "confirm_past_change": True,
     }
     body.update(over)
     return body
@@ -69,6 +72,7 @@ def expense_body(**over: Any) -> dict[str, Any]:
         "vat_rate": 20,
         "valid_from": "2026-10-01",
         "valid_to": None,
+        "confirm_past_change": True,
     }
     body.update(over)
     return body
@@ -79,7 +83,12 @@ def put_tariff(shop: Shop, **over: Any) -> Any:
 
 
 def put_fee(shop: Shop, **over: Any) -> Any:
-    body = {"valid_from": "2026-10-01", "amount": "12.00", "amount_includes_vat": True}
+    body = {
+        "valid_from": "2026-10-01",
+        "amount": "12.00",
+        "amount_includes_vat": True,
+        "confirm_past_change": True,
+    }
     body.update(over)
     return shop.api.put(url(shop, "/service-fee-estimates"), body)
 
@@ -152,15 +161,21 @@ def test_vat_exclusive_entry_is_stored_as_entered(shop: Shop) -> None:
     assert zero["amount_excl_vat"] == "0.00"  # bilerek 0: tanımlı (K35)
 
 
-def test_versions_are_kept_and_same_key_is_updated(shop: Shop) -> None:
+def test_versions_are_kept_and_same_key_is_replaced_not_overwritten(shop: Shop) -> None:
+    """ADR-0007: aynı anahtarlı PUT yerinde ezmez; eski satır kapanır, YENİ kimlikle yeni satır eklenir."""
     first = put_tariff(shop, valid_from="2026-01-01").json()
     second = put_tariff(shop, valid_from="2026-10-10").json()
     again = put_tariff(shop, valid_from="2026-10-10", price_includes_vat=False).json()
     assert (first["created"], second["created"], again["created"]) == (True, True, False)
-    assert again["tariff"]["id"] == second["tariff"]["id"] and again["revision"] == 3
-    tariffs = read(shop)["cargo_tariffs"]
-    assert [t["valid_from"] for t in tariffs] == ["2026-01-01", "2026-10-10"]  # eski sürüm silinmedi
-    assert tariffs[1]["price_includes_vat"] is False
+    assert (first["action"], second["action"], again["action"]) == ("created", "created", "replaced")
+    assert again["tariff"]["id"] != second["tariff"]["id"] and again["revision"] == 3
+    assert again["replaced_id"] == second["tariff"]["id"] and again["changed"] is True
+    tariffs = read(shop)["cargo_tariffs"]  # yalnız etkin satırlar
+    assert [t["valid_from"] for t in tariffs] == [
+        "2026-01-01",
+        "2026-10-10",
+    ]  # eski sürüm (başka başlangıç) durur
+    assert tariffs[1]["price_includes_vat"] is False and tariffs[1]["id"] == again["tariff"]["id"]
     other_carrier = put_tariff(shop, carrier="*", valid_from="2026-10-10").json()
     assert other_carrier["created"] is True and len(read(shop)["cargo_tariffs"]) == 3
     seller = put_tariff(shop, agreement="seller", valid_from="2026-10-10").json()
@@ -177,9 +192,18 @@ def test_future_version_is_not_defined_today(shop: Shop) -> None:
 
 
 def test_defaults_and_variable_expenses_round_trip(shop: Shop) -> None:
-    assert shop.api.put(url(shop, "/defaults"), {"default_desi": "3"}).json() == {
+    first_desi = shop.api.put(
+        url(shop, "/defaults"), {"default_desi": "3"}
+    )  # ilk giriş istisnası: onaysız 200
+    assert first_desi.status_code == 200, first_desi.text
+    assert first_desi.json() == {
         "revision": 1,
         "default_desi": "3.00",
+        "changed": True,
+        "action": "created",
+        "replaced_id": None,
+        "affects_from": None,
+        "affects_past": True,
     }
     created = shop.api.post(url(shop, "/variable-expenses"), expense_body())
     assert created.status_code == 201, created.text
@@ -195,7 +219,7 @@ def test_defaults_and_variable_expenses_round_trip(shop: Shop) -> None:
     body = read(shop)
     assert body["default_desi"] == "3.00" and len(body["variable_expenses"]) == 2
     assert body["completeness"]["variable_expenses_defined"] and body["completeness"]["default_desi_defined"]
-    cleared = shop.api.put(url(shop, "/defaults"), {"default_desi": None}).json()
+    cleared = shop.api.put(url(shop, "/defaults"), {"default_desi": None, "confirm_past_change": True}).json()
     assert cleared["default_desi"] is None and read(shop)["completeness"]["default_desi_defined"] is False
 
 
@@ -206,7 +230,7 @@ def test_expired_expense_is_not_defined_today(shop: Shop) -> None:
     assert read(shop)["completeness"]["variable_expenses_defined"] is False
 
 
-def test_variable_expense_update_and_delete(shop: Shop) -> None:
+def test_variable_expense_replace_and_retract(shop: Shop) -> None:
     created = shop.api.post(url(shop, "/variable-expenses"), expense_body()).json()["expense"]
     updated = shop.api.put(
         url(shop, f"/variable-expenses/{created['id']}"),
@@ -214,10 +238,19 @@ def test_variable_expense_update_and_delete(shop: Shop) -> None:
     )
     assert updated.status_code == 200 and updated.json()["expense"]["amount_excl_vat"] == "7.50"
     assert updated.json()["expense"]["valid_to"] == "2026-12-31" and updated.json()["revision"] == 2
-    gone = shop.api.delete(url(shop, f"/variable-expenses/{created['id']}"))
-    assert gone.status_code == 200 and gone.json() == {"revision": 3}
+    new_id = updated.json()["expense"]["id"]
+    assert new_id != created["id"] and updated.json()["replaced_id"] == created["id"]  # yeni kimlik
+    # Kapanmış (değiştirilmiş) eski kimliğe yazım 409: gövdede yerini alan etkin satır
+    stale = shop.api.put(url(shop, f"/variable-expenses/{created['id']}"), expense_body())
+    assert stale.status_code == 409 and stale.json()["type"].endswith("settings-record-ended")
+    assert stale.json()["current_id"] == new_id
+    stale_delete = shop.api.delete(url(shop, f"/variable-expenses/{created['id']}?confirm_past_change=true"))
+    assert stale_delete.status_code == 409 and stale_delete.json()["current_id"] == new_id
+    gone = shop.api.delete(url(shop, f"/variable-expenses/{new_id}?confirm_past_change=true"))
+    assert gone.status_code == 200 and gone.json()["revision"] == 3 and gone.json()["action"] == "retracted"
     assert read(shop)["variable_expenses"] == []
-    assert shop.api.delete(url(shop, f"/variable-expenses/{created['id']}")).status_code == 404
+    again = shop.api.delete(url(shop, f"/variable-expenses/{new_id}?confirm_past_change=true"))
+    assert again.status_code == 409 and again.json()["current_id"] is None  # geri çekilmiş: halef yok
     missing_update = shop.api.put(url(shop, f"/variable-expenses/{uuid4()}"), expense_body())
     assert missing_update.status_code == 404
 
@@ -228,11 +261,12 @@ def test_deleting_one_version_keeps_the_rest_and_missing_delete_does_not_bump_re
     old = put_tariff(shop, valid_from="2026-01-01").json()["tariff"]
     new = put_tariff(shop, valid_from="2026-10-10").json()["tariff"]
     fee = put_fee(shop).json()["estimate"]
-    assert shop.api.delete(url(shop, f"/cargo-tariffs/{new['id']}")).json() == {"revision": 4}
+    ok = "?confirm_past_change=true"
+    assert shop.api.delete(url(shop, f"/cargo-tariffs/{new['id']}{ok}")).json()["revision"] == 4
     assert [t["id"] for t in read(shop)["cargo_tariffs"]] == [old["id"]]
-    assert shop.api.delete(url(shop, f"/service-fee-estimates/{fee['id']}")).json() == {"revision": 5}
+    assert shop.api.delete(url(shop, f"/service-fee-estimates/{fee['id']}{ok}")).json()["revision"] == 5
     before = revision_in_db(admin_conn, shop)
-    assert shop.api.delete(url(shop, f"/cargo-tariffs/{uuid4()}")).status_code == 404
+    assert shop.api.delete(url(shop, f"/cargo-tariffs/{uuid4()}{ok}")).status_code == 404
     assert revision_in_db(admin_conn, shop) == before  # bulunamayan silme sürümü artırmaz
 
 
@@ -357,14 +391,15 @@ def test_default_desi_validation(shop: Shop, value: str) -> None:
 
 def test_default_desi_boundaries_are_accepted(shop: Shop) -> None:
     for value in ("0.01", "1000", "1000.00"):
-        assert shop.api.put(url(shop, "/defaults"), {"default_desi": value}).status_code == 200
+        r = shop.api.put(url(shop, "/defaults"), {"default_desi": value, "confirm_past_change": True})
+        assert r.status_code == 200
 
 
 def test_too_many_expenses_is_rejected(shop: Shop, admin_conn: psycopg.Connection[Any]) -> None:
     for index in range(ps.MAX_EXPENSES):
         admin_conn.execute(
-            "INSERT INTO variable_expenses (tenant_id, marketplace_account_id, name, kind, amount_excl_vat, "
-            "vat_rate, valid_from, entered_by) VALUES (%s, %s, %s, 'siparis_basi', 1, 20, '2026-01-01', %s)",
+            "INSERT INTO variable_expenses (revision_from, tenant_id, marketplace_account_id, name, kind, amount_excl_vat, "
+            "vat_rate, valid_from, entered_by) VALUES (1, %s, %s, %s, 'siparis_basi', 1, 20, '2026-01-01', %s)",
             (shop.tenant_id, shop.account_id, f"g{index}", shop.user_id),
         )
     response = shop.api.post(url(shop, "/variable-expenses"), expense_body())
@@ -373,19 +408,30 @@ def test_too_many_expenses_is_rejected(shop: Shop, admin_conn: psycopg.Connectio
     assert revision_in_db(admin_conn, shop) is None  # oluşturulan ayar satırı da geri alındı
 
 
+def seed_head(conn: psycopg.Connection[Any], shop: Shop, revision: int = 1) -> None:
+    """Doğrudan satır tohumlayan testler için hesabın ayar satırı (gerçek veride satırlarla birlikte vardır)."""
+    conn.execute(
+        "INSERT INTO profit_settings (tenant_id, marketplace_account_id, updated_by, revision) "
+        "VALUES (%s, %s, %s, %s)",
+        (shop.tenant_id, shop.account_id, shop.user_id, revision),
+    )
+
+
 def test_too_many_tariff_versions_is_rejected(shop: Shop, admin_conn: psycopg.Connection[Any]) -> None:
+    seed_head(admin_conn, shop)
     for index in range(ps.MAX_TARIFF_VERSIONS):
         admin_conn.execute(
-            "INSERT INTO cargo_tariffs (tenant_id, marketplace_account_id, agreement, carrier, valid_from, "
-            "price_includes_vat, brackets, entered_by) VALUES (%s, %s, 'trendyol', %s, '2026-01-01', false, "
+            "INSERT INTO cargo_tariffs (revision_from, tenant_id, marketplace_account_id, agreement, carrier, valid_from, "
+            "price_includes_vat, brackets, entered_by) VALUES (1, %s, %s, 'trendyol', %s, '2026-01-01', false, "
             '\'[{"max_desi": "1", "price": "1"}]\', %s)',
             (shop.tenant_id, shop.account_id, f"F{index}", shop.user_id),
         )
     response = put_tariff(shop, carrier="Yeni Firma")
     assert response.status_code == 422
     assert {"field": "valid_from", "code": "too_many_tariff_versions"} in response.json()["errors"]
-    # mevcut bir sürümü güncellemek sınırdan etkilenmez
+    # mevcut bir sürümü değiştirmek sınırdan etkilenmez (K42: sınır etkin satırları sayar, değiştirme sınırı aşmaz)
     assert put_tariff(shop, carrier="F0", valid_from="2026-01-01").status_code == 200
+    assert len(read(shop)["cargo_tariffs"]) == ps.MAX_TARIFF_VERSIONS  # eski satır kapandı, sayı aynı
 
 
 def test_path_and_query_validation(shop: Shop) -> None:
@@ -479,18 +525,19 @@ def test_every_write_is_audited_without_amounts(shop: Shop, admin_conn: psycopg.
         "expense"
     ]
     shop.api.put(url(shop, "/defaults"), {"default_desi": "3.21"})
-    shop.api.delete(url(shop, f"/variable-expenses/{expense['id']}"))
-    shop.api.delete(url(shop, f"/cargo-tariffs/{tariff['id']}"))
-    shop.api.delete(url(shop, f"/service-fee-estimates/{fee['id']}"))
+    ok = "?confirm_past_change=true"
+    shop.api.delete(url(shop, f"/variable-expenses/{expense['id']}{ok}"))
+    shop.api.delete(url(shop, f"/cargo-tariffs/{tariff['id']}{ok}"))
+    shop.api.delete(url(shop, f"/service-fee-estimates/{fee['id']}{ok}"))
     rows = audit_rows(admin_conn, shop)
     assert [r[0] for r in rows] == [
-        "profit_settings.cargo_tariff.upsert",
-        "profit_settings.service_fee_estimate.upsert",
-        "profit_settings.variable_expense.upsert",
-        "profit_settings.defaults.upsert",
-        "profit_settings.variable_expense.delete",
-        "profit_settings.cargo_tariff.delete",
-        "profit_settings.service_fee_estimate.delete",
+        "profit_settings.cargo_tariff.create",
+        "profit_settings.service_fee_estimate.create",
+        "profit_settings.variable_expense.create",
+        "profit_settings.defaults.update",
+        "profit_settings.variable_expense.retract",
+        "profit_settings.cargo_tariff.retract",
+        "profit_settings.service_fee_estimate.retract",
     ]
     assert rows[0][1] == tariff["id"] and rows[1][1] == fee["id"] and rows[2][1] == expense["id"]
     assert [r[2]["revision"] for r in rows] == [1, 2, 3, 4, 5, 6, 7]
@@ -759,11 +806,12 @@ def test_fifty_brackets_fit_the_body_limit_and_oversized_bodies_are_rejected(sho
     assert big.status_code == 413  # /v1/marketplace-accounts gövde sınırı (8 KiB) bu uçlara da uygulanır
 
 
-def test_service_fee_with_same_start_is_updated_not_duplicated(shop: Shop) -> None:
+def test_service_fee_with_same_start_is_replaced_not_duplicated(shop: Shop) -> None:
     first = put_fee(shop, amount="12.00").json()
     again = put_fee(shop, amount="18.00", amount_includes_vat=False).json()
     assert (first["created"], again["created"]) == (True, False)
-    assert again["estimate"]["id"] == first["estimate"]["id"] and again["revision"] == 2
+    assert again["estimate"]["id"] != first["estimate"]["id"] and again["revision"] == 2
+    assert again["replaced_id"] == first["estimate"]["id"]
     estimates = read(shop)["service_fee_estimates"]
     assert (
         len(estimates) == 1

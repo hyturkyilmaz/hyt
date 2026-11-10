@@ -1,4 +1,4 @@
-"""Altın test betiklerinin güvenliği: eski betik tek başına çalıştırılınca G42-G48'i silmez.
+"""Altın test betiklerinin güvenliği: eski betik tek başına çalıştırılınca G42-G49'u silmez.
 
 `calisma_dosyalari/altin_test_hesap.py` (v0.1) eskiden `tests/golden` altındaki tüm `G*.json` dosyalarını silip
 yalnız G01-G41'i yazardı. Artık doğrudan çalıştırılınca yeni betiğe (`altin_test_hesap_ayarlar.py`)
@@ -27,7 +27,7 @@ def _digest() -> dict[str, str]:
 @pytest.mark.skipif(not SCRIPTS.is_dir(), reason="calisma_dosyalari/ bu ortamda yok (yalnız api paketi)")
 def test_old_script_run_alone_redirects_and_keeps_every_golden_file() -> None:
     before = _digest()
-    assert len(before) == 48
+    assert len(before) == 49
     result = subprocess.run(
         [sys.executable, str(SCRIPTS / "altin_test_hesap.py")],
         capture_output=True,

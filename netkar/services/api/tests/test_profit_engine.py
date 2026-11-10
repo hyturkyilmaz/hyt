@@ -48,6 +48,7 @@ def test_empty_input_yields_empty_result() -> None:
     assert result.lines == ()
     assert result.products == ()
     assert result.period.period_net_profit == D("0.00")
+    assert result.period.period_known_expenses_profit == D("0.00")
     assert result.period.net_margin_percent is None
     assert result.period.order_count == 0
 
@@ -274,7 +275,13 @@ def test_cost_effective_date_and_missing_cost() -> None:
     assert missing.period.net_profit_partial
     assert missing.period.missing_cost_line_count == 1
     assert WarningCode.MISSING_COST_LINES in missing.period.warnings
-    assert missing.period.line_net_profit_total == D("0.00")
+    # K39 Revizyon 1: kısmi dönemde toplam, dönem net kârı ve marj null; bilinen kısım ayrı alanda.
+    assert missing.period.line_net_profit_total is None
+    assert missing.period.period_net_profit is None
+    assert missing.period.net_margin_percent is None
+    assert missing.period.period_known_expenses_profit == mr.items.known_expenses_profit
+    assert missing.period.full_lines.line_count == 0
+    assert missing.period.full_lines.net_profit == D("0.00")
 
 
 def test_same_date_cost_records_use_the_last_one() -> None:

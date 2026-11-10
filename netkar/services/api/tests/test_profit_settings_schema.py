@@ -1,4 +1,8 @@
-"""Migrasyon 0007 (kâr ayarları): şema, CHECK kısıtları, RLS/IDOR, rol yetkileri ve geri alınabilirlik (ADR-0006 §3.2)."""
+"""Migrasyon 0007 (kâr ayarları): şema, CHECK kısıtları, RLS/IDOR, rol yetkileri ve geri alınabilirlik (ADR-0006 §3.2).
+
+Migrasyon 0008 (ADR-0007) üç sürümlü tablonun yetkilerini daralttı (silme ve iş alanı güncelleme kalktı); bu dosyadaki
+yetki testleri güncel (head) durumu sınar. 0008'in kendi testleri `tests/test_profit_settings_history_schema.py`'dedir.
+"""
 
 from __future__ import annotations
 
@@ -56,23 +60,23 @@ def insert_all(conn: psycopg.Connection[Any], seller: Seller) -> dict[str, Any]:
     assert row is not None
     ids["profit_settings"] = row[0]
     row = conn.execute(
-        "INSERT INTO cargo_tariffs (tenant_id, marketplace_account_id, agreement, carrier, valid_from, "
-        "price_includes_vat, brackets, entered_by) VALUES (%s, %s, 'trendyol', 'TE', '2026-01-01', true, %s, %s) "
+        "INSERT INTO cargo_tariffs (revision_from, tenant_id, marketplace_account_id, agreement, carrier, valid_from, "
+        "price_includes_vat, brackets, entered_by) VALUES (1, %s, %s, 'trendyol', 'TE', '2026-01-01', true, %s, %s) "
         "RETURNING id",
         (*base, BRACKETS, seller.user_id),
     ).fetchone()
     assert row is not None
     ids["cargo_tariffs"] = row[0]
     row = conn.execute(
-        "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, valid_from, amount, "
-        "amount_includes_vat, entered_by) VALUES (%s, %s, '2026-01-01', 12, true, %s) RETURNING id",
+        "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, valid_from, amount, "
+        "amount_includes_vat, entered_by) VALUES (1, %s, %s, '2026-01-01', 12, true, %s) RETURNING id",
         (*base, seller.user_id),
     ).fetchone()
     assert row is not None
     ids["service_fee_estimates"] = row[0]
     row = conn.execute(
-        "INSERT INTO variable_expenses (tenant_id, marketplace_account_id, name, kind, amount_excl_vat, "
-        "vat_rate, valid_from, entered_by) VALUES (%s, %s, 'paket', 'siparis_basi', 6, 20, '2026-01-01', %s) "
+        "INSERT INTO variable_expenses (revision_from, tenant_id, marketplace_account_id, name, kind, amount_excl_vat, "
+        "vat_rate, valid_from, entered_by) VALUES (1, %s, %s, 'paket', 'siparis_basi', 6, 20, '2026-01-01', %s) "
         "RETURNING id",
         (*base, seller.user_id),
     ).fetchone()
@@ -140,8 +144,8 @@ def test_natural_keys_are_unique_and_account_tenant_pair_is_enforced(
     # hesap başka kiracıya ait bir satıra bağlanamaz (bileşik yabancı anahtar)
     with pytest.raises(psycopg.errors.ForeignKeyViolation):
         admin_conn.execute(
-            "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, valid_from, amount, "
-            "amount_includes_vat, entered_by) VALUES (%s, %s, '2026-02-01', 1, true, %s)",
+            "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, valid_from, amount, "
+            "amount_includes_vat, entered_by) VALUES (1, %s, %s, '2026-02-01', 1, true, %s)",
             (other.tenant_id, seller.account_id, other.user_id),
         )
     duplicates = {
@@ -150,14 +154,14 @@ def test_natural_keys_are_unique_and_account_tenant_pair_is_enforced(
             (seller.user_id,),
         ),
         "cargo_tariffs": (
-            "INSERT INTO cargo_tariffs (tenant_id, marketplace_account_id, agreement, carrier, valid_from, "
-            "price_includes_vat, brackets, entered_by) VALUES (%s, %s, 'trendyol', 'TE', '2026-01-01', false, "
+            "INSERT INTO cargo_tariffs (revision_from, tenant_id, marketplace_account_id, agreement, carrier, valid_from, "
+            "price_includes_vat, brackets, entered_by) VALUES (1, %s, %s, 'trendyol', 'TE', '2026-01-01', false, "
             f"'{BRACKETS}', %s)",
             (seller.user_id,),
         ),
         "service_fee_estimates": (
-            "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, valid_from, amount, "
-            "amount_includes_vat, entered_by) VALUES (%s, %s, '2026-01-01', 1, false, %s)",
+            "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, valid_from, amount, "
+            "amount_includes_vat, entered_by) VALUES (1, %s, %s, '2026-01-01', 1, false, %s)",
             (seller.user_id,),
         ),
     }
@@ -166,8 +170,8 @@ def test_natural_keys_are_unique_and_account_tenant_pair_is_enforced(
             admin_conn.execute(sql, (seller.tenant_id, seller.account_id, *extra))
     # aynı anahtarın başka anlaşma ya da başka firması çakışmaz
     admin_conn.execute(
-        "INSERT INTO cargo_tariffs (tenant_id, marketplace_account_id, agreement, carrier, valid_from, "
-        "price_includes_vat, brackets, entered_by) VALUES (%s, %s, 'seller', 'TE', '2026-01-01', false, %s, %s)",
+        "INSERT INTO cargo_tariffs (revision_from, tenant_id, marketplace_account_id, agreement, carrier, valid_from, "
+        "price_includes_vat, brackets, entered_by) VALUES (1, %s, %s, 'seller', 'TE', '2026-01-01', false, %s, %s)",
         (seller.tenant_id, seller.account_id, BRACKETS, seller.user_id),
     )
 
@@ -272,9 +276,12 @@ def test_check_constraints_reject_bad_values(
 ) -> None:
     seller = make_seller(admin_conn)
     extra_cols = "tenant_id, marketplace_account_id, " + (
-        "updated_by" if table == "profit_settings" else "entered_by"
+        "updated_by"
+        if table == "profit_settings"
+        else "revision_from, entered_by"  # 0008: revision_from zorunlu
     )
-    sql = f"INSERT INTO {table} ({extra_cols}, {columns}) VALUES (%s, %s, %s, {values})"
+    placeholders = "%s, %s, %s" if table == "profit_settings" else "%s, %s, 1, %s"
+    sql = f"INSERT INTO {table} ({extra_cols}, {columns}) VALUES ({placeholders}, {values})"
     with pytest.raises(psycopg.errors.CheckViolation):
         admin_conn.execute(sql, (seller.tenant_id, seller.account_id, seller.user_id))
 
@@ -287,8 +294,8 @@ def test_check_constraints_accept_boundary_values(admin_conn: psycopg.Connection
         base,
     )
     admin_conn.execute(
-        "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, entered_by, valid_from, amount, "
-        "amount_includes_vat) VALUES (%s, %s, %s, '2026-01-01', 0, false)",
+        "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, entered_by, valid_from, amount, "
+        "amount_includes_vat) VALUES (1, %s, %s, %s, '2026-01-01', 0, false)",
         base,
     )
     for kind, amount, percent in (
@@ -297,9 +304,9 @@ def test_check_constraints_accept_boundary_values(admin_conn: psycopg.Connection
         ("satis_yuzdesi", None, "100"),
     ):
         admin_conn.execute(
-            "INSERT INTO variable_expenses (tenant_id, marketplace_account_id, entered_by, name, kind, "
+            "INSERT INTO variable_expenses (revision_from, tenant_id, marketplace_account_id, entered_by, name, kind, "
             "amount_excl_vat, percent, vat_rate, valid_from, valid_to) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, 0, '2026-01-01', '2026-01-01')",
+            "VALUES (1, %s, %s, %s, %s, %s, %s, %s, 0, '2026-01-01', '2026-01-01')",
             (*base, f"g-{kind}", kind, amount, percent),
         )
 
@@ -328,12 +335,20 @@ def test_tenants_see_only_their_own_rows_and_cannot_write_across(
             == 0
         )
         for table in DELETABLE:
-            assert conn.execute(f"DELETE FROM {table} WHERE tenant_id = %s", (b.tenant_id,)).rowcount == 0
+            # 0008: kapanış sütunlarında UPDATE vardır (RLS yüzünden 0 satır); DELETE yetkisi hiç yoktur.
+            assert (
+                conn.execute(
+                    f"UPDATE {table} SET revision_to = 2, ended_at = now(), ended_by = %s, "
+                    "end_reason = 'geri_cekildi' WHERE tenant_id = %s",
+                    (a.user_id, b.tenant_id),
+                ).rowcount
+                == 0
+            )
         # B kiracısı adına satır eklemek WITH CHECK ile reddedilir
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute(
-                "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, valid_from, amount, "
-                "amount_includes_vat, entered_by) VALUES (%s, %s, '2026-02-01', 1, true, %s)",
+                "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, valid_from, amount, "
+                "amount_includes_vat, entered_by) VALUES (1, %s, %s, '2026-02-01', 1, true, %s)",
                 (b.tenant_id, b.account_id, b.user_id),
             )
     with (
@@ -347,8 +362,8 @@ def test_tenants_see_only_their_own_rows_and_cannot_write_across(
     # B'nin hesabına A kiracısı satırı bağlanamaz (bileşik yabancı anahtar), RLS olmasa bile
     with pytest.raises(psycopg.errors.ForeignKeyViolation):
         admin_conn.execute(
-            "INSERT INTO cargo_tariffs (tenant_id, marketplace_account_id, agreement, carrier, valid_from, "
-            "price_includes_vat, brackets, entered_by) VALUES (%s, %s, 'trendyol', 'X', '2026-01-01', true, %s, %s)",
+            "INSERT INTO cargo_tariffs (revision_from, tenant_id, marketplace_account_id, agreement, carrier, valid_from, "
+            "price_includes_vat, brackets, entered_by) VALUES (1, %s, %s, 'trendyol', 'X', '2026-01-01', true, %s, %s)",
             (a.tenant_id, b.account_id, BRACKETS, a.user_id),
         )
 
@@ -374,10 +389,13 @@ def test_app_role_privileges_are_least_privilege(admin_conn: psycopg.Connection[
         return bool(row[0])
 
     for table in TABLES:
-        for privilege in ("SELECT", "INSERT", "UPDATE"):
+        for privilege in ("SELECT", "INSERT"):
             assert has("netkar_app", table, privilege), (table, privilege)
         assert not has("netkar_app", table, "TRUNCATE") and not has("netkar_app", table, "REFERENCES")
-        assert has("netkar_app", table, "DELETE") is (table in DELETABLE), table
+        # 0008: sürümlü tablolarda tablo düzeyi UPDATE ve DELETE yok (yalnız kapanış sütunları güncellenir);
+        # hesap satırında (`profit_settings`) UPDATE kalır, DELETE hiçbir tabloda yoktur.
+        assert has("netkar_app", table, "UPDATE") is (table not in DELETABLE), table
+        assert not has("netkar_app", table, "DELETE"), table
     # worker yalnız okur; sync_gate ve PUBLIC erişemez
     for table in TABLES:
         assert has("netkar_worker", table, "SELECT"), table
@@ -416,8 +434,11 @@ def test_app_role_cannot_delete_the_settings_row(
         pytest.raises(psycopg.errors.InsufficientPrivilege),
     ):
         conn.execute("DELETE FROM profit_settings")
-    with role_tx(database.app_dsn(), seller.tenant_id) as conn:
-        assert conn.execute("DELETE FROM cargo_tariffs").rowcount == 1  # sürümler silinebilir
+    with (
+        role_tx(database.app_dsn(), seller.tenant_id) as conn,
+        pytest.raises(psycopg.errors.InsufficientPrivilege),
+    ):
+        conn.execute("DELETE FROM cargo_tariffs")  # 0008: sürümler de silinemez (geri çekilir)
 
 
 # --------------------------------------------------------------------------- geri alınabilirlik
@@ -447,7 +468,7 @@ def test_migration_0007_is_reversible_and_leaves_earlier_tables_intact(
         assert admin_conn.execute(
             "SELECT has_table_privilege('netkar_app', 'cargo_tariffs', 'DELETE'),"
             " has_table_privilege('netkar_worker', 'cargo_tariffs', 'INSERT')"
-        ).fetchone() == (True, False)
+        ).fetchone() == (False, False)  # 0008 sonrası uygulama rolü satır silemez
         row = admin_conn.execute(
             "SELECT relforcerowsecurity FROM pg_class WHERE relname = 'variable_expenses'"
         ).fetchone()

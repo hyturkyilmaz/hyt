@@ -1,22 +1,27 @@
 # -*- coding: utf-8 -*-
-"""NetKâr kâr motoru: kâr ayarları ve eksik kalem kuralları (K33-K41) için referans hesap ve doğrulama betiği.
+"""NetKâr kâr motoru: kâr ayarları ve eksik kalem kuralları (K33-K41, K39 Revizyon 1) için referans hesap ve
+doğrulama betiği.
 
-docs/12_kar_motoru.md §12 (K33-K41) ve docs/adr/0006-kar-ayarlari.md kararlarının Decimal ile elle
-hesaplanmış karşılığıdır. Üretim motoru DEĞİLDİR. `altin_test_hesap.py` (K01-K32) betiğinin yardımcılarını ve
+docs/12_kar_motoru.md §12 (K33-K41; K39 Revizyon 1, denetim AO-03) ve docs/adr/0006-kar-ayarlari.md,
+docs/adr/0007-ayar-tarihcesi-ve-donem-rakami.md kararlarının Decimal ile elle hesaplanmış karşılığıdır. K42-K44
+(ayar tarihçesi, geçmişi etkileyen değişiklik, rapor ayar damgası) veritabanı ve API kuralıdır; motor girdisini
+değiştirmez, bu betikte senaryosu yoktur. Üretim motoru DEĞİLDİR. `altin_test_hesap.py` (K01-K32) betiğinin yardımcılarını ve
 G01-G41 senaryo tanımlarını içe aktarır, hesap işlevini yeni kurallarla yeniden yazar (`hesapla2`).
 
-Çalıştırma (repo kökünden):
+Çalıştırma (repo kökünden ya da netkar/services/api içinden, ikisi de aynı sonucu verir):
     python3 netkar/calisma_dosyalari/altin_test_hesap_ayarlar.py          # yalnız doğrula, dosya yazmaz
-    python3 netkar/calisma_dosyalari/altin_test_hesap_ayarlar.py --yaz    # doğrula ve G01-G48'i yaz
+    python3 netkar/calisma_dosyalari/altin_test_hesap_ayarlar.py --yaz    # doğrula ve G01-G49'u yaz
+    cd netkar/services/api && uv run python ../../calisma_dosyalari/altin_test_hesap_ayarlar.py --yaz
 
 Doğrulama adımları:
   1. Eski betik ile diskteki G01-G41 aynı mı (girdi ve beklenen birebir).
   2. Gerileme: G01-G41 eski kurallarla (hesapla) ve yeni kurallarla (hesapla2) hesaplanır; eski çıktıdaki HER
      alan yeni çıktıda aynı olmalı. İzinli farklar açıkça listelenir (IZINLI_FARKLAR); başka fark hatadır.
-  3. Yeni senaryolar (G42-G48): kilit tutarlar ELLE hesaplanmış sabitlerle (ELLE) karşılaştırılır.
-  4. Değişmezler: her senaryoda satır, ürün ve dönem özdeşlikleri (K37, K39, K40).
+  3. Yeni senaryolar (G42-G49): kilit tutarlar ELLE hesaplanmış sabitlerle (ELLE) karşılaştırılır.
+  4. Değişmezler: her senaryoda satır, ürün ve dönem özdeşlikleri (K37, K39 Revizyon 1 I1-I6, K40).
   5. Denetim S4 Y-02 ölçümünün tekrarı: G01-G41 üretim varsayılanı ayarla (ayar yok) hesaplanır; hiçbir satırda
-     eksik kalem varken net kâr hesaplanmamalı ve altın sonuçta olmayan BEKLENMEYEN_KESINTI çıkmamalı.
+     eksik kalem varken net kâr hesaplanmamalı, altın sonuçta olmayan BEKLENMEYEN_KESINTI çıkmamalı ve kısmi
+     dönemde dönem net kârı sayı olmamalı (denetim AO-03).
 
 Kurallar: tüm tutarlar Decimal, float yok; kuruşa ROUND_HALF_UP, kalem (satır) sonunda bir kez (K01);
 dağıtım en büyük kalan (K24). Tüm tutarlar ve kargo firma adları kurgusaldır.
@@ -703,10 +708,14 @@ def hesapla2(g: dict) -> dict:  # noqa: C901 (referans betik: tek akış, kural 
     top = lambda k, grup=aktif: sum((S[k] for S in grup), D(0))  # noqa: E731
     satissiz_top = sum(urun_reklam_satissiz.values(), D(0))
     maliyet_eksik_n = sum(1 for S in aktif if S["maliyet_haric"] is None)
-    satir_net = sum((S["net_kar"] for S in tamlar), D(0))
+    satir_net = sum((S["net_kar"] for S in tamlar), D(0))  # tam satırların net kârı (tam_satirlar.net_kar)
     donem_gider = (satissiz_top + donem["reklam_dagitilamayan_kdv_haric"] + donem["dagitilmamis_ceza_kdv_haric"]
                    + donem["erken_odeme_bedeli_kdv_haric"] + donem["siniflandirilmamis_kesinti"])
     kismi = len(tamlar) != len(aktif)
+    # K39 Revizyon 1 (denetim AO-03): kısmi dönemde satır net kâr toplamı ve dönem net kârı null; bilinen
+    # giderlerle dönem kârı ayrı ve adı ne olduğunu söyleyen alanda (tüm aktif satırlar, tüm dönem giderleri).
+    donem_net = None if kismi else satir_net - donem_gider
+    donem_haric = sum((S["haric_kar"] for S in aktif), D(0)) - donem_gider
     stopaj_hes = top("stopaj")
     eksik_n = eksik_sayilari(aktif)
     uyarilar = list(donem["uyarilar"])
@@ -732,7 +741,7 @@ def hesapla2(g: dict) -> dict:  # noqa: C901 (referans betik: tek akış, kural 
         "komisyon": s(top("kom_haric")), "kargo_gonderi": s(top("kargo_g_h")), "kargo_iade": s(top("kargo_i_h")),
         "platform_hizmet_bedeli": s(top("hiz_h")), "ceza_satirlara_dagitilan": s(top("ceza_h")),
         "reklam_satirlara_dagitilan": s(top("rek_h")), "degisken_giderler": s(top("deg_h")),
-        "satir_net_kar_toplami": s(satir_net),
+        "satir_net_kar_toplami": None if kismi else s(satir_net),
         "donem_duzeyi_giderler": {
             "reklam_satissiz_urunler": s(satissiz_top),
             "reklam_dagitilamayan": s(donem["reklam_dagitilamayan_kdv_haric"]),
@@ -741,11 +750,12 @@ def hesapla2(g: dict) -> dict:  # noqa: C901 (referans betik: tek akış, kural 
             "siniflandirilmamis_kesinti": s(donem["siniflandirilmamis_kesinti"]),
         },
         "donem_duzeyi_giderler_toplami": s(donem_gider),
-        "donem_net_kar": s(satir_net - donem_gider),
+        "donem_net_kar": s(donem_net),
+        "donem_eksik_giderler_haric_kar": s(donem_haric),
         "net_kar_kismi": kismi,
         "maliyet_eksik_satir_sayisi": maliyet_eksik_n,
         "eksik_kalem_satir_sayilari": eksik_n,
-        "net_kar_marji_yuzde": None if kismi else yuzde(satir_net - donem_gider, top("net_satis")),
+        "net_kar_marji_yuzde": None if kismi else yuzde(donem_net, top("net_satis")),
         "tam_satirlar": {
             "satir_sayisi": len(tamlar),
             "net_satis_kdv_haric": s(t("net_satis")), "urun_maliyeti": s(t("maliyet_haric")),
@@ -769,7 +779,7 @@ def hesapla2(g: dict) -> dict:  # noqa: C901 (referans betik: tek akış, kural 
             "kargo_faturasi_kdv_durumu": durumlar}
 
 
-# --------------------------------------------------------------------------- yeni senaryolar (G42-G48)
+# --------------------------------------------------------------------------- yeni senaryolar (G42-G49)
 YENI = []
 
 
@@ -904,6 +914,18 @@ def g48():
             "otherfinancials": [ust, psf], "kargo_faturalari": [kf]}
 
 
+@senaryo("G49", "tam_satirsiz_donem_gideri", "Üretim varsayılanı (ayar yok), tek tahmini sipariş ve 17,35 "
+         "sınıflandırılmamış kesinti. Dönemde tam satır yok: dönem net kârı null (v0.2 kuralı 0,00 - 17,35 = "
+         "-17,35 gibi uydurma bir zarar gösterirdi); bilinen giderlerle dönem kârı ayrı alanda: 174,09 - 17,35 = "
+         "156,74. Tam satırlar bloğu boş toplamdır (0,00, marj null).",
+         ["K37", "K39"], ["ayar_yok", "eksik_kalem", "kismi_donem", "donem", "estimated"])
+def g49():
+    o1 = siparis("10000491", [satir(BK_A, "499.90")])
+    fi = diger("FinancialItem", debt="17.35", metin="Düzeltme")
+    return {"ayarlar_tam": URETIM_AYARLARI, "siparisler": [o1],
+            "urun_maliyetleri": [maliyet(BK_A, "180.00")], "otherfinancials": [fi]}
+
+
 # --------------------------------------------------------------------------- elle hesaplanan kilit değerler
 # Her değer docs/12 §12 örneklerinde adım adım gösterilmiştir. Yol: (bölüm, indeks, alan.alt_alan).
 ELLE = {
@@ -923,9 +945,11 @@ ELLE = {
         ("satir", 1, "nakit_akisi.beklenen_net_tahsilat", "284.08"),  # 287,00 - 0 - 2,92
         ("urun", 0, "net_kar", None), ("urun", 0, "eksik_giderler_haric_kar", "174.09"),
         ("urun", 0, "kesinlik", "eksik"),
-        ("donem", None, "satir_net_kar_toplami", "0.00"), ("donem", None, "donem_net_kar", "0.00"),
+        ("donem", None, "satir_net_kar_toplami", None), ("donem", None, "donem_net_kar", None),
+        ("donem", None, "donem_eksik_giderler_haric_kar", "293.26"),  # 174,09 + 119,17 - 0
         ("donem", None, "net_kar_kismi", True), ("donem", None, "net_kar_marji_yuzde", None),
         ("donem", None, "net_satis_kdv_haric", "708.25"), ("donem", None, "tam_satirlar.satir_sayisi", 0),
+        ("donem", None, "tam_satirlar.net_kar", "0.00"), ("donem", None, "tam_satirlar.net_kar_marji_yuzde", None),
         ("donem", None, "eksik_kalem_satir_sayilari",
          {"urun_maliyeti": 0, "kargo_gonderi": 2, "platform_hizmet_bedeli": 2}),
         ("donem", None, "uyarilar", {"KARGO_EKSIK_SATIRLAR_VAR", "HIZMET_BEDELI_EKSIK_SATIRLAR_VAR"}),
@@ -944,7 +968,8 @@ ELLE = {
         ("satir", 1, "eksik_kalemler", ["urun_maliyeti", "platform_hizmet_bedeli"]),
         ("satir", 1, "uyarilar", {"MALIYET_EKSIK", "HIZMET_BEDELI_TAHMINI_EKSIK", "ZARAR"}),
         ("satir", 1, "nakit_akisi.beklenen_net_tahsilat", "-5.92"),  # 42,50 - 48,00 - 0,42
-        ("donem", None, "donem_net_kar", "0.00"), ("donem", None, "maliyet_eksik_satir_sayisi", 1),
+        ("donem", None, "donem_net_kar", None), ("donem", None, "maliyet_eksik_satir_sayisi", 1),
+        ("donem", None, "donem_eksik_giderler_haric_kar", "124.51"),  # 129,09 + (-4,58)
         ("donem", None, "eksik_kalem_satir_sayilari",
          {"urun_maliyeti": 1, "kargo_gonderi": 0, "platform_hizmet_bedeli": 2}),
         ("donem", None, "uyarilar", {"MALIYET_EKSIK_SATIRLAR_VAR", "HIZMET_BEDELI_EKSIK_SATIRLAR_VAR"}),
@@ -962,6 +987,8 @@ ELLE = {
         ("satir", 1, "eksik_kalemler", []), ("satir", 1, "uyarilar", set()),
         ("urun", 0, "net_kar", "229.68"), ("urun", 0, "kesinlik", "tahmini"),
         ("donem", None, "donem_net_kar", "229.68"), ("donem", None, "net_kar_kismi", False),
+        ("donem", None, "satir_net_kar_toplami", "229.68"),
+        ("donem", None, "donem_eksik_giderler_haric_kar", "229.68"),  # tam dönemde dönem net kârına eşit
         ("donem", None, "net_kar_marji_yuzde", "27.57"),  # 229,68 / 833,16
         ("donem", None, "tam_satirlar.toplam_gider", "603.48"), ("donem", None, "tam_satirlar.net_kar", "229.68"),
     ],
@@ -973,14 +1000,17 @@ ELLE = {
         ("satir", 1, "kalemler.komisyon", "50.00"),
         ("satir", 1, "kalemler.eksik_giderler_haric_kar", "89.17"),  # 416,67 - 260 - 50 - 10 - 7,50
         ("satir", 1, "kalemler.net_kar", None), ("satir", 1, "uyarilar", {"KARGO_TARIFESI_EKSIK"}),
-        ("donem", None, "donem_net_kar", "51.67"), ("donem", None, "net_kar_kismi", True),
+        ("donem", None, "donem_net_kar", None), ("donem", None, "net_kar_kismi", True),
+        ("donem", None, "satir_net_kar_toplami", None), ("donem", None, "tam_satirlar.net_kar", "51.67"),
+        ("donem", None, "donem_eksik_giderler_haric_kar", "140.84"),  # 51,67 + 89,17
         ("donem", None, "net_kar_marji_yuzde", None), ("donem", None, "tam_satirlar.net_kar_marji_yuzde", "17.72"),
     ],
     "G46": [
         ("satir", 0, "kalemler.net_kar", "119.09"), ("satir", 1, "kalemler.net_kar", None),
         ("satir", 1, "kalemler.maliyet_haric_katki", "184.17"),  # 291,67 - 52,50 - 45 - 10
-        ("donem", None, "satir_net_kar_toplami", "119.09"), ("donem", None, "donem_duzeyi_giderler_toplami", "17.35"),
-        ("donem", None, "donem_net_kar", "101.74"), ("donem", None, "net_kar_kismi", True),
+        ("donem", None, "satir_net_kar_toplami", None), ("donem", None, "donem_duzeyi_giderler_toplami", "17.35"),
+        ("donem", None, "donem_net_kar", None), ("donem", None, "net_kar_kismi", True),  # v0.2: 119,09 - 17,35
+        ("donem", None, "donem_eksik_giderler_haric_kar", "285.91"),  # 119,09 + 184,17 - 17,35
         ("donem", None, "net_kar_marji_yuzde", None),  # eski davranış 101,74 / 708,25 = 14,36 (karışık taban)
         ("donem", None, "tam_satirlar.net_satis_kdv_haric", "416.58"),
         ("donem", None, "tam_satirlar.toplam_gider", "297.49"),  # 180 + 62,49 + 45 + 10
@@ -1001,6 +1031,8 @@ ELLE = {
         ("satir", 1, "kdv.kdv_etkisi", "-12.84"), ("satir", 1, "nakit_akisi.beklenen_net_tahsilat", "18.17"),
         ("donem", None, "uyarilar", {"IADE_KAYDI_BEKLENEN_SATIRLAR_VAR"}),
         ("donem", None, "kesinlik", "tahmini"), ("donem", None, "net_kar_kismi", False),
+        ("donem", None, "donem_net_kar", "-344.16"),  # -280,00 + (-64,16)
+        ("donem", None, "donem_eksik_giderler_haric_kar", "-344.16"),
     ],
     "G48": [
         ("satir", 0, "kalemler.kargo_gonderi", "45.00"), ("satir", 0, "kalemler.platform_hizmet_bedeli", "10.00"),
@@ -1013,14 +1045,35 @@ ELLE = {
         ("satir", 1, "kalemler.eksik_giderler_haric_kar", "74.17"),  # 291,67 - 120 - 52,50 - 45
         ("satir", 1, "karsilastirma.fark", "0.00"),
         ("satir", 1, "uyarilar", {"HIZMET_BEDELI_TAHMINI_EKSIK"}),
-        ("donem", None, "donem_net_kar", "119.09"), ("donem", None, "net_kar_marji_yuzde", None),
+        ("donem", None, "donem_net_kar", None), ("donem", None, "net_kar_marji_yuzde", None),
+        ("donem", None, "tam_satirlar.net_kar", "119.09"),
+        ("donem", None, "donem_eksik_giderler_haric_kar", "193.26"),  # 119,09 + 74,17
         ("donem", None, "kesinlik_satir_sayilari", {"kesin": 1, "tahmini": 0, "eksik": 1}),
+    ],
+    "G49": [
+        ("satir", 0, "kalemler.eksik_giderler_haric_kar", "174.09"),  # 416,58 - 180,00 - 62,49
+        ("satir", 0, "kalemler.net_kar", None),
+        ("satir", 0, "eksik_kalemler", ["kargo_gonderi", "platform_hizmet_bedeli"]),
+        ("donem", None, "donem_duzeyi_giderler.siniflandirilmamis_kesinti", "17.35"),
+        ("donem", None, "donem_duzeyi_giderler_toplami", "17.35"),
+        ("donem", None, "satir_net_kar_toplami", None),
+        ("donem", None, "donem_net_kar", None),  # v0.2 kuralı: 0,00 - 17,35 = -17,35
+        ("donem", None, "donem_eksik_giderler_haric_kar", "156.74"),  # 174,09 - 17,35
+        ("donem", None, "net_kar_kismi", True), ("donem", None, "net_kar_marji_yuzde", None),
+        ("donem", None, "tam_satirlar.satir_sayisi", 0), ("donem", None, "tam_satirlar.net_satis_kdv_haric", "0.00"),
+        ("donem", None, "tam_satirlar.toplam_gider", "0.00"), ("donem", None, "tam_satirlar.net_kar", "0.00"),
+        ("donem", None, "tam_satirlar.net_kar_marji_yuzde", None),
+        ("donem", None, "kesinlik", "eksik"),
+        ("donem", None, "uyarilar", {"SINIFLANDIRILMAMIS_KESINTI", "KARGO_EKSIK_SATIRLAR_VAR",
+                                     "HIZMET_BEDELI_EKSIK_SATIRLAR_VAR"}),
     ],
 }
 
-# G01-G41: eski çıktıdan değişmesine izin verilen alanlar (gerekçe docs/12 §12 K39).
+# G01-G41: eski çıktıdan değişmesine izin verilen alanlar (gerekçe docs/12 §12 K39 ve K39 Revizyon 1).
 IZINLI_FARKLAR = {
     ("G29", "donem_toplami.net_kar_marji_yuzde"),  # 19,60 (138,80 / 708,25 karışık taban) -> null (kısmi dönem)
+    ("G29", "donem_toplami.satir_net_kar_toplami"),  # 138,80 (yalnız A satırı) -> null (K39 Revizyon 1)
+    ("G29", "donem_toplami.donem_net_kar"),  # 138,80 (yalnız A satırı) -> null (K39 Revizyon 1, AO-03)
 }
 
 
@@ -1091,19 +1144,32 @@ def degismezler(sid: str, b: dict) -> list[str]:
                                     "platform_hizmet_bedeli", "ceza", "reklam", "degisken_giderler"))
     if gider != d(tam["toplam_gider"]):
         hata.append(f"{sid}: tam_satirlar gider alanları toplamı != toplam_gider")
-    if d(tam["net_satis_kdv_haric"]) - d(tam["toplam_gider"]) != d(tam["net_kar"]):
+    if d(tam["net_satis_kdv_haric"]) - d(tam["toplam_gider"]) != d(tam["net_kar"]):  # I2
         hata.append(f"{sid}: tam_satirlar net_satis - toplam_gider != net_kar")
-    if tam["net_kar"] != t["satir_net_kar_toplami"]:
-        hata.append(f"{sid}: tam_satirlar.net_kar != satir_net_kar_toplami")
     ddg = sum(d(v) for v in t["donem_duzeyi_giderler"].values())
-    if ddg != d(t["donem_duzeyi_giderler_toplami"]):
+    if ddg != d(t["donem_duzeyi_giderler_toplami"]):  # I3
         hata.append(f"{sid}: dönem düzeyi gider toplamı")
-    if d(t["satir_net_kar_toplami"]) - ddg != d(t["donem_net_kar"]):
-        hata.append(f"{sid}: satır net kâr - dönem düzeyi gider != donem_net_kar")
     if t["net_kar_kismi"] != (tam["satir_sayisi"] != t["satir_sayisi"]):
         hata.append(f"{sid}: net_kar_kismi tanımı")
-    if t["net_kar_kismi"] and t["net_kar_marji_yuzde"] is not None:
-        hata.append(f"{sid}: kısmi dönemde marj null olmalı")
+    if t["net_kar_kismi"]:  # K39 Revizyon 1: kısmi dönemde bayraklı sayı yok
+        for alan in ("satir_net_kar_toplami", "donem_net_kar", "net_kar_marji_yuzde"):
+            if t[alan] is not None:
+                hata.append(f"{sid}: kısmi dönemde {alan} null olmalı")
+    else:
+        if tam["net_kar"] != t["satir_net_kar_toplami"]:  # I2 (tam dönem)
+            hata.append(f"{sid}: tam_satirlar.net_kar != satir_net_kar_toplami")
+        if d(t["satir_net_kar_toplami"]) - ddg != d(t["donem_net_kar"]):  # I3 (tam dönem)
+            hata.append(f"{sid}: satır net kâr - dönem düzeyi gider != donem_net_kar")
+        if t["donem_eksik_giderler_haric_kar"] != t["donem_net_kar"]:  # I5 (tam dönem)
+            hata.append(f"{sid}: tam dönemde donem_eksik_giderler_haric_kar != donem_net_kar")
+    aktif_satirlar = [x for x in b["siparis_satirlari"] if x["durum"] != "cancelled"]
+    haric = sum((d(x["kalemler"]["eksik_giderler_haric_kar"]) for x in aktif_satirlar), D(0)) - ddg
+    if haric != d(t["donem_eksik_giderler_haric_kar"]):  # I5
+        hata.append(f"{sid}: Σ satır eksik_giderler_haric_kar - dönem gideri != donem_eksik_giderler_haric_kar")
+    urun_haric = sum((d(p["eksik_giderler_haric_kar"]) for p in b["urun_toplamlari"]), D(0))
+    satissiz = d(t["donem_duzeyi_giderler"]["reklam_satissiz_urunler"])
+    if urun_haric - (ddg - satissiz) != d(t["donem_eksik_giderler_haric_kar"]):  # I6
+        hata.append(f"{sid}: Σ ürün eksik_giderler_haric_kar - (dönem gideri - satışsız reklam) != dönem alanı")
     if not t["net_kar_kismi"]:
         tum = sum(d(t[k]) for k in ("urun_maliyeti", "komisyon", "kargo_gonderi", "kargo_iade",
                                     "platform_hizmet_bedeli", "ceza_satirlara_dagitilan",
@@ -1145,7 +1211,8 @@ def main() -> int:
     # 1-2. G01-G41: diskle eşlik ve gerileme
     izinli_gorulen = set()
     degisen_ozet = []
-    y02 = {"satir": 0, "eksik_satir": 0, "null_net": 0, "yanlis_bk": 0, "eski_yanlis_bk": 0}
+    y02 = {"satir": 0, "eksik_satir": 0, "null_net": 0, "yanlis_bk": 0, "eski_yanlis_bk": 0,
+           "kismi_donem": 0, "kismi_donem_sayi_net": 0}
     for sid, ad, aciklama, kurallar, etiketler, fn in eski.SENARYOLAR:
         girdi = fn()
         girdi.setdefault("donem", {"baslangic": "2026-10-01", "bitis": "2026-10-31"})
@@ -1176,6 +1243,11 @@ def main() -> int:
         uretim = json.loads(json.dumps(hesapla2(ayarsiz(girdi_tam))))
         eski_uretim = json.loads(json.dumps(eski_ayarsiz_hesapla(girdi_tam)))
         hatalar += degismezler(sid + "/ayarsiz", uretim)
+        if uretim["donem_toplami"]["net_kar_kismi"]:
+            y02["kismi_donem"] += 1
+            if uretim["donem_toplami"]["donem_net_kar"] is not None:
+                y02["kismi_donem_sayi_net"] += 1
+                hatalar.append(f"{sid}/ayarsiz: kısmi dönemde dönem net kârı sayı (AO-03)")
         for x, xa, xe in zip(uretim["siparis_satirlari"], yeni["siparis_satirlari"], eski_uretim["siparis_satirlari"]):
             if x["durum"] == "cancelled":
                 continue
@@ -1193,7 +1265,7 @@ def main() -> int:
     for izinli in IZINLI_FARKLAR - izinli_gorulen:
         hatalar.append(f"izinli fark görülmedi (liste güncel değil): {izinli}")
 
-    # 3-4. G42-G48
+    # 3-4. G42-G49
     for sid, ad, aciklama, kurallar, etiketler, fn in YENI:
         girdi = fn()
         girdi.setdefault("donem", {"baslangic": "2026-10-01", "bitis": "2026-10-31"})
@@ -1209,9 +1281,10 @@ def main() -> int:
     for satir_ in degisen_ozet:
         print("   ", satir_)
     print("== Y-02 tekrarı (G01-G41 ayarsız):", y02)
-    print("== G42-G48 özet (durum, kesinlik, net_kar, eksik_giderler_haric_kar, uyarılar)")
+    print("== G42-G49 özet (durum, kesinlik, net_kar, eksik_giderler_haric_kar, uyarılar)")
     for sid, ad, *_r, b in belgeler[len(eski.SENARYOLAR):]:
-        print(sid, ad, "| dönem net", b["donem_toplami"]["donem_net_kar"], "kısmi",
+        print(sid, ad, "| dönem net", b["donem_toplami"]["donem_net_kar"], "eksik giderler hariç",
+              b["donem_toplami"]["donem_eksik_giderler_haric_kar"], "kısmi",
               b["donem_toplami"]["net_kar_kismi"], "marj", b["donem_toplami"]["net_kar_marji_yuzde"])
         for x in b["siparis_satirlari"]:
             print("    ", x["durum"], x["kesinlik"], x["kalemler"]["net_kar"],

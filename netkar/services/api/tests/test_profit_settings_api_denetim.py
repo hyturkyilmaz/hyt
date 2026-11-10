@@ -25,6 +25,7 @@ from app.services import profit_settings as ps
 from tests.conftest import Api
 from tests.product_cost_helpers import Shop, fixed_today, make_shop_factory  # noqa: F401
 from tests.sync_helpers import make_seller
+from tests.test_profit_settings_api import seed_head
 from tests.test_profit_settings_schema import TABLES, insert_all
 
 pytestmark = pytest.mark.usefixtures("fixed_today")
@@ -45,7 +46,13 @@ def url(shop: Shop, suffix: str = "") -> str:
 
 
 def put_fee(shop: Shop, **over: Any) -> Any:
-    body = {"valid_from": "2026-10-01", "amount": "12.00", "amount_includes_vat": True}
+    # Başlangıç geçmiş olduğundan (K43) bu yardımcı geçmiş etkiyi varsayılan olarak onaylar.
+    body = {
+        "valid_from": "2026-10-01",
+        "amount": "12.00",
+        "amount_includes_vat": True,
+        "confirm_past_change": True,
+    }
     body.update(over)
     return shop.api.put(url(shop, "/service-fee-estimates"), body)
 
@@ -60,9 +67,10 @@ def revision_in_db(conn: psycopg.Connection[Any], shop: Shop) -> int | None:
 # --------------------------------------------------------------------------- AO-01: sürüm sayısı sınırı
 def test_too_many_service_fee_versions_is_rejected(shop: Shop, admin_conn: psycopg.Connection[Any]) -> None:
     first = date(2020, 1, 1)
+    seed_head(admin_conn, shop)
     admin_conn.cursor().executemany(
-        "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, entered_by, valid_from, amount, "
-        "amount_includes_vat) VALUES (%s, %s, %s, %s, 10, false)",
+        "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, entered_by, valid_from, amount, "
+        "amount_includes_vat) VALUES (1, %s, %s, %s, %s, 10, false)",
         [
             (shop.tenant_id, shop.account_id, shop.user_id, first + timedelta(days=i))
             for i in range(ps.MAX_SERVICE_FEE_VERSIONS)
@@ -71,8 +79,8 @@ def test_too_many_service_fee_versions_is_rejected(shop: Shop, admin_conn: psyco
     response = put_fee(shop, valid_from="2026-10-01")
     assert response.status_code == 422, response.text
     assert {"field": "valid_from", "code": "too_many_service_fee_versions"} in response.json()["errors"]
-    assert revision_in_db(admin_conn, shop) is None  # oluşturulan ayar satırı da geri alındı
-    # mevcut bir sürümü güncellemek sınırdan etkilenmez
+    assert revision_in_db(admin_conn, shop) == 1  # reddedilen yazım sürümü artırmadı
+    # mevcut bir sürümü değiştirmek sınırdan etkilenmez
     assert put_fee(shop, valid_from=first.isoformat(), amount="99.00").status_code == 200
 
 
@@ -102,8 +110,8 @@ def test_summary_time_stays_linear_with_many_service_fee_versions(
     first = date(2000, 1, 2)
     days = [first + timedelta(days=i) for i in range((date(2027, 11, 8) - first).days)]
     admin_conn.cursor().executemany(
-        "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, entered_by, valid_from, amount, "
-        "amount_includes_vat) VALUES (%s, %s, %s, %s, 10, false)",
+        "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, entered_by, valid_from, amount, "
+        "amount_includes_vat) VALUES (1, %s, %s, %s, %s, 10, false)",
         [(big.tenant_id, big.account_id, big.user_id, d) for d in days],
     )
     t_many = summary_seconds()
@@ -333,8 +341,8 @@ def test_a_single_row_in_any_one_table_blocks_the_downgrade(
     monkeypatch.delenv("NETKAR_ALLOW_SETTINGS_DATA_LOSS", raising=False)
     seller = make_seller(admin_conn)
     admin_conn.execute(
-        "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, valid_from, amount, "
-        "amount_includes_vat, entered_by) VALUES (%s, %s, '2026-01-01', 12, true, %s)",
+        "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, valid_from, amount, "
+        "amount_includes_vat, entered_by) VALUES (1, %s, %s, '2026-01-01', 12, true, %s)",
         (seller.tenant_id, seller.account_id, seller.user_id),
     )
     try:

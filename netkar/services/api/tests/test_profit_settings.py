@@ -376,12 +376,15 @@ def test_partial_period_has_null_margin_and_consistent_full_lines_block() -> Non
     p = result.period
     assert p.net_profit_partial is True
     assert p.net_margin_percent is None
-    assert p.line_net_profit_total == result.lines[0].items.net_profit
+    # K39 Revizyon 1: kısmi dönemde satır toplamı ve dönem net kârı null; bilinen kısım ayrı alanda.
+    assert p.line_net_profit_total is None
+    assert p.period_net_profit is None
     assert p.period_level_expenses_total == D("17.35")
-    assert p.period_net_profit == p.line_net_profit_total - D("17.35")
+    known = sum((r.items.known_expenses_profit for r in result.lines), D("0.00"))
+    assert p.period_known_expenses_profit == known - D("17.35")
     f = p.full_lines
     assert f.line_count == 1
-    assert f.net_sales_excl_vat - f.total_expenses == f.net_profit == p.line_net_profit_total
+    assert f.net_sales_excl_vat - f.total_expenses == f.net_profit == result.lines[0].items.net_profit
     assert f.net_margin_percent == percent_of(f.net_profit, f.net_sales_excl_vat)  # pay ve payda aynı küme
     assert p.missing_line_counts.product_cost == 1
     assert p.missing_cost_line_count == 1
@@ -392,7 +395,9 @@ def test_partial_period_by_shipping_or_fee_alone() -> None:
     result = calculate_profit(data([order(cargo_deci=None)], settings=make_settings(), costs=(cost(),)))
     assert result.period.net_profit_partial is True
     assert result.period.net_margin_percent is None
-    assert result.period.line_net_profit_total == D("0.00")
+    assert result.period.line_net_profit_total is None
+    assert result.period.period_net_profit is None
+    assert result.period.period_known_expenses_profit == result.lines[0].items.known_expenses_profit
     assert result.period.full_lines.line_count == 0
     assert result.period.full_lines.net_margin_percent is None  # net satış 0: marj tanımsız
     assert WarningCode.CARGO_MISSING_LINES in result.period.warnings

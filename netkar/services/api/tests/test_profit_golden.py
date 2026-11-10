@@ -39,10 +39,10 @@ def assert_matches(expected: Any, actual: Any, path: str = "") -> None:
         assert expected == actual, f"{path}: beklenen {expected!r}, gelen {actual!r}"
 
 
-def test_all_48_scenarios_present() -> None:
-    # G01-G41 (v0.1 + v0.2 yeni alanlar) ve G42-G48 (kâr ayarları, K33-K41).
-    assert len(GOLDEN_FILES) == 48
-    assert [p.name[:4] for p in GOLDEN_FILES] == [f"G{i:02d}_" for i in range(1, 49)]
+def test_all_49_scenarios_present() -> None:
+    # G01-G41 (v0.1 + v0.2 yeni alanlar), G42-G48 (kâr ayarları, K33-K41) ve G49 (K39 Revizyon 1).
+    assert len(GOLDEN_FILES) == 49
+    assert [p.name[:4] for p in GOLDEN_FILES] == [f"G{i:02d}_" for i in range(1, 50)]
 
 
 @pytest.mark.parametrize("path", GOLDEN_FILES, ids=lambda p: p.stem)

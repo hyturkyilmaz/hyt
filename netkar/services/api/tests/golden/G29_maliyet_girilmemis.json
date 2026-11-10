@@ -367,7 +367,7 @@
       "ceza_satirlara_dagitilan": "0.00",
       "reklam_satirlara_dagitilan": "0.00",
       "degisken_giderler": "0.00",
-      "satir_net_kar_toplami": "138.80",
+      "satir_net_kar_toplami": null,
       "donem_duzeyi_giderler": {
         "reklam_satissiz_urunler": "0.00",
         "reklam_dagitilamayan": "0.00",
@@ -376,7 +376,8 @@
         "siniflandirilmamis_kesinti": "0.00"
       },
       "donem_duzeyi_giderler_toplami": "0.00",
-      "donem_net_kar": "138.80",
+      "donem_net_kar": null,
+      "donem_eksik_giderler_haric_kar": "353.26",
       "net_kar_kismi": true,
       "maliyet_eksik_satir_sayisi": 1,
       "eksik_kalem_satir_sayilari": {

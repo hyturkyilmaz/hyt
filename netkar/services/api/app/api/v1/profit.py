@@ -11,7 +11,8 @@ hiçbiri verilmezse `30d`. En fazla 92 gün (sipariş ucunda dönemsiz istekte s
 Yük sınırları: kiracı başına dakikalık sayaç (ayrı küçük havuz), kiracı ve süreç başına beklemeyen eşzamanlılık
 kapısı (429/503 + Retry-After) ve motor çalışırken veritabanı bağlantısı TUTULMAZ (denetim S4 Y-01, O-01).
 Kâr ayarları (kargo tarifesi, hizmet bedeli, değişken gider, varsayılan desi) hesap düzeyinde veritabanından
-okunur (`app.services.profit_settings.profit_settings_for`, ADR-0006); ayar yoksa motor "tanımsız" çalışır:
+okunur (`app.services.profit_settings.load_profit_settings`, ADR-0006); okunan ayar sürümü her yanıtta
+`settings_revision` olarak döner (K44); ayar yoksa motor "tanımsız" çalışır:
 eksik kalem 0 sayılmaz, net kâr null olur (K33-K37).
 """
 
@@ -60,8 +61,8 @@ from app.services import profit_views as views
 from app.services.auth import AuthContext
 from app.services.profit_report import PeriodReport, period_profit
 from app.services.profit_settings import (
+    load_profit_settings,
     profit_settings_completeness,
-    profit_settings_for,
 )
 from app.services.report_gate import ReportGate
 
@@ -153,18 +154,25 @@ async def _guard(
 
 async def _report(
     db: AsyncSession, ctx: AuthContext, account_id: UUID, period: Period, gate: ReportGate
-) -> PeriodReport:
-    """Motoru dönem için bir kez çalıştırır. Girdi tutarsızlığı iç ayrıntı sızdırmadan 500 olur.
+) -> tuple[PeriodReport, int]:
+    """Motoru dönem için bir kez çalıştırır; raporla birlikte hesaplandığı ayar sürümünü (K44) döndürür. Girdi tutarsızlığı iç ayrıntı sızdırmadan 500 olur.
 
     Kapı beklemez (doluysa 429/503). Besleyici okumaları bitince bağlantı havuza iade edilir; veritabanına
     sonradan dokunan uçlar `_restore_context` çağırmalıdır.
     """
     async with gate.slot(ctx.tenant_id):
         try:
-            settings = await profit_settings_for(db, ctx.tenant_id, account_id)
-            return await period_profit(
-                db, ctx.tenant_id, account_id, period.start, period.end, settings, release_connection=True
+            loaded = await load_profit_settings(db, ctx.tenant_id, account_id)
+            report = await period_profit(
+                db,
+                ctx.tenant_id,
+                account_id,
+                period.start,
+                period.end,
+                loaded.settings,
+                release_connection=True,
             )
+            return report, loaded.revision
         except ProfitInputError as exc:
             # Ayrıntı (sipariş no, tutar) log'a yazılmaz: yalnız hesap kimliği ve hata sınıfı.
             log.error("profit_calculation_failed account=%s error=%s", account_id, type(exc).__name__)
@@ -218,7 +226,7 @@ async def summary(
     `estimated_line_count`. Eksik kalemli dönemde `totals.net_kar_kismi` doğrudur ve dönem marjı null'dır (K39).
     """
     await _guard(db, ctx, account_id, limiter, settings)
-    report = await _report(db, ctx, account_id, period, gate)
+    report, settings_revision = await _report(db, ctx, account_id, period, gate)
     await _restore_context(
         db, ctx
     )  # rapor bağlantıyı iade etti: ayar tamlığı okuması için bağlam yeniden kurulur
@@ -226,6 +234,7 @@ async def summary(
     counts = views.status_counts(report.result.lines)
     return SummaryOut(
         period=period.out(),
+        settings_revision=settings_revision,
         totals=PeriodTotalsOut.model_validate(report.totals),
         status_counts=StatusCountsOut(**counts),
         missing_cost_line_count=report.totals.missing_cost_line_count,
@@ -260,7 +269,7 @@ async def list_products(
     fingerprint = f"products|{sort}|{order}|{filter}|{period.start}|{period.end}"
     codec = _codec(settings, ctx, account_id)
     _check_cursor(cursor, fingerprint, 3, codec)
-    report = await _report(db, ctx, account_id, period, gate)
+    report, settings_revision = await _report(db, ctx, account_id, period, gate)
     rows = views.filter_rows(views.build_product_rows(report.result), filter)
     try:
         page, next_cursor = views.product_page(rows, sort, order, limit, cursor, fingerprint, codec)
@@ -270,6 +279,7 @@ async def list_products(
     titles = await views.product_titles(db, ctx.tenant_id, account_id, [r.totals.barcode for r in page])
     return ProductProfitListOut(
         period=period.out(),
+        settings_revision=settings_revision,
         sort=sort,
         order=order,
         filter=filter,
@@ -328,7 +338,7 @@ async def product_detail(
     fingerprint = f"lines|{barcode}|{period.start}|{period.end}"
     codec = _codec(settings, ctx, account_id)
     _check_cursor(cursor, fingerprint, 3, codec)
-    report = await _report(db, ctx, account_id, period, gate)
+    report, settings_revision = await _report(db, ctx, account_id, period, gate)
     mine = [line for line in report.result.lines if line.barcode == barcode]
     product = next((p for p in report.result.products if p.barcode == barcode), None)
     try:
@@ -340,6 +350,7 @@ async def product_detail(
     titles = await views.product_titles(db, ctx.tenant_id, account_id, [barcode])
     return ProductProfitDetailOut(
         period=period.out(),
+        settings_revision=settings_revision,
         barcode=barcode,
         title=titles.get(barcode),
         product=None if product is None else ProductTotalsOut.model_validate(product),
@@ -380,12 +391,13 @@ async def order_detail(
             raise _invalid(exc.field, exc.code, exc.message) from None
     else:
         used = period
-    report = await _report(db, ctx, account_id, used, gate)
+    report, settings_revision = await _report(db, ctx, account_id, used, gate)
     lines = views.sort_lines(line for line in report.result.lines if line.order_number == order_number)
     if not lines:
         raise _not_found()  # sipariş var ama seçilen dönemde değil (ya da motora verilmedi)
     return OrderDetailOut(
         period=used.out(),
+        settings_revision=settings_revision,
         order_number=order_number,
         ordered_on=days[0],
         totals=OrderTotalsOut.model_validate(views.order_totals(lines)),
@@ -413,7 +425,7 @@ async def alerts(
     fingerprint = f"alerts|{code.value if code else ''}|{period.start}|{period.end}"
     codec = _codec(settings, ctx, account_id)
     _check_cursor(cursor, fingerprint, 5, codec)
-    report = await _report(db, ctx, account_id, period, gate)
+    report, settings_revision = await _report(db, ctx, account_id, period, gate)
     everything = views.build_alerts(report.result)
     selected = [a for a in everything if code is None or a.code is code]
     try:
@@ -422,6 +434,7 @@ async def alerts(
         raise _cursor_error() from None
     return AlertsOut(
         period=period.out(),
+        settings_revision=settings_revision,
         counts=[
             AlertCountOut(code=c, count=n, message=views.ALERT_MESSAGES[c])
             for c, n in views.alert_counts(everything).items()

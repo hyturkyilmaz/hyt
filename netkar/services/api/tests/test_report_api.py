@@ -86,9 +86,10 @@ def test_summary_returns_engine_totals_status_counts_and_feed_notes(shop: Shop) 
     # 1001 (100.00 KDV hariç) + 1002 (83.33) + 1003 (satış 25.00, tamamı iade: 0.00); 1004 iptal girmez.
     assert totals["siparis_sayisi"] == 3 and totals["satir_sayisi"] == 3
     assert totals["net_satis_kdv_haric"] == "183.33" and totals["komisyon"] == "18.33"
-    # Hesapta kâr ayarı yok: hiçbir satır tam değildir (kargo ve hizmet bedeli eksik, K37); tam satır olmadığından
-    # satır net kâr toplamı ve dönem net kârı 0,00, dönem marjı null'dır (K39).
-    assert totals["urun_maliyeti"] == "100.00" and totals["donem_net_kar"] == "0.00"
+    # Hesapta kâr ayarı yok: hiçbir satır tam değildir (kargo ve hizmet bedeli eksik, K37); kısmi dönemde satır
+    # net kâr toplamı, dönem net kârı ve dönem marjı null'dır (K39 Revizyon 1); bilinen kısım ayrı alandadır.
+    assert totals["urun_maliyeti"] == "100.00" and totals["donem_net_kar"] is None
+    assert totals["satir_net_kar_toplami"] is None and totals["donem_eksik_giderler_haric_kar"] == "65.00"
     assert totals["net_kar_kismi"] is True and totals["maliyet_eksik_satir_sayisi"] == 1
     assert totals["net_kar_marji_yuzde"] is None and totals["tam_satirlar"]["satir_sayisi"] == 0
     assert totals["eksik_kalem_satir_sayilari"] == {

@@ -133,8 +133,8 @@ def add_user_settings(
                     [{"max_desi": str(desi), "price": str(price)} for desi, price in brackets]
                 )
                 conn.execute(
-                    "INSERT INTO cargo_tariffs (tenant_id, marketplace_account_id, entered_by, agreement, carrier, "
-                    "valid_from, price_includes_vat, brackets) VALUES (%s, %s, %s, %s, %s, %s, false, %s)",
+                    "INSERT INTO cargo_tariffs (revision_from, tenant_id, marketplace_account_id, entered_by, agreement, carrier, "
+                    "valid_from, price_includes_vat, brackets) VALUES (1, %s, %s, %s, %s, %s, %s, false, %s)",
                     (*base, agreement, carrier, valid_from, payload),
                 )
     fee = ayarlar.get("platform_hizmet_bedeli_tahmini_siparis_basi_kdv_haric")
@@ -147,14 +147,14 @@ def add_user_settings(
     )
     for valid_from, amount in fee_versions:
         conn.execute(
-            "INSERT INTO service_fee_estimates (tenant_id, marketplace_account_id, entered_by, valid_from, "
-            "amount, amount_includes_vat) VALUES (%s, %s, %s, %s, %s, false)",
+            "INSERT INTO service_fee_estimates (revision_from, tenant_id, marketplace_account_id, entered_by, valid_from, "
+            "amount, amount_includes_vat) VALUES (1, %s, %s, %s, %s, %s, false)",
             (*base, valid_from, amount),
         )
     for expense in ayarlar.get("degisken_giderler", []):
         conn.execute(
-            "INSERT INTO variable_expenses (tenant_id, marketplace_account_id, entered_by, name, kind, "
-            "amount_excl_vat, percent, vat_rate, valid_from, valid_to) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO variable_expenses (revision_from, tenant_id, marketplace_account_id, entered_by, name, kind, "
+            "amount_excl_vat, percent, vat_rate, valid_from, valid_to) VALUES (1, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 *base,
                 expense["ad"],

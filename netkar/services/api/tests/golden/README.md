@@ -1,16 +1,18 @@
 # Kâr motoru altın testleri
 
 Bu klasördeki `G*.json` dosyaları NetKâr kâr motorunun (bkz. `netkar/docs/12_kar_motoru.md`) kuruşu kuruşuna
-uyması gereken beklenen çıktılardır. Dosyaları elle düzenlemeyin; üreten ve doğrulayan betik (v0.2, K01-K41):
+uyması gereken beklenen çıktılardır. Dosyaları elle düzenlemeyin; üreten ve doğrulayan betik (v0.3, K01-K41 ve
+K39 Revizyon 1):
 
 ```
 python3 netkar/calisma_dosyalari/altin_test_hesap_ayarlar.py          # yalnız doğrula
-python3 netkar/calisma_dosyalari/altin_test_hesap_ayarlar.py --yaz    # doğrula ve G01-G48'i yaz
+python3 netkar/calisma_dosyalari/altin_test_hesap_ayarlar.py --yaz    # doğrula ve G01-G49'u yaz
+cd netkar/services/api && uv run python ../../calisma_dosyalari/altin_test_hesap_ayarlar.py --yaz   # aynısı
 ```
 
 Betik `altin_test_hesap.py`'nin yardımcılarını ve G01-G41 tanımlarını içe aktarır; G01-G41'i eski ve yeni
-kurallarla hesaplayıp eski çıktının her alanının korunduğunu (izinli fark: yalnız G29 dönem marjı) ve yeni
-senaryoların elle hesaplanan değerlerini doğrular. **`altin_test_hesap.py`'yi tek başına çalıştırmayın**: tüm
+kurallarla hesaplayıp eski çıktının her alanının korunduğunu (izinli farklar: yalnız G29 dönem marjı,
+`satir_net_kar_toplami` ve `donem_net_kar`) ve yeni senaryoların (G42-G49) elle hesaplanan değerlerini doğrular. **`altin_test_hesap.py`'yi tek başına çalıştırmayın**: tüm
 `G*.json` dosyalarını silip yalnız G01-G41'i v0.1 kurallarıyla yazar. Bir kural değişirse önce
 `12_kar_motoru.md`, sonra betik, sonra bu dosyalar güncellenir; üçü aynı commit'te olmalı.
 
@@ -126,13 +128,16 @@ Dönem toplamı ayrıca `donem_duzeyi_giderler` (satışsız ürün reklamı, da
 erken ödeme bedeli, sınıflandırılmamış kesinti), `donem_net_kar`, `net_kar_kismi`, `kdv_etkisi`, `nakit_akisi`
 (`stopaj_hesaplanan`, `stopaj_ekstre`, `erken_odeme_nakit_girisi`) ve dönem uyarılarını (`SINIFLANDIRILMAMIS_KESINTI`,
 `MALIYET_EKSIK_SATIRLAR_VAR`, `STOPAJ_EKSTRE_FARKI`) taşır. İptal satırları ürün ve dönem toplamlarına girmez.
-v0.2 (K39): `satir_net_kar_toplami` yalnız tam satırların (eksik kalemsiz) toplamıdır; `net_kar_kismi` herhangi
-bir eksik kalemde doğrudur ve o zaman dönem `net_kar_marji_yuzde` `null`'dır. Ek alanlar:
+v0.2 (K39): `net_kar_kismi` herhangi bir eksik kalemde doğrudur ve o zaman dönem `net_kar_marji_yuzde` `null`'dır.
+v0.3 (K39 Revizyon 1, denetim AO-03): kısmi dönemde `satir_net_kar_toplami` ve `donem_net_kar` de `null`'dır
+(tam satırların net kârı yalnız `tam_satirlar.net_kar`'da); her dönemde `donem_eksik_giderler_haric_kar` =
+aktif satırların `eksik_giderler_haric_kar` toplamı - `donem_duzeyi_giderler_toplami` (tam dönemde
+`donem_net_kar`'a eşit). Tam satır yoksa `tam_satirlar` bloğu boş toplamdır (0,00, marj `null`). Ek alanlar:
 `donem_duzeyi_giderler_toplami`, `tam_satirlar` (tam satırların kalem kalem kırılımı, `toplam_gider`, `net_kar`,
 `net_kar_marji_yuzde`), `eksik_kalem_satir_sayilari`, `kesinlik`, `kesinlik_satir_sayilari`; dönem uyarıları
 ayrıca `KARGO_EKSIK_SATIRLAR_VAR`, `HIZMET_BEDELI_EKSIK_SATIRLAR_VAR`, `IADE_KAYDI_BEKLENEN_SATIRLAR_VAR`.
 
-## Senaryo listesi (48)
+## Senaryo listesi (49)
 
 | Kimlik | Dosya | Kurallar | Etiketler | Beklenen durum ve satır net kârı |
 |---|---|---|---|---|
@@ -184,6 +189,7 @@ ayrıca `KARGO_EKSIK_SATIRLAR_VAR`, `HIZMET_BEDELI_EKSIK_SATIRLAR_VAR`, `IADE_KA
 | G46 | `G46_kismi_donem_marji.json` | K25, K37, K39 | kismi_donem, maliyet_eksik, donem, estimated | estimated 119.09 / estimated null |
 | G47 | `G47_claimsiz_iade.json` | K10, K40, K41 | tam_iade, kismi_iade, claim_yok, adjusted, negatif_kar | adjusted -280.00 / adjusted -64.16 |
 | G48 | `G48_sifir_tahmin_beklenmeyen_kesinti_yok.json` | K23, K35, K37, K38, K40 | ayar_yok, settled, beklenmeyen_kesinti_yok | settled 119.09 / settled null |
+| G49 | `G49_tam_satirsiz_donem_gideri.json` | K37, K39 | ayar_yok, eksik_kalem, kismi_donem, donem, estimated | estimated null (dönem net kârı null, eksik giderler hariç 156.74) |
 
 ### İstenen kapsamın eşlemesi
 
@@ -209,6 +215,7 @@ ayrıca `KARGO_EKSIK_SATIRLAR_VAR`, `HIZMET_BEDELI_EKSIK_SATIRLAR_VAR`, `IADE_KA
 | Ayar yok (üretim varsayılanı) | G42, G48 (hizmet bedeli tanımsız G43) |
 | Ayar girilmiş, sürümlü, yedek firma, varsayılan desi | G44, G45 |
 | Kısmi dönem marjı ve tam satırlar | G46 (eski değer değişikliği: G29 dönem marjı null) |
+| Kısmi dönemde dönem net kârı null, dönem eksik giderler hariç kâr (K39 Revizyon 1) | G46, G49 (tam satır yok + dönem gideri); değişen eski değerler G29, G42, G43, G45, G46, G48 `donem_net_kar` |
 | Claim'siz iade | G47 |
 | Tanımsız tahminle beklenmeyen kesinti yok | G48 |
 | Ek | Maliyet geçerlilik tarihi G30, değişken giderler G36, erken ödeme G37, iptal G38, ekstre düzeltmeleri G40, G41 |

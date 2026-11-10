@@ -3,6 +3,7 @@
 from app.models.enums import MarketplaceAccountStatus, Platform, Role
 from app.models.profit_settings import (
     CargoTariffRecord,
+    ProfitSettingsChange,
     ProfitSettingsRecord,
     ServiceFeeEstimateRecord,
     VariableExpenseRecord,
@@ -41,6 +42,7 @@ __all__ = [
     "Platform",
     "Product",
     "ProductCost",
+    "ProfitSettingsChange",
     "ProfitSettingsRecord",
     "RateLimit",
     "Return",

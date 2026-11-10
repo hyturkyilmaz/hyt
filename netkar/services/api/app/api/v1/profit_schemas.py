@@ -270,10 +270,13 @@ class PeriodTotalsOut(WireModel):
     penalty_allocated: Amount = w("ceza_satirlara_dagitilan")
     advertising_allocated: Amount = w("reklam_satirlara_dagitilan")
     variable_expenses: Amount = w("degisken_giderler")
-    line_net_profit_total: Amount = w("satir_net_kar_toplami")
+    # K39 Revizyon 1: kısmi dönemde null (bilinmeyen terim); tam dönemde tüm aktif satırların net kârı.
+    line_net_profit_total: Amount | None = w("satir_net_kar_toplami")
     period_level_expenses: PeriodLevelExpensesOut = w("donem_duzeyi_giderler")
     period_level_expenses_total: Amount = w("donem_duzeyi_giderler_toplami")
-    period_net_profit: Amount = w("donem_net_kar")
+    period_net_profit: Amount | None = w("donem_net_kar")
+    # K39 Revizyon 1: her dönemde sayı; eksik kalemler hariç, bilinen giderlerle dönem kârı.
+    period_known_expenses_profit: Amount = w("donem_eksik_giderler_haric_kar")
     net_profit_partial: bool = w("net_kar_kismi")
     missing_cost_line_count: int = w("maliyet_eksik_satir_sayisi")
     missing_line_counts: MissingCountsOut = w("eksik_kalem_satir_sayilari")
@@ -326,6 +329,9 @@ class SummaryOut(ApiModel):
     """Dönem özeti: motorun dönem toplamı (kablo adlı), durum dağılımı, maliyeti eksik satırlar, besleyici notları."""
 
     period: PeriodOut
+    settings_revision: int = Field(
+        description="Raporun hesaplandığı ayar sürümü (K44; hesapta hiç ayar yazılmamışsa 0)."
+    )
     totals: PeriodTotalsOut
     status_counts: StatusCountsOut
     missing_cost_line_count: int
@@ -402,6 +408,9 @@ class ProductProfitListOut(ApiModel):
     """Ürün kârlılık listesi: sıralı, süzülmüş, imleçle sayfalı. `total_count` süzgeçten sonraki ürün sayısı."""
 
     period: PeriodOut
+    settings_revision: int = Field(
+        description="Raporun hesaplandığı ayar sürümü (K44; hesapta hiç ayar yazılmamışsa 0)."
+    )
     sort: str
     order: str
     filter: str
@@ -423,6 +432,9 @@ class ProductProfitDetailOut(ApiModel):
     """Tek ürünün dönem kırılımı: ürün toplamı (satışı yoksa null) ve satırlar (sayfalı)."""
 
     period: PeriodOut
+    settings_revision: int = Field(
+        description="Raporun hesaplandığı ayar sürümü (K44; hesapta hiç ayar yazılmamışsa 0)."
+    )
     barcode: str
     title: str | None
     product: ProductTotalsOut | None
@@ -451,6 +463,9 @@ class OrderDetailOut(ApiModel):
     """Sipariş kırılımı: satırlar ve kalemleri. Müşteri kişisel verisi yoktur (DB'de de yoktur)."""
 
     period: PeriodOut
+    settings_revision: int = Field(
+        description="Raporun hesaplandığı ayar sürümü (K44; hesapta hiç ayar yazılmamışsa 0)."
+    )
     order_number: str
     ordered_on: date
     totals: OrderTotalsOut
@@ -491,6 +506,9 @@ class AlertsOut(ApiModel):
     """Dönem uyarıları: kod başına sayım (tümü), uyarı listesi (imleçle sayfalı), henüz olmayanlar."""
 
     period: PeriodOut
+    settings_revision: int = Field(
+        description="Raporun hesaplandığı ayar sürümü (K44; hesapta hiç ayar yazılmamışsa 0)."
+    )
     counts: list[AlertCountOut]
     total_count: int
     items: list[AlertOut]

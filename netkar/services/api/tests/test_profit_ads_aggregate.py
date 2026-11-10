@@ -183,5 +183,6 @@ def test_period_net_profit_subtracts_period_level_expenses() -> None:
             ad_records=(ad(spend="12.00", start=date(2027, 1, 1), end=date(2027, 1, 2)),),
         )
     )
+    assert result.period.line_net_profit_total is not None  # tam dönem (K39 Revizyon 1)
     assert result.period.period_net_profit == result.period.line_net_profit_total - D("12.00")
     assert result.period.net_margin_percent is not None

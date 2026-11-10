@@ -153,16 +153,19 @@ def aggregate_period(
     settings: ProfitSettings,
     tickets: Sequence[CompensationTicket],
 ) -> PeriodTotals:
-    """K25, K39: dönem net kârı = TAM satırların net kârı - dönem düzeyi giderler.
+    """K25, K39 Revizyon 1: dönem net kârı yalnız tam dönemde sayıdır.
 
-    Tam satır: aktif ve eksik kalemi olmayan. Kısmi dönemde (bir aktif satırda eksik kalem) dönem marjı
-    null'dır; gösterilebilecek tek marj `tam_satirlar` bloğundadır (pay ve payda aynı satır kümesi).
+    Tam satır: aktif ve eksik kalemi olmayan. Kısmi dönemde (bir aktif satırda eksik kalem)
+    `satir_net_kar_toplami`, `donem_net_kar` ve marj null'dır; bilinen kısım
+    `donem_eksik_giderler_haric_kar`'dır (her dönemde sayı).
+    Tam satırların toplamı her zaman `tam_satirlar` bloğundadır (pay ve payda aynı satır kümesi).
     """
     active = [r for r in lines if r.status is not Status.CANCELLED]
     full = [r for r in active if not r.missing_items]
     unsold_total = sum(ads.unsold_by_barcode.values(), ZERO)
     missing = sum(1 for r in active if r.items.product_cost is None)
     line_profit = sum((r.items.net_profit or ZERO for r in full), ZERO)
+    known_profit = sum((r.items.known_expenses_profit for r in active), ZERO)
     period_expenses = (
         unsold_total
         + acc.advertising_undistributed
@@ -189,6 +192,7 @@ def aggregate_period(
     net_sales = sum((r.items.net_sales_excl_vat for r in active), ZERO)
     pending = {rule for r in active for rule in r.pending_confirmation}
     pending |= pending_rules_for_tickets(tickets)
+    period_profit = None if partial else line_profit - period_expenses
     return PeriodTotals(
         order_count=len({r.order_number for r in active}),
         line_count=len(active),
@@ -201,7 +205,7 @@ def aggregate_period(
         penalty_allocated=sum((r.items.penalty for r in active), ZERO),
         advertising_allocated=sum((r.items.advertising for r in active), ZERO),
         variable_expenses=sum((r.items.variable_expenses for r in active), ZERO),
-        line_net_profit_total=line_profit,
+        line_net_profit_total=None if partial else line_profit,
         period_level_expenses=PeriodLevelExpenses(
             advertising_unsold_products=unsold_total,
             advertising_undistributed=acc.advertising_undistributed,
@@ -210,11 +214,12 @@ def aggregate_period(
             unclassified_deduction=acc.unclassified_deduction,
         ),
         period_level_expenses_total=period_expenses,
-        period_net_profit=line_profit - period_expenses,
+        period_net_profit=period_profit,
+        period_known_expenses_profit=known_profit - period_expenses,
         net_profit_partial=partial,
         missing_cost_line_count=missing,
         missing_line_counts=counts,
-        net_margin_percent=None if partial else percent_of(line_profit - period_expenses, net_sales),
+        net_margin_percent=None if period_profit is None else percent_of(period_profit, net_sales),
         full_lines=_full_lines_totals(full),
         certainty=summarize_certainty(active),
         certainty_line_counts=CertaintyCounts(

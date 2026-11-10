@@ -1,11 +1,11 @@
 """Altın senaryolar API üzerinden: sahte Trendyol -> senkron -> PostgreSQL -> /profit/* uçları.
 
-Her senaryo (reklamsız 38 tanesi) gerçek senkron yürütücüyle bir kiracının hesabına yazılır, sonra GİRİŞ YAPMIŞ
+Her senaryo (reklamsız 46 tanesi) gerçek senkron yürütücüyle bir kiracının hesabına yazılır, sonra GİRİŞ YAPMIŞ
 kullanıcı olarak beş rapor ucu çağrılır. Yanıtlar (a) altın `beklenen` ile kuruşu kuruşuna ve (b) doğrudan
 motor çıktısının kablo biçimiyle (`render_result`) BİREBİR aynı olmalıdır; yani API ne bir tutarı yuvarlar,
 ne bir alanı düşürür, ne de uydurur. Kâr ayarları GERÇEK yoldan okunur (ADR-0006): senaryonun `ayarlar` bloğundaki
 kullanıcı ayarları (tarife, hizmet bedeli, varsayılan desi, değişken gider) hesabın ayar tablolarına yazılır ve
-`profit_settings_for` onları okur; yalnız tabloda olmayan SİSTEM parametreleri (KDV oranları, komisyon KDV varsayımı,
+`load_profit_settings` onları okur; yalnız tabloda olmayan SİSTEM parametreleri (KDV oranları, komisyon KDV varsayımı,
 stopaj, eşikler) senaryodan üstüne bindirilir.
 """
 
@@ -25,7 +25,8 @@ from app.api.v1 import profit as profit_module
 from app.db.session import create_engine
 from app.profit import ProfitSettings, calculate_profit
 from app.profit.schema_v1 import parse_input, parse_settings, render_result
-from app.services.profit_settings import profit_settings_for as real_settings_for
+from app.services.profit_settings import LoadedSettings
+from app.services.profit_settings import load_profit_settings as real_load_settings
 from app.services.sync.runner import SyncRunner
 from tests.conftest import Api, DatabaseInfo
 from tests.product_cost_helpers import Shop, fixed_today, make_shop_factory  # noqa: F401
@@ -81,10 +82,11 @@ async def test_golden_scenario_through_the_report_api(
     add_user_settings(admin_conn, shop.tenant_id, shop.account_id, shop.user_id, girdi.get("ayarlar", {}))
     golden = parse_settings(girdi.get("ayarlar", {}))
 
-    async def settings_from_database(db: Any, tenant_id: UUID, account_id: UUID) -> ProfitSettings:
+    async def settings_from_database(db: Any, tenant_id: UUID, account_id: UUID) -> LoadedSettings:
         """Kullanıcı ayarları veritabanından; sistem parametreleri (tabloda yok) senaryodan."""
-        stored = await real_settings_for(db, tenant_id, account_id)
-        return dataclasses.replace(
+        loaded = await real_load_settings(db, tenant_id, account_id)
+        stored: ProfitSettings = loaded.settings
+        merged = dataclasses.replace(
             stored,
             commission_includes_vat=golden.commission_includes_vat,
             commission_vat_rate=golden.commission_vat_rate,
@@ -95,8 +97,9 @@ async def test_golden_scenario_through_the_report_api(
             cargo_invoice_vat_tolerance=golden.cargo_invoice_vat_tolerance,
             thresholds=golden.thresholds,
         )
+        return LoadedSettings(merged, loaded.revision)
 
-    monkeypatch.setattr(profit_module, "profit_settings_for", settings_from_database)
+    monkeypatch.setattr(profit_module, "load_profit_settings", settings_from_database)
     direct = render_result(calculate_profit(parse_input(girdi)))
 
     def get(suffix: str, **params: Any) -> Any:
