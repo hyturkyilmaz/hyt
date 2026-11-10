@@ -110,6 +110,7 @@ def apply_shipping(works: Sequence[LineWork], data: ProfitInput) -> dict[str, In
             # K23 karşılaştırması için tahmini tutar hesaplanır; tarife fiyatlayamadıysa None kalır (K38).
             for w, part in zip(active, allocate(estimate[0], weights), strict=True):
                 w.ship_out_estimated_excl = part
+                w.ship_out_default_desi = default_used
         if actual_items[number] and not seller_pays:
             continue  # kesin tutar aşağıda sipariş düzeyinde yazılır
         if estimate is None:

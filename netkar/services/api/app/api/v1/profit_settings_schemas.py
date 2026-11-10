@@ -61,6 +61,9 @@ def _run[T](check: Any, value: T) -> T:
         result: T = check(value)
     except RuleError as exc:
         raise PydanticCustomError(exc.code, exc.message) from None
+    except ArithmeticError:
+        # Genel güvence (AD-01): kuraldan kaçan `decimal.InvalidOperation` 500 değil doğrulama hatasıdır.
+        raise PydanticCustomError("decimal_invalid", "Sayı geçersiz ya da çok büyük.") from None
     return result
 
 

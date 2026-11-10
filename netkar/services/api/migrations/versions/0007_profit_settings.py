@@ -18,11 +18,15 @@ kaydıyla). `profit_settings`'te DELETE yoktur. `netkar_worker` dördünde YALNI
 uyarı üretimi için; yazamaz). `netkar_sync_gate` erişmez.
 
 Geri alma: yetkileri geri alır ve dört tabloyu düşürür (YALNIZ bu migrasyonun verisi kaybolur; roller kümeye
-aittir ve bırakılır). Downgrade bilinçli bir operatör işlemidir.
+aittir ve bırakılır). Downgrade bilinçli bir operatör işlemidir. Bu tablolar kullanıcının elle girdiği tarife,
+hizmet bedeli ve giderlerdir (Trendyol'dan yeniden çekilemez): tablolarda tek satır bile varsa downgrade
+`NETKAR_ALLOW_SETTINGS_DATA_LOSS=1` olmadan DURUR (denetim AD-03). Boş tablolarda bayrak gerekmez.
 
 Revision ID: 0007
 Revises: 0006
 """
+
+import os
 
 from alembic import op
 
@@ -147,11 +151,15 @@ UPGRADE_SQL = [
     *[f"GRANT SELECT ON {t} TO netkar_worker" for t in TABLES],
 ]
 
-# Downgrade: önce yetkiler, sonra tablolar. Roller kümeye aittir, bırakılır.
+# Veri kaybını bilerek kabul etme bayrağı (yalnız tam değer "1").
+ALLOW_DATA_LOSS_ENV = "NETKAR_ALLOW_SETTINGS_DATA_LOSS"
+
+# Downgrade: önce yetkiler, sonra tablolar (açık sıra, CASCADE yok: bu tablolara bağlanan başka bir nesne varsa
+# sessizce düşürülmez, downgrade hata verir). Roller kümeye aittir, bırakılır.
 DOWNGRADE_SQL = [
     *[f"REVOKE ALL ON {t} FROM netkar_worker" for t in TABLES],
     *[f"REVOKE ALL ON {t} FROM netkar_app" for t in TABLES],
-    *[f"DROP TABLE IF EXISTS {t} CASCADE" for t in reversed(TABLES)],
+    *[f"DROP TABLE IF EXISTS {t}" for t in reversed(TABLES)],
 ]
 
 
@@ -160,6 +168,32 @@ def upgrade() -> None:
         op.execute(statement)
 
 
+def _guard_user_data() -> None:
+    """Tablolarda kullanıcı verisi varsa ve açık onay yoksa downgrade'i durdurur (işlem geri alınır).
+
+    Tablolar FORCE RLS altındadır: sahip rol de kiracı bağlamı olmadan satır göremez. Sayım için FORCE bu
+    işlemde kapatılır; hata atılırsa işlem geri alınır ve FORCE yerinde kalır, devam edilirse tablolar zaten
+    düşürülür.
+    """
+    bind = op.get_bind()
+    for table in TABLES:
+        op.execute(f"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY")
+    counts = {t: int(bind.exec_driver_sql(f"SELECT count(*) FROM {t}").scalar_one()) for t in TABLES}
+    filled = {t: n for t, n in counts.items() if n > 0}
+    if not filled or os.environ.get(ALLOW_DATA_LOSS_ENV) == "1":
+        return
+    detail = ", ".join(f"{t}: {n} satır" for t, n in filled.items())
+    raise RuntimeError(
+        f"0007 downgrade DURDURULDU: kâr ayarı tablolarında kullanıcı verisi var ({detail}). Bu veri "
+        "(kargo tarifesi, hizmet bedeli, değişken gider) kullanıcı beyanıdır ve Trendyol'dan yeniden çekilemez; "
+        "downgrade hepsini siler. Önce yedek alın (her tablo için örn. psql -c \"\\copy cargo_tariffs TO "
+        "'cargo_tariffs.csv' CSV HEADER\" ya da pg_dump -t profit_settings -t cargo_tariffs "
+        "-t service_fee_estimates -t variable_expenses). Veri kaybını bilerek kabul ediyorsanız komutu "
+        f"{ALLOW_DATA_LOSS_ENV}=1 ortam değişkeniyle yeniden çalıştırın."
+    )
+
+
 def downgrade() -> None:
+    _guard_user_data()
     for statement in DOWNGRADE_SQL:
         op.execute(statement)

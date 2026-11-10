@@ -788,11 +788,16 @@ Hiçbiri yoksa kalem "eksik"tir; eksik kalem 0 sayılarak net kâra karışmaz.*
 | Kademe üst desi | `0 < desi <= 1000`, en çok 2 ondalık, kesin artan sırada, tekrar yok |
 | Kademe fiyatı | `0 <= fiyat <= 100.000,00`, en çok 2 ondalık (girildiği biçimde, dahil ya da hariç) |
 | Varsayılan desi | `null` ya da `0 < desi <= 1000`, en çok 2 ondalık |
-| Hizmet bedeli tahmini | `0 <= tutar <= 10.000,00`, en çok 2 ondalık |
+| Hizmet bedeli tahmini | `0 <= tutar <= 10.000,00`, en çok 2 ondalık; hesap başına en çok 200 sürüm (`too_many_service_fee_versions`, tarife sürümüyle aynı sınır; AO-01) |
+| Büyük sayı | 28 haneyi aşan ya da `1e30` gibi değerler (tamsayı, ondalık, üstel) 500 değil 422 `*_out_of_range` döner (AD-01) |
 | Değişken gider | ad 1-80 karakter; tip `siparis_basi`, `adet_basi`, `satis_yuzdesi`; tutar `0 <= x <= 100.000,00` (2 ondalık, KDV hariç; yüzde tipinde yok); oran `0 < x <= 100` (en çok 4 ondalık; yalnız yüzde tipinde); KDV oranı 0, 1, 10, 20; hesap başına en çok 50 tanım |
 | Geçerlilik başlangıcı | `2000-01-01 <= tarih <= bugün + 366 gün` (maliyet içe aktarmayla aynı); bitiş başlangıçtan önce olamaz |
 | Tekillik | (hesap, anlaşma, firma, başlangıç) tarifede; (hesap, başlangıç) hizmet bedelinde |
 
+- **Sürüm seçimi maliyeti (AO-01):** sürümler motor ayarı kurulurken bir kez sıralanır ve seçim ikili aramayla
+  (`bisect`) yapılır; seçim kuralı (`başlangıç <= gün` olan en son sürüm, başlangıçsız en eski) değişmemiştir.
+  Hesap başına sürüm sınırı (tarife 200, hizmet bedeli 200, değişken gider 50) rapor ve `GET profit-settings`
+  yanıtının büyümesini de sınırlar.
 - **Güven:** Yüksek (iç kural). Ayar tutarları kullanıcı beyanıdır; doğruluğu kesin kayıt gelince K23 ile
   izlenir.
 
@@ -886,6 +891,13 @@ Hiçbiri yoksa kalem "eksik"tir; eksik kalem 0 sayılarak net kâra karışmaz.*
   beyanıyla gerçek kesinti farkı anlamlıdır). Komisyon tahmini her zaman tanımlıdır.
 - **Sonuç:** sıfır ya da tanımsız tahmin `BEKLENMEYEN_KESINTI` üretemez; uyarı yalnız kullanıcının (ya da
   siparişin) beklentisiyle gerçek kesinti arasındaki farkı ölçer.
+- **Varsayılan desi izi (denetim AD-05):** tahmini kargo siparişte desi olmadığı için hesabın varsayılan desisiyle
+  (K34) fiyatlandıysa `karsilastirma.kargo_tahmini_varsayilan_desi` **true** olur (aksi halde false; tarife
+  fiyatlayamadıysa da false). Varsayılan desi bir beklenti değil yer tutucudur: fatura gelince `KARGO_DESI_VARSAYILAN`
+  uyarısı K34 gereği kalkar (uyarı yalnız tahmin fiyatlanan faturasız durumda), ama fark varsayımdan doğuyor olabilir;
+  panel bu alan true iken `BEKLENMEYEN_KESINTI` yanında "fark varsayılan desiden kaynaklanabilir" ipucu göstermelidir.
+  Alan yalnız bilgidir: toplamlar, fark, eşik ve uyarı kümesi DEĞİŞMEZ (K38 kuralı ve altın beklentiler aynı).
+  Kuralın kendisini değiştirmek (varsayılan desili tahmini karşılaştırmadan çıkarmak) alan kararıdır; açık madde.
 - **Örnek:** G48 satır 1: ayar yok, kargo 45,00 ve hizmet bedeli 10,00 kesin geldi. v0.1: tahmini toplam 62,49,
   kesin 117,49, fark 55,00 > 5,00 -> yanlış `BEKLENMEYEN_KESINTI`. v0.2: iki kalem de karşılaştırma dışı, fark 0,00.
 - **Ölçüm (betik):** G01-G41 üretim varsayılanıyla (ayar yok) hesaplandığında v0.1 kurallarıyla 28 satırda altın

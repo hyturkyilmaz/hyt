@@ -62,6 +62,7 @@ ExpectedRevisionQuery = Annotated[
 ]
 
 _HOURLY = 60 * 60
+_MINUTE = 60
 _BASE = ProfitSettings()
 
 
@@ -94,6 +95,19 @@ async def _require_account(db: DbDep, ctx: AuthContext, account_id: UUID) -> Non
     """Hesap başka kiracıya aitse (veya yoksa) 404: varlığı sızdırılmaz (IDOR)."""
     if not await costs.account_exists(db, ctx.tenant_id, account_id):
         raise _not_found()
+
+
+async def _read_guard(
+    db: DbDep,
+    ctx: AuthContext,
+    account_id: UUID,
+    limiter: RateLimiterDep,
+    settings: SettingsDep,
+) -> None:
+    """Hesap kontrolü (404, sayaca girmez), sonra kiracı başına dakikalık okuma sınırı (ayrı sayaç anahtarı)."""
+    await _require_account(db, ctx, account_id)
+    key = f"profit-settings-read:tenant:{digest(settings.master_key, 'rl-tenant', str(ctx.tenant_id))}"
+    await limiter.hit(key, settings.rate_limit_profit_settings_read_tenant, _MINUTE)
 
 
 async def _write_guard(
@@ -184,9 +198,11 @@ async def _audit(
 
 # --------------------------------------------------------------------------- okuma
 @router.get("", response_model=SettingsOut)
-async def read_settings(account_id: UUID, ctx: AnyRoleDep, db: DbDep) -> SettingsOut:
-    """Hesabın tüm kâr ayarları, sürüm ve tamlık bayrakları (tüm roller)."""
-    await _require_account(db, ctx, account_id)
+async def read_settings(
+    account_id: UUID, ctx: AnyRoleDep, db: DbDep, settings: SettingsDep, limiter: RateLimiterDep
+) -> SettingsOut:
+    """Hesabın tüm kâr ayarları, sürüm ve tamlık bayrakları (tüm roller; kiracı başına dakikalık sınır)."""
+    await _read_guard(db, ctx, account_id, limiter, settings)
     bundle = await ps.load_bundle(db, ctx.tenant_id, account_id)
     return SettingsOut(
         revision=bundle.revision,
@@ -199,9 +215,14 @@ async def read_settings(account_id: UUID, ctx: AnyRoleDep, db: DbDep) -> Setting
 
 
 @router.get("/carriers", response_model=CarriersOut)
-async def carriers(account_id: UUID, ctx: AnyRoleDep, db: DbDep) -> CarriersOut:
-    """Son 92 günün siparişlerinde görülen firma x anlaşma çiftleri ve bugün geçerli tarifeyle kapsanma durumu."""
-    await _require_account(db, ctx, account_id)
+async def carriers(
+    account_id: UUID, ctx: AnyRoleDep, db: DbDep, settings: SettingsDep, limiter: RateLimiterDep
+) -> CarriersOut:
+    """Son 92 günün siparişlerinde görülen firma x anlaşma çiftleri ve bugün geçerli tarifeyle kapsanma durumu.
+
+    Okuma sınırı `read_settings` ile aynı kiracı sayacını paylaşır (her istek 92 günlük birleştirme sorgusudur).
+    """
+    await _read_guard(db, ctx, account_id, limiter, settings)
     today = today_istanbul()
     bundle = await ps.load_bundle(db, ctx.tenant_id, account_id)
     usage = await ps.carrier_usage(db, ctx.tenant_id, account_id, today, bundle)
@@ -311,11 +332,13 @@ async def put_service_fee(
     await _write_guard(db, ctx, account_id, limiter, settings)
     try:
         _, revision = await ps.begin_write(db, ctx.tenant_id, account_id, ctx.user_id, body.expected_revision)
+        record, created = await ps.upsert_service_fee(
+            db, ctx.tenant_id, account_id, ctx.user_id, body.valid_from, body.amount, body.amount_includes_vat
+        )
     except ps.RevisionConflict as exc:
         raise _conflict(exc) from None
-    record, created = await ps.upsert_service_fee(
-        db, ctx.tenant_id, account_id, ctx.user_id, body.valid_from, body.amount, body.amount_includes_vat
-    )
+    except ps.LimitError as exc:
+        raise _limit_error(exc) from None
     await _audit(
         db,
         ctx,

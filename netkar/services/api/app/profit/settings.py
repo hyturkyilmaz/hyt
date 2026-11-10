@@ -7,6 +7,7 @@ sipariş gününe göre çözülür: `başlangıç <= gün` olan en son sürüm;
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
@@ -27,14 +28,38 @@ N0_01 = Decimal("0.01")
 FALLBACK_CARRIER = "*"
 
 
+def _version_key(start: date | None) -> tuple[bool, date]:
+    """Sıralama anahtarı: başlangıçsız sürüm (None) tarihlilerden önce gelir (K33)."""
+    return (start is not None, start or date.min)
+
+
+class SortedVersions[T]:
+    """K33 sürüm seçimi için önceden sıralı liste: kurulumda bir kez sıralanır, seçim `bisect` ile O(log n).
+
+    Her siparişte baştan süzüp sıralamak sipariş x sürüm x log(sürüm) maliyetliydi (denetim AO-01). Kural
+    değişmedi: `başlangıç <= gün` olan en son sürüm; başlangıçsız sürüm en eskidir; aynı başlangıçta girişte
+    sonra gelen kazanır (kararlı sıralama + `bisect_right`).
+    """
+
+    __slots__ = ("_keys", "_values")
+
+    def __init__(self, versions: Sequence[tuple[date | None, T]]) -> None:
+        ordered = sorted(versions, key=lambda item: _version_key(item[0]))
+        self._keys = [_version_key(start) for start, _ in ordered]
+        self._values = [value for _, value in ordered]
+
+    def pick(self, day: date) -> T | None:
+        """`başlangıç <= gün` olan en son sürüm; uygun sürüm yoksa None."""
+        index = bisect_right(self._keys, (True, day))
+        return self._values[index - 1] if index else None
+
+
 def pick_version[T](versions: Sequence[tuple[date | None, T]], day: date) -> T | None:
-    """K33: `başlangıç <= gün` olan en son sürüm; başlangıçsız sürüm en eskidir. Uygun sürüm yoksa None."""
-    eligible = [(start, value) for start, value in versions if start is None or start <= day]
-    if not eligible:
-        return None
-    # Başlangıçsız sürüm (None) tarihlilerden önce gelir; kararlı sıralama eşitlikte girişi korur.
-    eligible.sort(key=lambda item: (item[0] is not None, item[0] or date.min))
-    return eligible[-1][1]
+    """K33: `başlangıç <= gün` olan en son sürüm; başlangıçsız sürüm en eskidir. Uygun sürüm yoksa None.
+
+    Tek seferlik seçim içindir; çok sayıda seçimde (sipariş başına) `SortedVersions` kullanılır.
+    """
+    return SortedVersions(versions).pick(day)
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +117,17 @@ class CargoTariff:
     """K08, K34: kargo tarifesi. firma -> sürümler. `*` firması diğer firmalar yedeğidir. Varsayılan boş."""
 
     steps: Mapping[str, tuple[TariffVersion, ...]] = field(default_factory=dict)
+    # Firma başına önceden sıralı sürüm listesi (AO-01); `steps`'ten türetilir, karşılaştırmaya girmez.
+    _index: dict[str, SortedVersions[tuple[tuple[Decimal, Decimal], ...]]] = field(
+        init=False, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        index = {
+            carrier: SortedVersions([(v.valid_from, v.brackets) for v in versions])
+            for carrier, versions in self.steps.items()
+        }
+        object.__setattr__(self, "_index", index)
 
     @classmethod
     def unversioned(cls, raw: Mapping[str, Sequence[tuple[Decimal, Decimal]]]) -> CargoTariff:
@@ -104,8 +140,8 @@ class CargoTariff:
         yoksa None.
         """
         for key in (carrier, FALLBACK_CARRIER):
-            versions = self.steps.get(key, ())
-            brackets = pick_version([(v.valid_from, v.brackets) for v in versions], day)
+            versions = self._index.get(key)
+            brackets = None if versions is None else versions.pick(day)
             if brackets is None:
                 continue
             if desi is None:
@@ -141,7 +177,13 @@ class ProfitSettings:
     cargo_invoice_vat_tolerance: Decimal = N0_05
     thresholds: WarningThresholds = field(default_factory=WarningThresholds)
     variable_expenses: tuple[VariableExpense, ...] = ()
+    # K35 sürümleri önceden sıralı (AO-01); `service_fee_estimates`'ten türetilir, karşılaştırmaya girmez.
+    _fee_index: SortedVersions[Decimal] = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        index = SortedVersions([(e.valid_from, e.amount_excl_vat) for e in self.service_fee_estimates])
+        object.__setattr__(self, "_fee_index", index)
 
     def service_fee_estimate_on(self, day: date) -> Decimal | None:
         """K35: sipariş gününde geçerli hizmet bedeli tahmini (KDV hariç); tanımsızsa None."""
-        return pick_version([(e.valid_from, e.amount_excl_vat) for e in self.service_fee_estimates], day)
+        return self._fee_index.pick(day)

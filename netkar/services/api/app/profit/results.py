@@ -113,6 +113,10 @@ class LineComparison:
     shipping_outbound_actual: Decimal | None = wire("kargo_gonderi_kesin")
     platform_service_fee_estimated: Decimal | None = wire("platform_hizmet_bedeli_tahmini")
     platform_service_fee_actual: Decimal | None = wire("platform_hizmet_bedeli_kesin")
+    # AD-05: kargo tahmini siparişte desi olmadığı için hesabın varsayılan desisiyle yapıldı (yer tutucu,
+    # beklenti değil): fark varsayımdan doğuyor olabilir. Yalnız bilgi alanı; uyarıları ve toplamları
+    # DEĞİŞTİRMEZ.
+    shipping_estimate_default_desi: bool = wire("kargo_tahmini_varsayilan_desi")
     compared_estimated_total: Decimal = wire("karsilastirilan_tahmini_toplam")
     compared_actual_total: Decimal = wire("karsilastirilan_kesin_toplam")
     difference: Decimal = wire("fark")

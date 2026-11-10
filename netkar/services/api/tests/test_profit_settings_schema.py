@@ -422,8 +422,12 @@ def test_app_role_cannot_delete_the_settings_row(
 
 # --------------------------------------------------------------------------- geri alınabilirlik
 def test_migration_0007_is_reversible_and_leaves_earlier_tables_intact(
-    alembic_cfg: Config, admin_conn: psycopg.Connection[Any]
+    alembic_cfg: Config, admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Veri varken downgrade AD-03 koruması nedeniyle açık onay ister (reddi ayrıca
+    # tests/test_profit_settings_api_denetim.py doğrular); bu test geri alınabilirliği onayla sınar.
+    monkeypatch.setenv("NETKAR_ALLOW_SETTINGS_DATA_LOSS", "1")
+
     def tables() -> set[str]:
         return {
             r[0] for r in admin_conn.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")

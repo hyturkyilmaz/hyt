@@ -60,6 +60,8 @@ class LineWork:
     ship_out_vat: Decimal = ZERO
     # K23, K38: tahmini tutar tanımsızsa (tarife yok) None; 0 değildir.
     ship_out_estimated_excl: Decimal | None = None
+    # AD-05: tahmini kargo, siparişte desi olmadığı için hesabın varsayılan desisiyle fiyatlandı (yer tutucu).
+    ship_out_default_desi: bool = False
     ship_out_actual: bool = False
     ship_ret_excl: Decimal = ZERO
     ship_ret_vat: Decimal = ZERO

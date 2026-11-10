@@ -141,6 +141,7 @@ class LineComparisonOut(WireModel):
     shipping_outbound_actual: Amount | None = w("kargo_gonderi_kesin")
     platform_service_fee_estimated: Amount | None = w("platform_hizmet_bedeli_tahmini")
     platform_service_fee_actual: Amount | None = w("platform_hizmet_bedeli_kesin")
+    shipping_estimate_default_desi: bool = w("kargo_tahmini_varsayilan_desi")
     compared_estimated_total: Amount = w("karsilastirilan_tahmini_toplam")
     compared_actual_total: Amount = w("karsilastirilan_kesin_toplam")
     difference: Amount = w("fark")

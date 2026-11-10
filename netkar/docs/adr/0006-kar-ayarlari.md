@@ -142,8 +142,14 @@ CREATE TABLE variable_expenses (
 - Kod tarafı kontroller (CHECK ile ifade edilmeyenler, API'de 422): kademelerde kesin artan `max_desi`, `0 < max_desi
   <= 1000`, `0 <= price <= 100000`, en çok 2 ondalık; `carrier` kontrol karakteri içermez; `*` yalnız "diğer firmalar"
   anlamında; `valid_from` `2000-01-01`..bugün+366 gün (`product_costs.check_valid_from` yeniden kullanılır); hesap
-  başına en çok 50 değişken gider, en çok 200 tarife sürümü.
-- Geri alma (`downgrade`): yetkileri geri alır, dört tabloyu düşürür (yalnız bu migrasyonun verisi kaybolur).
+  başına en çok 50 değişken gider, en çok 200 tarife sürümü, en çok 200 hizmet bedeli sürümü
+  (`too_many_service_fee_versions`; denetim AO-01). Çok büyük JSON sayıları (`1e30`, 31 haneli tamsayı) 422
+  `*_out_of_range` döner (AD-01).
+- Geri alma (`downgrade`): yetkileri geri alır, dört tabloyu düşürür (yalnız bu migrasyonun verisi kaybolur; `CASCADE`
+  yok). Tablolar kullanıcı beyanı veri (tarife, hizmet bedeli, gider) taşır ve Trendyol'dan yeniden çekilemez: tek
+  satır bile varsa downgrade Türkçe bir hatayla DURUR; veri kaybı `NETKAR_ALLOW_SETTINGS_DATA_LOSS=1` ortam
+  değişkeniyle bilerek kabul edilir (AD-03). Runbook: 0007 downgrade öncesi `pg_dump -t profit_settings -t cargo_tariffs
+  -t service_fee_estimates -t variable_expenses` ya da tablo başına `\copy ... TO` yedeği.
 - Migrasyon testi: `test_migrations.py` kalıbında upgrade/downgrade/upgrade; `test_rls_idor.py` kalıbında kiracılar
   arası okuma/yazma reddi (FORCE RLS ile sahip rolü dahil).
 
@@ -162,12 +168,16 @@ CREATE TABLE variable_expenses (
 
 - Yazma uçları: isteğe bağlı `expected_revision`; uyuşmazsa 409 `settings-revision-conflict` (iki yönetici aynı anda
   düzenlerse sessiz ezme yok). Her yazım aynı işlemde `profit_settings.revision`'ı artırır (satır yoksa oluşturur).
-- Hız sınırı: maliyet yazma uçlarıyla aynı kiracı başına sınırlayıcı (ayrı sayaç havuzu, Y-01 düzeltmesi).
+- Hız sınırı: maliyet yazma uçlarıyla aynı kiracı başına sınırlayıcı (ayrı sayaç havuzu, Y-01 düzeltmesi). Okuma
+  uçları (`GET profit-settings`, `GET .../carriers`) kiracı başına dakikada `rate_limit_profit_settings_read_tenant`
+  (varsayılan 120) isteğe sınırlıdır; iki uç aynı sayacı paylaşır, sayaç anahtarı yazma sayacından ayrıdır
+  (`profit-settings-read:tenant:`); hesap yoksa 404 sayaca girmez (AD-02).
 - Denetim izi: `record_audit(action="profit_settings.<kalem>.<upsert|delete>", target=<kayıt id>)`; tutarlar
   denetim kaydına yazılmaz (ticari bilgi, gereksiz). Log'a tutar yazılmaz.
 - Hata kodları (422, alan adıyla): `brackets_not_increasing`, `desi_out_of_range`, `price_out_of_range`,
   `too_many_brackets`, `carrier_invalid`, `valid_from_out_of_range`, `valid_to_before_valid_from`,
-  `amount_out_of_range`, `percent_out_of_range`, `vat_rate_invalid`, `kind_amount_mismatch`, `too_many_expenses`.
+  `amount_out_of_range`, `percent_out_of_range`, `vat_rate_invalid`, `kind_amount_mismatch`, `too_many_expenses`,
+  `too_many_tariff_versions`, `too_many_service_fee_versions`.
   Gövde girdiyi yansıtmaz (S4 kalıbı). viewer yazarsa 403, başka kiracının hesabı 404.
 - `completeness` (rapor `summary` yanıtına da eklenir):
   `{cargo_tariff_defined, seller_cargo_tariff_defined, service_fee_estimate_defined, variable_expenses_defined,
@@ -203,7 +213,10 @@ CREATE TABLE variable_expenses (
 - Ürün listesi: `certainty` (motor `kesinlik`), `statement_basis` (eski `basis`, bir sürüm boyunca `basis` adıyla da),
   `missing_items` (ürün `eksik_kalem_satir_sayilari` > 0 olan kalemler), `contribution_excl_missing`
   (`eksik_giderler_haric_kar`); `loss_reason` için ek değer `known_expenses` (net kâr null, eksik giderler hariç kâr
-  < 0). `net_profit` sıralamasında null değerler sona.
+  < 0). `net_profit` sıralamasında null değerler sona;
+  istisna (AD-04): net kârı null ama zararı kesin ürün (`loss_reason` dolu) eksik giderler hariç kâr değeriyle
+  sıralanır, yani `asc`'de belirsiz null'lardan (eksik giderler hariç kâr >= 0) önce gelir; imleç anahtarı bu
+  değerden türer. Ayrı bir `sort=contribution_excl_missing` alanı eklenmedi.
 - Sipariş ve ürün kırılımı: satır `kesinlik`, `eksik_kalemler`, `iade_kaydi_bekleyen_adet`, `askidaki_urun_maliyeti`
   kablo adıyla aynen.
 - Panel: kısmi dönemde dönem marjı gösterilmez, `tam_satirlar.net_kar_marji_yuzde` etiketiyle gösterilebilir;

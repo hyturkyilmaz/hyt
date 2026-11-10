@@ -19,7 +19,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from itertools import pairwise
 from typing import Any
 from uuid import UUID, uuid4
@@ -61,6 +61,9 @@ MAX_EXPENSE_AMOUNT = Decimal("100000")
 MAX_EXPENSE_NAME = 80
 MAX_EXPENSES = 50
 MAX_TARIFF_VERSIONS = 200
+# Hizmet bedeli tahmini sürümü: tarifeyle aynı sınır (denetim AO-01); sınırsızken rapor maliyeti sürüm
+# sayısıyla çarpılıyordu. Değişken gider için MAX_EXPENSES (50) zaten vardır.
+MAX_SERVICE_FEE_VERSIONS = 200
 CARRIER_LOOKBACK_DAYS = 92
 _CENT = Decimal("0.01")
 _BASIS_POINT = Decimal("0.0001")
@@ -106,8 +109,19 @@ def check_carrier(value: str) -> str:
     return value
 
 
+def _fits(value: Decimal, exponent: Decimal) -> bool:
+    """Sonlu ve en çok `exponent` ondalıklı mı. `quantize` sonuç 28 haneyi aşınca `InvalidOperation` atar
+    (denetim AD-01: 1e30, 31 haneli tamsayı); bu "aralık dışı"dır, 500 değil."""
+    if not value.is_finite():
+        return False
+    try:
+        return value == value.quantize(exponent)
+    except InvalidOperation:
+        return False
+
+
 def _two_decimals(value: Decimal) -> bool:
-    return value.is_finite() and value == value.quantize(_CENT)
+    return _fits(value, _CENT)
 
 
 def check_desi(value: Decimal) -> Decimal:
@@ -154,11 +168,7 @@ def check_expense_amount(value: Decimal) -> Decimal:
 
 def check_percent(value: Decimal) -> Decimal:
     """0 < oran <= 100, en çok 4 ondalık."""
-    if (
-        not value.is_finite()
-        or value != value.quantize(_BASIS_POINT)
-        or not Decimal(0) < value <= Decimal(100)
-    ):
+    if not _fits(value, _BASIS_POINT) or not Decimal(0) < value <= Decimal(100):
         raise RuleError(
             "percent_out_of_range", "Oran 0'dan büyük, en çok 100 ve en çok 4 ondalıklı olmalıdır."
         )
@@ -548,6 +558,22 @@ async def upsert_service_fee(
         record.updated_at = func.now()
         await db.flush()
         return record, False
+    versions = (
+        await db.execute(
+            select(func.count())
+            .select_from(ServiceFeeEstimateRecord)
+            .where(
+                ServiceFeeEstimateRecord.tenant_id == tenant_id,
+                ServiceFeeEstimateRecord.marketplace_account_id == account_id,
+            )
+        )
+    ).scalar_one()
+    if versions >= MAX_SERVICE_FEE_VERSIONS:
+        raise LimitError(
+            "valid_from",
+            "too_many_service_fee_versions",
+            f"Hesap başına en çok {MAX_SERVICE_FEE_VERSIONS} hizmet bedeli sürümü.",
+        )
     record = ServiceFeeEstimateRecord(
         id=uuid4(),
         tenant_id=tenant_id,

@@ -298,9 +298,17 @@ def filter_rows(rows: Iterable[ProductRow], name: ProductFilter) -> list[Product
 
 
 def sort_value(row: ProductRow, sort: SortField) -> Decimal | None:
-    """Sıralama değeri; hesaplanamayan (maliyet eksik, net satış 0) None'dır ve her yönde SONA gider."""
+    """Sıralama değeri; hesaplanamayan (maliyet eksik, net satış 0) None'dır ve her yönde SONA gider.
+
+    `net_profit` (denetim AD-04): net kâr null ama zarar kesinse (`loss_reason` dolu: eksik giderler hariç kâr
+    negatif, eksik kalemler kârı yalnız düşürür) bilinen değer (eksik giderler hariç kâr) kullanılır; böylece
+    kesin zararlı ürün `asc` sıralamada belirsiz (null, kârı pozitif ya da 0) ürünlerden önce gelir.
+    Belirsizler sonda kalır. İmleç anahtarı bu değerden türer, kararlıdır.
+    """
     t = row.totals
     if sort == "net_profit":
+        if t.net_profit is None and row.loss_reason is not None:
+            return t.known_expenses_profit
         return t.net_profit
     if sort == "net_margin":
         return t.net_margin_percent

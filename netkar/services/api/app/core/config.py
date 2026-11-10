@@ -122,6 +122,9 @@ class Settings(BaseSettings):
     rate_limit_cost_template_tenant: int = Field(60, ge=1)
     # Kâr ayarı yazımı (ADR-0006): kiracı başına saatlik sınır (ayrı sayaç anahtarı, maliyetle karışmaz).
     rate_limit_profit_settings_write_tenant: int = Field(600, ge=1)
+    # Kâr ayarı okuma uçları (GET profit-settings, /carriers): kiracı başına DAKİKADA istek (ayrı sayaç
+    # anahtarı; denetim AD-02). `carriers` her istekte 92 günlük birleştirme sorgusu çalıştırır.
+    rate_limit_profit_settings_read_tenant: int = Field(120, ge=1)
     # Kâr raporu uçları (/profit/*): kiracı başına DAKİKADA istek sayısı (her rapor isteği motoru çalıştırır).
     rate_limit_profit_report_tenant: int = Field(60, ge=1)
     # Rapor eşzamanlılık kapısı (denetim S4 Y-01/O-01): beklemez, doluysa 429 (kiracı) ya da 503 (süreç).

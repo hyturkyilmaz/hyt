@@ -79,6 +79,7 @@ def compare_estimate(w: LineWork, settings: ProfitSettings) -> LineComparison | 
         commission_estimated=w.commission_estimated_excl,
         commission_actual=w.commission_actual_sales_excl,
         shipping_outbound_estimated=w.ship_out_estimated_excl,
+        shipping_estimate_default_desi=w.ship_out_default_desi,
         shipping_outbound_actual=ship_actual,
         platform_service_fee_estimated=w.fee_estimated_excl,
         platform_service_fee_actual=fee_actual,
