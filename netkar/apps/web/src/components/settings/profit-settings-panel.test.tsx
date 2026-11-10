@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ProfitSettingsPanel } from '@/components/settings/profit-settings-panel';
-import { todayIstanbul } from '@/lib/profit/settings-input';
+import { addDays, todayIstanbul } from '@/lib/profit/settings-input';
 import {
   EXPENSE_ID,
   FEE_ID,
@@ -265,7 +265,8 @@ describe('Kargo tarifesi', () => {
     expect(second.body).toMatchObject({
       confirm_affects_from: '2026-08-10',
       expected_revision: 9,
-      valid_from: '2026-08-10',
+      // Form varsayılanı İstanbul'da bugün eksi 92 gün (lookback_days); sabit tarih her gün kırılırdı.
+      valid_from: addDays(TODAY, -92),
     });
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
