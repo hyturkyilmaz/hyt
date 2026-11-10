@@ -97,6 +97,20 @@ describe('apiFetch', () => {
     expect((error as ApiError).message).not.toContain('SELECT');
   });
 
+  it('429 yanıtında Retry-After saniyesini taşır; geçersiz biçimi yok sayar', async () => {
+    mockFetch(new Response('{}', { status: 429, headers: { 'Retry-After': '3' } }));
+    const limited = await apiFetch('/x').catch((e: unknown) => e);
+    expect((limited as ApiError).retryAfterSeconds).toBe(3);
+    mockFetch(
+      new Response('{}', {
+        status: 429,
+        headers: { 'Retry-After': 'Wed, 21 Oct 2026 07:28:00 GMT' },
+      }),
+    );
+    const dated = await apiFetch('/x').catch((e: unknown) => e);
+    expect((dated as ApiError).retryAfterSeconds).toBeUndefined();
+  });
+
   it('422 doğrulama hatasında alan yolu ve kural kodunu taşır', async () => {
     mockFetch(
       new Response(

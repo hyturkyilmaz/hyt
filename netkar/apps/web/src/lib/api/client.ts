@@ -22,12 +22,15 @@ export interface ApiProblem {
   code?: string;
   /** 422 "validation-error" yanıtındaki alan hataları */
   errors?: ApiFieldError[];
+  /** `Retry-After` başlığı (yalnız saniye cinsinden tamsayı biçimi okunur); yoksa ya da geçersizse tanımsız */
+  retryAfterSeconds?: number;
 }
 
 export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
   readonly errors?: ApiFieldError[];
+  readonly retryAfterSeconds?: number;
 
   constructor(problem: ApiProblem) {
     super(`API hatası (${problem.status})`);
@@ -35,6 +38,7 @@ export class ApiError extends Error {
     this.status = problem.status;
     this.code = problem.code;
     this.errors = problem.errors;
+    this.retryAfterSeconds = problem.retryAfterSeconds;
   }
 }
 
@@ -69,6 +73,12 @@ function parseFieldErrors(value: unknown): ApiFieldError[] | undefined {
   return result;
 }
 
+function parseRetryAfter(response: Response): number | undefined {
+  const raw = response.headers.get('Retry-After')?.trim();
+  if (!raw || !/^\d{1,6}$/.test(raw)) return undefined;
+  return Number(raw);
+}
+
 async function readProblem(response: Response): Promise<ApiProblem> {
   let code: string | undefined;
   let errors: ApiFieldError[] | undefined;
@@ -87,7 +97,7 @@ async function readProblem(response: Response): Promise<ApiProblem> {
   } catch {
     // Gövde yoksa veya JSON değilse yalnız durum kodu kullanılır.
   }
-  return { status: response.status, code, errors };
+  return { status: response.status, code, errors, retryAfterSeconds: parseRetryAfter(response) };
 }
 
 /**

@@ -11,13 +11,13 @@ export default function AlertsPage() {
     <>
       <PageHeader
         title="Uyarılar"
-        description="Zarar, düşük hakediş ve komisyon değişikliği bildirimleri."
+        description="Zarar, düşük hakediş ve komisyon değişikliği bildirimleri burada listelenecek."
       />
       <EmptyState
         Icon={BellRing}
-        title="Şu an bir uyarı yok"
-        description="Bir ürün zarar etmeye başladığında burada görürsünüz. Mağazanızı bağlayınca uyarılar çalışmaya başlar."
-        action={{ href: '/panel/ayarlar', label: 'Mağazayı bağla' }}
+        title="Uyarılar ekranı yakında"
+        description="Bu ekran henüz açılmadı. Dönemde motorun işaretlediği durumların sayısını Özet ekranında görebilirsiniz."
+        action={{ href: '/panel', label: 'Özete git' }}
       />
     </>
   );

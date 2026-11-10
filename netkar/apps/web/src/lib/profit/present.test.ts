@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addDecimal,
   absAtLeast,
+  absDecimal,
   compareDecimal,
   decimalSign,
   subtractDecimal,
@@ -12,15 +13,18 @@ import {
   defaultDesiHint,
   expenseCell,
   joinNames,
+  compareCodePoints,
   knownProfitView,
   lossBadge,
   lossDisplay,
   missingItemNames,
   netProfitDisplay,
+  partialPeriodNote,
   periodLabel,
   productBreakdownRows,
   refundPending,
   settingsRevisionLabel,
+  shownAsCancelled,
   sourceBadge,
   summaryBanner,
   summaryView,
@@ -55,6 +59,8 @@ describe('decimal-math', () => {
     expect(compareDecimal('-30.00', '-4.5')).toBe(-1);
     expect(compareDecimal('2', '2.00')).toBe(0);
     expect(compareDecimal('0.10', '-0.10')).toBe(1);
+    expect(absDecimal('-4.00')).toBe('4.00');
+    expect(absDecimal('0.50')).toBe('0.50');
   });
 
   it('geçersiz girdide hata fırlatır', () => {
@@ -133,7 +139,7 @@ describe('summaryView', () => {
       value: '1240.00',
       loss: false,
       badge: null,
-      note: 'Kargo düşülünce azalacak.',
+      note: 'Kargo düşülünce bu rakam azalır.',
     });
     // Etiket "net kâr" demez (ADR §5.2 madde 3)
     expect(view.knownProfit?.label.toLowerCase()).not.toContain('net kâr');
@@ -150,7 +156,7 @@ describe('summaryView', () => {
       scope: '(ürün maliyeti, kargo ve hizmet bedeli hariç)',
       loss: true,
       badge: { label: 'Bilinen giderlerle bile zarar', tone: 'loss' },
-      note: 'Ürün maliyeti, kargo ve hizmet bedeli eklenince zarar büyür.',
+      note: 'Ürün maliyeti, kargo ve hizmet bedeli düşülünce bu rakam azalır.',
     });
     expect(view.costLine).toBe('2 satırın ürün maliyeti girilmedi.');
   });
@@ -180,8 +186,10 @@ describe('summaryView', () => {
     const view = knownProfitView('50.00', ['kargo', 'hizmet bedeli'], 'donem');
     expect(view.loss).toBe(false);
     expect(view.badge).toBeNull();
-    expect(view.note).toBe('Kargo ve hizmet bedeli düşülünce azalacak.');
-    expect(knownProfitView('0.00', [], 'urun').note).toBe('Eksik giderler düşülünce azalacak.');
+    expect(view.note).toBe('Kargo ve hizmet bedeli düşülünce bu rakam azalır.');
+    expect(knownProfitView('0.00', [], 'urun').note).toBe(
+      'Eksik giderler düşülünce bu rakam azalır.',
+    );
   });
 
   it('kısmi dönemde marj yalnız tam satırların marjıdır ve etiketlenir', () => {
@@ -247,10 +255,9 @@ describe('summaryBanner (kural 3)', () => {
       kargo_gonderi: 5,
       platform_hizmet_bedeli: 3,
     });
-    // UX-05: başlık eksikliği değil kullanıcıya olan faydayı söyler
-    expect(banner?.title).toBe(
-      'Net kârınızı görmek için kargo tarifenizi ve hizmet bedelini girin',
-    );
+    // Y-2: ayar formu yokken başlık durumu söyler, "girin" demez
+    expect(banner?.title).toBe('Net kâr için kargo tarifesi ve hizmet bedeli gerekiyor');
+    expect(banner?.body).toBe('Kargo tarifesi ve hizmet bedeli girişi çok yakında.');
     expect(banner?.detail).toBe(
       'Bu dönemde 5 satırda kargo, 3 satırda hizmet bedeli tahmini eksik.',
     );
@@ -259,13 +266,44 @@ describe('summaryBanner (kural 3)', () => {
 
   it('yalnız kargo eksikse yalnız kargoyu söyler', () => {
     const banner = summaryBanner({ urun_maliyeti: 0, kargo_gonderi: 2, platform_hizmet_bedeli: 0 });
-    expect(banner?.title).toBe('Net kârınızı görmek için kargo tarifenizi girin');
+    expect(banner?.title).toBe('Net kâr için kargo tarifesi gerekiyor');
+    expect(banner?.body).toBe('Kargo tarifesi girişi çok yakında.');
     expect(banner?.detail).toBe('Bu dönemde 2 satırda kargo tahmini eksik.');
   });
 
   it('yalnız hizmet bedeli eksikse yalnız onu söyler', () => {
     const banner = summaryBanner({ urun_maliyeti: 0, kargo_gonderi: 0, platform_hizmet_bedeli: 6 });
-    expect(banner?.title).toBe('Net kârınızı görmek için hizmet bedelini girin');
+    expect(banner?.title).toBe('Net kâr için hizmet bedeli gerekiyor');
+    expect(banner?.body).toBe('Hizmet bedeli girişi çok yakında.');
+  });
+
+  it('"bu rakamlar bilinen giderlerle hesaplanıyor" yalnız bilinen kâr rakamı varken basılır', () => {
+    const counts = { urun_maliyeti: 0, kargo_gonderi: 2, platform_hizmet_bedeli: 0 };
+    expect(summaryBanner(counts, true)?.body).toBe(
+      'Kargo tarifesi girişi çok yakında. Bu rakamlar bilinen giderlerle hesaplanıyor.',
+    );
+    expect(summaryBanner(counts, false)?.body).not.toContain('bilinen giderlerle');
+    // summaryView: eski API'de alan yoksa cümle yoktur; alan varsa vardır
+    const legacy = makeUnconfiguredTotals();
+    delete legacy.donem_eksik_giderler_haric_kar;
+    expect(summaryView(legacy).banner?.body).not.toContain('bilinen giderlerle');
+    expect(summaryView(makeUnconfiguredTotals()).banner?.body).toContain('bilinen giderlerle');
+  });
+});
+
+describe('partialPeriodNote (Y-9)', () => {
+  it('nedeni eksik kalem adlarından kurar, hep kargo ve hizmet bedeli demez', () => {
+    expect(partialPeriodNote(['kargo'])).toBe(
+      'Kargo eksik olduğundan bazı ürünlerin kârı belirsiz olabilir.',
+    );
+    expect(partialPeriodNote(['ürün maliyeti', 'hizmet bedeli'])).toBe(
+      'Ürün maliyeti ve hizmet bedeli eksik olduğundan bazı ürünlerin kârı belirsiz olabilir.',
+    );
+    expect(partialPeriodNote([])).toBeNull();
+    expect(summaryView(makePartialTotals()).partialNote).toBe(
+      'Kargo eksik olduğundan bazı ürünlerin kârı belirsiz olabilir.',
+    );
+    expect(summaryView(makeTotals()).partialNote).toBeNull();
   });
 });
 
@@ -434,14 +472,16 @@ describe('lossDisplay ve topLossItems (UX-03, UX-04, UX-07, AD-04)', () => {
 
   it('net kârı null olan kesin zarar nötr değil: en az zarar ve eksik kalem notu', () => {
     expect(lossDisplay(knownLoss('A', '-4.00'))).toEqual({
+      magnitude: '4.00',
       amount: '-4.00',
       exact: false,
-      note: 'Kargo ve hizmet bedeli eklenince zarar büyür.',
+      note: 'Kargo ve hizmet bedeli düşülünce bu rakam azalır.',
     });
   });
 
   it('kesin zararda tutar net kârdır; kârlı, belirsiz ve iptal ürün zarar göstermez', () => {
     expect(lossDisplay(certainLoss('A', '-30.00'))).toEqual({
+      magnitude: '30.00',
       amount: '-30.00',
       exact: true,
       note: null,
@@ -452,6 +492,51 @@ describe('lossDisplay ve topLossItems (UX-03, UX-04, UX-07, AD-04)', () => {
     ).toBeNull();
     expect(
       lossDisplay(makeItem({ certainty: 'yok', net_profit: '0.00', loss_reason: 'net_profit' })),
+    ).toBeNull();
+  });
+
+  // Y-3: aktif satırı olmayıp yalnız satışsız reklamı olan ürün backend'de kesinlik `yok`, negatif net kâr ve
+  // `loss_reason = net_profit` alır (aggregate.py); zarardır, iptal değildir.
+  const adOnlyLoss = () =>
+    makeItem({
+      barcode: 'R1',
+      net_profit: '-25.00',
+      net_margin_percent: null,
+      loss_reason: 'net_profit',
+      certainty: 'yok',
+      contribution_excl_missing: '-25.00',
+    });
+
+  it('Y-3: kesinlik yok iken net kâr negatif ve zarar nedeni doluysa zarar gösterilir, İptal yazılmaz', () => {
+    const item = adOnlyLoss();
+    expect(
+      netProfitDisplay(item.net_profit, item.missing_items, item.certainty, item.loss_reason),
+    ).toEqual({
+      kind: 'value',
+      value: '-25.00',
+    });
+    expect(lossBadge(item)).toEqual({ label: 'Zarar', tone: 'loss' });
+    expect(lossDisplay(item)).toEqual({
+      magnitude: '25.00',
+      amount: '-25.00',
+      exact: true,
+      note: null,
+    });
+    expect(topLossItems([item], 3).map((row) => row.item.barcode)).toEqual(['R1']);
+    expect(shownAsCancelled('yok', '-25.00', 'net_profit')).toBe(false);
+  });
+
+  it('Y-3: İptal yalnız iptal satırlı ve zararsız ürün için; zarar nedeni yoksa negatif sayı da iptal sayılır', () => {
+    expect(shownAsCancelled('yok', '0.00', null)).toBe(true);
+    expect(shownAsCancelled('iptal', null, null)).toBe(true);
+    expect(shownAsCancelled('iptal', '0.00', 'net_profit')).toBe(true);
+    expect(shownAsCancelled('yok', '-5.00', null)).toBe(true);
+    // Ürün kırılımında zarar nedeni alanı yoktur: negatif net kâr yeterlidir
+    expect(shownAsCancelled('yok', '-5.00')).toBe(false);
+    expect(shownAsCancelled('kesin', '0.00')).toBe(false);
+    expect(netProfitDisplay('0.00', [], 'iptal', null)).toEqual({ kind: 'cancelled' });
+    expect(
+      lossBadge(makeItem({ certainty: 'iptal', net_profit: '0.00', loss_reason: null })),
     ).toBeNull();
   });
 
@@ -472,6 +557,20 @@ describe('lossDisplay ve topLossItems (UX-03, UX-04, UX-07, AD-04)', () => {
     const rows = topLossItems([certainLoss('Z', '-1.00'), certainLoss('A', '-1.00')], 1);
     expect(rows.map((row) => row.item.barcode)).toEqual(['A']);
     expect(topLossItems([], 3)).toEqual([]);
+  });
+
+  it('eşitlikte barkod kod noktasına göre sıralanır, localeCompare gibi büyük küçük harf yok saymaz', () => {
+    // Kod noktası: "B" (66) < "a" (97); localeCompare ("a" < "B") bunun tersini verirdi
+    const rows = topLossItems(
+      [certainLoss('a1', '-1.00'), certainLoss('B1', '-1.00'), certainLoss('B', '-1.00')],
+      3,
+    );
+    expect(rows.map((row) => row.item.barcode)).toEqual(['B', 'B1', 'a1']);
+    expect(compareCodePoints('B', 'a')).toBe(-1);
+    expect(compareCodePoints('a', 'a')).toBe(0);
+    expect(compareCodePoints('ab', 'a')).toBe(1);
+    // BMP dışı karakter (vekil çift) kod noktası olarak kıyaslanır: U+1F600 > U+FF5E
+    expect(compareCodePoints('\u{1F600}', '\uFF5E')).toBe(1);
   });
 });
 
@@ -513,7 +612,11 @@ describe('productBreakdownRows (UX-09)', () => {
     ]);
   });
 
-  it('satırlar toplamla tutar: net satış eksi giderler = net kâr', () => {
+  it('satırlar toplamla tutar: net satış eksi giderler = fikstürün net_kar alanı', () => {
+    // Backend formülü (aggregate.py): ürün net kârı = Σ satır net kârı - satışsız reklam.
+    // Satır net kârı = net satış - maliyet - komisyon - kargo - kargo iadesi - hizmet bedeli - ceza - değişken - dağıtılan reklam.
+    const lineNetProfits = ['120.00', '130.00']; // Σ = 250.00
+    const lineSum = lineNetProfits.reduce((sum, v) => addDecimal(sum, v), '0.00');
     const product = {
       ...makeDetail([makeLine()]).product!,
       net_satis_kdv_haric: '1000.00',
@@ -526,6 +629,7 @@ describe('productBreakdownRows (UX-09)', () => {
       degisken_giderler: '15.00',
       reklam_satirlara_dagitilan: '25.00',
       reklam_satissiz: '10.00',
+      net_kar: subtractDecimal(lineSum, '10.00'),
     };
     const rows = productBreakdownRows(product);
     let net = '0.00';
@@ -536,7 +640,18 @@ describe('productBreakdownRows (UX-09)', () => {
           ? addDecimal(net, row.cell.value)
           : subtractDecimal(net, row.cell.value);
     }
-    expect(net).toBe('240.00');
+    expect(product.net_kar).toBe('240.00');
+    expect(net).toBe(product.net_kar);
+  });
+
+  it('etiketler: Reklam ve Satış getirmeyen reklam', () => {
+    const labels = rowsOf({ reklam_satirlara_dagitilan: '5.00', reklam_satissiz: '4.00' }).map(
+      (row) => row.label,
+    );
+    expect(labels).toContain('Reklam');
+    expect(labels).toContain('Satış getirmeyen reklam');
+    expect(labels.join('|')).not.toContain('satırlara dağıtılan');
+    expect(labels.join('|')).not.toContain('(satışsız)');
   });
 
   it('eksik kalem sayısı olan kalem değer değil eksik gösterir, ürün maliyeti null ise eksik', () => {
@@ -549,7 +664,12 @@ describe('productBreakdownRows (UX-09)', () => {
     };
     const missing = productBreakdownRows(product);
     expect(missing.find((r) => r.key === 'maliyet')?.cell).toEqual({ kind: 'missing' });
-    expect(missing.find((r) => r.key === 'kargo')?.cell).toEqual({ kind: 'partial', count: 3 });
+    // Y-6: kısmen eksik kalem bilinen tutarı da taşır
+    expect(missing.find((r) => r.key === 'kargo')?.cell).toEqual({
+      kind: 'partial',
+      value: '225.00',
+      count: 3,
+    });
   });
 });
 

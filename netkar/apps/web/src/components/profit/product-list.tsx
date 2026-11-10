@@ -27,6 +27,7 @@ import {
   lossDisplay,
   netProfitDisplay,
   periodLabel,
+  shownAsCancelled,
 } from '@/lib/profit/present';
 import {
   FILTER_OPTIONS,
@@ -213,11 +214,6 @@ function ProductResults({ accountId, query }: { accountId: string; query: Produc
         <span className="num">{first?.total_count ?? 0}</span> ürün, dönem:{' '}
         <span className="num">{period}</span>
       </p>
-      {query.filter === 'loss' && list.items.length > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Kargo ya da maliyeti eksik olup yine de zarar eden ürünler listenin sonunda.
-        </p>
-      ) : null}
       {list.items.length === 0 ? (
         <EmptyState
           Icon={Package}
@@ -256,12 +252,13 @@ function productTitle(item: ProductProfitItem): string {
   return item.title && item.title.trim() ? item.title : 'Başlıksız ürün';
 }
 
+/** Y-3: "İptal" yalnız iptal satırlı ve zararsız ürün; satışsız reklam yüzünden zarardaki ürün iptal sayılmaz. */
 function isCancelled(item: ProductProfitItem): boolean {
-  return item.certainty === 'iptal' || item.certainty === 'yok';
+  return shownAsCancelled(item.certainty, item.net_profit, item.loss_reason);
 }
 
 function netDisplay(item: ProductProfitItem) {
-  return netProfitDisplay(item.net_profit, item.missing_items, item.certainty);
+  return netProfitDisplay(item.net_profit, item.missing_items, item.certainty, item.loss_reason);
 }
 
 function MarginCell({ item }: { item: ProductProfitItem }) {
@@ -285,8 +282,9 @@ function KnownExpensesNote({ item }: { item: ProductProfitItem }) {
 }
 
 /**
- * Net kâr hücresi. Kesin zarardaki ama net kârı null olan ürün nötr görünmez: kırmızı "En az -₺X zarar" ve
- * eksik kalemlerin zararı büyüteceği notu (UX-07). Diğer null değerler "Hesaplanamadı" + eksik kalem adları.
+ * Net kâr hücresi. Kesin zarardaki ama net kârı null olan ürün nötr görünmez: kırmızı "En az ₺X zarar", küçük
+ * "Net kâr hesaplanamadı" satırı ve eksik kalemler düşülünce rakamın azalacağı notu (UX-07, Y-5); ürün
+ * kırılımındaki bilinen kâr bloğuyla aynı dil. Diğer null değerler "Hesaplanamadı" + eksik kalem adları.
  */
 function NetCell({ item }: { item: ProductProfitItem }) {
   const loss = lossDisplay(item);
@@ -294,6 +292,7 @@ function NetCell({ item }: { item: ProductProfitItem }) {
     return (
       <>
         <LossAmount loss={loss} />
+        <span className="block text-xs text-muted-foreground">Net kâr hesaplanamadı</span>
         {loss.note ? (
           <span className="block text-xs text-muted-foreground">{loss.note}</span>
         ) : null}

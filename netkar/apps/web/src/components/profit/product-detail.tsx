@@ -38,6 +38,7 @@ import {
   netProfitDisplay,
   periodLabel,
   refundPending,
+  shownAsCancelled,
   sourceBadge,
   productBreakdownRows,
   warningLabel,
@@ -195,11 +196,12 @@ function DetailBody({
 function TotalsCell({ cell }: { cell: TotalsCellSpec }) {
   if (cell.kind === 'value') return <Money value={cell.value} />;
   if (cell.kind === 'partial') {
+    // Y-6: bilinen tutar gizlenmez; eksik satırların henüz eklenmediği yanında söylenir.
     return (
-      <span className="font-semibold">
-        Eksik{' '}
-        <span className="num text-sm font-normal text-muted-foreground">
-          ({cell.count} satırda)
+      <span className="inline-flex flex-wrap items-baseline justify-end gap-x-1">
+        <Money value={cell.value} />
+        <span className="text-sm text-muted-foreground">
+          + <span className="num">{cell.count}</span> satırda eksik
         </span>
       </span>
     );
@@ -224,8 +226,9 @@ function ProductSummary({ detail }: { detail: ProductProfitDetail }) {
   const missingCodes = (Object.keys(counts) as (keyof typeof counts)[]).filter(
     (k) => counts[k] > 0,
   );
+  // Y-3: satışsız reklam yüzünden zarardaki ürün (kesinlik `yok`, net kâr negatif) iptal sayılmaz.
   const net = netProfitDisplay(product.net_kar, missingCodes, detail.certainty);
-  const cancelled = detail.certainty === 'iptal' || detail.certainty === 'yok';
+  const cancelled = shownAsCancelled(detail.certainty, product.net_kar);
   // UX-07: kırılım, liste ile aynı kuralı izler; net kâr null iken bilinen kâr ayrı, etiketli ve negatifse kırmızı.
   const known =
     product.net_kar === null && !cancelled

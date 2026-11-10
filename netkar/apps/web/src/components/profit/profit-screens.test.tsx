@@ -144,6 +144,15 @@ describe('Özet ekranı', () => {
     );
     expect(card).toHaveTextContent('2 satırın ürün maliyeti girilmedi.');
     expect(card).not.toHaveTextContent('₺0,00');
+    // Y-4: bilinen kâr bloğu uyarı kutusunun üstünde (DOM sırası = dar ekranda görünen sıra)
+    const known = within(card).getByRole('heading', {
+      level: 3,
+      name: 'Eksik giderler hariç dönem kârı',
+    });
+    const bannerRegion = within(card).getByRole('region', { name: 'Kurulum uyarısı' });
+    expect(
+      known.compareDocumentPosition(bannerRegion) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     // Bilinen kâr: ayrı, "net kâr" demeyen etiketle, negatif kırmızı ve zarar rozeti
     expect(
       within(card).getByRole('heading', { level: 3, name: 'Eksik giderler hariç dönem kârı' }),
@@ -153,19 +162,19 @@ describe('Özet ekranı', () => {
     expect(card.querySelector('[data-sign="negative"]')).not.toBeNull();
     expect(within(card).getByText('Bilinen giderlerle bile zarar')).toBeInTheDocument();
     // Eksiksiz satır bloğu, toplam gider ve marj kartları çizilmez
-    expect(screen.queryByText(/Eksiksiz \d+ satır/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Eksiksiz satırların net kârı/)).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Toplam gider' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Net kâr marjı' })).not.toBeInTheDocument();
     // Kesin rozeti yok; "Bilgi eksik" rozeti de basılmaz (eksik kalemler adıyla yazılı)
     expect(screen.queryByText('Kesin', { selector: 'span.inline-flex' })).not.toBeInTheDocument();
     expect(screen.queryByText('Bilgi eksik')).not.toBeInTheDocument();
 
-    // UX-05 başlığı; UX-02: ayar formu yokken çıkmaza götüren bağlantı yok, dürüst cümle var
+    // Y-2: başlık durum diliyle; UX-02: ayar formu yokken çıkmaza götüren bağlantı yok, dürüst cümle var
     const banner = screen.getByRole('region', { name: 'Kurulum uyarısı' });
-    expect(banner).toHaveTextContent(
-      'Net kârınızı görmek için kargo tarifenizi ve hizmet bedelini girin',
-    );
+    expect(banner).toHaveTextContent('Net kâr için kargo tarifesi ve hizmet bedeli gerekiyor');
+    expect(banner).not.toHaveTextContent('girin');
     expect(banner).toHaveTextContent('Kargo tarifesi ve hizmet bedeli girişi çok yakında');
+    expect(banner).toHaveTextContent('Bu rakamlar bilinen giderlerle hesaplanıyor');
     expect(within(banner).queryByRole('link')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: /Kargo ve hizmet bedelini gir/ }),
@@ -190,18 +199,31 @@ describe('Özet ekranı', () => {
       name: 'Eksik giderler hariç dönem kârı',
     }).parentElement as HTMLElement;
     expect(knownBlock.querySelector('[data-sign]')).toBeNull();
-    expect(card).toHaveTextContent('Kargo düşülünce azalacak.');
+    expect(card).toHaveTextContent('Kargo düşülünce bu rakam azalır.');
     expect(card).not.toHaveTextContent('Bilinen giderlerle bile zarar');
-    expect(card).toHaveTextContent('Eksiksiz 20 satır');
+    // Y-7: etiket "Eksiksiz satırların net kârı"
+    expect(
+      within(card).getByRole('heading', { level: 3, name: 'Eksiksiz satırların net kârı' }),
+    ).toBeInTheDocument();
+    expect(card).toHaveTextContent('20 eksiksiz satır, dönem giderleri hariç.');
     expect(card).toHaveTextContent('₺800,00');
-    expect(card).toHaveTextContent('Dönem giderleri hariç.');
     expect(
       screen.getByText('Eksiksiz satırların marjı, dönem giderleri hariç'),
     ).toBeInTheDocument();
     expect(screen.getByText('Yalnız eksiksiz satırların gideri')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Kurulum uyarısı' })).toHaveTextContent(
-      'Net kârınızı görmek için kargo tarifenizi girin',
+      'Net kâr için kargo tarifesi gerekiyor',
     );
+  });
+
+  it('Y-2: eski API (bilinen kâr alanı yok) bandı "bu rakamlar" cümlesi olmadan çizer', async () => {
+    const totals = makePartialTotals();
+    delete totals.donem_eksik_giderler_haric_kar;
+    renderSummary(totals);
+    render(<SummaryScreen />);
+    const banner = await screen.findByRole('region', { name: 'Kurulum uyarısı' });
+    expect(banner).toHaveTextContent('Kargo tarifesi girişi çok yakında.');
+    expect(banner).not.toHaveTextContent('bilinen giderlerle');
   });
 
   it('durum A: tam dönemde Dönem net kârı rakamı, bilinen kâr bloğu ve kurulum çağrısı yok', async () => {
@@ -249,9 +271,16 @@ describe('Özet ekranı', () => {
     // API sırası: -30 önce, null net kârlı -500 sonda; ekranda -500 üstte
     expect(lossItems[0]).toHaveTextContent('Kargo Tarifesi Eksik Ürün');
     expect(lossItems[0]).toHaveTextContent('En az');
-    expect(lossItems[0]).toHaveTextContent('-₺500,00');
+    // Eksi işareti yok: yön ok, renk ve "zarar" sözcüğüyle; ekran okuyucu tek gizli metin okur
+    expect(lossItems[0]).toHaveTextContent('En az ₺500,00 zarar');
+    expect(lossItems[0]).not.toHaveTextContent('-₺500,00');
+    const hidden = lossItems[0]?.querySelectorAll('[aria-hidden="true"]');
+    expect(
+      Array.from(hidden ?? []).some((node) => node.textContent === 'En az ₺500,00 zarar'),
+    ).toBe(true);
+    expect(lossItems[0]?.querySelectorAll('.sr-only')[0]).toHaveTextContent('En az ₺500,00 zarar');
     expect(lossItems[0]).toHaveTextContent('Bilinen giderlerle bile zarar');
-    expect(lossItems[0]).toHaveTextContent('Kargo ve hizmet bedeli eklenince zarar büyür.');
+    expect(lossItems[0]).toHaveTextContent('Kargo ve hizmet bedeli düşülünce bu rakam azalır.');
     expect(lossItems[1]).toHaveTextContent('Silikon Kek Kalıbı Set');
     expect(lossItems[1]).toHaveTextContent('-₺30,00');
     expect(within(lossItems[1] as HTMLElement).getByRole('link')).toHaveAttribute(
@@ -260,13 +289,13 @@ describe('Özet ekranı', () => {
     );
     const all = within(section).getByRole('link', { name: /Tümünü gör/ });
     expect(all).toHaveAttribute('href', '/panel/urunler?range=30d&filter=loss');
-    // İstek: zarar süzgeci, net kâr artan (en çok zarar önce), en çok 200
+    // İstek: zarar süzgeci, net kâr artan (en çok zarar önce), yalnız gösterilecek 3 ürün (Y-1)
     const call = calls.find((u) => u.pathname === `${base}/products`);
     expect(Object.fromEntries(call?.searchParams ?? [])).toMatchObject({
       filter: 'loss',
       sort: 'net_profit',
       order: 'asc',
-      limit: '200',
+      limit: '3',
     });
   });
 
@@ -280,7 +309,54 @@ describe('Özet ekranı', () => {
     renderSummary(makePartialTotals(), makeAlerts(), []);
     render(<SummaryScreen />);
     expect(await screen.findByText('Bu dönemde zararı kesin olan ürün yok.')).toBeInTheDocument();
-    expect(screen.getByText(/kârı belirsiz olabilir/)).toBeInTheDocument();
+    // Y-9: neden dönemin eksik kalem adlarından kurulur (burada yalnız kargo)
+    expect(
+      screen.getByText('Kargo eksik olduğundan bazı ürünlerin kârı belirsiz olabilir.'),
+    ).toBeInTheDocument();
+  });
+
+  it('Y-9: kısmi dönem notu yalnız eksik olan kalemi söyler', async () => {
+    renderSummary(
+      makePartialTotals({
+        eksik_kalem_satir_sayilari: {
+          urun_maliyeti: 0,
+          kargo_gonderi: 0,
+          platform_hizmet_bedeli: 3,
+        },
+      }),
+      makeAlerts(),
+      [],
+    );
+    render(<SummaryScreen />);
+    expect(
+      await screen.findByText(
+        'Hizmet bedeli eksik olduğundan bazı ürünlerin kârı belirsiz olabilir.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Kargo/)).not.toBeInTheDocument();
+  });
+
+  it('Y-3: satışsız reklam yüzünden zarardaki ürün (kesinlik yok) zarar gösterir, İptal yazmaz', async () => {
+    renderSummary(makeTotals(), makeAlerts(), [
+      makeItem({
+        barcode: 'R1',
+        title: 'Yalnız Reklamlı Ürün',
+        net_profit: '-25.00',
+        net_margin_percent: null,
+        loss_reason: 'net_profit',
+        certainty: 'yok',
+        contribution_excl_missing: '-25.00',
+      }),
+    ]);
+    render(<SummaryScreen />);
+    const section = (await screen.findByRole('heading', { name: 'Zarar ettiren ürünler' })).closest(
+      'section',
+    ) as HTMLElement;
+    const item = (await within(section).findAllByRole('listitem'))[0] as HTMLElement;
+    expect(item).toHaveTextContent('Yalnız Reklamlı Ürün');
+    expect(item).toHaveTextContent('-₺25,00');
+    expect(item.querySelector('[data-sign="negative"]')).not.toBeNull();
+    expect(item).not.toHaveTextContent('İptal');
   });
 
   it('zarar listesi yüklenemezse özet çalışmaya devam eder', async () => {
@@ -293,6 +369,51 @@ describe('Özet ekranı', () => {
     render(<SummaryScreen />);
     expect(await screen.findByText(/Zarar eden ürünler şu an yüklenemedi/)).toBeInTheDocument();
     expect(screen.getByText(/3\.120,45/)).toBeInTheDocument();
+    // Y-8: zarar kartında kendi "Tekrar dene" düğmesi var
+    expect(screen.getByRole('button', { name: 'Tekrar dene' })).toBeInTheDocument();
+  });
+
+  it('Y-8: zarar kartı "Tekrar dene" ile yeniden yükler', async () => {
+    let failing = true;
+    mockFetch(
+      accounts,
+      (url) => (url.pathname === `${base}/summary` ? { body: makeSummary() } : undefined),
+      (url) => (url.pathname === `${base}/alerts` ? { body: makeAlerts() } : undefined),
+      (url) =>
+        url.pathname === `${base}/products`
+          ? failing
+            ? problem(503, 'busy')
+            : { body: makeList(LOSS_ITEMS, { filter: 'loss' }) }
+          : undefined,
+    );
+    render(<SummaryScreen />);
+    await screen.findByText(/Zarar eden ürünler şu an yüklenemedi/);
+    failing = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Tekrar dene' }));
+    expect(await screen.findByText('Silikon Kek Kalıbı Set')).toBeInTheDocument();
+  });
+
+  it('Y-8: zarar kartı 429 yanıtında Retry-After kadar bekleyip bir kez yeniden dener', async () => {
+    let productCalls = 0;
+    const { calls } = mockFetch(
+      accounts,
+      (url) => (url.pathname === `${base}/summary` ? { body: makeSummary() } : undefined),
+      (url) => (url.pathname === `${base}/alerts` ? { body: makeAlerts() } : undefined),
+      (url) => {
+        if (url.pathname !== `${base}/products`) return undefined;
+        productCalls += 1;
+        return productCalls === 1
+          ? { ...problem(429, 'rate-limited'), headers: { 'Retry-After': '1' } }
+          : { body: makeList(LOSS_ITEMS, { filter: 'loss' }) };
+      },
+    );
+    render(<SummaryScreen />);
+    // Gerçek zamanlayıcı: 1 sn bekleme sonrası ikinci istek başarılı olur ve hata kartı hiç görünmez
+    expect(
+      await screen.findByText('Silikon Kek Kalıbı Set', {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(calls.filter((u) => u.pathname === `${base}/products`)).toHaveLength(2);
+    expect(screen.queryByText(/Zarar eden ürünler şu an yüklenemedi/)).not.toBeInTheDocument();
   });
 
   it('"Tüm uyarılar" yer tutucu bağlantısı yok (UX-08)', async () => {
@@ -399,6 +520,15 @@ describe('Ürün kârlılık listesi', () => {
         net_margin_percent: null,
         certainty: 'yok',
       }),
+      makeItem({
+        barcode: 'G7',
+        title: 'Yalnız Reklamlı',
+        net_profit: '-25.00',
+        net_margin_percent: null,
+        loss_reason: 'net_profit',
+        certainty: 'yok',
+        contribution_excl_missing: '-25.00',
+      }),
     ];
     mockFetch(accounts, (url) =>
       url.pathname === productsPath ? { body: makeList(items) } : undefined,
@@ -428,17 +558,25 @@ describe('Ürün kârlılık listesi', () => {
     // Belirsiz ürün kârlı değil
     expect(within(card('Belirsiz Ürün')).getByText('Belirsiz')).toBeInTheDocument();
 
-    // UX-07: kesin zararlı ama net kârı null ürün nötr değil, kırmızı "En az -₺X zarar" ve eksik kalem notu
+    // UX-07 ve Y-5: kesin zararlı ama net kârı null ürün nötr değil: kırmızı "En az ₺X zarar" (eksi işareti yok),
+    // küçük "Net kâr hesaplanamadı" satırı ve eksik kalemler düşülünce rakamın azalacağı notu
     const missing = card('Maliyetsiz Zarar');
-    expect(missing).toHaveTextContent('En az');
-    expect(missing).toHaveTextContent('-₺12,00');
-    expect(missing).toHaveTextContent('Ürün maliyeti eklenince zarar büyür.');
-    expect(missing.querySelector('[data-sign="negative"]')).not.toBeNull();
+    expect(missing).toHaveTextContent('En az ₺12,00 zarar');
+    expect(missing).not.toHaveTextContent('-₺12,00');
+    expect(missing).toHaveTextContent('Net kâr hesaplanamadı');
+    expect(missing).toHaveTextContent('Ürün maliyeti düşülünce bu rakam azalır.');
+    expect(missing.querySelector('.text-loss')).not.toBeNull();
     expect(missing).not.toHaveTextContent('₺0,00');
-    expect(card('Bilinen Giderle Zarar')).toHaveTextContent(
-      'Kargo ve hizmet bedeli eklenince zarar büyür.',
+    // Ekran okuyucu: görünen sözcükler aria-hidden, tek gizli metin; "zarar" iki kez okunmaz
+    const hiddenLoss = Array.from(missing.querySelectorAll('[aria-hidden="true"]')).filter(
+      (node) => node.textContent === 'En az ₺12,00 zarar',
     );
-    expect(card('Bilinen Giderle Zarar')).toHaveTextContent('-₺4,00');
+    expect(hiddenLoss).toHaveLength(1);
+    expect(missing.querySelectorAll('.sr-only')[0]).toHaveTextContent('En az ₺12,00 zarar');
+    expect(card('Bilinen Giderle Zarar')).toHaveTextContent(
+      'Kargo ve hizmet bedeli düşülünce bu rakam azalır.',
+    );
+    expect(card('Bilinen Giderle Zarar')).toHaveTextContent('En az ₺4,00 zarar');
 
     // Belirsiz ürün: hesaplanamadı + eksik kalem adları (tek kaynak), bilinen kâr nötr
     const uncertain = card('Belirsiz Ürün');
@@ -451,6 +589,13 @@ describe('Ürün kârlılık listesi', () => {
     const cancelled = card('Yalnız İptal');
     expect(cancelled).toHaveTextContent('İptal');
     expect(cancelled).not.toHaveTextContent('₺0,00 ');
+
+    // Y-3: yalnız satışsız reklamı olan ürün (kesinlik yok, net kâr negatif, zarar nedeni dolu) zarardır
+    const adOnly = card('Yalnız Reklamlı');
+    expect(adOnly).not.toHaveTextContent('İptal');
+    expect(adOnly).toHaveTextContent('-₺25,00');
+    expect(adOnly.querySelector('[data-sign="negative"]')).not.toBeNull();
+    expect(within(adOnly).getByText('Zarar')).toBeInTheDocument();
 
     // Kesin rozeti yalnız kesinlik=kesin satırda
     expect(within(card('Kesin Zarar')).getByText('Kesin')).toBeInTheDocument();
@@ -572,7 +717,7 @@ describe('Ürün kârlılık listesi', () => {
     expect(screen.getAllByText('Kalan Ürün').length).toBeGreaterThan(0);
   });
 
-  it('zarar süzgeci: yön verilmezse istek order=asc ile yapılır ve sondaki eksikli zararlar için not çıkar', async () => {
+  it('zarar süzgeci: yön verilmezse istek order=asc ile yapılır; yanlış "sonda" notu yok (Y-1)', async () => {
     navigation.search = 'range=7d&filter=loss';
     const { calls } = mockFetch(accounts, (url) =>
       url.pathname === productsPath
@@ -583,11 +728,8 @@ describe('Ürün kârlılık listesi', () => {
     await screen.findAllByText('Örnek Ürün Çelik Termos 500 ml');
     const call = calls.find((u) => u.pathname === productsPath);
     expect(call?.searchParams.get('order')).toBe('asc');
-    expect(
-      screen.getByText(
-        'Kargo ya da maliyeti eksik olup yine de zarar eden ürünler listenin sonunda.',
-      ),
-    ).toBeInTheDocument();
+    // Y-1: AD-04 ile eksikli zararlar bilinen tutarla doğru sıralanır; "listenin sonunda" notu yoktur
+    expect(screen.queryByText(/listenin sonunda/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Tümü' })).toHaveAttribute(
       'href',
       '/panel/urunler?range=7d',
@@ -781,7 +923,7 @@ describe('Ürün kırılımı özet kartı (UX-07, UX-09, UX-10, UX-14)', () => 
       ['Kargo iadesi', '₺20,00'],
       ['Ceza', '₺10,00'],
       ['Değişken giderler', '₺15,00'],
-      ['Reklam (satırlara dağıtılan)', '₺25,00'],
+      ['Reklam', '₺25,00'],
     ] as const) {
       const term = within(card).getByText(label, { selector: 'dt' });
       expect(term.parentElement).toHaveTextContent(value);
@@ -789,6 +931,48 @@ describe('Ürün kırılımı özet kartı (UX-07, UX-09, UX-10, UX-14)', () => 
     // Toplam satırı: net kâr
     const total = within(card).getByText('Net kâr', { selector: 'dt' }).parentElement;
     expect(total).toHaveTextContent('₺250,00');
+  });
+
+  it('Y-6: kısmen eksik kalem bilinen tutarı da gösterir ("₺X + N satırda eksik")', async () => {
+    renderWithProduct({
+      kargo_gonderi: '225.00',
+      net_kar: null,
+      net_kar_marji_yuzde: null,
+      eksik_kalem_satir_sayilari: { urun_maliyeti: 0, kargo_gonderi: 2, platform_hizmet_bedeli: 0 },
+    });
+    const card = (await screen.findByRole('heading', { level: 2, name: 'Ürün net kârı' })).closest(
+      'div',
+    )?.parentElement as HTMLElement;
+    const term = within(card).getByText('Kargo (gönderi)', { selector: 'dt' });
+    expect(term.parentElement).toHaveTextContent('₺225,00');
+    expect(term.parentElement).toHaveTextContent('+ 2 satırda eksik');
+  });
+
+  it('Y-3: yalnız satışsız reklamı olan ürün (kesinlik yok) zarar gösterir, İptal yazmaz', async () => {
+    renderWithProduct(
+      {
+        net_satis_kdv_haric: '0.00',
+        urun_maliyeti: '0.00',
+        komisyon: '0.00',
+        kargo_gonderi: '0.00',
+        platform_hizmet_bedeli: '0.00',
+        reklam_satirlara_dagitilan: '0.00',
+        reklam_satissiz: '25.00',
+        net_kar: '-25.00',
+        net_kar_marji_yuzde: null,
+        eksik_giderler_haric_kar: '-25.00',
+        kesinlik: 'yok',
+      },
+      { certainty: 'yok' },
+    );
+    const card = (await screen.findByRole('heading', { level: 2, name: 'Ürün net kârı' })).closest(
+      'div',
+    )?.parentElement as HTMLElement;
+    expect(card).not.toHaveTextContent('İptal');
+    expect(card).toHaveTextContent('-₺25,00');
+    expect(card.querySelector('[data-sign="negative"]')).not.toBeNull();
+    const term = within(card).getByText('Satış getirmeyen reklam', { selector: 'dt' });
+    expect(term.parentElement).toHaveTextContent('₺25,00');
   });
 
   it('sıfır olan isteğe bağlı kalemler gizlenir', async () => {
@@ -829,12 +1013,12 @@ describe('Ürün kırılımı özet kartı (UX-07, UX-09, UX-10, UX-14)', () => 
     expect(card).toHaveTextContent('-₺4,00');
     expect(card.querySelector('[data-sign="negative"]')).not.toBeNull();
     expect(within(card).getByText('Bilinen giderlerle bile zarar')).toBeInTheDocument();
-    expect(card).toHaveTextContent('Kargo ve hizmet bedeli eklenince zarar büyür.');
+    expect(card).toHaveTextContent('Kargo ve hizmet bedeli düşülünce bu rakam azalır.');
     // UX-10: ayrıca "Bilgi eksik" rozeti yok
     expect(within(card).queryByText('Bilgi eksik')).not.toBeInTheDocument();
   });
 
-  it('net kârı null, bilinen kâr pozitif: nötr, yeşil ok yok ve "azalacak" notu (UX-21)', async () => {
+  it('net kârı null, bilinen kâr pozitif: nötr, yeşil ok yok ve "bu rakam azalır" notu (UX-21)', async () => {
     renderWithProduct({
       net_kar: null,
       net_kar_marji_yuzde: null,
@@ -848,7 +1032,7 @@ describe('Ürün kırılımı özet kartı (UX-07, UX-09, UX-10, UX-14)', () => 
       .parentElement as HTMLElement;
     expect(block).toHaveTextContent('₺80,00');
     expect(block.querySelector('[data-sign]')).toBeNull();
-    expect(block).toHaveTextContent('Kargo düşülünce azalacak.');
+    expect(block).toHaveTextContent('Kargo düşülünce bu rakam azalır.');
     expect(within(card).queryByText('Bilinen giderlerle bile zarar')).not.toBeInTheDocument();
   });
 

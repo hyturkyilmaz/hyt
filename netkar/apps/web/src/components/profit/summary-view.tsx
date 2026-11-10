@@ -18,6 +18,7 @@ import {
   SpecBadge,
 } from '@/components/profit/shared';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProfitValue } from '@/components/profit-value';
 import {
@@ -28,7 +29,6 @@ import {
 } from '@/lib/api/profit';
 import { describeReportError } from '@/lib/profit/errors';
 import {
-  SETUP_COMING_SOON,
   certaintyBadge,
   lossBadge,
   periodLabel,
@@ -37,6 +37,7 @@ import {
   type SummaryView,
 } from '@/lib/profit/present';
 import { parseRange, productQueryString } from '@/lib/profit/query';
+import { retryOnceOnRateLimit } from '@/lib/profit/rate-limit-retry';
 import { useReportAccount } from '@/lib/profit/use-account';
 import { useReportQuery } from '@/lib/profit/use-report-query';
 
@@ -54,8 +55,6 @@ const HEADER_TEXT = {
 
 /** Özetteki "zarar ettiren ürünler" bölümü kaç ürün gösterir */
 const TOP_LOSS_COUNT = 3;
-/** API en çok 200 ürün döndürür; null net kârlı kesin zararlar sıralamada sona düştüğünden hepsi çekilir (AD-04) */
-const LOSS_FETCH_LIMIT = 200;
 
 export function SummaryScreen() {
   const range = parseRange(useSearchParams().get('range'));
@@ -137,7 +136,7 @@ function SummaryContent({
 
       <HeadlineCard view={view} data={data} />
 
-      <TopLosses accountId={accountId} range={range} partial={view.partial} />
+      <TopLosses accountId={accountId} range={range} partialNote={view.partialNote} />
 
       <section aria-label="Diğer rakamlar" className="grid gap-4 sm:grid-cols-2">
         <MetricCard
@@ -249,21 +248,9 @@ function HeadlineCard({ view, data }: { view: SummaryView; data: ProfitSummary }
         {view.costLine ? <p className="text-base text-muted-foreground">{view.costLine}</p> : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {view.banner ? (
-          <section
-            aria-label="Kurulum uyarısı"
-            className="flex flex-col gap-2 rounded-lg border border-transparent bg-warning-soft p-4 text-warning"
-          >
-            <h3 className="flex items-start gap-2 text-lg font-semibold">
-              <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-              {view.banner.title}
-            </h3>
-            <p className="text-base">{SETUP_COMING_SOON}</p>
-          </section>
-        ) : null}
-
+        {/* Y-4: bilinen kâr rakamı uyarı kutusunun üstünde; dar ekranda kutunun altında kalmaz. */}
         {known ? (
-          <div className="flex flex-col gap-1 border-t border-border pt-4">
+          <div className="flex flex-col gap-1">
             <h3 className="text-base font-semibold">{known.label}</h3>
             {known.scope ? <p className="text-sm text-muted-foreground">{known.scope}</p> : null}
             <p className="flex flex-wrap items-center gap-2 text-2xl font-semibold">
@@ -274,15 +261,29 @@ function HeadlineCard({ view, data }: { view: SummaryView; data: ProfitSummary }
           </div>
         ) : null}
 
+        {view.banner ? (
+          <section
+            aria-label="Kurulum uyarısı"
+            className="flex flex-col gap-2 rounded-lg border border-transparent bg-warning-soft p-4 text-warning"
+          >
+            <h3 className="flex items-start gap-2 text-lg font-semibold">
+              <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+              {view.banner.title}
+            </h3>
+            <p className="text-base">{view.banner.body}</p>
+          </section>
+        ) : null}
+
         {view.fullLines ? (
           <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface-muted p-4">
-            <h3 className="text-base font-semibold">
-              Eksiksiz <span className="num">{view.fullLines.count}</span> satır
-            </h3>
-            <p className="text-base">
-              Net kâr: <ProfitValue value={view.fullLines.netProfit} className="text-base" />
+            <h3 className="text-base font-semibold">Eksiksiz satırların net kârı</h3>
+            <p className="text-xl font-semibold">
+              <ProfitValue value={view.fullLines.netProfit} />
             </p>
-            <p className="text-sm text-muted-foreground">Dönem giderleri hariç.</p>
+            <p className="text-sm text-muted-foreground">
+              <span className="num">{view.fullLines.count}</span> eksiksiz satır, dönem giderleri
+              hariç.
+            </p>
           </div>
         ) : null}
       </CardContent>
@@ -294,16 +295,23 @@ function HeadlineCard({ view, data }: { view: SummaryView; data: ProfitSummary }
 function TopLosses({
   accountId,
   range,
-  partial,
+  partialNote,
 }: {
   accountId: string;
   range: RangeName;
-  partial: boolean;
+  partialNote: string | null;
 }) {
+  // Y-1: API null net kârlı kesin zararı bilinen tutarla sıralar (AD-04, profit_views.sort_value); bu yüzden
+  // yalnız gösterilecek kadar ürün istenir. İstemci sıralaması (topLossItems) savunma olarak kalır.
+  // Y-8: 429'da Retry-After kadar bekleyip bir kez yeniden denenir.
   const losses = useReportQuery(true, `${accountId}|${range}|losses`, (signal) =>
-    profitApi.products(
-      accountId,
-      { range, sort: 'net_profit', order: 'asc', filter: 'loss', limit: LOSS_FETCH_LIMIT },
+    retryOnceOnRateLimit(
+      () =>
+        profitApi.products(
+          accountId,
+          { range, sort: 'net_profit', order: 'asc', filter: 'loss', limit: TOP_LOSS_COUNT },
+          signal,
+        ),
       signal,
     ),
   );
@@ -329,16 +337,21 @@ function TopLosses({
             </p>
           ) : null}
           {losses.state.status === 'error' ? (
-            <p className="text-base text-muted-foreground">
-              Zarar eden ürünler şu an yüklenemedi. Biraz sonra tekrar deneyin.
-            </p>
+            <div className="flex flex-col items-start gap-3">
+              <p className="text-base text-muted-foreground">
+                Zarar eden ürünler şu an yüklenemedi. Biraz sonra tekrar deneyin.
+              </p>
+              <Button variant="secondary" onClick={losses.retry}>
+                Tekrar dene
+              </Button>
+            </div>
           ) : null}
           {losses.state.status === 'ready' ? (
             <LossList
               items={losses.state.data.items}
               total={losses.state.data.total_count}
               range={range}
-              partial={partial}
+              partialNote={partialNote}
               allHref={allHref}
             />
           ) : null}
@@ -352,13 +365,13 @@ function LossList({
   items,
   total,
   range,
-  partial,
+  partialNote,
   allHref,
 }: {
   items: ProductProfitList['items'];
   total: number;
   range: RangeName;
-  partial: boolean;
+  partialNote: string | null;
   allHref: string;
 }) {
   const rows = topLossItems(items, TOP_LOSS_COUNT);
@@ -366,11 +379,7 @@ function LossList({
     return (
       <>
         <p className="text-base">Bu dönemde zararı kesin olan ürün yok.</p>
-        {partial ? (
-          <p className="text-sm text-muted-foreground">
-            Kargo ya da hizmet bedeli eksik olduğundan bazı ürünlerin kârı belirsiz olabilir.
-          </p>
-        ) : null}
+        {partialNote ? <p className="text-sm text-muted-foreground">{partialNote}</p> : null}
       </>
     );
   }

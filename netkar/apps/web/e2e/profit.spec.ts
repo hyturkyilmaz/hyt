@@ -137,6 +137,16 @@ const ITEMS = [
     shipping_missing: true,
     certainty: 'eksik',
   }),
+  // Y-3: aktif satırı olmayıp yalnız satışsız reklamı olan ürün (kesinlik yok, net kâr negatif)
+  makeItem({
+    barcode: 'BRK-0006',
+    title: 'Yalnız Reklamlı Ürün',
+    net_profit: '-25.00',
+    net_margin_percent: null,
+    loss_reason: 'net_profit',
+    certainty: 'yok',
+    contribution_excl_missing: '-25.00',
+  }),
 ];
 
 for (const scheme of ['light', 'dark'] as const) {
@@ -165,7 +175,7 @@ for (const scheme of ['light', 'dark'] as const) {
       const losses = page.getByRole('region', { name: 'Zarar ettiren ürünler' });
       await expect(losses.getByRole('listitem').first()).toContainText('Silikon Kek Kalıbı Set');
       await expect(losses.getByRole('listitem').nth(1)).toContainText('Maliyeti Girilmemiş Bardak');
-      await expect(losses.getByRole('listitem').nth(1)).toContainText('En az');
+      await expect(losses.getByRole('listitem').nth(1)).toContainText('En az ₺12,00 zarar');
       expect(
         requests.some(
           (u) => u.pathname.endsWith('/summary') && u.searchParams.get('range') === '7d',
@@ -192,10 +202,15 @@ for (const scheme of ['light', 'dark'] as const) {
       await expect(page.getByRole('heading', { name: 'Net kâr marjı' })).toHaveCount(0);
       // UX-05 ve UX-02: yeni başlık, boş ayar sayfasına götüren bağlantı yok
       const banner = page.getByRole('region', { name: 'Kurulum uyarısı' });
-      await expect(banner).toContainText(
-        'Net kârınızı görmek için kargo tarifenizi ve hizmet bedelini girin',
-      );
+      await expect(banner).toContainText('Net kâr için kargo tarifesi ve hizmet bedeli gerekiyor');
       await expect(banner).toContainText('girişi çok yakında');
+      await expect(banner).toContainText('Bu rakamlar bilinen giderlerle hesaplanıyor');
+      // Y-4: bilinen kâr bloğu uyarı kutusunun üstünde (mobilde de rakam önce görünür)
+      const knownBox = await card
+        .getByRole('heading', { name: 'Eksik giderler hariç dönem kârı' })
+        .boundingBox();
+      const bannerBox = await banner.boundingBox();
+      expect(knownBox!.y).toBeLessThan(bannerBox!.y);
       await expect(banner.getByRole('link')).toHaveCount(0);
       await checkPage(page, 'rapor-ozet-ayarsiz', testInfo.project.name, scheme);
     });
@@ -211,9 +226,11 @@ for (const scheme of ['light', 'dark'] as const) {
       await expect(card).toContainText('Eksik giderler hariç dönem kârı');
       await expect(card).toContainText('(kargo hariç)');
       await expect(card).toContainText('1.240,00');
-      await expect(card).toContainText('Kargo düşülünce azalacak.');
-      await expect(card).toContainText('Eksiksiz 20 satır');
-      await expect(card).toContainText('Dönem giderleri hariç.');
+      await expect(card).toContainText('Kargo düşülünce bu rakam azalır.');
+      await expect(
+        card.getByRole('heading', { name: 'Eksiksiz satırların net kârı' }),
+      ).toBeVisible();
+      await expect(card).toContainText('20 eksiksiz satır, dönem giderleri hariç.');
       await expect(
         page.getByText('Eksiksiz satırların marjı, dönem giderleri hariç'),
       ).toBeVisible();
@@ -252,14 +269,18 @@ for (const scheme of ['light', 'dark'] as const) {
       const visible = page.locator(
         testInfo.project.name === 'mobil' ? 'ul[aria-label="Ürün listesi"]' : 'table',
       );
-      await expect(visible.getByText('Zarar', { exact: true })).toBeVisible();
+      await expect(visible.getByText('Zarar', { exact: true }).first()).toBeVisible();
       await expect(visible.getByText('Maliyet girilmese de zarar')).toBeVisible();
       await expect(visible.getByText('Bilinen giderlerle bile zarar')).toBeVisible();
       await expect(visible.getByText('Belirsiz', { exact: true })).toBeVisible();
-      // UX-07: kesin zarardaki ama net kârı null ürün kırmızı "En az ... zarar" gösterir
-      await expect(visible.getByText('En az').first()).toBeVisible();
+      // UX-07 ve Y-5: kesin zarardaki ama net kârı null ürün kırmızı "En az ₺... zarar" ve "Net kâr hesaplanamadı" gösterir
+      await expect(visible.getByText('En az ₺4,00 zarar').first()).toBeVisible();
+      await expect(visible.getByText('Net kâr hesaplanamadı').first()).toBeVisible();
+      // Y-3: yalnız satışsız reklamı olan ürün zarardır, İptal değil
+      await expect(visible.getByText('Yalnız Reklamlı Ürün')).toBeVisible();
+      await expect(visible.getByText('İptal', { exact: true })).toHaveCount(0);
       await expect(
-        visible.getByText('Kargo ve hizmet bedeli eklenince zarar büyür.'),
+        visible.getByText('Kargo ve hizmet bedeli düşülünce bu rakam azalır.'),
       ).toBeVisible();
       // UX-10: tekrar eden "Kargo eksik" ve "Bilgi eksik" rozetleri yok
       await expect(visible.getByText('Kargo eksik')).toHaveCount(0);
@@ -335,8 +356,10 @@ for (const scheme of ['light', 'dark'] as const) {
       page,
     }, testInfo) => {
       const base = makeDetail([makeLine()]);
+      // Görünen satırlar bilinen kârla tutar: 1250 - 729,85 - 187,50 - 225 - 20 - 41,65 - 10 - 15 - 25 = -4,00
       const product = {
         ...base.product!,
+        urun_maliyeti: '729.85',
         kargo_iade: '20.00',
         ceza: '10.00',
         degisken_giderler: '15.00',
@@ -359,7 +382,10 @@ for (const scheme of ['light', 'dark'] as const) {
         .getByRole('heading', { level: 2, name: 'Ürün net kârı' })
         .locator('xpath=ancestor::div[2]');
       await expect(card).toContainText('Kargo iadesi');
-      await expect(card).toContainText('Reklam (satırlara dağıtılan)');
+      await expect(card.getByText('Reklam', { exact: true })).toBeVisible();
+      // Y-6: kısmen eksik kalem bilinen tutarı da gösterir
+      await expect(card).toContainText('₺225,00');
+      await expect(card).toContainText('+ 2 satırda eksik');
       await expect(card).toContainText('Bilinen giderlerle bile zarar');
       await expect(card).toContainText('-₺4,00');
       await expect(page.getByText('Ayar sürümü 7')).toBeVisible();
@@ -523,14 +549,16 @@ test.describe('rapor ekranları, davranış', () => {
         ),
     });
     await page.goto('/panel');
-    await expect(page.getByText('Eksiksiz 20 satır')).toBeVisible();
+    await expect(page.getByText('20 eksiksiz satır, dönem giderleri hariç.')).toBeVisible();
     await expect(page.getByText('Eksiksiz satırların marjı, dönem giderleri hariç')).toBeVisible();
     await expect(page.getByText('-5,5')).toHaveCount(0);
     // Eski biçimde kısmi dönemde dolu gelen donem_net_kar asla gösterilmez
     await expect(page.getByText('-₺10,00')).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Kurulum uyarısı' })).toContainText(
-      'Net kârınızı görmek için kargo tarifenizi girin',
+      'Net kâr için kargo tarifesi gerekiyor',
     );
+    // Y-7: eksiksiz satır bloğu etiketi
+    await expect(page.getByRole('heading', { name: 'Eksiksiz satırların net kârı' })).toBeVisible();
   });
 
   test('özet: zarar ettiren ürünler "Tümünü gör" zarar süzgecini en çok zarar önce açar', async ({
@@ -538,7 +566,7 @@ test.describe('rapor ekranları, davranış', () => {
   }) => {
     await mockApi(page, {
       products: (url) => ({
-        body: makeList(url.searchParams.get('limit') === '200' ? ITEMS.slice(1, 4) : ITEMS, {
+        body: makeList(url.searchParams.get('limit') === '3' ? ITEMS.slice(1, 4) : ITEMS, {
           filter: url.searchParams.get('filter') ?? 'all',
         }),
       }),
@@ -563,10 +591,19 @@ test.describe('rapor ekranları, davranış', () => {
         ),
       )
       .toBe(true);
+    // Y-1: AD-04 ile eksikli zararlar doğru sıralanır; "listenin sonunda" notu yok
+    await expect(page.getByText(/listenin sonunda/)).toHaveCount(0);
+  });
+
+  test('uyarılar: yer tutucu dürüst "yakında" der, mağaza bağlama çağrısı yapmaz', async ({
+    page,
+  }) => {
+    await mockApi(page, {});
+    await page.goto('/panel/uyarilar');
     await expect(
-      page.getByText(
-        'Kargo ya da maliyeti eksik olup yine de zarar eden ürünler listenin sonunda.',
-      ),
+      page.getByRole('heading', { level: 2, name: 'Uyarılar ekranı yakında' }),
     ).toBeVisible();
+    await expect(page.getByText(/Mağazanızı bağlayınca/)).toHaveCount(0);
+    await expect(page.getByText('Şu an bir uyarı yok')).toHaveCount(0);
   });
 });

@@ -67,3 +67,9 @@ export function absAtLeast(a: string, b: string): boolean {
 export function compareDecimal(a: string, b: string): -1 | 0 | 1 {
   return decimalSign(subtractDecimal(a, b));
 }
+
+/** Mutlak değer: absDecimal("-4.00") === "4.00". Biçim ve hassasiyet korunur. */
+export function absDecimal(a: string): string {
+  const { value, scale } = parse(a);
+  return format(value < 0n ? -value : value, scale);
+}

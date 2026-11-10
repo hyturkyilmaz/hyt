@@ -54,6 +54,25 @@ describe('Ayarlar içeriği (UX-02)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Rapor şu an yoğun');
     expect(screen.getByRole('button', { name: 'Tekrar dene' })).toBeInTheDocument();
     expect(screen.queryByText('Bağlı değil')).not.toBeInTheDocument();
+    // Y-10: hata durumunda "mağazanızı bağlayın" açıklaması yok
+    expect(screen.queryByText(/mağazanızı bağlayın/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ilk kârınızı/)).not.toBeInTheDocument();
+  });
+
+  it('bağlı mağaza yoksa bağlama açıklaması, bağlıysa bağlı açıklaması; rozet bilgi tonundadır', async () => {
+    mockFetch((url) => (url.pathname === accountsPath ? { body: [] } : undefined));
+    const { unmount } = render(<SettingsContent />);
+    expect(await screen.findByText(/Trendyol mağazanızı bağlayın/)).toBeInTheDocument();
+    unmount();
+
+    mockFetch((url) => (url.pathname === accountsPath ? { body: makeAccounts() } : undefined));
+    render(<SettingsContent />);
+    const badge = await screen.findByText('Bağlı', { selector: 'span' });
+    // Kâr yeşili değil bilgi tonu: bağlantı durumu kâr anlamı taşımaz
+    expect(badge.className).toContain('text-info');
+    expect(badge.className).not.toContain('text-profit');
+    expect(screen.getByText('Mağazanız bağlı. Bağlantı yalnız okuma yapar.')).toBeInTheDocument();
+    expect(screen.queryByText(/mağazanızı bağlayın/)).not.toBeInTheDocument();
   });
 
   it('kargo tarifesi ve hizmet bedeli bölümünün yakında olduğunu dürüstçe söyler', async () => {
@@ -62,6 +81,8 @@ describe('Ayarlar içeriği (UX-02)', () => {
     const region = screen.getByRole('region', { name: 'Kargo tarifesi ve hizmet bedeli' });
     expect(region).toHaveTextContent('Kargo tarifesi ve hizmet bedeli girişi çok yakında');
     expect(region).toHaveTextContent('Bu bölüm henüz açılmadı');
+    // Y-2: ayar ekranı bilinen kâr rakamı varmış gibi konuşmaz
+    expect(region).not.toHaveTextContent('bilinen giderlerle');
     await screen.findByText('Bağlı', { selector: 'span' });
   });
 });

@@ -4,6 +4,8 @@ import { vi } from 'vitest';
 export interface MockResponse {
   status?: number;
   body?: unknown;
+  /** Ek yanıt başlıkları (ör. Retry-After) */
+  headers?: Record<string, string>;
 }
 
 export type Handler = (url: URL) => MockResponse | undefined;
@@ -35,6 +37,7 @@ export function mockFetch(...handlers: Handler[]) {
             status,
             headers: {
               'Content-Type': status >= 400 ? 'application/problem+json' : 'application/json',
+              ...result.headers,
             },
           }),
         );

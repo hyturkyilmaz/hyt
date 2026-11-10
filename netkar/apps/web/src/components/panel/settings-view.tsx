@@ -11,10 +11,18 @@ import { describeReportError } from '@/lib/profit/errors';
 import { useReportAccount, type AccountState } from '@/lib/profit/use-account';
 
 /** Bağlantı rozeti gerçek hesap durumundan gelir; sabit "Bağlı değil" yazılmaz (UX-02). */
-function connectionBadge(state: AccountState): { label: string; variant: 'neutral' | 'profit' } {
-  if (state.status === 'ready') return { label: 'Bağlı', variant: 'profit' };
+function connectionBadge(state: AccountState): { label: string; variant: 'neutral' | 'info' } {
+  if (state.status === 'ready') return { label: 'Bağlı', variant: 'info' };
   if (state.status === 'none') return { label: 'Bağlı değil', variant: 'neutral' };
   return { label: 'Kontrol ediliyor', variant: 'neutral' };
+}
+
+function connectionDescription(state: AccountState): string {
+  if (state.status === 'ready') return 'Mağazanız bağlı. Bağlantı yalnız okuma yapar.';
+  if (state.status === 'none') {
+    return 'Trendyol mağazanızı bağlayın, ilk kârınızı 10 dakikada görün. Bağlantı yalnız okuma yapar.';
+  }
+  return 'Bağlantı durumu kontrol ediliyor.';
 }
 
 export function SettingsContent() {
@@ -36,11 +44,10 @@ export function SettingsContent() {
               </Badge>
             )}
           </div>
-          <CardDescription>
-            {state.status === 'ready'
-              ? 'Mağazanız bağlı. Bağlantı yalnız okuma yapar.'
-              : 'Trendyol mağazanızı bağlayın, ilk kârınızı 10 dakikada görün. Bağlantı yalnız okuma yapar.'}
-          </CardDescription>
+          {/* Y-10: hata durumunda "mağazanızı bağlayın" denmez; bağlı bir kullanıcıya yanlış yönlendirme olur. */}
+          {state.status === 'error' ? null : (
+            <CardDescription>{connectionDescription(state)}</CardDescription>
+          )}
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {state.status === 'ready' ? (
@@ -63,7 +70,7 @@ export function SettingsContent() {
         <EmptyState
           Icon={Truck}
           title="Kargo tarifesi ve hizmet bedeli girişi çok yakında"
-          description="Bu bölüm henüz açılmadı. O zamana kadar özet ekranı kargo ve hizmet bedeli hariç, bilinen giderlerle hesaplanan kârınızı gösterir."
+          description="Bu bölüm henüz açılmadı. Açıldığında kargo tarifenizi ve platform hizmet bedelinizi buradan girersiniz."
         />
       </section>
     </>

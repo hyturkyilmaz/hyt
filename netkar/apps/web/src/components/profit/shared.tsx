@@ -1,4 +1,4 @@
-import { CircleHelp, TriangleAlert } from 'lucide-react';
+import { CircleHelp, TrendingDown, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -83,16 +83,21 @@ export function MetricValue({
 }
 
 /**
- * Kesin zarardaki ürünün rakamı (UX-07): kırmızı, aşağı ok ve eksi işaretiyle. Net kâr bilinmiyorsa
- * bilinen giderlerle hesaplanan tutar "en az" zarardır.
+ * Kesin zarardaki ürünün rakamı (UX-07). Kesin zararda kırmızı ProfitValue (ok, eksi işareti, "Zarar" okunuşu).
+ * Net kâr bilinmiyorsa bilinen giderlerle hesaplanan tutar "en az" zarardır: "En az ₺4,00 zarar", eksi işareti
+ * yok, yön ok ve renkle anlatılır. Ekran okuyucu görünen sözcükleri atlar (aria-hidden) ve tek gizli metin
+ * okur; böylece "zarar" iki kez duyulmaz.
  */
 export function LossAmount({ loss }: { loss: LossDisplay }) {
   if (loss.exact) return <ProfitValue value={loss.amount} />;
+  const text = `En az ${formatTRY(loss.magnitude)} zarar`;
   return (
-    <span className="inline-flex flex-wrap items-center gap-x-1">
-      <span className="font-semibold text-loss">En az</span>
-      <ProfitValue value={loss.amount} />
-      <span className="font-semibold text-loss">zarar</span>
+    <span className="num inline-flex items-center gap-1 font-semibold text-loss">
+      <span className="sr-only">{text}</span>
+      <span aria-hidden="true" className="inline-flex items-center gap-1 whitespace-nowrap">
+        <TrendingDown className="size-[1em] shrink-0" />
+        {text}
+      </span>
     </span>
   );
 }

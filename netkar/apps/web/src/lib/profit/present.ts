@@ -14,6 +14,7 @@ import type {
 } from '@/lib/api/profit';
 import {
   absAtLeast,
+  absDecimal,
   addDecimal,
   compareDecimal,
   decimalSign,
@@ -69,13 +70,30 @@ export type NetProfitDisplay =
   | { kind: 'uncomputable'; missing: string[] }
   | { kind: 'cancelled' };
 
+/**
+ * Kural 10 ve Y-3: "İptal" yalnız gerçekten iptal satırlı (kesinlik `iptal` ya da `yok`) ve zararsız ürün içindir.
+ * Aktif satırı olmayıp yalnız satışsız reklamı olan ürün de kesinlikte `yok` alır ama net kârı negatiftir ve
+ * `loss_reason` doludur: bu ürün zarar eder, iptal değildir. `lossReason` verilmezse (ürün kırılımı toplamında alan
+ * yoktur) net kârın negatif olması yeterlidir; `null` zarar nedeni olmadığı anlamına gelir.
+ */
+export function shownAsCancelled(
+  certainty: CertaintyLabel,
+  netProfit: string | null,
+  lossReason?: LossReason | null,
+): boolean {
+  if (certainty !== 'iptal' && certainty !== 'yok') return false;
+  const losing = netProfit !== null && decimalSign(netProfit) < 0 && lossReason !== null;
+  return !losing;
+}
+
 /** Kural 1 ve 10: null net kâr "Hesaplanamadı" (eksik kalem adlarıyla); iptal "İptal"; asla 0,00 değil. */
 export function netProfitDisplay(
   netProfit: string | null,
   missing: readonly MissingItemCode[],
   certainty: CertaintyLabel,
+  lossReason?: LossReason | null,
 ): NetProfitDisplay {
-  if (certainty === 'iptal' || certainty === 'yok') return { kind: 'cancelled' };
+  if (shownAsCancelled(certainty, netProfit, lossReason)) return { kind: 'cancelled' };
   if (netProfit === null) return { kind: 'uncomputable', missing: missingItemNames(missing) };
   return { kind: 'value', value: netProfit };
 }
@@ -132,7 +150,7 @@ const LOSS_REASON_BADGES: Record<LossReason, BadgeSpec> = {
  * "Belirsiz"dir, "kârlı" değildir. İptal ürün rozet almaz.
  */
 export function lossBadge(item: ProductProfitItem): BadgeSpec | null {
-  if (item.certainty === 'iptal' || item.certainty === 'yok') return null;
+  if (shownAsCancelled(item.certainty, item.net_profit, item.loss_reason)) return null;
   if (item.loss_reason) return LOSS_REASON_BADGES[item.loss_reason];
   if (item.net_profit === null) return { label: 'Belirsiz', tone: 'warning' };
   return null;
@@ -149,8 +167,12 @@ export interface KnownProfitView {
   /** Değer sıfırın altı: kırmızı ve "bilinen giderlerle bile zarar" vurgusu */
   loss: boolean;
   badge: BadgeSpec | null;
-  /** Pozitifken "düşülünce azalacak", negatifken "eklenince zarar büyür" */
+  /** "Kargo ve hizmet bedeli düşülünce bu rakam azalır." (eksik kalemler gider olduğundan iki işarette de doğru) */
   note: string;
+}
+
+function decreaseNote(names: string): string {
+  return `${names ? capitalize(names) : 'Eksik giderler'} düşülünce bu rakam azalır.`;
 }
 
 /**
@@ -170,17 +192,18 @@ export function knownProfitView(
     value,
     loss,
     badge: loss ? LOSS_REASON_BADGES.known_expenses : null,
-    note: loss
-      ? `${names ? capitalize(names) : 'Eksik giderler'} eklenince zarar büyür.`
-      : `${names ? capitalize(names) : 'Eksik giderler'} düşülünce azalacak.`,
+    note: decreaseNote(names),
   };
 }
 
 // --------------------------------------------------------------------------- dönem özeti
 
 export interface SummaryBanner {
+  /** Durum diliyle başlık: "Net kâr için kargo tarifesi gerekiyor"; ayar formu gelene kadar "girin" denmez */
   title: string;
   detail: string;
+  /** Yakında cümlesi, yalnız eksik kalemler için; bilinen kâr rakamı varsa "bu rakamlar" cümlesi eklenir */
+  body: string;
   /** Ürün maliyeti eksik satırlar için ayrı satır (ayar bandına karışmaz). */
   costLine: string | null;
 }
@@ -211,6 +234,8 @@ export interface SummaryView {
   /** Dönem düzeyi giderler (ürüne dağıtılmayan); sıfırsa null */
   periodLevelExpenses: string | null;
   banner: SummaryBanner | null;
+  /** Kısmi dönemde "bazı ürünlerin kârı belirsiz olabilir" notu; eksik kalem adlarından kurulur */
+  partialNote: string | null;
   /** Ürün maliyeti eksik satır cümlesi (kargo ve hizmet bedeli bandından bağımsız) */
   costLine: string | null;
 }
@@ -219,25 +244,33 @@ function plural(count: number, text: string): string {
   return `${count} satırda ${text}`;
 }
 
-/** Kurulum çağrısının henüz ayar formu yok: bağlantı çıkmaza gitmesin diye dürüst bir cümle (UX-02). */
-export const SETUP_COMING_SOON =
-  'Kargo tarifesi ve hizmet bedeli girişi çok yakında. O zamana kadar bu rakamlar bilinen giderlerle hesaplanıyor.';
+/** Ayar formu henüz yok: bağlantı çıkmaza gitmesin diye dürüst bir cümle (UX-02), yalnız eksik kalemler için. */
+export function setupComingSoon(cargo: boolean, fee: boolean, hasKnownProfit: boolean): string {
+  const subject =
+    cargo && fee ? 'Kargo tarifesi ve hizmet bedeli' : cargo ? 'Kargo tarifesi' : 'Hizmet bedeli';
+  const base = `${subject} girişi çok yakında.`;
+  // Bu cümle yalnız ekranda bilinen kâr rakamı gerçekten varken basılır (Y-2); yoksa "bu rakamlar" boşa kalır.
+  return hasKnownProfit ? `${base} Bu rakamlar bilinen giderlerle hesaplanıyor.` : base;
+}
 
 /** Kural 3: kurulum bandı `completeness`'e değil dönemin eksik kalem satır sayılarına bağlıdır. */
-export function summaryBanner(counts: MissingLineCounts): SummaryBanner | null {
+export function summaryBanner(
+  counts: MissingLineCounts,
+  hasKnownProfit = false,
+): SummaryBanner | null {
   const cargo = counts.kargo_gonderi;
   const fee = counts.platform_hizmet_bedeli;
   const cost = counts.urun_maliyeti;
   if (cargo <= 0 && fee <= 0) return null;
 
-  // UX-05: başlık eksikliği değil kullanıcıya olan faydayı söyler.
+  // Y-2: başlık durumu söyler ("gerekiyor"); form gelmeden "girin" demek altındaki "çok yakında" ile çelişirdi.
   let title: string;
   if (cargo > 0 && fee > 0) {
-    title = 'Net kârınızı görmek için kargo tarifenizi ve hizmet bedelini girin';
+    title = 'Net kâr için kargo tarifesi ve hizmet bedeli gerekiyor';
   } else if (cargo > 0) {
-    title = 'Net kârınızı görmek için kargo tarifenizi girin';
+    title = 'Net kâr için kargo tarifesi gerekiyor';
   } else {
-    title = 'Net kârınızı görmek için hizmet bedelini girin';
+    title = 'Net kâr için hizmet bedeli gerekiyor';
   }
 
   const parts: string[] = [];
@@ -245,7 +278,20 @@ export function summaryBanner(counts: MissingLineCounts): SummaryBanner | null {
   if (fee > 0) parts.push(plural(fee, 'hizmet bedeli'));
   const detail = `Bu dönemde ${parts.join(', ')} tahmini eksik.`;
 
-  return { title, detail, costLine: cost > 0 ? `${cost} satırın ürün maliyeti girilmedi.` : null };
+  return {
+    title,
+    detail,
+    body: setupComingSoon(cargo > 0, fee > 0, hasKnownProfit),
+    costLine: cost > 0 ? `${cost} satırın ürün maliyeti girilmedi.` : null,
+  };
+}
+
+/** Y-9: kısmi dönem notunun nedeni dönemin gerçek eksik kalem adlarından kurulur. */
+export function partialPeriodNote(names: readonly string[]): string | null {
+  const joined = joinNames(names);
+  return joined
+    ? `${capitalize(joined)} eksik olduğundan bazı ürünlerin kârı belirsiz olabilir.`
+    : null;
 }
 
 export function summaryView(totals: PeriodTotals): SummaryView {
@@ -289,6 +335,8 @@ export function summaryView(totals: PeriodTotals): SummaryView {
     : null;
 
   const known = totals.donem_eksik_giderler_haric_kar;
+  const knownProfit =
+    partial && typeof known === 'string' ? knownProfitView(known, missing, 'donem') : null;
   const cost = counts.urun_maliyeti;
 
   return {
@@ -298,8 +346,7 @@ export function summaryView(totals: PeriodTotals): SummaryView {
     netProfit,
     netProfitLabel: partial ? 'Dönem net kârı hesaplanamadı' : 'Dönem net kârı',
     // Tam dönemde net kâr zaten bilinen kârdır; ayrı rakam yalnız kısmi dönemde gösterilir.
-    knownProfit:
-      partial && typeof known === 'string' ? knownProfitView(known, missing, 'donem') : null,
+    knownProfit,
     margin,
     fullLines: partial && hasFull ? { count: full.satir_sayisi, netProfit: full.net_kar } : null,
     totalExpenses,
@@ -307,7 +354,8 @@ export function summaryView(totals: PeriodTotals): SummaryView {
       decimalSign(totals.donem_duzeyi_giderler_toplami) === 0
         ? null
         : totals.donem_duzeyi_giderler_toplami,
-    banner: summaryBanner(counts),
+    banner: summaryBanner(counts, knownProfit !== null),
+    partialNote: partial ? partialPeriodNote(missing) : null,
     costLine: cost > 0 ? `${cost} satırın ürün maliyeti girilmedi.` : null,
   };
 }
@@ -322,37 +370,60 @@ export function settingsRevisionLabel(revision: number | null | undefined): stri
 // --------------------------------------------------------------------------- zarar eden ürünler (özet ve liste)
 
 export interface LossDisplay {
-  /** Negatif tutar: net kâr ya da (null ise) eksik giderler hariç kâr */
+  /** Zarar tutarı, işaretsiz (mutlak değer): "₺4,00". Yön ok ve renkle, "zarar" sözcüğüyle anlatılır. */
+  magnitude: string;
+  /** Negatif tutar: net kâr ya da (null ise) eksik giderler hariç kâr; sıralama ve kırmızı ProfitValue için */
   amount: string;
   /** false: net kâr bilinmiyor, tutar "en az" zarardır */
   exact: boolean;
-  /** Eksik kalemler eklenince zarar büyür notu; kesin zararda null */
+  /** Eksik kalemler düşülünce rakamın azalacağı notu; kesin zararda null */
   note: string | null;
 }
 
 /**
  * UX-07: kesin zarardaki ürün nötr görünmez. Net kâr null olsa da `loss_reason` doluysa bilinen giderlerle
- * bile zarar kesindir; eksik kalemler gider olduğundan bilinen rakam "en az" zarardır.
+ * bile zarar kesindir; eksik kalemler gider olduğundan bilinen rakam "en az" zarardır. Y-3: satışsız reklamı
+ * yüzünden zarardaki ürün (kesinlik `yok`) da zarar gösterir.
  */
 export function lossDisplay(item: ProductProfitItem): LossDisplay | null {
-  if (item.certainty === 'iptal' || item.certainty === 'yok') return null;
+  if (shownAsCancelled(item.certainty, item.net_profit, item.loss_reason)) return null;
   if (item.net_profit !== null) {
     return item.loss_reason !== null && decimalSign(item.net_profit) < 0
-      ? { amount: item.net_profit, exact: true, note: null }
+      ? {
+          magnitude: absDecimal(item.net_profit),
+          amount: item.net_profit,
+          exact: true,
+          note: null,
+        }
       : null;
   }
   if (item.loss_reason === null) return null;
   const names = joinNames(missingItemNames(item.missing_items));
   return {
+    magnitude: absDecimal(item.contribution_excl_missing),
     amount: item.contribution_excl_missing,
     exact: false,
-    note: `${names ? capitalize(names) : 'Eksik giderler'} eklenince zarar büyür.`,
+    note: decreaseNote(names),
   };
 }
 
+/** Kod noktası sırası (Python `str` karşılaştırması ve API sıralamasıyla aynı); `localeCompare` kullanılmaz. */
+export function compareCodePoints(a: string, b: string): -1 | 0 | 1 {
+  const left = Array.from(a);
+  const right = Array.from(b);
+  const length = Math.min(left.length, right.length);
+  for (let i = 0; i < length; i += 1) {
+    const x = left[i]!.codePointAt(0)!;
+    const y = right[i]!.codePointAt(0)!;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return left.length === right.length ? 0 : left.length < right.length ? -1 : 1;
+}
+
 /**
- * UX-03 ve UX-04: en çok zarar ettiren ürünler, en büyük zarar üstte. Net kârı null olup kesin zararda olan
- * ürünler (AD-04) API sıralamasında sona düştüğünden sıra burada bilinen tutara göre yeniden kurulur.
+ * UX-03 ve UX-04: en çok zarar ettiren ürünler, en büyük zarar üstte. API (AD-04) null net kârlı kesin zararı
+ * bilinen tutarla zaten sıralar ve ekran `limit` ile yalnız ilk kayıtları ister; bu yeniden sıralama savunmadır.
+ * Eşitlikte barkod kod noktasına göre artan.
  */
 export function topLossItems(
   items: readonly ProductProfitItem[],
@@ -365,15 +436,19 @@ export function topLossItems(
   }
   rows.sort(
     (a, b) =>
-      compareDecimal(a.loss.amount, b.loss.amount) || a.item.barcode.localeCompare(b.item.barcode),
+      compareDecimal(a.loss.amount, b.loss.amount) ||
+      compareCodePoints(a.item.barcode, b.item.barcode),
   );
   return rows.slice(0, limit);
 }
 
 // --------------------------------------------------------------------------- ürün kırılımı özet kartı
 
+/** `partial`: bilinen tutar ve eksik satır sayısı ("₺225,00 + 2 satırda eksik"); toplam eksiği kapatılmış gibi gösterilmez */
 export type TotalsCellSpec =
-  { kind: 'value'; value: string } | { kind: 'partial'; count: number } | { kind: 'missing' };
+  | { kind: 'value'; value: string }
+  | { kind: 'partial'; value: string; count: number }
+  | { kind: 'missing' };
 
 export interface BreakdownRow {
   key: string;
@@ -382,7 +457,7 @@ export interface BreakdownRow {
 }
 
 function counted(count: number, value: string): TotalsCellSpec {
-  return count > 0 ? { kind: 'partial', count } : { kind: 'value', value };
+  return count > 0 ? { kind: 'partial', value, count } : { kind: 'value', value };
 }
 
 /**
@@ -428,8 +503,8 @@ export function productBreakdownRows(product: ProductTotals): BreakdownRow[] {
   const tail: [string, string, string | undefined][] = [
     ['ceza', 'Ceza', product.ceza],
     ['degisken', 'Değişken giderler', product.degisken_giderler],
-    ['reklam', 'Reklam (satırlara dağıtılan)', product.reklam_satirlara_dagitilan],
-    ['reklam_satissiz', 'Reklam (satışsız)', product.reklam_satissiz],
+    ['reklam', 'Reklam', product.reklam_satirlara_dagitilan],
+    ['reklam_satissiz', 'Satış getirmeyen reklam', product.reklam_satissiz],
   ];
   for (const [key, label, value] of tail) {
     if (value !== undefined && decimalSign(value) !== 0) {
