@@ -8,10 +8,17 @@ import type {
   MissingLineCounts,
   PeriodTotals,
   ProductProfitItem,
+  ProductTotals,
   ProfitLine,
   SourceCode,
 } from '@/lib/api/profit';
-import { absAtLeast, addDecimal, decimalSign, subtractDecimal } from '@/lib/profit/decimal-math';
+import {
+  absAtLeast,
+  addDecimal,
+  compareDecimal,
+  decimalSign,
+  subtractDecimal,
+} from '@/lib/profit/decimal-math';
 
 export type BadgeTone = 'neutral' | 'profit' | 'loss' | 'warning' | 'info';
 
@@ -45,6 +52,16 @@ export function missingItemNamesFromCounts(counts: MissingLineCounts): string[] 
   return missingItemNames(MISSING_ORDER.filter((code) => counts[code] > 0));
 }
 
+/** "a", "a ve b", "a, b ve c" */
+export function joinNames(names: readonly string[]): string {
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} ve ${names[names.length - 1]}`;
+}
+
+function capitalize(text: string): string {
+  return text ? text.charAt(0).toLocaleUpperCase('tr-TR') + text.slice(1) : text;
+}
+
 // --------------------------------------------------------------------------- net kâr
 
 export type NetProfitDisplay =
@@ -73,7 +90,8 @@ export function certaintyBadge(certainty: CertaintyLabel): BadgeSpec | null {
     case 'tahmini':
       return { label: 'Tahmini', tone: 'warning' };
     case 'eksik':
-      return { label: 'Eksik', tone: 'loss' };
+      // Eksik veri zarar değildir: zarar kırmızısı kullanılmaz (UX-10).
+      return { label: 'Bilgi eksik', tone: 'warning' };
     case 'iptal':
       return { label: 'İptal', tone: 'neutral' };
     default:
@@ -95,7 +113,7 @@ export function sourceBadge(source: SourceCode): BadgeSpec {
     case 'eslesen':
       return { label: 'Eşleşen', tone: 'neutral' };
     case 'eksik':
-      return { label: 'Eksik', tone: 'loss' };
+      return { label: 'Eksik', tone: 'warning' };
     default:
       return { label: 'Yok', tone: 'neutral' };
   }
@@ -105,7 +123,7 @@ export function sourceBadge(source: SourceCode): BadgeSpec {
 
 const LOSS_REASON_BADGES: Record<LossReason, BadgeSpec> = {
   net_profit: { label: 'Zarar', tone: 'loss' },
-  contribution_before_cost: { label: 'Maliyetsiz bile zarar', tone: 'loss' },
+  contribution_before_cost: { label: 'Maliyet girilmese de zarar', tone: 'loss' },
   known_expenses: { label: 'Bilinen giderlerle bile zarar', tone: 'loss' },
 };
 
@@ -120,6 +138,44 @@ export function lossBadge(item: ProductProfitItem): BadgeSpec | null {
   return null;
 }
 
+// --------------------------------------------------------------------------- bilinen kâr (eksik giderler hariç)
+
+export interface KnownProfitView {
+  /** "Eksik giderler hariç dönem kârı" ya da ürün için "Eksik giderler hariç kâr"; "net kâr" geçmez */
+  label: string;
+  /** "(kargo ve hizmet bedeli hariç)"; eksik kalem yoksa null */
+  scope: string | null;
+  value: string;
+  /** Değer sıfırın altı: kırmızı ve "bilinen giderlerle bile zarar" vurgusu */
+  loss: boolean;
+  badge: BadgeSpec | null;
+  /** Pozitifken "düşülünce azalacak", negatifken "eklenince zarar büyür" */
+  note: string;
+}
+
+/**
+ * ADR-0007 §5.2 madde 3 ve UX-21: eksik giderler hariç kâr, net kârın ÜST SINIRIDIR (eksik kalemler giderdir).
+ * Pozitifken yeşil kullanılmaz (net kâr sanılmasın); negatifken kesin zarardır.
+ */
+export function knownProfitView(
+  value: string,
+  missing: readonly string[],
+  scope: 'donem' | 'urun',
+): KnownProfitView {
+  const loss = decimalSign(value) < 0;
+  const names = joinNames(missing);
+  return {
+    label: scope === 'donem' ? 'Eksik giderler hariç dönem kârı' : 'Eksik giderler hariç kâr',
+    scope: names ? `(${names} hariç)` : null,
+    value,
+    loss,
+    badge: loss ? LOSS_REASON_BADGES.known_expenses : null,
+    note: loss
+      ? `${names ? capitalize(names) : 'Eksik giderler'} eklenince zarar büyür.`
+      : `${names ? capitalize(names) : 'Eksik giderler'} düşülünce azalacak.`,
+  };
+}
+
 // --------------------------------------------------------------------------- dönem özeti
 
 export interface SummaryBanner {
@@ -132,26 +188,40 @@ export interface SummaryBanner {
 export type MetricDisplay =
   { kind: 'value'; value: string } | { kind: 'uncomputable'; missing: string[] };
 
+/** full: dönem net kârı var; partial: kısmi dönem; partial_no_full_lines: kısmi ve eksiksiz satır yok (G49). */
+export type PeriodState = 'full' | 'partial' | 'partial_no_full_lines';
+
 export interface SummaryView {
   /** Dönemde hiç aktif satır yok */
   empty: boolean;
+  state: PeriodState;
   partial: boolean;
-  /** Başlık net kâr: kısmi dönemde asla dönem net kârı değildir */
+  /** Başlık net kâr: kısmi dönemde asla dönem net kârı değildir; null `donem_net_kar` da kısmi sayılır */
   netProfit: MetricDisplay;
-  /** Marj ve etiketi: kısmi dönemde yalnız tam satırların marjı */
-  margin: MetricDisplay & { label: string | null };
+  /** "Dönem net kârı" ya da "Dönem net kârı hesaplanamadı" */
+  netProfitLabel: string;
+  /** Eksik giderler hariç dönem kârı; alan yoksa (eski API) null, asla uydurulmaz */
+  knownProfit: KnownProfitView | null;
+  /** Marj ve etiketi: kısmi dönemde yalnız tam satırların marjı; eksiksiz satır yoksa kart yok */
+  margin: (MetricDisplay & { label: string | null }) | null;
   /** Kısmi dönemde gösterilen "eksiksiz satırlar" bloğu; tam satır sayısı 0 ise null */
   fullLines: { count: number; netProfit: string } | null;
-  /** Toplam gider yalnız tam satırlar bloğundan */
-  totalExpenses: MetricDisplay & { scopeLabel: string | null };
+  /** Toplam gider yalnız tam satırlar bloğundan; eksiksiz satır yoksa kart yok */
+  totalExpenses: (MetricDisplay & { scopeLabel: string | null }) | null;
   /** Dönem düzeyi giderler (ürüne dağıtılmayan); sıfırsa null */
   periodLevelExpenses: string | null;
   banner: SummaryBanner | null;
+  /** Ürün maliyeti eksik satır cümlesi (kargo ve hizmet bedeli bandından bağımsız) */
+  costLine: string | null;
 }
 
 function plural(count: number, text: string): string {
   return `${count} satırda ${text}`;
 }
+
+/** Kurulum çağrısının henüz ayar formu yok: bağlantı çıkmaza gitmesin diye dürüst bir cümle (UX-02). */
+export const SETUP_COMING_SOON =
+  'Kargo tarifesi ve hizmet bedeli girişi çok yakında. O zamana kadar bu rakamlar bilinen giderlerle hesaplanıyor.';
 
 /** Kural 3: kurulum bandı `completeness`'e değil dönemin eksik kalem satır sayılarına bağlıdır. */
 export function summaryBanner(counts: MissingLineCounts): SummaryBanner | null {
@@ -160,13 +230,14 @@ export function summaryBanner(counts: MissingLineCounts): SummaryBanner | null {
   const cost = counts.urun_maliyeti;
   if (cargo <= 0 && fee <= 0) return null;
 
+  // UX-05: başlık eksikliği değil kullanıcıya olan faydayı söyler.
   let title: string;
   if (cargo > 0 && fee > 0) {
-    title = 'Kargo tarifesi ve hizmet bedeli girilmedi: net kâr bu kalemler hariç hesaplanamaz';
+    title = 'Net kârınızı görmek için kargo tarifenizi ve hizmet bedelini girin';
   } else if (cargo > 0) {
-    title = 'Kargo tarifesi girilmedi: net kâr bu kalem hariç hesaplanamaz';
+    title = 'Net kârınızı görmek için kargo tarifenizi girin';
   } else {
-    title = 'Hizmet bedeli girilmedi: net kâr bu kalem hariç hesaplanamaz';
+    title = 'Net kârınızı görmek için hizmet bedelini girin';
   }
 
   const parts: string[] = [];
@@ -178,16 +249,19 @@ export function summaryBanner(counts: MissingLineCounts): SummaryBanner | null {
 }
 
 export function summaryView(totals: PeriodTotals): SummaryView {
-  const partial = totals.net_kar_kismi;
   const full = totals.tam_satirlar;
   const counts = totals.eksik_kalem_satir_sayilari;
   const missing = missingItemNamesFromCounts(counts);
   const hasFull = full.satir_sayisi > 0;
+  // K39 Revizyon 1: null `donem_net_kar` kısmi dönemdir. Savunma: bayrak yanlış olsa da null asla değer olmaz.
+  const partial = totals.net_kar_kismi || totals.donem_net_kar === null;
+  const state: PeriodState = !partial ? 'full' : hasFull ? 'partial' : 'partial_no_full_lines';
 
   // Kural 2: kısmi dönemde dönem net kârı başlık olmaz; hesaplanamadı ve eksik kalem adları.
-  const netProfit: MetricDisplay = partial
-    ? { kind: 'uncomputable', missing }
-    : { kind: 'value', value: totals.donem_net_kar };
+  const netProfit: MetricDisplay =
+    partial || totals.donem_net_kar === null
+      ? { kind: 'uncomputable', missing }
+      : { kind: 'value', value: totals.donem_net_kar };
 
   let margin: SummaryView['margin'];
   if (!partial) {
@@ -202,7 +276,8 @@ export function summaryView(totals: PeriodTotals): SummaryView {
       label: 'Eksiksiz satırların marjı, dönem giderleri hariç',
     };
   } else {
-    margin = { kind: 'uncomputable', missing: [], label: null };
+    // ADR §5.2 madde 4 (UX-11): eksiksiz satır yoksa marj ve toplam gider kartı çizilmez.
+    margin = null;
   }
 
   const totalExpenses: SummaryView['totalExpenses'] = hasFull
@@ -211,12 +286,20 @@ export function summaryView(totals: PeriodTotals): SummaryView {
         value: full.toplam_gider,
         scopeLabel: partial ? 'Yalnız eksiksiz satırların gideri' : null,
       }
-    : { kind: 'uncomputable', missing: [], scopeLabel: null };
+    : null;
+
+  const known = totals.donem_eksik_giderler_haric_kar;
+  const cost = counts.urun_maliyeti;
 
   return {
     empty: totals.satir_sayisi === 0 && totals.siparis_sayisi === 0,
+    state,
     partial,
     netProfit,
+    netProfitLabel: partial ? 'Dönem net kârı hesaplanamadı' : 'Dönem net kârı',
+    // Tam dönemde net kâr zaten bilinen kârdır; ayrı rakam yalnız kısmi dönemde gösterilir.
+    knownProfit:
+      partial && typeof known === 'string' ? knownProfitView(known, missing, 'donem') : null,
     margin,
     fullLines: partial && hasFull ? { count: full.satir_sayisi, netProfit: full.net_kar } : null,
     totalExpenses,
@@ -225,7 +308,135 @@ export function summaryView(totals: PeriodTotals): SummaryView {
         ? null
         : totals.donem_duzeyi_giderler_toplami,
     banner: summaryBanner(counts),
+    costLine: cost > 0 ? `${cost} satırın ürün maliyeti girilmedi.` : null,
   };
+}
+
+/** ADR-0007 §5.2 madde 6: rapor alt bilgisi. Alan yoksa (eski API) null; sayı uydurulmaz. */
+export function settingsRevisionLabel(revision: number | null | undefined): string | null {
+  return typeof revision === 'number' && Number.isInteger(revision) && revision >= 0
+    ? `Ayar sürümü ${revision}`
+    : null;
+}
+
+// --------------------------------------------------------------------------- zarar eden ürünler (özet ve liste)
+
+export interface LossDisplay {
+  /** Negatif tutar: net kâr ya da (null ise) eksik giderler hariç kâr */
+  amount: string;
+  /** false: net kâr bilinmiyor, tutar "en az" zarardır */
+  exact: boolean;
+  /** Eksik kalemler eklenince zarar büyür notu; kesin zararda null */
+  note: string | null;
+}
+
+/**
+ * UX-07: kesin zarardaki ürün nötr görünmez. Net kâr null olsa da `loss_reason` doluysa bilinen giderlerle
+ * bile zarar kesindir; eksik kalemler gider olduğundan bilinen rakam "en az" zarardır.
+ */
+export function lossDisplay(item: ProductProfitItem): LossDisplay | null {
+  if (item.certainty === 'iptal' || item.certainty === 'yok') return null;
+  if (item.net_profit !== null) {
+    return item.loss_reason !== null && decimalSign(item.net_profit) < 0
+      ? { amount: item.net_profit, exact: true, note: null }
+      : null;
+  }
+  if (item.loss_reason === null) return null;
+  const names = joinNames(missingItemNames(item.missing_items));
+  return {
+    amount: item.contribution_excl_missing,
+    exact: false,
+    note: `${names ? capitalize(names) : 'Eksik giderler'} eklenince zarar büyür.`,
+  };
+}
+
+/**
+ * UX-03 ve UX-04: en çok zarar ettiren ürünler, en büyük zarar üstte. Net kârı null olup kesin zararda olan
+ * ürünler (AD-04) API sıralamasında sona düştüğünden sıra burada bilinen tutara göre yeniden kurulur.
+ */
+export function topLossItems(
+  items: readonly ProductProfitItem[],
+  limit: number,
+): { item: ProductProfitItem; loss: LossDisplay }[] {
+  const rows: { item: ProductProfitItem; loss: LossDisplay }[] = [];
+  for (const item of items) {
+    const loss = lossDisplay(item);
+    if (loss) rows.push({ item, loss });
+  }
+  rows.sort(
+    (a, b) =>
+      compareDecimal(a.loss.amount, b.loss.amount) || a.item.barcode.localeCompare(b.item.barcode),
+  );
+  return rows.slice(0, limit);
+}
+
+// --------------------------------------------------------------------------- ürün kırılımı özet kartı
+
+export type TotalsCellSpec =
+  { kind: 'value'; value: string } | { kind: 'partial'; count: number } | { kind: 'missing' };
+
+export interface BreakdownRow {
+  key: string;
+  label: string;
+  cell: TotalsCellSpec;
+}
+
+function counted(count: number, value: string): TotalsCellSpec {
+  return count > 0 ? { kind: 'partial', count } : { kind: 'value', value };
+}
+
+/**
+ * UX-09: ürün kırılımı kartı gider kalemlerinin hepsini listeler ki satırlar toplanınca net kâr tutsun.
+ * Sıfır olan isteğe bağlı kalemler (kargo iadesi, ceza, değişken gider, reklam) gizlenir.
+ */
+export function productBreakdownRows(product: ProductTotals): BreakdownRow[] {
+  const counts = product.eksik_kalem_satir_sayilari;
+  const rows: BreakdownRow[] = [
+    {
+      key: 'satis',
+      label: 'Net satış (KDV hariç)',
+      cell: { kind: 'value', value: product.net_satis_kdv_haric },
+    },
+    {
+      key: 'maliyet',
+      label: 'Ürün maliyeti',
+      cell:
+        product.urun_maliyeti === null
+          ? { kind: 'missing' }
+          : counted(counts.urun_maliyeti, product.urun_maliyeti),
+    },
+    { key: 'komisyon', label: 'Komisyon', cell: { kind: 'value', value: product.komisyon } },
+    {
+      key: 'kargo',
+      label: 'Kargo (gönderi)',
+      cell: counted(counts.kargo_gonderi, product.kargo_gonderi),
+    },
+  ];
+  const optional: [string, string, string | undefined][] = [
+    ['kargo_iade', 'Kargo iadesi', product.kargo_iade],
+  ];
+  for (const [key, label, value] of optional) {
+    if (value !== undefined && decimalSign(value) !== 0) {
+      rows.push({ key, label, cell: { kind: 'value', value } });
+    }
+  }
+  rows.push({
+    key: 'hizmet',
+    label: 'Platform hizmet bedeli',
+    cell: counted(counts.platform_hizmet_bedeli, product.platform_hizmet_bedeli),
+  });
+  const tail: [string, string, string | undefined][] = [
+    ['ceza', 'Ceza', product.ceza],
+    ['degisken', 'Değişken giderler', product.degisken_giderler],
+    ['reklam', 'Reklam (satırlara dağıtılan)', product.reklam_satirlara_dagitilan],
+    ['reklam_satissiz', 'Reklam (satışsız)', product.reklam_satissiz],
+  ];
+  for (const [key, label, value] of tail) {
+    if (value !== undefined && decimalSign(value) !== 0) {
+      rows.push({ key, label, cell: { kind: 'value', value } });
+    }
+  }
+  return rows;
 }
 
 // --------------------------------------------------------------------------- satır kırılımı

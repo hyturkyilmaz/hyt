@@ -6,6 +6,11 @@ export const DEFAULT_SORT: ProductSort = 'net_profit';
 export const DEFAULT_ORDER: SortOrder = 'desc';
 export const DEFAULT_FILTER: ProductFilter = 'all';
 
+/** UX-04: zarar süzgecinde varsayılan yön "en çok zarar önce" (net kâr artan); diğerlerinde çoktan aza. */
+export function defaultOrderFor(filter: ProductFilter): SortOrder {
+  return filter === 'loss' ? 'asc' : DEFAULT_ORDER;
+}
+
 export const RANGE_OPTIONS: readonly { value: RangeName; label: string }[] = [
   { value: 'today', label: 'Bugün' },
   { value: '7d', label: '7 gün' },
@@ -45,19 +50,21 @@ export interface ProductQuery {
 }
 
 export function parseProductQuery(params: { get(name: string): string | null }): ProductQuery {
+  const filter = pick(params.get('filter'), FILTER_OPTIONS, DEFAULT_FILTER);
+  const rawOrder = params.get('order');
   return {
     range: parseRange(params.get('range')),
     sort: pick(params.get('sort'), SORT_OPTIONS, DEFAULT_SORT),
-    order: params.get('order') === 'asc' ? 'asc' : DEFAULT_ORDER,
-    filter: pick(params.get('filter'), FILTER_OPTIONS, DEFAULT_FILTER),
+    order: rawOrder === 'asc' || rawOrder === 'desc' ? rawOrder : defaultOrderFor(filter),
+    filter,
   };
 }
 
-/** Dönem her zaman yazılır; sıralama ve süzgeç yalnız varsayılandan farklıysa. */
+/** Dönem her zaman yazılır; sıralama, yön ve süzgeç yalnız varsayılandan farklıysa. */
 export function productQueryString(q: ProductQuery): string {
   const search = new URLSearchParams({ range: q.range });
   if (q.sort !== DEFAULT_SORT) search.set('sort', q.sort);
-  if (q.order !== DEFAULT_ORDER) search.set('order', q.order);
+  if (q.order !== defaultOrderFor(q.filter)) search.set('order', q.order);
   if (q.filter !== DEFAULT_FILTER) search.set('filter', q.filter);
   return search.toString();
 }

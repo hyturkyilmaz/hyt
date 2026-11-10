@@ -26,7 +26,9 @@ export function makeTotals(over: Partial<PeriodTotals> = {}): PeriodTotals {
     satir_sayisi: 50,
     net_satis_kdv_haric: '18450.00',
     donem_duzeyi_giderler_toplami: '0.00',
+    satir_net_kar_toplami: '3120.45',
     donem_net_kar: '3120.45',
+    donem_eksik_giderler_haric_kar: '3120.45',
     net_kar_kismi: false,
     maliyet_eksik_satir_sayisi: 0,
     eksik_kalem_satir_sayilari: { urun_maliyeti: 0, kargo_gonderi: 0, platform_hizmet_bedeli: 0 },
@@ -53,14 +55,16 @@ export function makeTotals(over: Partial<PeriodTotals> = {}): PeriodTotals {
   };
 }
 
-/** Kargo ve hizmet bedeli girilmemiş, kısmi dönem (net kâr_kismi = true, tam satır yok) */
+/** Kargo ve hizmet bedeli girilmemiş, kısmi dönem (net_kar_kismi = true, tam satır yok; G49) */
 export function makeUnconfiguredTotals(over: Partial<PeriodTotals> = {}): PeriodTotals {
   return makeTotals({
     siparis_sayisi: 10,
     satir_sayisi: 12,
     net_satis_kdv_haric: '4200.00',
-    // Başlık rakamı OLMAMALI: API'nin döndürdüğü sayı yalnız alt kümeden gelir ve 0,00 görünür.
-    donem_net_kar: '0.00',
+    // K39 Revizyon 1: kısmi dönemde net kâr null; bilinen giderlerle dönem kârı ayrı alanda (negatif: zarar).
+    satir_net_kar_toplami: null,
+    donem_net_kar: null,
+    donem_eksik_giderler_haric_kar: '-17.35',
     net_kar_kismi: true,
     maliyet_eksik_satir_sayisi: 2,
     eksik_kalem_satir_sayilari: { urun_maliyeti: 2, kargo_gonderi: 12, platform_hizmet_bedeli: 12 },
@@ -87,9 +91,35 @@ export function makeUnconfiguredTotals(over: Partial<PeriodTotals> = {}): Period
   });
 }
 
+/** Kısmi dönem, eksiksiz 20 satır var; yalnız kargo eksik 4 satırda (rapor §5.2 durum B) */
+export function makePartialTotals(over: Partial<PeriodTotals> = {}): PeriodTotals {
+  const base = makeTotals();
+  return makeTotals({
+    satir_net_kar_toplami: null,
+    donem_net_kar: null,
+    donem_eksik_giderler_haric_kar: '1240.00',
+    net_kar_kismi: true,
+    net_kar_marji_yuzde: null,
+    eksik_kalem_satir_sayilari: { urun_maliyeti: 0, kargo_gonderi: 4, platform_hizmet_bedeli: 0 },
+    tam_satirlar: {
+      ...base.tam_satirlar,
+      satir_sayisi: 20,
+      toplam_gider: '5600.00',
+      net_kar: '800.00',
+      net_kar_marji_yuzde: '12.5',
+    },
+    kesinlik: 'eksik',
+    ...over,
+  });
+}
+
+/** Ayar sürümü (K44) örnek değeri; fixture yanıtlarında hep bu sayı döner. */
+export const SETTINGS_REVISION = 7;
+
 export function makeSummary(totals: PeriodTotals = makeTotals()): ProfitSummary {
   return {
     period: PERIOD,
+    settings_revision: SETTINGS_REVISION,
     totals,
     status_counts: { estimated: 20, settled: 24, adjusted: 4, cancelled: 2 },
     missing_cost_line_count: totals.maliyet_eksik_satir_sayisi,
@@ -99,6 +129,7 @@ export function makeSummary(totals: PeriodTotals = makeTotals()): ProfitSummary 
 export function makeAlerts(counts: AlertCount[] = []): ProfitAlerts {
   return {
     period: PERIOD,
+    settings_revision: SETTINGS_REVISION,
     counts,
     total_count: counts.reduce((sum, c) => sum + c.count, 0),
     next_cursor: null,
@@ -138,6 +169,7 @@ export function makeList(
 ): ProductProfitList {
   return {
     period: PERIOD,
+    settings_revision: SETTINGS_REVISION,
     sort: 'net_profit',
     order: 'desc',
     filter: 'all',
@@ -199,6 +231,7 @@ export function makeDetail(
 ): ProductProfitDetail {
   return {
     period: PERIOD,
+    settings_revision: SETTINGS_REVISION,
     barcode: 'BRK-0001',
     title: 'Örnek Ürün Çelik Termos 500 ml',
     product: {
@@ -214,6 +247,7 @@ export function makeDetail(
       platform_hizmet_bedeli: '41.65',
       ceza: '0.00',
       degisken_giderler: '0.00',
+      reklam_satirlara_dagitilan: '0.00',
       maliyet_haric_katki: '795.85',
       eksik_giderler_haric_kar: '195.85',
       net_kar: '195.85',

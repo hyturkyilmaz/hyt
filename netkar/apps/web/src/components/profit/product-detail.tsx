@@ -11,12 +11,13 @@ import {
   NetProfitCell,
   RangeSwitcher,
   ReportError,
+  ReportFooter,
   ReportSkeleton,
   SpecBadge,
 } from '@/components/profit/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProfitValue } from '@/components/profit-value';
 import {
   profitApi,
@@ -32,12 +33,16 @@ import {
   comparisonRows,
   defaultDesiHint,
   expenseCell,
+  knownProfitView,
+  missingItemNames,
   netProfitDisplay,
   periodLabel,
   refundPending,
   sourceBadge,
+  productBreakdownRows,
   warningLabel,
   type ExpenseCell,
+  type TotalsCellSpec,
 } from '@/lib/profit/present';
 import { parseRange } from '@/lib/profit/query';
 import { useReportAccount } from '@/lib/profit/use-account';
@@ -180,20 +185,14 @@ function DetailBody({
               </div>
             ) : null}
           </section>
+          <ReportFooter revision={first.settings_revision} />
         </>
       ) : null}
     </>
   );
 }
 
-function countedMissing(
-  count: number,
-  value: string,
-): ExpenseCell | { kind: 'partial'; count: number } {
-  return count > 0 ? { kind: 'partial', count } : { kind: 'value', value };
-}
-
-function TotalsCell({ cell }: { cell: ReturnType<typeof countedMissing> | ExpenseCell }) {
+function TotalsCell({ cell }: { cell: TotalsCellSpec }) {
   if (cell.kind === 'value') return <Money value={cell.value} />;
   if (cell.kind === 'partial') {
     return (
@@ -210,7 +209,8 @@ function TotalsCell({ cell }: { cell: ReturnType<typeof countedMissing> | Expens
 
 function ProductSummary({ detail }: { detail: ProductProfitDetail }) {
   const product: ProductTotals | null = detail.product;
-  const certainty = certaintyBadge(detail.certainty);
+  // Eksik bilgi "Eksik: kargo" satırında adıyla yazılır; ayrıca "Bilgi eksik" rozeti basılmaz (UX-10).
+  const certainty = detail.certainty === 'eksik' ? null : certaintyBadge(detail.certainty);
   if (!product) {
     return (
       <Card className="p-5 sm:p-6">
@@ -221,54 +221,59 @@ function ProductSummary({ detail }: { detail: ProductProfitDetail }) {
     );
   }
   const counts = product.eksik_kalem_satir_sayilari;
-  const net = netProfitDisplay(
-    product.net_kar,
-    (Object.keys(counts) as (keyof typeof counts)[]).filter((k) => counts[k] > 0),
-    detail.certainty,
+  const missingCodes = (Object.keys(counts) as (keyof typeof counts)[]).filter(
+    (k) => counts[k] > 0,
   );
+  const net = netProfitDisplay(product.net_kar, missingCodes, detail.certainty);
+  const cancelled = detail.certainty === 'iptal' || detail.certainty === 'yok';
+  // UX-07: kırılım, liste ile aynı kuralı izler; net kâr null iken bilinen kâr ayrı, etiketli ve negatifse kırmızı.
+  const known =
+    product.net_kar === null && !cancelled
+      ? knownProfitView(product.eksik_giderler_haric_kar, missingItemNames(missingCodes), 'urun')
+      : null;
+  const rows = productBreakdownRows(product);
   const comparison = detail.comparison;
-
-  const rows: { label: string; cell: ReturnType<typeof countedMissing> | ExpenseCell }[] = [
-    { label: 'Net satış (KDV hariç)', cell: { kind: 'value', value: product.net_satis_kdv_haric } },
-    {
-      label: 'Ürün maliyeti',
-      cell:
-        product.urun_maliyeti === null
-          ? { kind: 'missing' }
-          : countedMissing(counts.urun_maliyeti, product.urun_maliyeti),
-    },
-    { label: 'Komisyon', cell: { kind: 'value', value: product.komisyon } },
-    { label: 'Kargo (gönderi)', cell: countedMissing(counts.kargo_gonderi, product.kargo_gonderi) },
-    {
-      label: 'Platform hizmet bedeli',
-      cell: countedMissing(counts.platform_hizmet_bedeli, product.platform_hizmet_bedeli),
-    },
-  ];
 
   return (
     <Card>
       <CardHeader>
-        <CardDescription>Ürün net kârı</CardDescription>
-        <CardTitle as="h2" className="flex flex-wrap items-center gap-2 text-2xl">
+        <CardTitle as="h2" className="text-sm font-normal text-muted-foreground">
+          Ürün net kârı
+        </CardTitle>
+        <p className="flex flex-wrap items-center gap-2 text-2xl font-semibold">
           <NetProfitCell display={net} />
           {certainty ? <SpecBadge spec={certainty} /> : null}
-        </CardTitle>
+        </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {product.net_kar === null && detail.certainty !== 'iptal' ? (
-          <p className="text-sm text-muted-foreground">
-            Eksik giderler hariç kâr: <Money value={product.eksik_giderler_haric_kar} />
-          </p>
+        {known ? (
+          <div className="flex flex-col gap-1">
+            <h3 className="text-base font-semibold">{known.label}</h3>
+            {known.scope ? <p className="text-sm text-muted-foreground">{known.scope}</p> : null}
+            <p className="flex flex-wrap items-center gap-2 text-xl font-semibold">
+              {known.loss ? <ProfitValue value={known.value} /> : <Money value={known.value} />}
+              {known.badge ? <SpecBadge spec={known.badge} /> : null}
+            </p>
+            <p className="text-sm text-muted-foreground">{known.note}</p>
+          </div>
         ) : null}
         <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {rows.map((row) => (
-            <div key={row.label} className="flex items-center justify-between gap-3">
+            <div key={row.key} className="flex items-center justify-between gap-3">
               <dt className="text-base text-muted-foreground">{row.label}</dt>
               <dd className="text-base">
                 <TotalsCell cell={row.cell} />
               </dd>
             </div>
           ))}
+          {net.kind === 'value' ? (
+            <div className="flex items-center justify-between gap-3 border-t border-border pt-2 sm:col-span-2">
+              <dt className="text-base font-semibold">Net kâr</dt>
+              <dd className="text-base">
+                <NetProfitCell display={net} />
+              </dd>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between gap-3">
             <dt className="text-base text-muted-foreground">Net kâr marjı</dt>
             <dd className="text-base">

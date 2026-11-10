@@ -4,12 +4,18 @@ import type { ReactNode } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProfitValue } from '@/components/profit-value';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatPercent, formatTRY } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { type BadgeSpec, type MetricDisplay, type NetProfitDisplay } from '@/lib/profit/present';
+import {
+  settingsRevisionLabel,
+  type BadgeSpec,
+  type LossDisplay,
+  type MetricDisplay,
+  type NetProfitDisplay,
+} from '@/lib/profit/present';
 import { RANGE_OPTIONS } from '@/lib/profit/query';
 import type { RangeName } from '@/lib/api/profit';
 
@@ -73,6 +79,60 @@ export function MetricValue({
     <span className="num font-semibold">
       {kind === 'money' ? formatTRY(metric.value) : formatPercent(metric.value)}
     </span>
+  );
+}
+
+/**
+ * Kesin zarardaki ürünün rakamı (UX-07): kırmızı, aşağı ok ve eksi işaretiyle. Net kâr bilinmiyorsa
+ * bilinen giderlerle hesaplanan tutar "en az" zarardır.
+ */
+export function LossAmount({ loss }: { loss: LossDisplay }) {
+  if (loss.exact) return <ProfitValue value={loss.amount} />;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-1">
+      <span className="font-semibold text-loss">En az</span>
+      <ProfitValue value={loss.amount} />
+      <span className="font-semibold text-loss">zarar</span>
+    </span>
+  );
+}
+
+/** Rapor alt bilgisi: "Ayar sürümü N". Alan yoksa (eski API) hiçbir şey çizilmez. */
+export function ReportFooter({ revision }: { revision: number | null | undefined }) {
+  const label = settingsRevisionLabel(revision);
+  if (!label) return null;
+  return <p className="num text-sm text-muted-foreground">{label}</p>;
+}
+
+/**
+ * Metrik kartı: etiket başlıktır (ekran okuyucu başlık listesinde "Net kâr" duyulur), rakam paragraftır.
+ * Görünüm eski düzenle aynıdır: küçük etiket üstte, büyük rakam altta (UX-14).
+ */
+export function MetricCard({
+  label,
+  children,
+  footer,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle as="h2" className="text-sm font-normal text-muted-foreground">
+          {label}
+        </CardTitle>
+        <p className="flex flex-wrap items-center gap-2 text-2xl font-semibold">{children}</p>
+      </CardHeader>
+      {footer ? (
+        <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
+          {footer}
+        </CardContent>
+      ) : null}
+    </Card>
   );
 }
 

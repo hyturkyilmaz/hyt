@@ -71,7 +71,14 @@ export interface PeriodTotals {
   satir_sayisi: number;
   net_satis_kdv_haric: Money;
   donem_duzeyi_giderler_toplami: Money;
-  donem_net_kar: Money;
+  /** K39 Revizyon 1: kısmi dönemde null (bilinmeyen terim); null iken asla 0,00 gösterilmez. */
+  satir_net_kar_toplami?: Money | null;
+  donem_net_kar: Money | null;
+  /**
+   * K39 Revizyon 1: her dönemde sayı; eksik kalemler hariç bilinen giderlerle dönem kârı.
+   * Eski API yanıtında alan yoktur, bu yüzden isteğe bağlı tanımlıdır.
+   */
+  donem_eksik_giderler_haric_kar?: Money;
   net_kar_kismi: boolean;
   maliyet_eksik_satir_sayisi: number;
   eksik_kalem_satir_sayilari: MissingLineCounts;
@@ -89,7 +96,12 @@ export interface StatusCounts {
   cancelled: number;
 }
 
-export interface ProfitSummary {
+/** Ayar sürümü (K44): her rapor yanıtında tamsayı; eski API'de yoktur. */
+export interface SettingsRevisioned {
+  settings_revision?: number;
+}
+
+export interface ProfitSummary extends SettingsRevisioned {
   period: ReportPeriod;
   totals: PeriodTotals;
   status_counts: StatusCounts;
@@ -115,7 +127,7 @@ export interface ProductProfitItem {
   shipping_missing: boolean;
 }
 
-export interface ProductProfitList {
+export interface ProductProfitList extends SettingsRevisioned {
   period: ReportPeriod;
   sort: string;
   order: string;
@@ -138,6 +150,10 @@ export interface ProductTotals {
   platform_hizmet_bedeli: Money;
   ceza: Money;
   degisken_giderler: Money;
+  /** Ürüne satırlar üzerinden dağıtılan reklam gideri (net kâra dahildir); eski API'de yoktur. */
+  reklam_satirlara_dagitilan?: Money;
+  /** Dönemde satışı olmayan ürüne yazılan reklam gideri; ürün net kârından düşülür (aggregate.py). Eski API'de yoktur. */
+  reklam_satissiz?: Money;
   maliyet_haric_katki: Money;
   eksik_giderler_haric_kar: Money;
   net_kar: Money | null;
@@ -214,7 +230,7 @@ export interface ComparisonSummary {
   difference: Money;
 }
 
-export interface ProductProfitDetail {
+export interface ProductProfitDetail extends SettingsRevisioned {
   period: ReportPeriod;
   barcode: string;
   title: string | null;
@@ -232,7 +248,7 @@ export interface AlertCount {
   message: string;
 }
 
-export interface ProfitAlerts {
+export interface ProfitAlerts extends SettingsRevisioned {
   period: ReportPeriod;
   counts: AlertCount[];
   total_count: number;

@@ -7,22 +7,30 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { EmptyState } from '@/components/panel/empty-state';
 import { PageHeader } from '@/components/panel/page-header';
 import {
+  LossAmount,
   Money,
   NetProfitCell,
   RangeSwitcher,
   ReportError,
+  ReportFooter,
   ReportSkeleton,
   SpecBadge,
 } from '@/components/profit/shared';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProfitValue } from '@/components/profit-value';
 import { profitApi, type ProductProfitItem, type RangeName } from '@/lib/api/profit';
 import { describeReportError } from '@/lib/profit/errors';
-import { certaintyBadge, lossBadge, netProfitDisplay, periodLabel } from '@/lib/profit/present';
+import {
+  certaintyBadge,
+  lossBadge,
+  lossDisplay,
+  netProfitDisplay,
+  periodLabel,
+} from '@/lib/profit/present';
 import {
   FILTER_OPTIONS,
+  defaultOrderFor,
   SORT_OPTIONS,
   parseProductQuery,
   productQueryString,
@@ -66,7 +74,10 @@ export function ProductListScreen() {
       />
       <div className="flex flex-col gap-4">
         <RangeSwitcher range={query.range} hrefFor={(range) => href({ range })} />
-        <FilterChips active={query.filter} hrefFor={(filter) => href({ filter })} />
+        <FilterChips
+          active={query.filter}
+          hrefFor={(filter) => href({ filter, order: defaultOrderFor(filter) })}
+        />
         <SortControls
           sort={query.sort}
           order={query.order}
@@ -202,6 +213,11 @@ function ProductResults({ accountId, query }: { accountId: string; query: Produc
         <span className="num">{first?.total_count ?? 0}</span> ürün, dönem:{' '}
         <span className="num">{period}</span>
       </p>
+      {query.filter === 'loss' && list.items.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Kargo ya da maliyeti eksik olup yine de zarar eden ürünler listenin sonunda.
+        </p>
+      ) : null}
       {list.items.length === 0 ? (
         <EmptyState
           Icon={Package}
@@ -226,6 +242,7 @@ function ProductResults({ accountId, query }: { accountId: string; query: Produc
           </Button>
         </div>
       ) : null}
+      <ReportFooter revision={first?.settings_revision} />
     </>
   );
 }
@@ -267,14 +284,41 @@ function KnownExpensesNote({ item }: { item: ProductProfitItem }) {
   );
 }
 
+/**
+ * Net kâr hücresi. Kesin zarardaki ama net kârı null olan ürün nötr görünmez: kırmızı "En az -₺X zarar" ve
+ * eksik kalemlerin zararı büyüteceği notu (UX-07). Diğer null değerler "Hesaplanamadı" + eksik kalem adları.
+ */
+function NetCell({ item }: { item: ProductProfitItem }) {
+  const loss = lossDisplay(item);
+  if (item.net_profit === null && loss) {
+    return (
+      <>
+        <LossAmount loss={loss} />
+        {loss.note ? (
+          <span className="block text-xs text-muted-foreground">{loss.note}</span>
+        ) : null}
+      </>
+    );
+  }
+  return (
+    <>
+      <NetProfitCell display={netDisplay(item)} compact />
+      <KnownExpensesNote item={item} />
+    </>
+  );
+}
+
+/**
+ * Rozetler: zarar nedeni, sonra kesinlik. Eksik bilgi "Eksik: kargo, hizmet bedeli" satırında zaten adıyla
+ * yazıldığından ayrıca "Kargo eksik" ve "Bilgi eksik" rozeti basılmaz (UX-10, tek kaynak).
+ */
 function ItemBadges({ item }: { item: ProductProfitItem }) {
   const loss = lossBadge(item);
-  const certainty = certaintyBadge(item.certainty);
-  if (!loss && !item.shipping_missing && !certainty) return null;
+  const certainty = item.certainty === 'eksik' ? null : certaintyBadge(item.certainty);
+  if (!loss && !certainty) return null;
   return (
     <span className="flex flex-wrap gap-1.5">
       {loss ? <SpecBadge spec={loss} /> : null}
-      {item.shipping_missing ? <Badge variant="warning">Kargo eksik</Badge> : null}
       {certainty ? <SpecBadge spec={certainty} /> : null}
     </span>
   );
@@ -302,8 +346,7 @@ function ProductCards({ items, range }: { items: ProductProfitItem[]; range: Ran
               <div>
                 <dt className="text-sm text-muted-foreground">Net kâr</dt>
                 <dd>
-                  <NetProfitCell display={netDisplay(item)} compact />
-                  <KnownExpensesNote item={item} />
+                  <NetCell item={item} />
                 </dd>
               </div>
               <div>
@@ -379,8 +422,7 @@ function ProductTable({ items, range }: { items: ProductProfitItem[]; range: Ran
                 <Money value={item.net_sales_excl_vat} />
               </td>
               <td className="px-4 py-3 align-top">
-                <NetProfitCell display={netDisplay(item)} compact />
-                <KnownExpensesNote item={item} />
+                <NetCell item={item} />
               </td>
               <td className="px-4 py-3 align-top">
                 <MarginCell item={item} />

@@ -8,7 +8,7 @@ export type AccountState =
   | { status: 'loading' }
   | { status: 'none' }
   | { status: 'error'; error: unknown }
-  | { status: 'ready'; accountId: string };
+  | { status: 'ready'; accountId: string; sellerId: string };
 
 /**
  * Rapor için kullanılacak pazaryeri hesabı: kiracının ilk AKTİF Trendyol bağlantısı.
@@ -24,7 +24,11 @@ export function useReportAccount(): { state: AccountState; retry: () => void } {
       .accounts(controller.signal)
       .then((accounts) => {
         const active = accounts.find((a) => a.status === 'active');
-        setState(active ? { status: 'ready', accountId: active.id } : { status: 'none' });
+        setState(
+          active
+            ? { status: 'ready', accountId: active.id, sellerId: active.seller_id }
+            : { status: 'none' },
+        );
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;

@@ -62,3 +62,8 @@ export function absAtLeast(a: string, b: string): boolean {
   };
   return lift(left) >= lift(right);
 }
+
+/** Sıralama için karşılaştırma: -1 (a < b), 0 (eşit), 1 (a > b); yuvarlama yapılmaz. */
+export function compareDecimal(a: string, b: string): -1 | 0 | 1 {
+  return decimalSign(subtractDecimal(a, b));
+}
