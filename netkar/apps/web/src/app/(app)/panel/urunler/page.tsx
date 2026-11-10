@@ -1,24 +1,15 @@
-import { Package } from 'lucide-react';
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 
-import { EmptyState } from '@/components/panel/empty-state';
-import { PageHeader } from '@/components/panel/page-header';
+import { PanelSkeleton } from '@/components/panel/panel-skeleton';
+import { ProductListScreen } from '@/components/profit/product-list';
 
 export const metadata: Metadata = { title: 'Ürünler' };
 
 export default function ProductsPage() {
   return (
-    <>
-      <PageHeader
-        title="Ürünler"
-        description="Her ürünün komisyon, kargo, iade ve reklam sonrası net kârı."
-      />
-      <EmptyState
-        Icon={Package}
-        title="Henüz ürün yok"
-        description="Trendyol mağazanızı bağladığınızda ürünleriniz burada listelenir. Zarar ettirenler en üstte görünür."
-        action={{ href: '/panel/ayarlar', label: 'Mağazayı bağla' }}
-      />
-    </>
+    <Suspense fallback={<PanelSkeleton />}>
+      <ProductListScreen />
+    </Suspense>
   );
 }

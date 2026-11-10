@@ -58,6 +58,11 @@ createServer((req, res) => {
     }
     return send(res, 200, ME);
   }
+  // Rapor ekranları için varsayılan: bağlı mağaza yok (boş durum). Veri senaryoları e2e/profit.spec.ts
+  // içinde tarayıcı isteklerini Playwright route ile taklit eder.
+  if (req.method === 'GET' && url.pathname === '/v1/marketplace-accounts') {
+    return send(res, 200, []);
+  }
   if (req.method === 'GET' && url.pathname === '/v1/auth/csrf') {
     const token = 'sahte-csrf-token-0123456789abcdef0123456789';
     return send(
