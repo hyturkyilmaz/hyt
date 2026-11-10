@@ -16,10 +16,11 @@ import {
   FormActions,
   FormRootError,
   SHIPPING_VAT_RATE,
+  EchoLine,
   ZeroEnteredNote,
   applyServerErrors,
   isZeroText,
-  vatEquivalentText,
+  parsedEcho,
 } from '@/components/settings/settings-forms';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,7 +44,13 @@ import {
   type CarriersOut,
   type SettingsOut,
 } from '@/lib/api/profit-settings';
-import { addDays, formatDesi, formatLongDate, toInputText } from '@/lib/profit/settings-input';
+import {
+  addDays,
+  formatDesi,
+  formatLongDate,
+  isDateText,
+  toInputText,
+} from '@/lib/profit/settings-input';
 import {
   AGREEMENT_LABELS,
   carrierLabel,
@@ -91,6 +98,11 @@ export function TariffSection({
       scope: 'kargo',
       topic: 'retract-cargo',
       successText: () => `${carrierLabel(tariff.carrier)} tarifesi geri çekildi.`,
+      clientConfirm: {
+        title: `${carrierLabel(tariff.carrier)} tarifesi (${formatLongDate(tariff.valid_from)} başlangıçlı) geri çekilsin mi?`,
+        body: 'Önceki değer ayar geçmişinde kalır.',
+        applyLabel: 'Geri çek',
+      },
       send: (g) =>
         profitSettingsApi.deleteCargoTariff(accountId, tariff.id, {
           expected_revision: g.expectedRevision,
@@ -101,7 +113,7 @@ export function TariffSection({
   }
 
   return (
-    <Card id="kargo" aria-labelledby="kargo-baslik" className="scroll-mt-4">
+    <Card as="section" id="kargo" aria-labelledby="kargo-baslik" className="scroll-mt-4">
       <CardHeader>
         <SectionHeading
           id="kargo"
@@ -130,6 +142,7 @@ export function TariffSection({
             accountId={accountId}
             mode={mode}
             carriers={carriers}
+            existing={tariffs}
             today={today}
             onClose={() => setMode(null)}
           />
@@ -247,12 +260,15 @@ function TariffForm({
   accountId,
   mode,
   carriers,
+  existing,
   today,
   onClose,
 }: {
   accountId: string;
   mode: FormMode;
   carriers: CarriersState;
+  /** Kayıtlı sürümler: "bugünden itibaren" gönderimi aynı anahtarlı bugünkü sürümü ezecekse sunulmaz (AF-07) */
+  existing: readonly CargoTariffOut[];
   today: string;
   onClose: () => void;
 }) {
@@ -277,7 +293,8 @@ function TariffForm({
       : {
           agreement: 'trendyol',
           carrier: '',
-          // AB-01: ilk siparişten önce bir başlangıç; hesabın ilk sipariş tarihi API'de yok, tarama penceresi kullanılır
+          // AB-01, AF-05: ilk siparişten önce bir başlangıç. Hesabın ilk sipariş günü API'de yok (earliest_order_day
+          // gelince oradan beslenecek); şimdilik YAKLAŞIK öneri: tarama penceresi kadar geri
           validFrom: addDays(today, -lookback),
           vatMode: 'dahil',
           brackets: [{ maxDesi: '', price: '' }],
@@ -295,7 +312,7 @@ function TariffForm({
   const carrierOptions = useMemo(() => {
     const items = (carriers.data?.items ?? []).filter((c) => c.agreement === agreement);
     const seen = new Set<string>([OTHER_CARRIERS]);
-    const options: { value: string; label: string }[] = [];
+    const options: { value: string; label: string; status?: string }[] = [];
     for (const item of items) {
       const value = carrierValue(item.carrier);
       if (seen.has(value)) continue;
@@ -303,6 +320,9 @@ function TariffForm({
       options.push({
         value,
         label: `${carrierLabel(item.carrier)} (son ${lookback} günde ${item.line_count} satır${item.covered ? '' : ', tarifesi yok'})`,
+        status: item.covered
+          ? `${carrierLabel(item.carrier)}: son ${lookback} günde ${item.line_count} satır, tarifesi var.`
+          : `${carrierLabel(item.carrier)}: son ${lookback} günde ${item.line_count} satır, henüz tarifesi yok.`,
       });
     }
     // Düzenlenen kaydın firması listede yoksa yine seçilebilir kalır
@@ -313,8 +333,14 @@ function TariffForm({
     return options;
   }, [carriers.data, agreement, lookback, selectedCarrier]);
 
+  // Kapalı `select` dar ekranda "tarifesi yok" bilgisini kesebilir: seçili firmanın durumu açıklamaya da yazılır (AF-14)
+  const selectedStatus = carrierOptions.find((o) => o.value === selectedCarrier)?.status;
+
   function submit(values: TariffFormValues) {
     const body = toTariffBody(values);
+    const todayVersionExists = existing.some(
+      (t) => t.valid_from === today && t.agreement === body.agreement && t.carrier === body.carrier,
+    );
     void writer.run({
       scope: 'kargo',
       topic: 'dated',
@@ -328,8 +354,10 @@ function TariffForm({
           expected_revision: g.expectedRevision,
           confirm_affects_from: g.confirmAffectsFrom,
         }),
+      // ADR-0007 §5.2: ikincil düğme yalnız eklemede (düzenlemede 1 Ekim sürümünü düzeltmek isteyen kullanıcı yanlışlıkla
+      // yeni sürüm eklerdi). Aynı anahtarlı (anlaşma, firma) bugün başlayan sürüm varsa o sessizce ezilirdi: düğme yok.
       sendFromToday:
-        body.valid_from < today
+        editing === null && body.valid_from < today && !todayVersionExists
           ? (g) =>
               profitSettingsApi.putCargoTariff(accountId, {
                 ...body,
@@ -338,16 +366,19 @@ function TariffForm({
               })
           : undefined,
       onDone: onClose,
+      // Yalnız çizilen alanların hatası alanın yanına gider; kalanı form başındaki hata satırına düşer (AF-08)
       onInvalid: (error: ApiError) =>
-        applyServerErrors(form, error, [
-          'agreement',
-          'carrier',
-          'validFrom',
-          'vatMode',
-          'brackets',
-        ]),
+        applyServerErrors(
+          form,
+          error,
+          editing
+            ? ['vatMode', 'brackets']
+            : ['agreement', 'carrier', 'validFrom', 'vatMode', 'brackets'],
+        ),
+      // Düzenlemede kayıt ya da sürüm değişti: form eski değerlerle açık kalıp başkasının değişikliğini ezmesin
+      // (AF-11); yeni değerlerle yeniden açmak için bildirimdeki yönerge izlenir
       onStale: (reason) => {
-        if (reason === 'record-ended') onClose();
+        if (reason === 'record-ended' || (reason === 'revision-conflict' && editing)) onClose();
       },
     });
   }
@@ -378,6 +409,7 @@ function TariffForm({
               name="agreement"
               render={({ field }) => (
                 <ChoiceGroup<Agreement>
+                  error={form.formState.errors.agreement?.message}
                   legend="Kargo anlaşması"
                   name="agreement"
                   value={field.value}
@@ -390,12 +422,12 @@ function TariffForm({
                     {
                       value: 'trendyol',
                       label: AGREEMENT_LABELS.trendyol,
-                      hint: 'Trendyol anlaşmalı kargo (Trendyol öder).',
+                      hint: "Trendyol'un anlaştığı kargo firmaları. Bedel, kargo faturasıyla hakedişinizden düşülür.",
                     },
                     {
                       value: 'seller',
                       label: AGREEMENT_LABELS.seller,
-                      hint: 'Kendi anlaşmanızla gönderdiğiniz siparişler.',
+                      hint: 'Kendi anlaşmanızla gönderdiğiniz siparişler. Trendyol kargo faturası kesmez.',
                     },
                   ]}
                 />
@@ -423,6 +455,7 @@ function TariffForm({
                       : carriers.status === 'error'
                         ? 'Firma listesi alınamadı; şimdilik yalnız "Diğer firmalar" seçilebilir.'
                         : 'Firma adlarını siparişlerinizden getiririz; yazım farkı olmasın diye elle yazılmaz.'}
+                    {selectedStatus ? <span className="mt-1 block">{selectedStatus}</span> : null}
                     {carriers.status === 'error' ? (
                       <>
                         {' '}
@@ -450,8 +483,12 @@ function TariffForm({
                     <Input type="date" {...field} />
                   </FormControl>
                   <FormDescription>
-                    Bu tarihten sonraki siparişlerde kullanılır. Geçmiş siparişlerinizi de
-                    hesaplatmak için hesabınızın ilk siparişinden önceki bir tarih seçin.
+                    {field.value && isDateText(field.value)
+                      ? `${formatLongDate(field.value)} ve sonrasındaki siparişlerde kullanılır.`
+                      : 'Bu tarihten sonraki siparişlerde kullanılır.'}{' '}
+                    Önerilen tarih yaklaşıktır (bugünden {lookback} gün önce). Geçmiş
+                    siparişlerinizi de hesaplatmak için tarihi hesabınızdaki en eski siparişten ÖNCE
+                    seçin; emin değilseniz daha eski bir tarih seçin.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -465,6 +502,7 @@ function TariffForm({
           name="vatMode"
           render={({ field }) => (
             <ChoiceGroup
+              error={form.formState.errors.vatMode?.message}
               legend="Fiyatları nasıl giriyorsunuz?"
               name="vatMode"
               value={field.value}
@@ -487,12 +525,19 @@ function TariffForm({
           <ul className="flex list-none flex-col gap-3 p-0">
             {fields.map((row, index) => {
               const priceText = watched.brackets?.[index]?.price ?? '';
-              const equivalent = vatEquivalentText(priceText, includesVat, SHIPPING_VAT_RATE);
+              const equivalent = parsedEcho(priceText, {
+                kind: 'money',
+                includesVat,
+                vatRate: SHIPPING_VAT_RATE,
+              });
+              const desiEcho = parsedEcho(watched.brackets?.[index]?.maxDesi ?? '', {
+                kind: 'desi',
+              });
               return (
                 <li
                   key={row.id}
                   aria-label={`${index + 1}. kademe`}
-                  className="grid grid-cols-[1fr_auto] items-start gap-x-2 gap-y-3 rounded-md border border-border bg-surface p-3 sm:grid-cols-[1fr_1fr_auto]"
+                  className="grid grid-cols-1 items-start gap-x-3 gap-y-3 rounded-md border border-border bg-surface p-3 sm:grid-cols-[1fr_1fr_auto]"
                 >
                   <FormField
                     control={form.control}
@@ -508,26 +553,20 @@ function TariffForm({
                             {...field}
                           />
                         </FormControl>
+                        {desiEcho ? (
+                          <FormDescription>
+                            <EchoLine echo={desiEcho} />
+                          </FormDescription>
+                        ) : null}
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="row-start-1 flex items-end justify-end self-end sm:col-start-3 sm:row-start-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => remove(index)}
-                      disabled={fields.length <= 1}
-                    >
-                      <Trash2 aria-hidden="true" />
-                      <span className="sr-only">{index + 1}. kademeyi sil</span>
-                    </Button>
-                  </div>
                   <FormField
                     control={form.control}
                     name={`brackets.${index}.price`}
                     render={({ field }) => (
-                      <FormItem className="col-span-2 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+                      <FormItem>
                         <FormLabel>
                           {index + 1}. kademe fiyatı ({includesVat ? 'KDV dahil' : 'KDV hariç'}, TL)
                         </FormLabel>
@@ -541,12 +580,26 @@ function TariffForm({
                             </ZeroEnteredNote>
                           </FormDescription>
                         ) : equivalent ? (
-                          <FormDescription className="num">{equivalent}</FormDescription>
+                          <FormDescription>
+                            <EchoLine echo={equivalent} />
+                          </FormDescription>
                         ) : null}
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  {/* DOM sırası görsel sırayla aynı: desi, fiyat, sil (WCAG 1.3.2, 2.4.3) */}
+                  <div className="flex justify-end sm:pt-7">
+                    <Button
+                      variant="ghost"
+                      onClick={() => remove(index)}
+                      disabled={fields.length <= 1}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      <span aria-hidden="true">Kademeyi sil</span>
+                      <span className="sr-only">{index + 1}. kademeyi sil</span>
+                    </Button>
+                  </div>
                 </li>
               );
             })}
@@ -573,7 +626,8 @@ function TariffForm({
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Desiler artan sırada olmalı. Ondalık için virgül ya da nokta kullanabilirsiniz.
+            Desiler artan sırada olmalı. Ondalık için virgül kullanın (54,50); nokta yalnız binlik
+            ayracıdır (1.250,00).
           </p>
         </div>
 

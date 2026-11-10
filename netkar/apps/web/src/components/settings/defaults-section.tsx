@@ -3,11 +3,16 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 
 import { SectionHeading, SectionNotice } from '@/components/settings/fields';
 import { useSettingsWriter } from '@/components/settings/settings-writer';
-import { FormRootError, applyServerErrors } from '@/components/settings/settings-forms';
+import {
+  EchoLine,
+  FormRootError,
+  applyServerErrors,
+  parsedEcho,
+} from '@/components/settings/settings-forms';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -47,6 +52,10 @@ export function DefaultsSection({
     defaultValues: { desi: current === null ? '' : toInputText(current) },
   });
 
+  const desiEcho = parsedEcho(useWatch({ control: form.control, name: 'desi' }) ?? '', {
+    kind: 'desi',
+  });
+
   // Sunucudaki değer değişince (kayıt, yenileme) alan onu gösterir
   useEffect(() => {
     form.reset({ desi: current === null ? '' : toInputText(current) });
@@ -70,7 +79,7 @@ export function DefaultsSection({
   }
 
   return (
-    <Card id="desi" aria-labelledby="desi-baslik" className="scroll-mt-4">
+    <Card as="section" id="desi" aria-labelledby="desi-baslik" className="scroll-mt-4">
       <CardHeader>
         <SectionHeading
           id="desi"
@@ -106,6 +115,11 @@ export function DefaultsSection({
                       Boş bırakıp kaydederseniz varsayılan desi kaldırılır. Değiştirmek, siparişinde
                       desi olmayan geçmiş siparişlerin kargo tahminini de etkiler.
                     </FormDescription>
+                    {desiEcho ? (
+                      <FormDescription>
+                        <EchoLine echo={desiEcho} />
+                      </FormDescription>
+                    ) : null}
                     <FormMessage />
                   </FormItem>
                 )}

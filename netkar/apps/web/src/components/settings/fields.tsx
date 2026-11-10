@@ -3,7 +3,11 @@
 import { CheckCircle2, Info, TriangleAlert, X } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 
-import { useSettingsWriter, type SettingsScope } from '@/components/settings/settings-writer';
+import {
+  useSettingsWriter,
+  type SettingsNotice,
+  type SettingsScope,
+} from '@/components/settings/settings-writer';
 import { cn } from '@/lib/utils';
 
 /** Yerel `<select>` görünümü (ürün listesindeki sıralama seçicisiyle aynı) */
@@ -23,19 +27,40 @@ const NOTICE_TONES = {
  */
 export function SectionNotice({ scope }: { scope: SettingsScope }) {
   const { notice, dismissNotice } = useSettingsWriter();
-  if (!notice || notice.scope !== scope) return null;
-  const { Icon, className } = NOTICE_TONES[notice.tone];
-  const urgent = notice.tone === 'error' || notice.tone === 'warning';
+  const visible = notice !== null && notice.scope === scope;
+  const urgent = visible && (notice.tone === 'error' || notice.tone === 'warning');
+  const box = visible ? (
+    <NoticeBox tone={notice.tone} text={notice.text} onDismiss={dismissNotice} />
+  ) : null;
   return (
-    <div
-      role={urgent ? 'alert' : 'status'}
-      className={cn('flex items-start gap-2 rounded-lg p-3 text-sm font-medium', className)}
-    >
+    <>
+      {/* Boş canlı bölge sayfada kalıcıdır; metin sonradan konunca ekran okuyucular okur (AF-15). Boşken akışa
+          boşluk eklemesin diye alttaki eksi kenar boşluğu `gap` aralığını geri alır. */}
+      <div role="status" className={visible && !urgent ? undefined : '-mb-4'}>
+        {visible && !urgent ? box : null}
+      </div>
+      {urgent ? <div role="alert">{box}</div> : null}
+    </>
+  );
+}
+
+function NoticeBox({
+  tone,
+  text,
+  onDismiss,
+}: {
+  tone: SettingsNotice['tone'];
+  text: string;
+  onDismiss: () => void;
+}) {
+  const { Icon, className } = NOTICE_TONES[tone];
+  return (
+    <div className={cn('flex items-start gap-2 rounded-lg p-3 text-sm font-medium', className)}>
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      <p className="flex-1">{notice.text}</p>
+      <p className="flex-1">{text}</p>
       <button
         type="button"
-        onClick={dismissNotice}
+        onClick={onDismiss}
         className="-m-2 inline-flex size-touch shrink-0 items-center justify-center rounded-md hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <X className="size-4" aria-hidden="true" />
@@ -60,6 +85,7 @@ export function ChoiceGroup<T extends string>({
   onChange,
   disabled,
   description,
+  error,
 }: {
   legend: string;
   name: string;
@@ -68,13 +94,19 @@ export function ChoiceGroup<T extends string>({
   onChange: (value: T) => void;
   disabled?: boolean;
   description?: ReactNode;
+  /** Sunucu 422 hatası ya da doğrulama iletisi (AF-08); seçeneklere `aria-invalid` ve açıklama bağı konur */
+  error?: string;
 }) {
   const descriptionId = useId();
+  const errorId = useId();
+  const describedBy = [error ? errorId : null, description ? descriptionId : null]
+    .filter(Boolean)
+    .join(' ');
   return (
     <fieldset
       className="flex min-w-0 flex-col gap-2"
       disabled={disabled}
-      aria-describedby={description ? descriptionId : undefined}
+      aria-describedby={describedBy || undefined}
     >
       <legend className="mb-1 text-sm font-medium">{legend}</legend>
       <div className="grid gap-2 sm:grid-cols-2">
@@ -100,6 +132,21 @@ export function ChoiceGroup<T extends string>({
           </label>
         ))}
       </div>
+      {error ? (
+        <p
+          id={errorId}
+          role="alert"
+          className="flex items-start gap-1.5 text-sm font-medium text-loss"
+        >
+          <span aria-hidden="true" className="mt-0.5 font-bold">
+            !
+          </span>
+          <span>
+            <span className="sr-only">Hata: </span>
+            {error}
+          </span>
+        </p>
+      ) : null}
       {description ? (
         <p id={descriptionId} className="text-sm text-muted-foreground">
           {description}
@@ -127,7 +174,12 @@ export function SectionHeading({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 id={`${id}-baslik`} className="text-xl font-semibold">
+          {/* tabIndex -1: yazım sonrası odak buraya döner (settings-writer restoreFocus) */}
+          <h2
+            id={`${id}-baslik`}
+            tabIndex={-1}
+            className="rounded-sm text-xl font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             {title}
           </h2>
           {badge}

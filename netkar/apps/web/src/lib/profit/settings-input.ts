@@ -6,9 +6,15 @@ import { groupThousands } from '@/lib/decimal';
 // --------------------------------------------------------------------------- ondalık girdi
 
 export type DecimalParse =
-  { ok: true; value: string } | { ok: false; reason: 'empty' | 'invalid' | 'too_many_decimals' };
+  | { ok: true; value: string }
+  | { ok: false; reason: 'empty' | 'invalid' | 'too_many_decimals' | 'ambiguous' };
 
 const MAX_INTEGER_DIGITS = 15;
+const SPACES = '\\s\u00a0\u202f';
+const EDGE_SPACES = new RegExp(`^[${SPACES}]+|[${SPACES}]+$`, 'g');
+const INNER_SPACE = new RegExp(`[${SPACES}]`);
+const ALLOWED_CHARS = new RegExp(`^[0-9.,${SPACES}]+$`);
+const GROUP_SPLIT = new RegExp(`[.${SPACES}]`);
 
 function stripLeadingZeros(digits: string): string {
   const stripped = digits.replace(/^0+(?=\d)/, '');
@@ -16,62 +22,55 @@ function stripLeadingZeros(digits: string): string {
 }
 
 /**
- * Kullanıcının yazdığı sayıyı kanonik Decimal dizgesine çevirir ("54,50" ve "54.50" -> "54.50").
- * Virgül ve nokta ondalık ayracı olarak kabul edilir. İkisi birlikte varsa son geçen ondalıktır, diğeri binlik
- * ayracıdır ("1.250,50"). Tek ayraç ve tam üç hane sonrası ("1.250") binliktir (ondalık en çok 2 ya da 4 hane).
- * Negatif, üstel gösterim ve harf reddedilir.
+ * Kullanıcının yazdığı sayıyı kanonik Decimal dizgesine çevirir. TEK KURAL (para, desi ve oran alanlarının hepsi):
+ *  - Ondalık ayracı yalnız VİRGÜLDÜR ("54,50"). Virgülden sonra hane sayısı sınırı aşarsa para alanında bile
+ *    binlik sayılmaz, reddedilir ("12,550" -> too_many_decimals); sessizce 1000 kat değişen tutar olmaz.
+ *  - Nokta (ya da boşluk) yalnız BİNLİK ayracıdır ve yalnız doğru gruplamayla kabul edilir: ilk grup 1-3 hane
+ *    (başında 0 yok), sonrakiler tam 3 hane ("1.250", "1.250,50", "1.250.000").
+ *  - Gruplamaya uymayan tek nokta ("12.5", "54.50", "0.500") belirsizdir (ondalık mı binlik mi) ve reddedilir
+ *    (ambiguous); kullanıcıdan virgül istenir.
+ * Negatif, üstel gösterim, harf ve İngilizce biçim ("1,250.50") reddedilir.
  */
 export function parseDecimalInput(text: string, maxFraction: number): DecimalParse {
-  const compact = text.replace(/[\s ]/g, '');
-  if (compact === '') return { ok: false, reason: 'empty' };
-  if (!/^[0-9.,]+$/.test(compact)) return { ok: false, reason: 'invalid' };
+  const trimmed = text.replace(EDGE_SPACES, '');
+  if (trimmed === '') return { ok: false, reason: 'empty' };
+  if (!ALLOWED_CHARS.test(trimmed)) return { ok: false, reason: 'invalid' };
 
-  const lastDot = compact.lastIndexOf('.');
-  const lastComma = compact.lastIndexOf(',');
-  let decimalAt = -1;
-  let thousands = '';
-  if (lastDot >= 0 && lastComma >= 0) {
-    decimalAt = Math.max(lastDot, lastComma);
-    thousands = lastDot > lastComma ? ',' : '.';
-  } else if (lastDot >= 0 || lastComma >= 0) {
-    const sep = lastDot >= 0 ? '.' : ',';
-    const at = Math.max(lastDot, lastComma);
-    const count = compact.split(sep).length - 1;
-    const after = compact.length - at - 1;
-    const before = compact.slice(0, at);
-    if (count > 1) {
-      thousands = sep;
-    } else if (after === 3 && maxFraction < 3 && before !== '' && before !== '0') {
-      thousands = sep;
-    } else {
-      decimalAt = at;
+  const commaCount = trimmed.split(',').length - 1;
+  if (commaCount > 1) return { ok: false, reason: 'invalid' };
+  const commaAt = trimmed.indexOf(',');
+  const integerRaw = commaAt >= 0 ? trimmed.slice(0, commaAt) : trimmed;
+  const fraction = commaAt >= 0 ? trimmed.slice(commaAt + 1) : '';
+
+  if (commaAt >= 0) {
+    // "12," ve "1,5.3" geçersiz; hane sınırı aşımı ayrı nedenle bildirilir
+    if (!/^\d+$/.test(fraction)) return { ok: false, reason: 'invalid' };
+    if (fraction.length > maxFraction) return { ok: false, reason: 'too_many_decimals' };
+  }
+
+  let integer: string;
+  if (/^\d*$/.test(integerRaw)) {
+    integer = integerRaw;
+  } else {
+    // Binlik gruplama: nokta ya da boşluk (ikisi birlikte olamaz)
+    if (integerRaw.includes('.') && INNER_SPACE.test(integerRaw)) {
+      return { ok: false, reason: 'invalid' };
     }
-  }
-
-  // Binlik ayracı ondalık ayracından sonra gelemez ("1,5.3")
-  if (thousands && decimalAt >= 0 && compact.lastIndexOf(thousands) > decimalAt) {
-    return { ok: false, reason: 'invalid' };
-  }
-  const integerPart = decimalAt >= 0 ? compact.slice(0, decimalAt) : compact;
-  const fractionPart = decimalAt >= 0 ? compact.slice(decimalAt + 1) : '';
-  // Binlik gruplar: ilk grup 1-3 hane, diğerleri tam 3 hane ("1.250", "12.345.678")
-  if (thousands) {
-    const groups = integerPart.split(thousands);
-    const valid = groups.every((group, index) =>
-      index === 0 ? /^\d{1,3}$/.test(group) : /^\d{3}$/.test(group),
+    const groups = integerRaw.split(GROUP_SPLIT);
+    const grouped = groups.every((group, index) =>
+      index === 0 ? /^[1-9]\d{0,2}$/.test(group) : /^\d{3}$/.test(group),
     );
-    if (!valid) return { ok: false, reason: 'invalid' };
+    if (!grouped) {
+      const singleDot = commaAt < 0 && /^\d+\.\d+$/.test(integerRaw);
+      return { ok: false, reason: singleDot ? 'ambiguous' : 'invalid' };
+    }
+    integer = groups.join('');
   }
-  const integer = thousands ? integerPart.split(thousands).join('') : integerPart;
-  // Ondalık ayracı ikinci kez geçemez ve kalan metin yalnız rakam olmalı
-  if (!/^\d*$/.test(integer) || !/^\d*$/.test(fractionPart))
-    return { ok: false, reason: 'invalid' };
-  if (integer === '' && fractionPart === '') return { ok: false, reason: 'invalid' };
-  if (decimalAt >= 0 && fractionPart === '') return { ok: false, reason: 'invalid' };
+  // Gruplamasız tek nokta ("12.5", "0.500") buraya gelmeden yukarıda ambiguous döner
+  if (integer === '' && fraction === '') return { ok: false, reason: 'invalid' };
   if (integer.length > MAX_INTEGER_DIGITS) return { ok: false, reason: 'invalid' };
-  if (fractionPart.length > maxFraction) return { ok: false, reason: 'too_many_decimals' };
   const whole = stripLeadingZeros(integer === '' ? '0' : integer);
-  return { ok: true, value: fractionPart ? `${whole}.${fractionPart}` : whole };
+  return { ok: true, value: fraction ? `${whole}.${fraction}` : whole };
 }
 
 /** İki ondalığa tamamlar ("54" -> "54.00", "54.5" -> "54.50"); gönderilen tutar kuruş biçimindedir. */

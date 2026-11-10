@@ -7,6 +7,7 @@ import type {
   ExpenseKind,
   HistoryItemOut,
   ServiceFeeOut,
+  SettingsOut,
   VariableExpenseOut,
 } from '@/lib/api/profit-settings';
 import { OTHER_CARRIERS } from '@/lib/api/profit-settings';
@@ -56,18 +57,53 @@ export interface SetupStep {
   id: 'kargo' | 'hizmet-bedeli';
   label: string;
   done: boolean;
+  /** Bölüme derin bağlantı (#kargo, #hizmet-bedeli) */
+  href: string;
 }
+
+/** Henüz yapılmamış üçüncü adım (UX §8.1): sayıya katılmaz, "yakında" olarak gösterilir (ürün maliyeti ekranı yok). */
+export const COMING_STEP = {
+  label: 'Ürün maliyetleri',
+  text: 'Ürünler ekranında girilecek (yakında)',
+} as const;
 
 /** UX §8.1: ilerleme göstergesi. `completeness` yalnız bu ekranda "bugün geçerli" anlamıyla kullanılır (§7.3). */
 export function setupSteps(completeness: Completeness): SetupStep[] {
   return [
-    { id: 'kargo', label: 'Kargo tarifesi', done: completeness.cargo_tariff_defined },
+    {
+      id: 'kargo',
+      label: 'Kargo tarifesi',
+      done: completeness.cargo_tariff_defined,
+      href: '#kargo',
+    },
     {
       id: 'hizmet-bedeli',
       label: 'Hizmet bedeli',
       done: completeness.service_fee_estimate_defined,
+      href: '#hizmet-bedeli',
     },
   ];
+}
+
+/**
+ * Tamamlanmış adımda en eski başlangıç bugünse bugünden önceki siparişlerin hâlâ eksik kaldığını söyler (AF-13):
+ * "bugün geçerli" geçmiş dönemin hesaplandığı anlamına gelmez (AB-01).
+ */
+export function pastCoverageNote(
+  settings: SettingsOut,
+  id: SetupStep['id'],
+  today: string,
+): string | null {
+  const starts =
+    id === 'kargo'
+      ? settings.cargo_tariffs.map((t) => t.valid_from)
+      : settings.service_fee_estimates.map((f) => f.valid_from);
+  if (starts.length === 0) return null;
+  const earliest = starts.reduce((a, b) => (a < b ? a : b));
+  if (earliest < today) return null;
+  return id === 'kargo'
+    ? 'Bugünden önceki siparişler için tarife yok; geçmiş raporlar eksik kalır.'
+    : 'Bugünden önceki siparişler için tahmin yok; geçmiş raporlar eksik kalır.';
 }
 
 export function setupProgressText(steps: readonly SetupStep[]): string {

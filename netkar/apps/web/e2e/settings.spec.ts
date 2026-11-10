@@ -192,7 +192,9 @@ for (const scheme of ['light', 'dark'] as const) {
       await mockApi(page, { settings: () => ({ body: makeEmptySettings() }) });
       await page.goto('/panel/ayarlar');
       const form = await openTariffForm(page);
-      await expect(form.getByText('54,00 TL KDV dahil = 45,00 TL KDV hariç')).toBeVisible();
+      await expect(
+        form.getByText('Kaydedilecek: 54,00 TL KDV dahil = 45,00 TL KDV hariç'),
+      ).toBeVisible();
       await form.getByRole('button', { name: 'Kademe ekle' }).click();
       await form.getByLabel('2. kademe, en çok desi').fill('5');
       await form.getByLabel(/2\. kademe fiyatı/).fill('0');
@@ -210,7 +212,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.goto('/panel/ayarlar');
       const form = await openTariffForm(page);
       await form.getByRole('button', { name: 'Kaydet ve rakamları güncelle' }).click();
-      const dialog = page.getByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+      const dialog = page.getByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
       await expect(dialog).toBeVisible();
       await expect(dialog).toContainText(
         'Bu değişiklik 10 Ağustos 2026 ve sonrasındaki siparişlerin kâr hesabını değiştirir. Daha önce indirdiğiniz ya da paylaştığınız raporlardaki rakamlar artık farklı olabilir. Önceki değer ayar geçmişinde saklanır.',
@@ -309,7 +311,7 @@ test.describe('kâr ayarları, davranış', () => {
     const form = await openTariffForm(page);
     await form.getByRole('button', { name: 'Kaydet ve rakamları güncelle' }).click();
     await expect(page.getByText(/Tarife eklendi/)).toBeVisible();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
     const put = seen.find((s) => s.method === 'PUT');
     expect(put?.body).toMatchObject({ carrier: 'Yurtiçi Kargo', expected_revision: 0 });
     expect(put?.body).not.toHaveProperty('confirm_affects_from');
@@ -339,7 +341,7 @@ test.describe('kâr ayarları, davranış', () => {
     await page.goto('/panel/ayarlar');
     const form = await openTariffForm(page);
     await form.getByRole('button', { name: 'Kaydet ve rakamları güncelle' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+    const dialog = page.getByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
     await dialog.getByRole('button', { name: 'Değişikliği uygula' }).click();
     await expect(page.getByText(/Tarife eklendi/)).toBeVisible();
     await expect(dialog).toBeHidden();
@@ -356,7 +358,7 @@ test.describe('kâr ayarları, davranış', () => {
     await page.goto('/panel/ayarlar');
     const form = await openTariffForm(page);
     await form.getByRole('button', { name: 'Kaydet ve rakamları güncelle' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+    const dialog = page.getByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
     await dialog.getByRole('button', { name: 'Vazgeç' }).click();
     await expect(dialog).toBeHidden();
     expect(seen.filter((s) => s.method === 'PUT')).toHaveLength(1);
@@ -388,7 +390,7 @@ test.describe('kâr ayarları, davranış', () => {
     const form = await openTariffForm(page);
     await form.getByRole('button', { name: 'Kaydet ve rakamları güncelle' }).click();
     await page
-      .getByRole('dialog', { name: 'Geçmiş raporlar değişecek' })
+      .getByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' })
       .getByRole('button', { name: 'Yalnız bugünden itibaren uygula' })
       .click();
     await expect(page.getByText(/Tarife eklendi/)).toBeVisible();
@@ -413,7 +415,14 @@ test.describe('kâr ayarları, davranış', () => {
     });
     await page.goto('/panel/ayarlar');
     await page.getByRole('button', { name: /Geri çek\s*: Trendyol Express/ }).click();
-    const dialog = page.getByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+    // Önce istemci onayı (WCAG 3.3.4), henüz istek yok
+    const clientDialog = page.getByRole('alertdialog', {
+      name: 'Trendyol Express tarifesi (1 Ekim 2026 başlangıçlı) geri çekilsin mi?',
+    });
+    await expect(clientDialog).toBeVisible();
+    expect(seen.filter((s) => s.method === 'DELETE')).toHaveLength(0);
+    await clientDialog.getByRole('button', { name: 'Geri çek' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
     await expect(dialog).toContainText(
       "Bu sürüm geri çekilirse 1 Ekim 2026 sonrası siparişlerde kargo önceki sürümden ya da 'diğer firmalar' tarifesinden hesaplanır",
     );
@@ -422,6 +431,116 @@ test.describe('kâr ayarları, davranış', () => {
     const deletes = seen.filter((s) => s.method === 'DELETE');
     expect(deletes[1]?.query.get('confirm_affects_from')).toBe('2026-10-01');
     expect(deletes[1]?.query.get('expected_revision')).toBe('7');
+  });
+
+  test('odak: pencere kapanınca tetikleyiciye, başarıda bölüm başlığına döner (AF-02)', async ({
+    page,
+  }) => {
+    let attempt = 0;
+    await mockApi(page, {
+      writes: {
+        'PUT /cargo-tariffs': () => {
+          attempt += 1;
+          if (attempt <= 2) return PAST_409('2026-08-10');
+          return {
+            body: { ...makeWriteInfo({ revision: 10 }), created: true, tariff: makeTariff() },
+          };
+        },
+        [`DELETE /cargo-tariffs/${TARIFF_ID}`]: () => ({
+          body: makeWriteInfo({ revision: 8, action: 'retracted' }),
+        }),
+      },
+    });
+    await page.goto('/panel/ayarlar');
+    const active = () =>
+      page.evaluate(() => {
+        const el = document.activeElement;
+        return el ? `${el.tagName}:${(el.textContent ?? '').trim().slice(0, 40)}` : 'yok';
+      });
+
+    // Geri çekme penceresi: açılışta Vazgeç, Esc ile kapanınca "Geri çek" düğmesi
+    const retract = page.getByRole('button', { name: /Geri çek\s*: Trendyol Express/ });
+    await retract.focus();
+    await page.keyboard.press('Enter');
+    const confirm = page.getByRole('alertdialog');
+    await expect(confirm.getByRole('button', { name: 'Vazgeç' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(confirm).toBeHidden();
+    await expect(retract).toBeFocused();
+    expect(await active()).toContain('Geri çek');
+
+    // 409 penceresi: Vazgeç sonrası formun kaydet düğmesi
+    const form = await openTariffForm(page);
+    const save = form.getByRole('button', { name: 'Kaydet ve rakamları güncelle' });
+    await save.click();
+    const dialog = page.getByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
+    await expect(dialog.getByRole('button', { name: 'Vazgeç' })).toBeFocused();
+    await dialog.getByRole('button', { name: 'Vazgeç' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(save).toBeFocused();
+
+    // Başarılı uygulama: form kapanır, odak bölüm başlığına gider (gövdeye düşmez)
+    await save.click();
+    await dialog.getByRole('button', { name: 'Değişikliği uygula' }).click();
+    await expect(page.getByText(/Tarife eklendi/)).toBeVisible();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('heading', { level: 2, name: 'Kargo tarifesi' })).toBeFocused();
+    expect(await active()).not.toMatch(/^BODY/);
+  });
+
+  test('pencere içindeki ikinci 409: not çıkar, otomatik gönderim olmaz (AF-06)', async ({
+    page,
+  }) => {
+    let attempt = 0;
+    await mockApi(page, {
+      writes: {
+        'PUT /cargo-tariffs': () => {
+          attempt += 1;
+          if (attempt === 1) return PAST_409('2026-08-10', 9);
+          if (attempt === 2) return PAST_409('2026-08-01', 10);
+          return {
+            body: { ...makeWriteInfo({ revision: 11 }), created: true, tariff: makeTariff() },
+          };
+        },
+      },
+    });
+    await page.goto('/panel/ayarlar');
+    const form = await openTariffForm(page);
+    await form.getByRole('button', { name: 'Kaydet ve rakamları güncelle' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
+    await dialog.getByRole('button', { name: 'Değişikliği uygula' }).click();
+    await expect(dialog).toContainText('Etkilenen tarih değişti');
+    await expect(dialog).toContainText('1 Ağustos 2026 ve sonrasındaki');
+    await page.waitForTimeout(300);
+    expect(seen.filter((s) => s.method === 'PUT')).toHaveLength(2);
+    await dialog.getByRole('button', { name: 'Değişikliği uygula' }).click();
+    await expect(page.getByText(/Tarife eklendi/)).toBeVisible();
+    const puts = seen.filter((s) => s.method === 'PUT');
+    expect(puts).toHaveLength(3);
+    expect(puts[2]?.body).toMatchObject({
+      confirm_affects_from: '2026-08-01',
+      expected_revision: 10,
+    });
+  });
+
+  test('tr-TR sayı girişi: belirsiz biçim reddedilir, doğru biçim yansıtılır (AF-01)', async ({
+    page,
+  }) => {
+    await mockApi(page, { settings: () => ({ body: makeEmptySettings() }) });
+    await page.goto('/panel/ayarlar');
+    const form = await openTariffForm(page);
+    const price = form.getByLabel(/1\. kademe fiyatı/);
+    await price.fill('12,550');
+    await expect(form.getByText(/Okunamadı: kuruş en fazla 2 hane/)).toBeVisible();
+    await form.getByRole('button', { name: 'Kaydet ve rakamları güncelle' }).click();
+    await expect(form.getByText(/Kuruş en fazla 2 hane olabilir/)).toBeVisible();
+    expect(seen.filter((s) => s.method === 'PUT')).toHaveLength(0);
+    await price.fill('1.250,00');
+    await expect(
+      form.getByText('Kaydedilecek: 1.250,00 TL KDV dahil = 1.041,67 TL KDV hariç'),
+    ).toBeVisible();
+    await form.getByRole('radio', { name: /^KDV hariç/ }).check();
+    await expect(form.getByText('Kaydedilecek: 1.250,00 TL KDV hariç')).toBeVisible();
   });
 
   test('settings-record-ended: ekran yenilenir, satır içi uyarı role="alert"', async ({ page }) => {

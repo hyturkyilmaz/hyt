@@ -12,16 +12,21 @@ import { HistorySection } from '@/components/settings/history-section';
 import { SettingsWriterProvider } from '@/components/settings/settings-writer';
 import { TariffSection } from '@/components/settings/tariff-section';
 import {
-  useCanEdit,
   useCarriersQuery,
+  useEditAccess,
   useSettingsQuery,
+  useTodayIstanbul,
 } from '@/components/settings/use-settings-data';
 import { ReportError, ReportFooter, ReportSkeleton } from '@/components/profit/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { SettingsOut } from '@/lib/api/profit-settings';
 import { describeReportError } from '@/lib/profit/errors';
-import { todayIstanbul } from '@/lib/profit/settings-input';
-import { setupProgressText, setupSteps } from '@/lib/profit/settings-present';
+import {
+  COMING_STEP,
+  pastCoverageNote,
+  setupProgressText,
+  setupSteps,
+} from '@/lib/profit/settings-present';
 
 const SECTION_LINKS = [
   { href: '#kargo', label: 'Kargo tarifesi' },
@@ -81,8 +86,8 @@ function PanelBody({ accountId }: { accountId: string }) {
 
 function SettingsBody({ accountId, settings }: { accountId: string; settings: SettingsOut }) {
   const carriersQuery = useCarriersQuery(accountId);
-  const canEdit = useCanEdit();
-  const [today] = useState(() => todayIstanbul());
+  const { canEdit, readOnly } = useEditAccess();
+  const today = useTodayIstanbul();
   const steps = setupSteps(settings.completeness);
 
   // Özetteki bant /panel/ayarlar#kargo gibi bağlantı verir; içerik sonradan geldiği için kaydırma burada yapılır.
@@ -126,11 +131,28 @@ function SettingsBody({ accountId, settings }: { accountId: string; settings: Se
                     <Circle className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                   )}
                   <span>
-                    {index + 1}. {step.label}:{' '}
-                    <span className="font-medium">{step.done ? 'bugün geçerli' : 'eksik'}</span>
+                    {index + 1}.{' '}
+                    <a
+                      href={step.href}
+                      className="font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {step.label}
+                    </a>
+                    : <span className="font-medium">{step.done ? 'bugün geçerli' : 'eksik'}</span>
+                    {step.done && pastCoverageNote(settings, step.id, today) ? (
+                      <span className="block text-sm text-muted-foreground">
+                        {pastCoverageNote(settings, step.id, today)}
+                      </span>
+                    ) : null}
                   </span>
                 </li>
               ))}
+              <li className="flex items-center gap-2 text-base text-muted-foreground">
+                <Circle className="size-5 shrink-0" aria-hidden="true" />
+                <span>
+                  {steps.length + 1}. {COMING_STEP.label}: {COMING_STEP.text}
+                </span>
+              </li>
             </ol>
             <nav aria-label="Ayar bölümleri">
               <ul className="flex list-none flex-wrap gap-2 p-0">
@@ -146,7 +168,7 @@ function SettingsBody({ accountId, settings }: { accountId: string; settings: Se
                 ))}
               </ul>
             </nav>
-            {!canEdit ? (
+            {readOnly ? (
               <p
                 role="note"
                 className="flex items-start gap-2 rounded-lg bg-info-soft p-3 text-sm font-medium text-info"

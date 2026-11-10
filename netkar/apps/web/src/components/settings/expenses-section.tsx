@@ -10,9 +10,11 @@ import { useSettingsWriter } from '@/components/settings/settings-writer';
 import {
   FormActions,
   FormRootError,
+  EchoLine,
   ZeroEnteredNote,
   applyServerErrors,
   isZeroText,
+  parsedEcho,
 } from '@/components/settings/settings-forms';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,7 +36,7 @@ import {
   type SettingsOut,
   type VariableExpenseOut,
 } from '@/lib/api/profit-settings';
-import { addDays, toInputText, formatLongDate } from '@/lib/profit/settings-input';
+import { addDays, formatLongDate, isDateText, toInputText } from '@/lib/profit/settings-input';
 import {
   EXPENSE_KIND_LABELS,
   describeExpenseAmount,
@@ -73,6 +75,11 @@ export function ExpensesSection({
       scope: 'giderler',
       topic: 'retract-other',
       successText: () => `${expense.name} gideri geri çekildi.`,
+      clientConfirm: {
+        title: `${expense.name} gideri geri çekilsin mi?`,
+        body: 'Önceki değer ayar geçmişinde kalır.',
+        applyLabel: 'Geri çek',
+      },
       send: (g) =>
         profitSettingsApi.deleteExpense(accountId, expense.id, {
           expected_revision: g.expectedRevision,
@@ -83,7 +90,7 @@ export function ExpensesSection({
   }
 
   return (
-    <Card id="giderler" aria-labelledby="giderler-baslik" className="scroll-mt-4">
+    <Card as="section" id="giderler" aria-labelledby="giderler-baslik" className="scroll-mt-4">
       <CardHeader>
         <SectionHeading
           id="giderler"
@@ -212,6 +219,12 @@ function ExpenseForm({
   const kind = watched.kind ?? 'siparis_basi';
   const percentKind = kind === 'satis_yuzdesi';
   const amountText = watched.amount ?? '';
+  const amountEcho = parsedEcho(amountText, {
+    kind: 'money',
+    includesVat: false,
+    vatRate: Number(watched.vatRate ?? '20'),
+  });
+  const percentEcho = parsedEcho(watched.percent ?? '', { kind: 'percent' });
 
   function submit(values: ExpenseFormValues) {
     const body = toExpenseBody(values);
@@ -245,14 +258,14 @@ function ExpenseForm({
         applyServerErrors(form, error, [
           'name',
           'kind',
-          'amount',
-          'percent',
+          percentKind ? 'percent' : 'amount',
           'vatRate',
           'validFrom',
           'validTo',
         ]),
+      // Düzenlemede sürüm çakışırsa form kapanır; güncel değerlerle yeniden açılır (AF-11)
       onStale: (reason) => {
-        if (reason === 'record-ended') onClose();
+        if (reason === 'record-ended' || (reason === 'revision-conflict' && !isNew)) onClose();
       },
     });
   }
@@ -311,7 +324,14 @@ function ExpenseForm({
                 <FormControl>
                   <Input inputMode="decimal" autoComplete="off" {...field} />
                 </FormControl>
-                <FormDescription>En çok 100, en çok 4 ondalık. Örnek: 2,5</FormDescription>
+                <FormDescription>
+                  En çok 100, en çok 4 ondalık. Ondalık için virgül kullanın. Örnek: 2,5
+                </FormDescription>
+                {percentEcho ? (
+                  <FormDescription>
+                    <EchoLine echo={percentEcho} />
+                  </FormDescription>
+                ) : null}
                 <FormMessage />
               </FormItem>
             )}
@@ -333,9 +353,14 @@ function ExpenseForm({
                 ) : (
                   <FormDescription>
                     {kind === 'adet_basi' ? 'Satılan her adet için' : 'Her sipariş için'} KDV hariç
-                    tutarı yazın.
+                    tutarı yazın. Ondalık için virgül kullanın (12,50).
                   </FormDescription>
                 )}
+                {amountEcho ? (
+                  <FormDescription>
+                    <EchoLine echo={amountEcho} />
+                  </FormDescription>
+                ) : null}
                 <FormMessage />
               </FormItem>
             )}
@@ -370,7 +395,14 @@ function ExpenseForm({
                 <FormControl>
                   <Input type="date" {...field} />
                 </FormControl>
-                <FormDescription>Bu tarihten sonraki siparişlerde kullanılır.</FormDescription>
+                <FormDescription>
+                  {field.value && isDateText(field.value)
+                    ? `${formatLongDate(field.value)} ve sonrasındaki siparişlerde kullanılır.`
+                    : 'Bu tarihten sonraki siparişlerde kullanılır.'}
+                  {editing === null
+                    ? ` Önerilen tarih yaklaşıktır (bugünden ${lookbackDays} gün önce); geçmiş siparişleri de kapsamak için hesabınızdaki en eski siparişten ÖNCE bir tarih seçin.`
+                    : ''}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}

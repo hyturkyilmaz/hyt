@@ -8,24 +8,82 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api/client';
 import { decimalSign, exclusiveOfVat } from '@/lib/profit/decimal-math';
-import { parseDecimalInput, toMoneyString } from '@/lib/profit/settings-input';
+import {
+  formatDesi,
+  formatPlainNumber,
+  parseDecimalInput,
+  toMoneyString,
+} from '@/lib/profit/settings-input';
 import { formatTRY } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { mapFieldErrors } from '@/lib/validation/profit-settings';
 
 /** Sistem parametresi (K02): kargo ve hizmet bedeli KDV oranı %20. Yazımdan sonra liste sunucunun hesabını gösterir. */
 export const SHIPPING_VAT_RATE = 20;
 export const SERVICE_FEE_VAT_RATE = 20;
 
+export interface ParsedEcho {
+  /** ok: ayrıştırılan değer; warn: yazılan metin okunamadı ya da belirsiz */
+  tone: 'ok' | 'warn';
+  text: string;
+}
+
 /**
- * Girilen tutarın KDV hariç karşılığı (UX §8.1): "54,00 TL KDV dahil = 45,00 TL KDV hariç". Hariç girişte ya da
- * tutar geçerli değilse null. Hesap Decimal ile yapılır (float yok).
+ * Yazılan sayının ayrıştırılmış halini tr-TR biçimiyle yansıtır (AF-01): "Kaydedilecek: 12,55 TL". Böylece
+ * "12.550" gibi bir yazım sessizce başka bir tutara dönüşmez, kullanıcı değeri kaydetmeden görür. Boş metinde null.
+ * Para alanında KDV dahil girişte hariç karşılığı da eklenir ("54,00 TL KDV dahil = 45,00 TL KDV hariç").
+ * Hesap Decimal ile yapılır (float yok). Belirsiz ya da fazla haneli metin `warn` olarak bildirilir.
  */
-export function vatEquivalentText(text: string, includesVat: boolean, rate: number): string | null {
-  if (!includesVat) return null;
-  const parsed = parseDecimalInput(text, 2);
-  if (!parsed.ok) return null;
+export function parsedEcho(
+  text: string,
+  options:
+    | { kind: 'money'; includesVat: boolean; vatRate: number }
+    | { kind: 'desi' }
+    | { kind: 'percent' },
+): ParsedEcho | null {
+  if (text.trim() === '') return null;
+  const maxFraction = options.kind === 'money' ? 2 : options.kind === 'desi' ? 2 : 4;
+  const parsed = parseDecimalInput(text, maxFraction);
+  if (!parsed.ok) {
+    if (parsed.reason === 'ambiguous') {
+      return {
+        tone: 'warn',
+        text: 'Okunamadı: ondalık için virgül yazın (12,5). Nokta yalnız binlik ayracıdır (1.250).',
+      };
+    }
+    if (parsed.reason === 'too_many_decimals') {
+      return {
+        tone: 'warn',
+        text:
+          options.kind === 'money'
+            ? 'Okunamadı: kuruş en fazla 2 hane olabilir (12,55). Binlik için nokta kullanın (1.250,00).'
+            : `Okunamadı: en çok ${maxFraction} ondalık hane yazılabilir.`,
+      };
+    }
+    return null;
+  }
+  if (options.kind === 'desi') {
+    return { tone: 'ok', text: `Kaydedilecek: ${formatDesi(parsed.value)} desi` };
+  }
+  if (options.kind === 'percent') {
+    return { tone: 'ok', text: `Kaydedilecek: %${formatPlainNumber(parsed.value, 4)}` };
+  }
   const money = toMoneyString(parsed.value);
-  return `${formatTRY(money, { style: 'code' })} KDV dahil = ${formatTRY(exclusiveOfVat(money, rate), { style: 'code' })} KDV hariç`;
+  const entered = formatTRY(money, { style: 'code' });
+  if (!options.includesVat) return { tone: 'ok', text: `Kaydedilecek: ${entered} KDV hariç` };
+  return {
+    tone: 'ok',
+    text: `Kaydedilecek: ${entered} KDV dahil = ${formatTRY(exclusiveOfVat(money, options.vatRate), { style: 'code' })} KDV hariç`,
+  };
+}
+
+/** Alanın altındaki yansıma satırı (aria-live yok: her tuş vuruşunda duyurulmaz; alan bu satıra bağlıdır). */
+export function EchoLine({ echo }: { echo: ParsedEcho }) {
+  return (
+    <span className={cn('num', echo.tone === 'warn' && 'font-medium text-warning')}>
+      {echo.text}
+    </span>
+  );
 }
 
 /** Girilen metin geçerli ve 0 mu ("0 girildi" rozeti, AB-07) */

@@ -50,6 +50,8 @@ async function renderPanel(over: Routes = {}, settings = makeSettings()) {
   const user = userEvent.setup();
   render(<ProfitSettingsPanel accountId={ACCOUNT_ID} />);
   await screen.findByRole('heading', { name: 'Kargo tarifesi' });
+  // Rol (/me) yüklenene kadar yazma düğmeleri yoktur (AF-10)
+  await screen.findByRole('button', { name: 'Tarife ekle' });
   return { api, user };
 }
 
@@ -157,16 +159,23 @@ describe('Kargo tarifesi', () => {
   it('KDV hariç karşılığı yazarken Decimal ile gösterilir', async () => {
     const { user } = await renderPanel({}, makeEmptySettings());
     const form = await fillFirstTariff(user);
-    expect(within(form).getByText('54,00 TL KDV dahil = 45,00 TL KDV hariç')).toBeInTheDocument();
+    expect(
+      within(form).getByText('Kaydedilecek: 54,00 TL KDV dahil = 45,00 TL KDV hariç'),
+    ).toBeInTheDocument();
     await user.clear(within(form).getByLabelText(/1\. kademe fiyatı/));
     await user.type(within(form).getByLabelText(/1\. kademe fiyatı/), '50,00');
-    expect(within(form).getByText('50,00 TL KDV dahil = 41,67 TL KDV hariç')).toBeInTheDocument();
+    expect(
+      within(form).getByText('Kaydedilecek: 50,00 TL KDV dahil = 41,67 TL KDV hariç'),
+    ).toBeInTheDocument();
     await user.clear(within(form).getByLabelText(/1\. kademe fiyatı/));
     await user.type(within(form).getByLabelText(/1\. kademe fiyatı/), '0');
     expect(within(form).getByText('0 girildi')).toBeInTheDocument();
-    // KDV hariç girişte karşılık satırı yok
+    // KDV hariç girişte hariç karşılığı yok ama ayrıştırılan değer yine yansır (AF-01)
+    await user.clear(within(form).getByLabelText(/1\. kademe fiyatı/));
+    await user.type(within(form).getByLabelText(/1\. kademe fiyatı/), '12,55');
     await user.click(within(form).getByRole('radio', { name: /^KDV hariç/ }));
     expect(within(form).queryByText(/KDV dahil =/)).not.toBeInTheDocument();
+    expect(within(form).getByText('Kaydedilecek: 12,55 TL KDV hariç')).toBeInTheDocument();
   });
 
   it('ilk giriş: onaysız gönderilir, expected_revision gider, başarı bildirimi ve yenileme', async () => {
@@ -244,7 +253,7 @@ describe('Kargo tarifesi', () => {
     await fillFirstTariff(user);
     await user.click(screen.getByRole('button', { name: 'Kaydet ve rakamları güncelle' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
     expect(dialog).toHaveTextContent(
       'Bu değişiklik 10 Ağustos 2026 ve sonrasındaki siparişlerin kâr hesabını değiştirir. Daha önce indirdiğiniz ya da paylaştığınız raporlardaki rakamlar artık farklı olabilir. Önceki değer ayar geçmişinde saklanır.',
     );
@@ -258,16 +267,16 @@ describe('Kargo tarifesi', () => {
       expected_revision: 9,
       valid_from: '2026-08-10',
     });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
   it('409: vazgeçince hiçbir şey gönderilmez ve form açık kalır', async () => {
     const { api, user } = await renderPanel({ [`PUT ${BASE}/cargo-tariffs`]: unconfirmed });
     await fillFirstTariff(user);
     await user.click(screen.getByRole('button', { name: 'Kaydet ve rakamları güncelle' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
     await user.click(within(dialog).getByRole('button', { name: 'Vazgeç' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     expect(api.writes()).toHaveLength(1);
     expect(screen.getByRole('form', { name: 'Yeni kargo tarifesi' })).toBeInTheDocument();
   });
@@ -289,7 +298,7 @@ describe('Kargo tarifesi', () => {
     });
     await fillFirstTariff(user);
     await user.click(screen.getByRole('button', { name: 'Kaydet ve rakamları güncelle' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
     await user.click(
       within(dialog).getByRole('button', { name: 'Yalnız bugünden itibaren uygula' }),
     );
@@ -401,7 +410,7 @@ describe('Kargo tarifesi', () => {
     await user.clear(price);
     await user.type(price, '60');
     await user.click(within(form).getByRole('button', { name: 'Kaydet ve rakamları güncelle' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
     await user.click(within(dialog).getByRole('button', { name: 'Değişikliği uygula' }));
     expect(await screen.findByText(/Tarife güncellendi/)).toBeInTheDocument();
     expect(api.writes()[1]?.body).toMatchObject({
@@ -436,7 +445,7 @@ describe('Kargo tarifesi', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('settings-revision-conflict: ekran yenilenir, form açık kalır', async () => {
+  it('settings-revision-conflict: ekran yenilenir; düzenleme formu eski değerlerle açık kalmaz (AF-11)', async () => {
     const { api, user } = await renderPanel({
       [`PUT ${BASE}/cargo-tariffs`]: {
         status: 409,
@@ -451,7 +460,9 @@ describe('Kargo tarifesi', () => {
     );
     expect(alert.closest('[role="alert"]')).not.toBeNull();
     expect(api.count('GET', BASE)).toBe(2);
-    expect(screen.getByRole('form', { name: 'Kargo tarifesini düzenle' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('form', { name: 'Kargo tarifesini düzenle' }),
+    ).not.toBeInTheDocument();
   });
 
   it('aynı içerik: değişiklik yok bilgisi', async () => {
@@ -492,7 +503,14 @@ describe('Kargo tarifesi', () => {
       },
     });
     await user.click(screen.getByRole('button', { name: /Geri çek: Trendyol Express/ }));
-    const dialog = await screen.findByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+    // Önce istemci onayı (WCAG 3.3.4); henüz istek yok
+    const clientDialog = await screen.findByRole('alertdialog', {
+      name: 'Trendyol Express tarifesi (1 Ekim 2026 başlangıçlı) geri çekilsin mi?',
+    });
+    expect(api.writes()).toHaveLength(0);
+    await user.click(within(clientDialog).getByRole('button', { name: 'Geri çek' }));
+    // Sunucu 409 verince aynı pencere ADR metnine geçer
+    const dialog = await screen.findByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
     expect(dialog).toHaveTextContent(
       "Bu sürüm geri çekilirse 1 Ekim 2026 sonrası siparişlerde kargo önceki sürümden ya da 'diğer firmalar' tarifesinden hesaplanır; hiçbiri yoksa kargo 'eksik' görünür ve net kâr hesaplanamaz.",
     );
@@ -517,7 +535,9 @@ describe('Hizmet bedeli tahmini', () => {
     const form = await screen.findByRole('form', { name: 'Yeni hizmet bedeli tahmini' });
     const amount = within(form).getByLabelText(/Sipariş başına tutar/);
     await user.type(amount, '12');
-    expect(within(form).getByText('12,00 TL KDV dahil = 10,00 TL KDV hariç')).toBeInTheDocument();
+    expect(
+      within(form).getByText('Kaydedilecek: 12,00 TL KDV dahil = 10,00 TL KDV hariç'),
+    ).toBeInTheDocument();
     await user.clear(amount);
     await user.type(amount, '0');
     expect(within(form).getByText('0 girildi')).toBeInTheDocument();
@@ -559,6 +579,11 @@ describe('Hizmet bedeli tahmini', () => {
     await user.click(
       screen.getByRole('button', { name: /Geri çek: 1 Ekim 2026 başlangıçlı tahmin/ }),
     );
+    expect(api.writes()).toHaveLength(0);
+    const confirmDialog = await screen.findByRole('alertdialog', {
+      name: '1 Ekim 2026 başlangıçlı hizmet bedeli tahmini geri çekilsin mi?',
+    });
+    await user.click(within(confirmDialog).getByRole('button', { name: 'Geri çek' }));
     expect(await screen.findByText('Hizmet bedeli sürümü geri çekildi.')).toBeInTheDocument();
     expect(api.writes()[0]?.method).toBe('DELETE');
   });
@@ -607,7 +632,7 @@ describe('Varsayılan desi', () => {
     await user.clear(input);
     await user.type(input, '4');
     await user.click(within(form).getByRole('button', { name: 'Kaydet' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
     expect(dialog).toHaveTextContent(
       'Siparişinde desi bilgisi olmayan tüm geçmiş siparişlerin kargo tahmini değişir.',
     );
@@ -675,7 +700,7 @@ describe('Değişken giderler', () => {
     await user.type(within(form).getByLabelText('Gider adı'), 'E-fatura');
     await user.type(within(form).getByLabelText(/Tutar \(KDV hariç/), '1,5');
     await user.click(within(form).getByRole('button', { name: 'Kaydet ve rakamları güncelle' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Geçmiş raporlar değişecek' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Geçmiş raporlar değişecek' });
     await user.click(
       within(dialog).getByRole('button', { name: 'Yalnız bugünden itibaren uygula' }),
     );
@@ -749,6 +774,11 @@ describe('Değişken giderler', () => {
       },
     });
     await user.click(screen.getByRole('button', { name: /Geri çek: Paketleme/ }));
+    expect(api.writes()).toHaveLength(0);
+    const confirmDialog = await screen.findByRole('alertdialog', {
+      name: 'Paketleme gideri geri çekilsin mi?',
+    });
+    await user.click(within(confirmDialog).getByRole('button', { name: 'Geri çek' }));
     expect(await screen.findByText('Paketleme gideri geri çekildi.')).toBeInTheDocument();
     expect(api.writes()[0]?.method).toBe('DELETE');
   });

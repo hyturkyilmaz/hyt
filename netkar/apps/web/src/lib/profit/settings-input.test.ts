@@ -32,46 +32,96 @@ describe('exclusiveOfVat (K02, float yok)', () => {
   });
 });
 
-describe('parseDecimalInput', () => {
+// AF-01: tek kural. Ondalık ayracı yalnız virgül; nokta yalnız doğru gruplanmış binlik; belirsiz biçim reddedilir.
+// Para (en çok 2 hane) ve oran (en çok 4 hane) alanları AYNI kuralı kullanır.
+describe('parseDecimalInput, kabul edilenler (tablo)', () => {
   it.each([
+    // [metin, en çok ondalık, beklenen]
     ['54,50', 2, '54.50'],
-    ['54.50', 2, '54.50'],
     ['54', 2, '54'],
     ['0', 2, '0'],
     ['0,5', 2, '0.5'],
+    [',5', 2, '0.5'],
     ['007,5', 2, '7.5'],
-    ['1.250,50', 2, '1250.50'],
-    ['1,250.50', 2, '1250.50'],
+    ['1250', 2, '1250'],
+    ['1250,00', 2, '1250.00'],
+    ['1.250,00', 2, '1250.00'],
+    ['1.250,5', 2, '1250.5'],
     ['1.250', 2, '1250'],
-    ['1,250', 2, '1250'],
+    ['12.345', 2, '12345'],
     ['1.250.000', 2, '1250000'],
+    ['1 250', 2, '1250'],
+    ['1 250,75', 2, '1250.75'],
     [' 12,5 ', 2, '12.5'],
+    ['123456789012345', 2, '123456789012345'],
+    ['123.456.789.012.345', 2, '123456789012345'],
+    // oran alanı (4 hane): virgül yine ondalıktır
     ['2,5', 4, '2.5'],
     ['2,5000', 4, '2.5000'],
-  ])('%s -> %s', (text, maxFraction, expected) => {
+    ['1,255', 4, '1.255'],
+    ['12,550', 4, '12.550'],
+    ['1.250', 4, '1250'],
+  ])('%s (en çok %i ondalık) -> %s', (text, maxFraction, expected) => {
     expect(parseDecimalInput(text, maxFraction)).toEqual({ ok: true, value: expected });
   });
+});
 
+describe('parseDecimalInput, reddedilenler (tablo)', () => {
   it.each([
+    // boş
     ['', 'empty'],
     ['   ', 'empty'],
-    ['abc', 'invalid'],
+    // eksi, harf, üstel gösterim
     ['-5', 'invalid'],
+    ['-0', 'invalid'],
+    ['abc', 'invalid'],
     ['1e3', 'invalid'],
+    ['12 TL', 'invalid'],
+    // 1000 kat değişebilecek belirsiz noktalar: ondalık mı binlik mi belli değil
+    ['12.5', 'ambiguous'],
+    ['54.50', 'ambiguous'],
+    ['0.500', 'ambiguous'],
+    ['1.2345', 'ambiguous'],
+    ['1234.50', 'ambiguous'],
+    ['12.50', 'ambiguous'],
+    // virgülden sonra fazla hane: para alanında binlik SAYILMAZ
+    ['1,255', 'too_many_decimals'],
+    ['1,250', 'too_many_decimals'],
+    ['12,550', 'too_many_decimals'],
+    ['0,125', 'too_many_decimals'],
+    ['12,5555', 'too_many_decimals'],
+    // bozuk gruplama ve ayraçlar
+    ['1.25.0', 'invalid'],
+    ['1.2345.678', 'invalid'],
+    ['.250', 'invalid'],
+    ['1..250', 'invalid'],
+    ['1.250 000', 'invalid'],
+    ['12 5', 'invalid'],
     ['1,5.3', 'invalid'],
+    ['1,250.50', 'invalid'],
+    ['1,2,3', 'invalid'],
     ['12,', 'invalid'],
     [',', 'invalid'],
+    ['.', 'invalid'],
+    // tam sayı çok büyük
     ['1234567890123456', 'invalid'],
-    ['1.2345.678', 'invalid'],
-  ])('%s geçersiz sayılır', (text, reason) => {
+    ['1.234.567.890.123.456', 'invalid'],
+  ])('"%s" -> %s (para, en çok 2 ondalık)', (text, reason) => {
     expect(parseDecimalInput(text, 2)).toEqual({ ok: false, reason });
   });
 
-  it('izin verilenden fazla ondalığı ayrı nedenle reddeder', () => {
-    expect(parseDecimalInput('1,255', 2)).toEqual({ ok: true, value: '1255' });
-    expect(parseDecimalInput('0,125', 2)).toEqual({ ok: false, reason: 'too_many_decimals' });
-    expect(parseDecimalInput('12,5555', 2)).toEqual({ ok: false, reason: 'too_many_decimals' });
+  it('oran alanı (4 hane) para alanıyla aynı kuralı izler: nokta binlik ya da belirsiz', () => {
+    expect(parseDecimalInput('2.5', 4)).toEqual({ ok: false, reason: 'ambiguous' });
+    expect(parseDecimalInput('12.50', 4)).toEqual({ ok: false, reason: 'ambiguous' });
     expect(parseDecimalInput('1,23456', 4)).toEqual({ ok: false, reason: 'too_many_decimals' });
+    expect(parseDecimalInput('1,250.50', 4)).toEqual({ ok: false, reason: 'invalid' });
+  });
+
+  it('sessiz 1000 kat değişim yok: virgüllü yazım hiçbir koşulda binlik sayılmaz', () => {
+    for (const text of ['1,255', '12,550', '54,500', '100,000']) {
+      const parsed = parseDecimalInput(text, 2);
+      expect(parsed.ok).toBe(false);
+    }
   });
 });
 

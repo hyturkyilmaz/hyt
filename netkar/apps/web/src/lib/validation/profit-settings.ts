@@ -37,6 +37,30 @@ const CONTROL_CHARS = /[\p{C}]/u;
 
 // --------------------------------------------------------------------------- ortak parçalar
 
+type NumberKind = 'money' | 'desi' | 'percent';
+
+/**
+ * Ayrıştırma hatası -> Türkçe cümle. Para ve oran alanları AYNI kuralı kullanır (parseDecimalInput): ondalık
+ * ayracı virgüldür; nokta yalnız doğru gruplanmış binlik ayracıdır.
+ */
+export function describeParseFailure(
+  reason: 'empty' | 'invalid' | 'too_many_decimals' | 'ambiguous',
+  options: { label: string; kind: NumberKind; maxFraction: number; example: string; empty: string },
+): string {
+  switch (reason) {
+    case 'empty':
+      return options.empty;
+    case 'too_many_decimals':
+      return options.kind === 'money'
+        ? 'Kuruş en fazla 2 hane olabilir. Binlik ayracı için nokta kullanın: 1.250,00'
+        : `${options.label} en çok ${options.maxFraction} ondalıklı olabilir.`;
+    case 'ambiguous':
+      return `Ondalık için virgül kullanın (örnek: ${options.example}). Nokta yalnız binlik ayracıdır: 1.250`;
+    default:
+      return `${options.label} geçerli bir sayı olmalı. Örnek: ${options.example}`;
+  }
+}
+
 /** Metin alanı bir Decimal sınırına uyuyor mu; hata iletisi Türkçe ve alan yanında gösterilir. */
 function decimalField(
   label: string,
@@ -46,18 +70,23 @@ function decimalField(
     minExclusive?: boolean;
     max: string;
     rangeText: string;
+    kind: NumberKind;
+    example: string;
   },
 ) {
   return z.string().superRefine((text, ctx) => {
     const parsed = parseDecimalInput(text, options.maxFraction);
     if (!parsed.ok) {
-      const message =
-        parsed.reason === 'empty'
-          ? `${label} yazın.`
-          : parsed.reason === 'too_many_decimals'
-            ? `${label} en çok ${options.maxFraction} ondalıklı olabilir.`
-            : `${label} geçerli bir sayı olmalı. Örnek: 54,50`;
-      ctx.addIssue({ code: 'custom', message });
+      ctx.addIssue({
+        code: 'custom',
+        message: describeParseFailure(parsed.reason, {
+          label,
+          kind: options.kind,
+          maxFraction: options.maxFraction,
+          example: options.example,
+          empty: `${label} yazın.`,
+        }),
+      });
       return;
     }
     const below = compareDecimal(parsed.value, options.min);
@@ -74,6 +103,8 @@ const desiText = decimalField('Desi', {
   minExclusive: true,
   max: MAX_DESI,
   rangeText: "0'dan büyük, en çok 1.000 olmalı.",
+  kind: 'desi',
+  example: '2,5',
 });
 
 function startDate(today: string) {
@@ -123,6 +154,8 @@ export function tariffSchema(today: string) {
             min: '0',
             max: MAX_PRICE,
             rangeText: '0 ile 100.000 arasında olmalı.',
+            kind: 'money',
+            example: '54,50',
           }),
         }),
       )
@@ -183,6 +216,8 @@ export function feeSchema(today: string) {
       min: '0',
       max: MAX_SERVICE_FEE,
       rangeText: '0 ile 10.000 arasında olmalı.',
+      kind: 'money',
+      example: '12,50',
     }),
   });
 }
@@ -209,10 +244,13 @@ export const defaultsSchema = z.object({
     if (!parsed.ok) {
       ctx.addIssue({
         code: 'custom',
-        message:
-          parsed.reason === 'too_many_decimals'
-            ? 'Desi en çok 2 ondalıklı olabilir.'
-            : 'Desi geçerli bir sayı olmalı. Örnek: 2,5',
+        message: describeParseFailure(parsed.reason, {
+          label: 'Desi',
+          kind: 'desi',
+          maxFraction: 2,
+          example: '2,5',
+          empty: 'Desi yazın.',
+        }),
       });
       return;
     }
@@ -265,12 +303,13 @@ export function expenseSchema(today: string) {
           ctx.addIssue({
             code: 'custom',
             path: ['percent'],
-            message:
-              parsed.reason === 'empty'
-                ? 'Oranı yazın.'
-                : parsed.reason === 'too_many_decimals'
-                  ? 'Oran en çok 4 ondalıklı olabilir.'
-                  : 'Oran geçerli bir sayı olmalı. Örnek: 2,5',
+            message: describeParseFailure(parsed.reason, {
+              label: 'Oran',
+              kind: 'percent',
+              maxFraction: 4,
+              example: '2,5',
+              empty: 'Oranı yazın.',
+            }),
           });
         } else if (
           compareDecimal(parsed.value, '0') <= 0 ||
@@ -288,12 +327,13 @@ export function expenseSchema(today: string) {
           ctx.addIssue({
             code: 'custom',
             path: ['amount'],
-            message:
-              parsed.reason === 'empty'
-                ? 'Tutarı yazın.'
-                : parsed.reason === 'too_many_decimals'
-                  ? 'Tutar en çok 2 ondalıklı olabilir.'
-                  : 'Tutar geçerli bir sayı olmalı. Örnek: 12,50',
+            message: describeParseFailure(parsed.reason, {
+              label: 'Tutar',
+              kind: 'money',
+              maxFraction: 2,
+              example: '12,50',
+              empty: 'Tutarı yazın.',
+            }),
           });
         } else if (
           compareDecimal(parsed.value, '0') < 0 ||

@@ -2,18 +2,20 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        'rounded-lg border border-border bg-surface text-foreground shadow-sm',
-        className,
-      )}
-      {...props}
-    />
-  ),
-);
+// `as="section"`: adlandırılmış bölüm (region) olarak duyurulur; `aria-labelledby` yalnız rol taşıyan öğede geçerlidir.
+const Card = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & { as?: 'div' | 'section' }
+>(({ className, as: Tag = 'div', ...props }, ref) => (
+  <Tag
+    ref={ref}
+    className={cn(
+      'rounded-lg border border-border bg-surface text-foreground shadow-sm',
+      className,
+    )}
+    {...props}
+  />
+));
 Card.displayName = 'Card';
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(

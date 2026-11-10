@@ -29,7 +29,7 @@ export function HistorySection({ accountId, revision }: { accountId: string; rev
   });
 
   return (
-    <Card id="gecmis" aria-labelledby="gecmis-baslik" className="scroll-mt-4">
+    <Card as="section" id="gecmis" aria-labelledby="gecmis-baslik" className="scroll-mt-4">
       <CardHeader>
         <SectionHeading
           id="gecmis"

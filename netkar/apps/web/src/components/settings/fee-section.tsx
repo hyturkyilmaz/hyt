@@ -11,10 +11,11 @@ import {
   FormActions,
   FormRootError,
   SERVICE_FEE_VAT_RATE,
+  EchoLine,
   ZeroEnteredNote,
   applyServerErrors,
   isZeroText,
-  vatEquivalentText,
+  parsedEcho,
 } from '@/components/settings/settings-forms';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import type { ApiError } from '@/lib/api/client';
 import { profitSettingsApi, type ServiceFeeOut, type SettingsOut } from '@/lib/api/profit-settings';
-import { addDays, formatLongDate, toInputText } from '@/lib/profit/settings-input';
+import { addDays, formatLongDate, isDateText, toInputText } from '@/lib/profit/settings-input';
 import { isZeroAmount, vatPair } from '@/lib/profit/settings-present';
 import { feeSchema, toFeeBody, type FeeFormValues } from '@/lib/validation/profit-settings';
 
@@ -62,6 +63,11 @@ export function FeeSection({
       scope: 'hizmet-bedeli',
       topic: 'retract-other',
       successText: () => 'Hizmet bedeli sürümü geri çekildi.',
+      clientConfirm: {
+        title: `${formatLongDate(fee.valid_from)} başlangıçlı hizmet bedeli tahmini geri çekilsin mi?`,
+        body: 'Önceki değer ayar geçmişinde kalır.',
+        applyLabel: 'Geri çek',
+      },
       send: (g) =>
         profitSettingsApi.deleteServiceFee(accountId, fee.id, {
           expected_revision: g.expectedRevision,
@@ -72,7 +78,12 @@ export function FeeSection({
   }
 
   return (
-    <Card id="hizmet-bedeli" aria-labelledby="hizmet-bedeli-baslik" className="scroll-mt-4">
+    <Card
+      as="section"
+      id="hizmet-bedeli"
+      aria-labelledby="hizmet-bedeli-baslik"
+      className="scroll-mt-4"
+    >
       <CardHeader>
         <SectionHeading
           id="hizmet-bedeli"
@@ -101,6 +112,7 @@ export function FeeSection({
             accountId={accountId}
             mode={mode}
             lookbackDays={lookbackDays ?? DEFAULT_LOOKBACK_DAYS}
+            existing={fees}
             today={today}
             onClose={() => setMode(null)}
           />
@@ -166,12 +178,15 @@ function FeeForm({
   accountId,
   mode,
   lookbackDays,
+  existing,
   today,
   onClose,
 }: {
   accountId: string;
   mode: FormMode;
   lookbackDays: number;
+  /** Kayıtlı sürümler: bugün başlayan sürüm varsa "bugünden itibaren" gönderimi onu ezeceği için sunulmaz (AF-07) */
+  existing: readonly ServiceFeeOut[];
   today: string;
   onClose: () => void;
 }) {
@@ -191,10 +206,15 @@ function FeeForm({
   const watched = useWatch({ control: form.control });
   const includesVat = (watched.vatMode ?? 'dahil') === 'dahil';
   const amountText = watched.amount ?? '';
-  const equivalent = vatEquivalentText(amountText, includesVat, SERVICE_FEE_VAT_RATE);
+  const equivalent = parsedEcho(amountText, {
+    kind: 'money',
+    includesVat,
+    vatRate: SERVICE_FEE_VAT_RATE,
+  });
 
   function submit(values: FeeFormValues) {
     const body = toFeeBody(values);
+    const todayVersionExists = existing.some((f) => f.valid_from === today);
     void writer.run({
       scope: 'hizmet-bedeli',
       topic: 'dated',
@@ -208,8 +228,9 @@ function FeeForm({
           expected_revision: g.expectedRevision,
           confirm_affects_from: g.confirmAffectsFrom,
         }),
+      // ADR-0007 §5.2: ikincil düğme yalnız eklemede; bugün başlayan sürüm varsa o sessizce ezilirdi (AF-07)
       sendFromToday:
-        body.valid_from < today
+        editing === null && body.valid_from < today && !todayVersionExists
           ? (g) =>
               profitSettingsApi.putServiceFee(accountId, {
                 ...body,
@@ -218,10 +239,16 @@ function FeeForm({
               })
           : undefined,
       onDone: onClose,
+      // Yalnız çizilen alanların hatası alanın yanına gider (AF-08)
       onInvalid: (error: ApiError) =>
-        applyServerErrors(form, error, ['validFrom', 'vatMode', 'amount']),
+        applyServerErrors(
+          form,
+          error,
+          editing ? ['vatMode', 'amount'] : ['validFrom', 'vatMode', 'amount'],
+        ),
+      // Düzenlemede sürüm çakışırsa form kapanır; güncel değerlerle yeniden açılır (AF-11)
       onStale: (reason) => {
-        if (reason === 'record-ended') onClose();
+        if (reason === 'record-ended' || (reason === 'revision-conflict' && editing)) onClose();
       },
     });
   }
@@ -254,8 +281,12 @@ function FeeForm({
                   <Input type="date" {...field} />
                 </FormControl>
                 <FormDescription>
-                  Bu tarihten sonraki siparişlerde kullanılır. Geçmiş siparişlerinizi de hesaplatmak
-                  için hesabınızın ilk siparişinden önceki bir tarih seçin.
+                  {field.value && isDateText(field.value)
+                    ? `${formatLongDate(field.value)} ve sonrasındaki siparişlerde kullanılır.`
+                    : 'Bu tarihten sonraki siparişlerde kullanılır.'}{' '}
+                  Önerilen tarih yaklaşıktır (bugünden {lookbackDays} gün önce). Geçmiş
+                  siparişlerinizi de hesaplatmak için tarihi hesabınızdaki en eski siparişten ÖNCE
+                  seçin; emin değilseniz daha eski bir tarih seçin.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -267,6 +298,7 @@ function FeeForm({
           name="vatMode"
           render={({ field }) => (
             <ChoiceGroup
+              error={form.formState.errors.vatMode?.message}
               legend="Tutarı nasıl giriyorsunuz?"
               name="feeVatMode"
               value={field.value}
@@ -301,7 +333,9 @@ function FeeForm({
                   </ZeroEnteredNote>
                 </FormDescription>
               ) : equivalent ? (
-                <FormDescription className="num">{equivalent}</FormDescription>
+                <FormDescription>
+                  <EchoLine echo={equivalent} />
+                </FormDescription>
               ) : (
                 <FormDescription>Hizmet bedeli kesilmiyorsa 0 yazabilirsiniz.</FormDescription>
               )}

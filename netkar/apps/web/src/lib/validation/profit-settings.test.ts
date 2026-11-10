@@ -228,3 +228,48 @@ describe('sunucu 422 alan eşlemesi', () => {
     ]);
   });
 });
+
+// AF-01: para ve oran alanları aynı kuralı izler; 1000 kat değişebilecek biçimler gönderilemez
+describe('belirsiz sayı biçimleri (AF-01)', () => {
+  const feeSchemaToday = feeSchema(TODAY);
+  const fee = (amount: string) => ({ validFrom: '2026-08-10', vatMode: 'dahil' as const, amount });
+
+  it('virgülden sonra 3 hane para alanında kuruş hatasıdır, binlik sayılmaz', () => {
+    const result = feeSchemaToday.safeParse(fee('12,550'));
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(
+      'Kuruş en fazla 2 hane olabilir. Binlik ayracı için nokta kullanın: 1.250,00',
+    );
+  });
+
+  it('gruplamasız tek nokta belirsizdir ve virgül istenir', () => {
+    const result = feeSchemaToday.safeParse(fee('12.5'));
+    expect(result.error?.issues[0]?.message).toBe(
+      'Ondalık için virgül kullanın (örnek: 12,50). Nokta yalnız binlik ayracıdır: 1.250',
+    );
+  });
+
+  it('oran alanı da aynı kuralı izler', () => {
+    const schema = expenseSchema(TODAY);
+    const base: ExpenseFormValues = {
+      name: 'Komisyon',
+      kind: 'satis_yuzdesi',
+      amount: '',
+      percent: '2.5',
+      vatRate: '20',
+      validFrom: '2026-08-10',
+      validTo: '',
+    };
+    const result = schema.safeParse(base);
+    expect(result.error?.issues[0]?.message).toContain('Ondalık için virgül kullanın');
+    expect(schema.safeParse({ ...base, percent: '2,5' }).success).toBe(true);
+    // 4 haneye kadar virgül ondalıktır (1,255 oran olarak geçerli, 1255 olmaz)
+    expect(toExpenseBody({ ...base, percent: '1,255' }).percent).toBe('1.255');
+  });
+
+  it('doğru gruplanmış binlik kabul edilir ve gövdeye sade ondalık olarak gider', () => {
+    expect(feeSchemaToday.safeParse(fee('1.250,50')).success).toBe(true);
+    expect(toFeeBody(fee('1.250,50')).amount).toBe('1250.50');
+    expect(toFeeBody(fee('1.250')).amount).toBe('1250.00');
+  });
+});
