@@ -6,6 +6,7 @@ AD-03 migrasyon 0007 downgrade veri koruması. PoC'ler denetim raporu Ek A'dadı
 
 from __future__ import annotations
 
+import json
 import time
 import tracemalloc
 from collections.abc import Callable
@@ -192,7 +193,11 @@ def test_huge_json_numbers_are_validation_errors_not_500(
     response = raw(shop, method, suffix, body)
     assert response.status_code == 422, response.text
     assert {"field": field, "code": code} in response.json()["errors"], response.json()
-    assert HUGE_INT not in response.text and "1e30" not in response.text  # girdi yansıtılmaz
+    # Girdi yansıtılmaz. Rastgele `request_id` (onaltılık) taramadan çıkarılır: "aa1e308e..." gibi bir kimlik
+    # "1e30" içerebilir ve kod doğruyken testi düşürür (CI ef9e6b2). Geri kalan gövdenin tamamı taranır.
+    reflected = {key: value for key, value in response.json().items() if key != "request_id"}
+    reflected_text = json.dumps(reflected, ensure_ascii=False)
+    assert HUGE_INT not in reflected_text and "1e30" not in reflected_text
     assert revision_in_db(admin_conn, shop) is None  # hiçbir şey yazılmadı
 
 
