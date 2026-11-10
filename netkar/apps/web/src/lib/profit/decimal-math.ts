@@ -73,3 +73,20 @@ export function absDecimal(a: string): string {
   const { value, scale } = parse(a);
   return format(value < 0n ? -value : value, scale);
 }
+
+/**
+ * KDV dahil tutardan KDV hariç karşılığı (K02): `rnd(dahil / (1 + oran/100))`, kuruşa yarım yukarı.
+ * Float yok: tam sayı kuruş üzerinden BigInt ile hesaplanır. Yalnız negatif olmayan tutar ve tamsayı oran.
+ * exclusiveOfVat("54.00", 20) === "45.00"; exclusiveOfVat("50.00", 20) === "41.67".
+ */
+export function exclusiveOfVat(inclusive: string, ratePercent: number): string {
+  const { value, scale } = parse(inclusive);
+  if (value < 0n || !Number.isInteger(ratePercent) || ratePercent < 0) {
+    throw new TypeError('KDV hariç hesabı için negatif olmayan tutar ve tamsayı oran gerekir.');
+  }
+  // tutar = value / 10^scale; sonuç kuruş: value * 100 / (10^scale * (100 + oran) / 100) = value*10^4 / (10^scale*(100+oran))
+  const numerator = value * 10_000n;
+  const denominator = 10n ** BigInt(scale) * BigInt(100 + ratePercent);
+  const cents = (numerator * 2n + denominator) / (denominator * 2n);
+  return format(cents, 2);
+}

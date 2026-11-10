@@ -15,6 +15,19 @@ export interface ApiFieldError {
   code: string;
 }
 
+/**
+ * Bazı 409 yanıtlarının makine tarafından okunan ek alanları (ayar API'si: `settings-past-change-unconfirmed`,
+ * `settings-record-ended`, `settings-revision-conflict`). Yalnız tür denetiminden geçen değerler taşınır.
+ */
+export interface ApiProblemDetails {
+  /** Geçmişi etkileyen yazımın etki tarihi (YYYY-AA-GG); null: tarihsiz yazım */
+  affects_from?: string | null;
+  affects_past?: boolean;
+  current_revision?: number;
+  /** Kapanmış kaydın yerini alan etkin satır; null: geri çekilmiş */
+  current_id?: string | null;
+}
+
 /** RFC 9457 problem yanıtından yalnız güvenle gösterilebilen alanlar */
 export interface ApiProblem {
   status: number;
@@ -22,6 +35,8 @@ export interface ApiProblem {
   code?: string;
   /** 422 "validation-error" yanıtındaki alan hataları */
   errors?: ApiFieldError[];
+  /** Ayar API'sinin 409 ek alanları */
+  details?: ApiProblemDetails;
   /** `Retry-After` başlığı (yalnız saniye cinsinden tamsayı biçimi okunur); yoksa ya da geçersizse tanımsız */
   retryAfterSeconds?: number;
 }
@@ -30,6 +45,7 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
   readonly errors?: ApiFieldError[];
+  readonly details?: ApiProblemDetails;
   readonly retryAfterSeconds?: number;
 
   constructor(problem: ApiProblem) {
@@ -38,6 +54,7 @@ export class ApiError extends Error {
     this.status = problem.status;
     this.code = problem.code;
     this.errors = problem.errors;
+    this.details = problem.details;
     this.retryAfterSeconds = problem.retryAfterSeconds;
   }
 }
@@ -73,6 +90,25 @@ function parseFieldErrors(value: unknown): ApiFieldError[] | undefined {
   return result;
 }
 
+function parseDetails(data: object): ApiProblemDetails | undefined {
+  const source = data as Record<string, unknown>;
+  const details: ApiProblemDetails = {};
+  const affectsFrom = source.affects_from;
+  if (typeof affectsFrom === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(affectsFrom)) {
+    details.affects_from = affectsFrom;
+  } else if (affectsFrom === null) {
+    details.affects_from = null;
+  }
+  if (typeof source.affects_past === 'boolean') details.affects_past = source.affects_past;
+  if (Number.isSafeInteger(source.current_revision)) {
+    details.current_revision = source.current_revision as number;
+  }
+  const currentId = source.current_id;
+  if (typeof currentId === 'string' && currentId.length <= 64) details.current_id = currentId;
+  else if (currentId === null) details.current_id = null;
+  return Object.keys(details).length > 0 ? details : undefined;
+}
+
 function parseRetryAfter(response: Response): number | undefined {
   const raw = response.headers.get('Retry-After')?.trim();
   if (!raw || !/^\d{1,6}$/.test(raw)) return undefined;
@@ -82,6 +118,7 @@ function parseRetryAfter(response: Response): number | undefined {
 async function readProblem(response: Response): Promise<ApiProblem> {
   let code: string | undefined;
   let errors: ApiFieldError[] | undefined;
+  let details: ApiProblemDetails | undefined;
   try {
     const data: unknown = await response.json();
     if (data && typeof data === 'object') {
@@ -93,11 +130,18 @@ async function readProblem(response: Response): Promise<ApiProblem> {
         code = data.type.slice(PROBLEM_TYPE_PREFIX.length) || undefined;
       }
       if ('errors' in data) errors = parseFieldErrors(data.errors);
+      details = parseDetails(data);
     }
   } catch {
     // Gövde yoksa veya JSON değilse yalnız durum kodu kullanılır.
   }
-  return { status: response.status, code, errors, retryAfterSeconds: parseRetryAfter(response) };
+  return {
+    status: response.status,
+    code,
+    errors,
+    details,
+    retryAfterSeconds: parseRetryAfter(response),
+  };
 }
 
 /**

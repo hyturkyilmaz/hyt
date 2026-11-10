@@ -198,12 +198,20 @@ export function knownProfitView(
 
 // --------------------------------------------------------------------------- dönem özeti
 
+export interface BannerLink {
+  /** Ayar formundaki ilgili bölüme derin bağlantı: /panel/ayarlar#kargo, /panel/ayarlar#hizmet-bedeli */
+  href: string;
+  label: string;
+}
+
 export interface SummaryBanner {
-  /** Durum diliyle başlık: "Net kâr için kargo tarifesi gerekiyor"; ayar formu gelene kadar "girin" denmez */
+  /** Fayda diliyle başlık: "Net kârı görmek için kargo tarifesini girin" */
   title: string;
   detail: string;
-  /** Yakında cümlesi, yalnız eksik kalemler için; bilinen kâr rakamı varsa "bu rakamlar" cümlesi eklenir */
+  /** Yönlendirme cümlesi, yalnız eksik kalemler için; bilinen kâr rakamı varsa "bu rakamlar" cümlesi eklenir */
   body: string;
+  /** Eksik kalem başına ayar formuna bağlantı (kargo, hizmet bedeli) */
+  links: BannerLink[];
   /** Ürün maliyeti eksik satırlar için ayrı satır (ayar bandına karışmaz). */
   costLine: string | null;
 }
@@ -244,13 +252,15 @@ function plural(count: number, text: string): string {
   return `${count} satırda ${text}`;
 }
 
-/** Ayar formu henüz yok: bağlantı çıkmaza gitmesin diye dürüst bir cümle (UX-02), yalnız eksik kalemler için. */
-export function setupComingSoon(cargo: boolean, fee: boolean, hasKnownProfit: boolean): string {
+/** Ayar formu açık: eksik kalemler için nereye gidileceğini söyler (UX-02), yalnız eksik kalemler için. */
+export function setupPrompt(cargo: boolean, fee: boolean, hasKnownProfit: boolean): string {
   const subject =
     cargo && fee ? 'Kargo tarifesi ve hizmet bedeli' : cargo ? 'Kargo tarifesi' : 'Hizmet bedeli';
-  const base = `${subject} girişi çok yakında.`;
+  const base = `${subject} ayarlardan girilir.`;
   // Bu cümle yalnız ekranda bilinen kâr rakamı gerçekten varken basılır (Y-2); yoksa "bu rakamlar" boşa kalır.
-  return hasKnownProfit ? `${base} Bu rakamlar bilinen giderlerle hesaplanıyor.` : base;
+  return hasKnownProfit
+    ? `${base} Girene kadar bu rakamlar bilinen giderlerle hesaplanıyor.`
+    : base;
 }
 
 /** Kural 3: kurulum bandı `completeness`'e değil dönemin eksik kalem satır sayılarına bağlıdır. */
@@ -263,15 +273,18 @@ export function summaryBanner(
   const cost = counts.urun_maliyeti;
   if (cargo <= 0 && fee <= 0) return null;
 
-  // Y-2: başlık durumu söyler ("gerekiyor"); form gelmeden "girin" demek altındaki "çok yakında" ile çelişirdi.
+  // Ayar formu açıldı: başlık fayda dilidir ve eylemi söyler (UX §2.1 UX-05, UX-02).
   let title: string;
   if (cargo > 0 && fee > 0) {
-    title = 'Net kâr için kargo tarifesi ve hizmet bedeli gerekiyor';
+    title = 'Net kârı görmek için kargo tarifesini ve hizmet bedelini girin';
   } else if (cargo > 0) {
-    title = 'Net kâr için kargo tarifesi gerekiyor';
+    title = 'Net kârı görmek için kargo tarifesini girin';
   } else {
-    title = 'Net kâr için hizmet bedeli gerekiyor';
+    title = 'Net kârı görmek için hizmet bedelini girin';
   }
+  const links: BannerLink[] = [];
+  if (cargo > 0) links.push({ href: '/panel/ayarlar#kargo', label: 'Kargo tarifesini gir' });
+  if (fee > 0) links.push({ href: '/panel/ayarlar#hizmet-bedeli', label: 'Hizmet bedelini gir' });
 
   const parts: string[] = [];
   if (cargo > 0) parts.push(plural(cargo, 'kargo'));
@@ -281,7 +294,8 @@ export function summaryBanner(
   return {
     title,
     detail,
-    body: setupComingSoon(cargo > 0, fee > 0, hasKnownProfit),
+    body: setupPrompt(cargo > 0, fee > 0, hasKnownProfit),
+    links,
     costLine: cost > 0 ? `${cost} satırın ürün maliyeti girilmedi.` : null,
   };
 }

@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SettingsContent } from '@/components/panel/settings-view';
-import { makeAccounts } from '@/lib/profit/test-fixtures';
+import { makeCarriers, makeHistory, makeSettings } from '@/lib/profit/settings-fixtures';
+import { ACCOUNT_ID, makeAccounts } from '@/lib/profit/test-fixtures';
 import { mockFetch, problem } from '@/test/api-mock';
 
 afterEach(() => {
@@ -10,6 +11,7 @@ afterEach(() => {
 });
 
 const accountsPath = '/api/v1/marketplace-accounts';
+const settingsPath = `/api/v1/marketplace-accounts/${ACCOUNT_ID}/profit-settings`;
 
 describe('Ayarlar içeriği (UX-02)', () => {
   it('bağlı mağaza varsa "Bağlı değil" yazmaz, gerçek durumu gösterir', async () => {
@@ -75,14 +77,30 @@ describe('Ayarlar içeriği (UX-02)', () => {
     expect(screen.queryByText(/mağazanızı bağlayın/)).not.toBeInTheDocument();
   });
 
-  it('kargo tarifesi ve hizmet bedeli bölümünün yakında olduğunu dürüstçe söyler', async () => {
-    mockFetch((url) => (url.pathname === accountsPath ? { body: makeAccounts() } : undefined));
+  it('bağlı mağaza varsa kâr ayarları formu açılır, yakında metni kalmaz', async () => {
+    mockFetch(
+      (url) => (url.pathname === accountsPath ? { body: makeAccounts() } : undefined),
+      (url) => (url.pathname === `${settingsPath}` ? { body: makeSettings() } : undefined),
+      (url) => (url.pathname === `${settingsPath}/carriers` ? { body: makeCarriers() } : undefined),
+      (url) => (url.pathname === `${settingsPath}/history` ? { body: makeHistory() } : undefined),
+      (url) => (url.pathname === '/api/v1/me' ? { body: { role: 'owner' } } : undefined),
+    );
     render(<SettingsContent />);
-    const region = screen.getByRole('region', { name: 'Kargo tarifesi ve hizmet bedeli' });
-    expect(region).toHaveTextContent('Kargo tarifesi ve hizmet bedeli girişi çok yakında');
-    expect(region).toHaveTextContent('Bu bölüm henüz açılmadı');
-    // Y-2: ayar ekranı bilinen kâr rakamı varmış gibi konuşmaz
-    expect(region).not.toHaveTextContent('bilinen giderlerle');
-    await screen.findByText('Bağlı', { selector: 'span' });
+    expect(await screen.findByRole('heading', { name: 'Kargo tarifesi' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Platform hizmet bedeli tahmini' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/çok yakında/)).not.toBeInTheDocument();
+    // Mağaza bağlantı durumu kartı korunur
+    expect(screen.getByText('Satıcı numarası:')).toBeInTheDocument();
+  });
+
+  it('bağlı mağaza yoksa kâr ayarları açılmadan önce mağaza bağlama yönlendirmesi var', async () => {
+    mockFetch((url) => (url.pathname === accountsPath ? { body: [] } : undefined));
+    render(<SettingsContent />);
+    expect(
+      await screen.findByText('Kâr ayarları mağazanızı bağlayınca açılır'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Kargo tarifesi' })).not.toBeInTheDocument();
   });
 });

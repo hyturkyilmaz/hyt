@@ -271,6 +271,15 @@ function HeadlineCard({ view, data }: { view: SummaryView; data: ProfitSummary }
               {view.banner.title}
             </h3>
             <p className="text-base">{view.banner.body}</p>
+            <ul className="flex list-none flex-col gap-2 p-0 sm:flex-row">
+              {view.banner.links.map((link) => (
+                <li key={link.href}>
+                  <Button asChild variant="secondary" className="w-full sm:w-auto">
+                    <Link href={link.href}>{link.label}</Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
           </section>
         ) : null}
 

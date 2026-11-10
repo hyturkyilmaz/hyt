@@ -169,16 +169,22 @@ describe('Özet ekranı', () => {
     expect(screen.queryByText('Kesin', { selector: 'span.inline-flex' })).not.toBeInTheDocument();
     expect(screen.queryByText('Bilgi eksik')).not.toBeInTheDocument();
 
-    // Y-2: başlık durum diliyle; UX-02: ayar formu yokken çıkmaza götüren bağlantı yok, dürüst cümle var
+    // Ayar formu açık: fayda dilli başlık ve her eksik kalem için ayar bölümüne derin bağlantı (UX-02)
     const banner = screen.getByRole('region', { name: 'Kurulum uyarısı' });
-    expect(banner).toHaveTextContent('Net kâr için kargo tarifesi ve hizmet bedeli gerekiyor');
-    expect(banner).not.toHaveTextContent('girin');
-    expect(banner).toHaveTextContent('Kargo tarifesi ve hizmet bedeli girişi çok yakında');
-    expect(banner).toHaveTextContent('Bu rakamlar bilinen giderlerle hesaplanıyor');
-    expect(within(banner).queryByRole('link')).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', { name: /Kargo ve hizmet bedelini gir/ }),
-    ).not.toBeInTheDocument();
+    expect(banner).toHaveTextContent(
+      'Net kârı görmek için kargo tarifesini ve hizmet bedelini girin',
+    );
+    expect(banner).toHaveTextContent('Kargo tarifesi ve hizmet bedeli ayarlardan girilir.');
+    expect(banner).toHaveTextContent('Girene kadar bu rakamlar bilinen giderlerle hesaplanıyor');
+    expect(banner).not.toHaveTextContent('çok yakında');
+    expect(within(banner).getByRole('link', { name: 'Kargo tarifesini gir' })).toHaveAttribute(
+      'href',
+      '/panel/ayarlar#kargo',
+    );
+    expect(within(banner).getByRole('link', { name: 'Hizmet bedelini gir' })).toHaveAttribute(
+      'href',
+      '/panel/ayarlar#hizmet-bedeli',
+    );
   });
 
   it('durum B: kısmi, eksiksiz satır var: bilinen kâr nötr (yeşil değil), eksiksiz satır bloğu, etiketli marj', async () => {
@@ -211,9 +217,11 @@ describe('Özet ekranı', () => {
       screen.getByText('Eksiksiz satırların marjı, dönem giderleri hariç'),
     ).toBeInTheDocument();
     expect(screen.getByText('Yalnız eksiksiz satırların gideri')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Kurulum uyarısı' })).toHaveTextContent(
-      'Net kâr için kargo tarifesi gerekiyor',
-    );
+    const banner = screen.getByRole('region', { name: 'Kurulum uyarısı' });
+    expect(banner).toHaveTextContent('Net kârı görmek için kargo tarifesini girin');
+    // Yalnız eksik kalemin bağlantısı vardır
+    expect(within(banner).getAllByRole('link')).toHaveLength(1);
+    expect(within(banner).getByRole('link', { name: 'Kargo tarifesini gir' })).toBeInTheDocument();
   });
 
   it('Y-2: eski API (bilinen kâr alanı yok) bandı "bu rakamlar" cümlesi olmadan çizer', async () => {
@@ -222,7 +230,7 @@ describe('Özet ekranı', () => {
     renderSummary(totals);
     render(<SummaryScreen />);
     const banner = await screen.findByRole('region', { name: 'Kurulum uyarısı' });
-    expect(banner).toHaveTextContent('Kargo tarifesi girişi çok yakında.');
+    expect(banner).toHaveTextContent('Kargo tarifesi ayarlardan girilir.');
     expect(banner).not.toHaveTextContent('bilinen giderlerle');
   });
 

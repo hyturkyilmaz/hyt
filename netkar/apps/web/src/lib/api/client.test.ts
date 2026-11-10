@@ -131,6 +131,46 @@ describe('apiFetch', () => {
     ]);
   });
 
+  it('409 ayar yanıtlarının ek alanlarını (etki tarihi, sürüm, kayıt kimliği) taşır; bozuk değeri yok sayar', async () => {
+    mockFetch(
+      new Response(
+        JSON.stringify({
+          type: 'urn:netkar:problem:settings-past-change-unconfirmed',
+          status: 409,
+          affects_from: '2026-10-01',
+          affects_past: true,
+          current_revision: 7,
+          current_id: { bozuk: 1 },
+        }),
+        { status: 409 },
+      ),
+    );
+    const error = await apiFetch('/x', { method: 'PUT', body: {} }).catch((e: unknown) => e);
+    expect((error as ApiError).code).toBe('settings-past-change-unconfirmed');
+    expect((error as ApiError).details).toEqual({
+      affects_from: '2026-10-01',
+      affects_past: true,
+      current_revision: 7,
+    });
+  });
+
+  it('409 tarihsiz yazımda affects_from null, kapanmış kayıtta current_id null kalır', async () => {
+    mockFetch(
+      new Response(
+        JSON.stringify({
+          type: 'urn:netkar:problem:settings-record-ended',
+          status: 409,
+          affects_from: null,
+          current_id: null,
+          current_revision: 'yedi',
+        }),
+        { status: 409 },
+      ),
+    );
+    const error = await apiFetch('/x', { method: 'PUT', body: {} }).catch((e: unknown) => e);
+    expect((error as ApiError).details).toEqual({ affects_from: null, current_id: null });
+  });
+
   it('urn:netkar dışındaki type değerini makine kodu saymaz', async () => {
     mockFetch(new Response(JSON.stringify({ type: 'https://evil.example/x' }), { status: 400 }));
     const error = await apiFetch('/x', { method: 'POST' }).catch((e: unknown) => e);

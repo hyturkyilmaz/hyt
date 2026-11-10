@@ -4,7 +4,8 @@ import { Link2, Truck } from 'lucide-react';
 
 import { ConnectStoreDialog } from '@/components/panel/connect-store-dialog';
 import { EmptyState } from '@/components/panel/empty-state';
-import { ReportError } from '@/components/profit/shared';
+import { ProfitSettingsPanel } from '@/components/settings/profit-settings-panel';
+import { ReportError, ReportSkeleton } from '@/components/profit/shared';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { describeReportError } from '@/lib/profit/errors';
@@ -66,13 +67,21 @@ export function SettingsContent() {
         </CardContent>
       </Card>
 
-      <section id="kargo" aria-label="Kargo tarifesi ve hizmet bedeli">
-        <EmptyState
-          Icon={Truck}
-          title="Kargo tarifesi ve hizmet bedeli girişi çok yakında"
-          description="Bu bölüm henüz açılmadı. Açıldığında kargo tarifenizi ve platform hizmet bedelinizi buradan girersiniz."
-        />
-      </section>
+      {state.status === 'ready' ? <ProfitSettingsPanel accountId={state.accountId} /> : null}
+      {state.status === 'loading' ? (
+        <section aria-label="Kâr ayarları">
+          <ReportSkeleton rows={2} />
+        </section>
+      ) : null}
+      {state.status === 'none' ? (
+        <section id="kargo" aria-label="Kâr ayarları">
+          <EmptyState
+            Icon={Truck}
+            title="Kâr ayarları mağazanızı bağlayınca açılır"
+            description="Kargo tarifenizi ve platform hizmet bedelinizi, Trendyol mağazanız bağlandıktan sonra buradan girersiniz."
+          />
+        </section>
+      ) : null}
     </>
   );
 }

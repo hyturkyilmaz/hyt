@@ -17,12 +17,14 @@ import {
   makeTotals,
   makeUnconfiguredTotals,
 } from '../src/lib/profit/test-fixtures';
+import { makeCarriers, makeHistory, makeSettings } from '../src/lib/profit/settings-fixtures';
 import { signIn, waitForReady } from './helpers';
 
 // Rapor ekranları: tarayıcının /api/v1 istekleri Playwright route ile taklit edilir (sahte API yalnız
 // oturum için /v1/me yanıtlar). Ekran görüntüleri PW_SHOTS_DIR verilirse oraya yazılır.
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const PROFIT = `/api/v1/marketplace-accounts/${ACCOUNT_ID}/profit`;
+const SETTINGS = `/api/v1/marketplace-accounts/${ACCOUNT_ID}/profit-settings`;
 
 interface Handlers {
   summary?: (url: URL) => unknown;
@@ -47,6 +49,10 @@ async function mockApi(page: Page, handlers: Handlers) {
     requests.push(url);
     const path = url.pathname;
     if (path === '/api/v1/marketplace-accounts') return fulfill(route, 200, makeAccounts());
+    // Ayarlar sayfası: kâr ayarları formunun okuma uçları
+    if (path === SETTINGS) return fulfill(route, 200, makeSettings());
+    if (path === `${SETTINGS}/carriers`) return fulfill(route, 200, makeCarriers());
+    if (path === `${SETTINGS}/history`) return fulfill(route, 200, makeHistory());
     if (path === `${PROFIT}/summary`) {
       return fulfill(route, 200, handlers.summary?.(url) ?? makeSummary());
     }
@@ -200,18 +206,30 @@ for (const scheme of ['light', 'dark'] as const) {
       // Gider ve marj kartları, eksiksiz satır bloğu çizilmez
       await expect(page.getByRole('heading', { name: 'Toplam gider' })).toHaveCount(0);
       await expect(page.getByRole('heading', { name: 'Net kâr marjı' })).toHaveCount(0);
-      // UX-05 ve UX-02: yeni başlık, boş ayar sayfasına götüren bağlantı yok
+      // Ayar formu açık: fayda dilli başlık ve eksik kalem başına derin bağlantı
       const banner = page.getByRole('region', { name: 'Kurulum uyarısı' });
-      await expect(banner).toContainText('Net kâr için kargo tarifesi ve hizmet bedeli gerekiyor');
-      await expect(banner).toContainText('girişi çok yakında');
-      await expect(banner).toContainText('Bu rakamlar bilinen giderlerle hesaplanıyor');
+      await expect(banner).toContainText(
+        'Net kârı görmek için kargo tarifesini ve hizmet bedelini girin',
+      );
+      await expect(banner).toContainText('ayarlardan girilir');
+      await expect(banner).toContainText(
+        'Girene kadar bu rakamlar bilinen giderlerle hesaplanıyor',
+      );
+      await expect(banner).not.toContainText('çok yakında');
       // Y-4: bilinen kâr bloğu uyarı kutusunun üstünde (mobilde de rakam önce görünür)
       const knownBox = await card
         .getByRole('heading', { name: 'Eksik giderler hariç dönem kârı' })
         .boundingBox();
       const bannerBox = await banner.boundingBox();
       expect(knownBox!.y).toBeLessThan(bannerBox!.y);
-      await expect(banner.getByRole('link')).toHaveCount(0);
+      await expect(banner.getByRole('link', { name: 'Kargo tarifesini gir' })).toHaveAttribute(
+        'href',
+        '/panel/ayarlar#kargo',
+      );
+      await expect(banner.getByRole('link', { name: 'Hizmet bedelini gir' })).toHaveAttribute(
+        'href',
+        '/panel/ayarlar#hizmet-bedeli',
+      );
       await checkPage(page, 'rapor-ozet-ayarsiz', testInfo.project.name, scheme);
     });
 
@@ -237,7 +255,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await checkPage(page, 'rapor-ozet-kismi', testInfo.project.name, scheme);
     });
 
-    test('ayarlar: gerçek hesap durumu ve kargo tarifesi bölümünün yakında olduğu; axe temiz', async ({
+    test('ayarlar: gerçek hesap durumu ve kâr ayarları formu; axe temiz', async ({
       page,
     }, testInfo) => {
       await mockApi(page, {});
@@ -246,9 +264,8 @@ for (const scheme of ['light', 'dark'] as const) {
       await expect(page.getByText('Bağlı', { exact: true })).toBeVisible();
       await expect(page.getByText('Bağlı değil')).toHaveCount(0);
       await expect(page.getByText('Satıcı numarası:')).toBeVisible();
-      await expect(
-        page.getByRole('region', { name: 'Kargo tarifesi ve hizmet bedeli' }),
-      ).toContainText('girişi çok yakında');
+      await expect(page.getByRole('heading', { level: 2, name: 'Kargo tarifesi' })).toBeVisible();
+      await expect(page.getByText(/çok yakında/)).toHaveCount(0);
       await checkPage(page, 'panel-ayarlar-bagli', testInfo.project.name, scheme);
     });
 
@@ -555,7 +572,7 @@ test.describe('rapor ekranları, davranış', () => {
     // Eski biçimde kısmi dönemde dolu gelen donem_net_kar asla gösterilmez
     await expect(page.getByText('-₺10,00')).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Kurulum uyarısı' })).toContainText(
-      'Net kâr için kargo tarifesi gerekiyor',
+      'Net kârı görmek için kargo tarifesini girin',
     );
     // Y-7: eksiksiz satır bloğu etiketi
     await expect(page.getByRole('heading', { name: 'Eksiksiz satırların net kârı' })).toBeVisible();

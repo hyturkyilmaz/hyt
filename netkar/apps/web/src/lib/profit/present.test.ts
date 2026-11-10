@@ -255,9 +255,12 @@ describe('summaryBanner (kural 3)', () => {
       kargo_gonderi: 5,
       platform_hizmet_bedeli: 3,
     });
-    // Y-2: ayar formu yokken başlık durumu söyler, "girin" demez
-    expect(banner?.title).toBe('Net kâr için kargo tarifesi ve hizmet bedeli gerekiyor');
-    expect(banner?.body).toBe('Kargo tarifesi ve hizmet bedeli girişi çok yakında.');
+    expect(banner?.title).toBe('Net kârı görmek için kargo tarifesini ve hizmet bedelini girin');
+    expect(banner?.body).toBe('Kargo tarifesi ve hizmet bedeli ayarlardan girilir.');
+    expect(banner?.links).toEqual([
+      { href: '/panel/ayarlar#kargo', label: 'Kargo tarifesini gir' },
+      { href: '/panel/ayarlar#hizmet-bedeli', label: 'Hizmet bedelini gir' },
+    ]);
     expect(banner?.detail).toBe(
       'Bu dönemde 5 satırda kargo, 3 satırda hizmet bedeli tahmini eksik.',
     );
@@ -266,21 +269,27 @@ describe('summaryBanner (kural 3)', () => {
 
   it('yalnız kargo eksikse yalnız kargoyu söyler', () => {
     const banner = summaryBanner({ urun_maliyeti: 0, kargo_gonderi: 2, platform_hizmet_bedeli: 0 });
-    expect(banner?.title).toBe('Net kâr için kargo tarifesi gerekiyor');
-    expect(banner?.body).toBe('Kargo tarifesi girişi çok yakında.');
+    expect(banner?.title).toBe('Net kârı görmek için kargo tarifesini girin');
+    expect(banner?.body).toBe('Kargo tarifesi ayarlardan girilir.');
+    expect(banner?.links).toEqual([
+      { href: '/panel/ayarlar#kargo', label: 'Kargo tarifesini gir' },
+    ]);
     expect(banner?.detail).toBe('Bu dönemde 2 satırda kargo tahmini eksik.');
   });
 
   it('yalnız hizmet bedeli eksikse yalnız onu söyler', () => {
     const banner = summaryBanner({ urun_maliyeti: 0, kargo_gonderi: 0, platform_hizmet_bedeli: 6 });
-    expect(banner?.title).toBe('Net kâr için hizmet bedeli gerekiyor');
-    expect(banner?.body).toBe('Hizmet bedeli girişi çok yakında.');
+    expect(banner?.title).toBe('Net kârı görmek için hizmet bedelini girin');
+    expect(banner?.body).toBe('Hizmet bedeli ayarlardan girilir.');
+    expect(banner?.links).toEqual([
+      { href: '/panel/ayarlar#hizmet-bedeli', label: 'Hizmet bedelini gir' },
+    ]);
   });
 
   it('"bu rakamlar bilinen giderlerle hesaplanıyor" yalnız bilinen kâr rakamı varken basılır', () => {
     const counts = { urun_maliyeti: 0, kargo_gonderi: 2, platform_hizmet_bedeli: 0 };
     expect(summaryBanner(counts, true)?.body).toBe(
-      'Kargo tarifesi girişi çok yakında. Bu rakamlar bilinen giderlerle hesaplanıyor.',
+      'Kargo tarifesi ayarlardan girilir. Girene kadar bu rakamlar bilinen giderlerle hesaplanıyor.',
     );
     expect(summaryBanner(counts, false)?.body).not.toContain('bilinen giderlerle');
     // summaryView: eski API'de alan yoksa cümle yoktur; alan varsa vardır
