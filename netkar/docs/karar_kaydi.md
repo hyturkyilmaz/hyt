@@ -29,3 +29,12 @@ Biçim: tarih, karar, uygulama notu, açık kalan. Eski kayıtlar silinmez; değ
 - **Başabaş (nakit, kurucu emeği hariç):** Pro 399 TL ile Hetzner'de 14, Güzel Hosting'de 16 satıcı. 799 TL ile 7 ve 8 satıcıydı. Kurucu emeğiyle gerçek başabaş eşiği yaklaşık iki katına çıkar.
 - **Risk:** Düşük çapa fiyatı sonradan artırmayı zorlaştırır; 12. ay sonunda kayıp riski. Kurucu fiyatının süresi sözleşmede açık yazılmalı.
 - **Hukuk notu (emin değilim, madde numarası doğrulanmadı):** Ticari Reklam ve Haksız Ticari Uygulamalar Yönetmeliği, indirim duyurusunda önceki fiyatın son 30 günde fiilen uygulanmış en düşük fiyat olmasını istiyor. Liste fiyatı hiç uygulanmadan "%50 indirim" yazmak yanıltıcı sayılabilir. Bu yüzden "indirim" yerine "kurucu üye fiyatı" ifadesi önerilir. Yayın öncesi hukukçu kontrolü.
+
+## 2026-11-10 (Hasan, sohbet mesajı)
+
+Kaynak: Hasan'ın bu oturumdaki mesajı, kelimesi kelimesine: "NetTablo olsun, Hetzner'e bakalım". Trello karar kartına da işlendi.
+
+| No | Karar | Durum | Uygulama notu |
+|---|---|---|---|
+| K-N01 | "NetTablo olsun" | **Kapandı** | Ürün adı NetTablo. Uygulandı: web marka kaynağı (apps/web/src/config/brand.ts), ortam örnekleri, Trendyol User-Agent kod adı ("{sellerId} - NetTablo"), Trendyol teyit e-postası taslağı. Klasör adı `netkar/`, API hata türleri (`urn:netkar:...`) ve iç belgelerdeki "NetKâr" çalışma adı değiştirilmedi (API sözleşmesi; kullanıcıya görünmez). Doğrulanmadı (oturumda ağ kısıtı): alan adı (nettablo.com, .com.tr), App Store, TÜRKPATENT. Web aramasında aynı adla ürün bulunmadı; en yakın ad "Tablo" (ABD'de TV kayıt cihazı, Avustralya'da yayınevi). |
+| K-N02 | "Hetzner'e bakalım" | **Koşullu** (KVKK engeli çözülmeden kişisel veri taşınmaz) | Varsayım: hedef barındırma Hetzner (A paketi, 4.974 TL/ay; Güzel Hosting'e göre 844 TL/ay ucuz). Hesap açılmadı, para harcanmadı. Engel: KVKK m.9'a göre AB'ye düzenli aktarım için Kurul'un standart sözleşmesi her iki tarafça imzalanıp 5 iş günü içinde Kurum'a bildirilmeli. Hetzner kendi DPA'sı dışında müşteri belgesi imzalamadığını açıklıyor; Türk standart sözleşmesini imzalayıp imzalamayacağı bilinmiyor. İmzalamazsa bu yol kapanır ve yedek Güzel Hosting (yurt içi). Ayrıntı ve Hetzner'e sorulacak metin: docs/hukuk/hetzner_kvkk_kontrol.md. |

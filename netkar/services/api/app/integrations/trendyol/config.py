@@ -28,8 +28,8 @@ class TrendyolConfig:
     """İstemci ayarları. Geçersiz değerde TrendyolConfigError: istemci kurulmaz."""
 
     environment: TrendyolEnvironment = TrendyolEnvironment.STAGE
-    # Varsayılan ürün kod adı (ASCII). Ürün adı ("NetKâr") Türkçe karakter içerdiği için kullanılamaz.
-    integrator_name: str = "NetKar"
+    # Varsayılan ürün kod adı (ASCII; User-Agent "{sellerId} - NetTablo"). Ürün adı K-N01 ile NetTablo oldu.
+    integrator_name: str = "NetTablo"
     connect_timeout: float = 5.0
     read_timeout: float = 20.0
     write_timeout: float = 10.0

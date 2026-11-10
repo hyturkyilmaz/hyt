@@ -70,7 +70,7 @@ async def test_user_agent_and_basic_auth_are_sent_on_every_request() -> None:
     expected_auth = "Basic " + base64.b64encode(f"{API_KEY}:{API_SECRET}".encode()).decode()
     assert len(seen) == 2
     for request in seen:
-        assert request.headers["User-Agent"] == f"{SELLER_ID} - NetKar"
+        assert request.headers["User-Agent"] == f"{SELLER_ID} - NetTablo"
         assert request.headers["Authorization"] == expected_auth
         assert request.headers["Accept"] == "application/json"
 

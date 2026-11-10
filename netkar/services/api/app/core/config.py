@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     trendyol_environment: Literal["stage", "live"] = "stage"
     # User-Agent'taki entegratör adı: ASCII harf/rakam, en fazla 30 karakter. Varsayılan ürün kod adı
     # (ürün adı "NetKâr" Türkçe karakter içerdiği için doğrudan kullanılamaz). Geçersizse açılış durur.
-    trendyol_integrator_name: str = "NetKar"
+    trendyol_integrator_name: str = "NetTablo"
     trendyol_connect_timeout_seconds: float = Field(5.0, gt=0)
     trendyol_read_timeout_seconds: float = Field(20.0, gt=0)
     trendyol_max_retries: int = Field(4, ge=0, le=10)

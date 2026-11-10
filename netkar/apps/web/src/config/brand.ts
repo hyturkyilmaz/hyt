@@ -1,6 +1,6 @@
 // Ürün adının tek kaynağı. Marka adı değiştiğinde yalnız bu dosya (veya
 // NEXT_PUBLIC_PRODUCT_NAME ortam değişkeni) güncellenir.
-const DEFAULT_PRODUCT_NAME = 'NetKâr';
+const DEFAULT_PRODUCT_NAME = 'NetTablo';
 
 const rawName = process.env.NEXT_PUBLIC_PRODUCT_NAME?.trim();
 const name = rawName && rawName.length > 0 ? rawName : DEFAULT_PRODUCT_NAME;

@@ -4,7 +4,7 @@ name: netkar
 
 x-api-environment: &api-environment
   ENVIRONMENT: ${ENVIRONMENT:-dev}
-  PRODUCT_NAME: ${PRODUCT_NAME:-NetKâr}
+  PRODUCT_NAME: ${PRODUCT_NAME:-NetTablo}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   # Uygulama rolü (superuser değil). Parola URL'de olduğu için hex gibi güvenli karakterler kullanın.
   DATABASE_URL: postgresql://netkar_app:${NETKAR_APP_PASSWORD:?NETKAR_APP_PASSWORD gerekli}@postgres:5432/${POSTGRES_DB:-netkar}
@@ -110,7 +110,7 @@ services:
     restart: unless-stopped
     environment:
       API_BASE_URL: http://api:8000
-      PRODUCT_NAME: ${PRODUCT_NAME:-NetKâr}
+      PRODUCT_NAME: ${PRODUCT_NAME:-NetTablo}
     depends_on:
       - api
     ports:

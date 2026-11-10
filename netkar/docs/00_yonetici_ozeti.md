@@ -32,6 +32,7 @@
 ## Hasan'ın yapacakları (öncelik sırasıyla)
 1. **K-N07:** Trendyol Partner/Entegrasyon destek kanalına research/01 bölüm 4'teki soruları gönder (taslak koordinatör tarafından hazırlanacak, gönderim sende).
 Güncel durum (2026-11-07): K-N03, K-N04, K-N05, K-N06, K-N07, K-N08 kapandı; K-N01 ve K-N02 açık. Ayrıntı: docs/karar_kaydi.md.
+Güncel durum (2026-11-10): K-N01 kapandı, ürün adı **NetTablo**. K-N02 koşullu: hedef Hetzner, ancak KVKK standart sözleşmesini Hetzner'in imzalaması şart (docs/hukuk/hetzner_kvkk_kontrol.md); imzalamazsa yurt içi (Güzel Hosting).
 
 2. **K-N01:** Yeni isim seçimi (adaylar karar kartında).
 3. **K-N02:** Barındırma yeri. Öneri: Türkiye (KVKK ve EK-6 nedeniyle). Fark ayda yaklaşık 1.550 TL.

@@ -25,7 +25,7 @@ def _settings(**overrides: object) -> Settings:
 def test_settings_default_to_stage_and_product_codename() -> None:
     settings = _settings()
     assert settings.trendyol_environment == "stage"
-    assert settings.trendyol_integrator_name == "NetKar"
+    assert settings.trendyol_integrator_name == "NetTablo"
 
 
 @pytest.mark.parametrize("name", ["Net Kar", "NetKâr", "a" * 31, ""])

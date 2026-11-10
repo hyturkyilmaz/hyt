@@ -2,8 +2,9 @@
 
 Durum: Taslak. Gönderim Hasan Yasin Türkyılmaz tarafından yapılacak.
 Güncelleme 2026-11-07: Hasan metni onayladı, gönderimi kendisi yapacak (K-N07). Talep, Hasan'ın kendi mağazasının (pilot hesap, K-N06) master kullanıcısından açılır. Şirket: şahıs şirketi (K-N03). Kalan tek yer tutucu: [ÜRÜN ADI] (K-N01 açık) ve iletişim bilgileri.
+Güncelleme 2026-11-10: K-N01 kapandı, ürün adı NetTablo; metindeki ürün adı yerleri dolduruldu. Kalan yer tutucular: ad soyad, ünvan, şirket adı ve iletişim bilgileri.
 Kaynak: docs/research/01_trendyol_api.md (5 Kasım 2026), bölüm 4 "Açık Sorular".
-Not: Metindeki `[ÜRÜN ADI]`, `[AD SOYAD]` vb. yer tutucular gönderimden önce doldurulmalı. Soru numaraları (S1 ile S16) araştırma dosyasındaki sıralamayı izler.
+Not: Metindeki `[AD SOYAD]`, `[ŞİRKET / AD SOYAD]`, `[ÜNVAN]` vb. yer tutucular gönderimden önce doldurulmalı. Soru numaraları (S1 ile S16) araştırma dosyasındaki sıralamayı izler.
 
 ---
 
@@ -27,7 +28,7 @@ Konu: Üçüncü taraf salt-okuma analitik yazılım için API kullanımı hakk�
 
 Merhaba,
 
-[ŞİRKET / AD SOYAD] olarak [ÜRÜN ADI] adıyla bir yazılım geliştiriyoruz. Ürün, Trendyol satıcılarının kendi API anahtarlarıyla bağlanmasıyla çalışıyor ve yalnızca okuma yapıyor: sipariş, iade, cari hesap ekstresi, kargo faturası ve ürün verisini çekerek satıcıya ürün bazında net kârını gösteriyor, ileride müşteri sorularını da okumayı planlıyoruz. Ürün sipariş, ürün veya fiyat tarafında herhangi bir yazma işlemi yapmıyor. Son müşteriye ait kişisel veriler (ad, adres, telefon, T.C. kimlik no) sistemimizde saklanmıyor, alındığı anda atılıyor; her satıcıyla Satıcı Sözleşmesi EK-6 ile uyumlu bir veri işleme sözleşmesi imzalıyoruz. İstekleri `User-Agent: "{sellerId} - [ÜRÜN ADI]"` biçiminde gönderiyoruz. Canlıya almadan önce aşağıdaki noktalarda yazılı yanıtınıza ihtiyacımız var:
+[ŞİRKET / AD SOYAD] olarak NetTablo adıyla bir yazılım geliştiriyoruz. Ürün, Trendyol satıcılarının kendi API anahtarlarıyla bağlanmasıyla çalışıyor ve yalnızca okuma yapıyor: sipariş, iade, cari hesap ekstresi, kargo faturası ve ürün verisini çekerek satıcıya ürün bazında net kârını gösteriyor, ileride müşteri sorularını da okumayı planlıyoruz. Ürün sipariş, ürün veya fiyat tarafında herhangi bir yazma işlemi yapmıyor. Son müşteriye ait kişisel veriler (ad, adres, telefon, T.C. kimlik no) sistemimizde saklanmıyor, alındığı anda atılıyor; her satıcıyla Satıcı Sözleşmesi EK-6 ile uyumlu bir veri işleme sözleşmesi imzalıyoruz. İstekleri `User-Agent: "{sellerId} - NetTablo"` biçiminde gönderiyoruz. Canlıya almadan önce aşağıdaki noktalarda yazılı yanıtınıza ihtiyacımız var:
 
 1. Satıcı adına yalnızca okuma yapan bu tür bir yazılım için ayrı bir entegratör kaydı, onayı veya sözleşmesi gerekiyor mu? Entegrasyon Referans Kodu ile destek alabilmek için entegratörün kayıtlı olması şart mı?
 2. Satıcı panelindeki Entegrasyon Bilgileri ekranında entegratör bazında ayrı API anahtarı oluşturulup rol seçilebiliyor mu? Yalnızca okuma yetkisi (sipariş, iade, finans, soru okuma) verilebiliyorsa rol listesi nedir?

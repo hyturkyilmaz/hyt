@@ -141,7 +141,7 @@ def test_connect_validates_with_trendyol_and_stores_encrypted(
     assert len(trendyol.requests) == 1
     request = trendyol.requests[0]
     assert request.url.path == f"/integration/product/sellers/{SELLER}/products/approved/inventory-and-price"
-    assert request.headers["User-Agent"] == f"{SELLER} - NetKar"
+    assert request.headers["User-Agent"] == f"{SELLER} - NetTablo"
     assert (
         request.headers["Authorization"]
         == "Basic " + base64.b64encode(f"{API_KEY}:{API_SECRET}".encode()).decode()

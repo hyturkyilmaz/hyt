@@ -199,7 +199,7 @@ test.describe('güvenlik başlıkları ve PWA', () => {
       display: string;
       icons: { src: string }[];
     };
-    expect(json.short_name).toBe('NetKâr');
+    expect(json.short_name).toBe('NetTablo');
     expect(json.display).toBe('standalone');
     for (const icon of json.icons) {
       const res = await request.get(icon.src);
@@ -211,7 +211,7 @@ test.describe('güvenlik başlıkları ve PWA', () => {
 
   test('ana sayfada metadata ve JSON-LD Organization bulunur', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/NetKâr/);
+    await expect(page).toHaveTitle(/NetTablo/);
     await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', 'tr_TR');
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Trendyol/);
     // Sayfa ayrıca SoftwareApplication yazar; Organization kök düzenden gelir (sıra önemsiz).
@@ -219,7 +219,7 @@ test.describe('güvenlik başlıkları ve PWA', () => {
       (raw) => JSON.parse(raw) as { '@type': string; name: string },
     );
     const organization = blocks.find((block) => block['@type'] === 'Organization');
-    expect(organization?.name).toBe('NetKâr');
+    expect(organization?.name).toBe('NetTablo');
     await expect(page.getByRole('link', { name: 'Bekleme listesine katıl' })).toHaveAttribute(
       'href',
       '#bekleme-listesi',
