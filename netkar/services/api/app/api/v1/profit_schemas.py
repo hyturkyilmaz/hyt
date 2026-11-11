@@ -473,6 +473,65 @@ class OrderDetailOut(ApiModel):
     lines: list[LineOut]
 
 
+class OrderProductOut(ApiModel):
+    """Sipariş kartındaki ürün: barkod ve katalog adı (katalogda yoksa `title` null)."""
+
+    barcode: str
+    title: str | None
+
+
+class OrderListItemOut(ApiModel):
+    """Sipariş kârlılık kartı. Paralar KDV hariçtir; dönem düzeyi giderler dahil DEĞİLDİR. Müşteri bilgisi yoktur.
+
+    Tümüyle iptal siparişte `cancelled` true'dur ve tutar alanları null'dır (B-02: "0.00" gösterilmez).
+    """
+
+    order_number: str
+    ordered_on: date | None = Field(description="Siparişin ilk paketinin İstanbul günü (kayıt yoksa null).")
+    cancelled: bool = Field(description="Tüm satırlar iptal: net kâr ve tutarlar null, rozet 'İptal'.")
+    line_count: int = Field(description="Aktif (iptal olmayan) satır sayısı.")
+    cancelled_line_count: int
+    products: list[OrderProductOut] = Field(
+        description="Siparişin ilk 2 ürünü (satır sırasıyla, tekil barkod)."
+    )
+    more_product_count: int = Field(description="Gösterilmeyen ürün sayısı ('N ürün daha').")
+    net_sales_excl_vat: Amount | None
+    net_profit: Amount | None = Field(
+        description="Aktif satırların net kâr toplamı; eksik kalem varsa ya da sipariş iptalse null (K37, B-02)."
+    )
+    known_expenses_profit: Amount | None = Field(
+        description="Eksik giderler hariç kâr (K37); eksik kalem yoksa net kâra eşit; iptalde null. Etiketsiz "
+        "gösterilmemelidir."
+    )
+    certainty: Certainty = Field(
+        description="Aktif satırların kesinliği (K40): kesin, tahmini, eksik; tümü iptalse iptal."
+    )
+    missing_items: list[MissingItem]
+    cost_missing: bool
+    loss_reason: LossReasonLabel | None = Field(
+        description="Zararda ise nedeni (ürün listesiyle aynı K37 kuralı); zararda değilse null."
+    )
+    awaiting_payout: bool = Field(description="En az bir aktif satırın ekstresi (hakedişi) henüz gelmemiş.")
+    unexpected_deduction: bool = Field(description="Motor en az bir satırda BEKLENMEYEN_KESINTI üretti.")
+    status_counts: StatusCountsOut
+
+
+class OrderListOut(ApiModel):
+    """Sipariş kârlılık listesi: süzülmüş, sıralı, imleçle sayfalı. `total_count` süzgeç ve aramadan sonraki sayıdır."""
+
+    period: PeriodOut
+    settings_revision: int = Field(
+        description="Raporun hesaplandığı ayar sürümü (K44; hesapta hiç ayar yazılmamışsa 0)."
+    )
+    sort: str
+    order: str
+    filter: str
+    q: str | None
+    total_count: int
+    items: list[OrderListItemOut]
+    next_cursor: str | None
+
+
 class AlertOut(ApiModel):
     """Motorun ürettiği uyarı. `scope`: period (dönem) ya da line (satır). Önem derecesi motorda yoktur."""
 

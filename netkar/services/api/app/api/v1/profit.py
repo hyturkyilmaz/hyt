@@ -37,6 +37,9 @@ from app.api.v1.profit_schemas import (
     FeedNotesOut,
     LineOut,
     OrderDetailOut,
+    OrderListItemOut,
+    OrderListOut,
+    OrderProductOut,
     OrderTotalsOut,
     PeriodOut,
     PeriodTotalsOut,
@@ -56,6 +59,7 @@ from app.core.ratelimit import digest
 from app.db.rls import set_rls_context
 from app.profit import ProfitInputError
 from app.profit.enums import Certainty, Status, WarningCode
+from app.profit.schema_v1 import ISTANBUL
 from app.services import product_costs as costs
 from app.services import profit_views as views
 from app.services.auth import AuthContext
@@ -356,6 +360,89 @@ async def product_detail(
         comparison=ComparisonSummaryOut.model_validate(views.comparison_summary(mine)),
         total_lines=len(mine),
         lines=[LineOut.model_validate(line) for line in page],
+        next_cursor=next_cursor,
+    )
+
+
+@router.get("/orders", response_model=OrderListOut)
+async def list_orders(
+    account_id: UUID,
+    ctx: AnyRoleDep,
+    db: DbDep,
+    settings: SettingsDep,
+    limiter: RateLimiterDep,
+    gate: ReportGateDep,
+    period: PeriodDep,
+    sort: views.OrderSort = "date",
+    order: views.SortOrder = "desc",
+    filter: Annotated[views.OrderFilter, Query()] = "all",
+    q: Annotated[
+        str | None,
+        Query(
+            min_length=1,
+            max_length=64,
+            pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            description="Sipariş no ile TAM eşleşme araması.",
+        ),
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    cursor: Annotated[str | None, Query(min_length=1, max_length=400)] = None,
+) -> OrderListOut:
+    """Sipariş kârlılık listesi (varsayılan: tarihe göre yeni önce). Sıralama kararlıdır (eşitlikte sipariş no artan);
+    hesaplanamayan değerler (null net kâr, iptal) sona gider. Zarar süzgecinde en büyük zarar önce için
+    `sort=net_profit&order=asc`. `cursor` önceki sayfanın `next_cursor`'ıdır ve aynı sort/order/filter/q/dönem ile
+    kullanılmalıdır. Tutarlar dönem düzeyi giderleri içermez (`summary` dönem rakamı onları da düşer).
+    """
+    await _guard(db, ctx, account_id, limiter, settings)
+    fingerprint = f"orders|{sort}|{order}|{filter}|{q or ''}|{period.start}|{period.end}"
+    codec = _codec(settings, ctx, account_id)
+    _check_cursor(cursor, fingerprint, 3, codec)
+    report, loaded = await _report(db, ctx, account_id, period, gate)
+    rows = views.filter_orders(views.build_order_rows(report.result), filter, q)
+    await _restore_context(db, ctx)
+    dates = await views.order_dates(db, ctx.tenant_id, account_id, [r.order_number for r in rows])
+    try:
+        page, next_cursor = views.order_page(rows, dates, sort, order, limit, cursor, fingerprint, codec)
+    except views.CursorError:
+        raise _cursor_error() from None
+    shown = {r.order_number: r.barcodes[:2] for r in page}
+    titles = await views.product_titles(
+        db, ctx.tenant_id, account_id, sorted({b for barcodes in shown.values() for b in barcodes})
+    )
+    items = []
+    for r in page:
+        moment = dates.get(r.order_number)
+        t = r.totals
+        items.append(
+            OrderListItemOut(
+                order_number=r.order_number,
+                ordered_on=None if moment is None else moment.astimezone(ISTANBUL).date(),
+                cancelled=r.cancelled,
+                line_count=0 if t is None else t.line_count,
+                cancelled_line_count=r.cancelled_line_count,
+                products=[OrderProductOut(barcode=b, title=titles.get(b)) for b in shown[r.order_number]],
+                more_product_count=max(len(r.barcodes) - 2, 0),
+                net_sales_excl_vat=None if t is None else t.net_sales_excl_vat,
+                net_profit=r.net_profit,
+                known_expenses_profit=None if t is None else t.known_expenses_profit,
+                certainty=r.certainty,
+                missing_items=[] if t is None else t.missing_items,
+                cost_missing=False if t is None else t.cost_missing,
+                loss_reason=r.loss_reason,
+                awaiting_payout=r.awaiting_payout,
+                unexpected_deduction=r.unexpected_deduction,
+                status_counts=StatusCountsOut(**r.status_counts),
+            )
+        )
+    return OrderListOut(
+        period=period.out(),
+        settings_revision=loaded.revision,
+        sort=sort,
+        order=order,
+        filter=filter,
+        q=q,
+        total_count=len(rows),
+        items=items,
         next_cursor=next_cursor,
     )
 

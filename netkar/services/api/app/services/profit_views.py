@@ -16,18 +16,20 @@ import re
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 from uuid import UUID
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from sqlalchemy import func, select
+from sqlalchemy import Text, any_, bindparam, func, select
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import derive_key
 from app.models import Order, OrderLine, Product
+from app.profit.aggregate import summarize_certainty
 from app.profit.enums import Certainty, MissingItem, Status, WarningCode
 from app.profit.results import LineResult, ProductTotals, ProfitResult
 from app.profit.schema_v1 import ISTANBUL
@@ -328,20 +330,24 @@ def order_rows(rows: Sequence[ProductRow], sort: SortField, order: SortOrder) ->
     return sorted(rows, key=lambda r: _key(sort_value(r, sort), r.totals.barcode, order))
 
 
-def product_page(
-    rows: Sequence[ProductRow],
-    sort: SortField,
+def value_page[T](
+    rows: Sequence[T],
+    value_of: Callable[[T], Decimal | None],
+    id_of: Callable[[T], str],
     order: SortOrder,
     limit: int,
     cursor: str | None,
     fingerprint: str,
     codec: CursorCodec,
-) -> tuple[list[ProductRow], str | None]:
-    """Sıralı ürün sayfası ve sonraki imleç. `rows` süzülmüş olmalıdır; imleç parmak izine bağlıdır."""
-    ordered = order_rows(rows, sort, order)
+) -> tuple[list[T], str | None]:
+    """Genel keyset sayfası: (boş mu, yöne göre değer, kimlik) sırası; imleç parmak izine bağlıdır.
+
+    Hesaplanamayan değer (None) her yönde sona gider; eşitlikte kimlik HER ZAMAN artan (kararlı sayfalama).
+    """
+    ordered = sorted(rows, key=lambda r: _key(value_of(r), id_of(r), order))
     cursor_key: tuple[object, ...] | None = None
     if cursor is not None:
-        flag, text, barcode = codec.decode(cursor, fingerprint, 3)
+        flag, text, ident = codec.decode(cursor, fingerprint, 3)
         raw: Decimal | None = None
         if flag not in ("0", "1"):
             raise CursorError
@@ -352,21 +358,42 @@ def product_page(
                 raise CursorError from None
             if not raw.is_finite():
                 raise CursorError
-        cursor_key = _key(raw, barcode, order)
+        cursor_key = _key(raw, ident, order)
 
-    def key(row: ProductRow) -> tuple[object, ...]:
-        return _key(sort_value(row, sort), row.totals.barcode, order)
+    def key(row: T) -> tuple[object, ...]:
+        return _key(value_of(row), id_of(row), order)
 
     page, has_more = page_after(ordered, key, cursor_key, limit)
     next_cursor = None
     if has_more:
         last = page[-1]
-        value = sort_value(last, sort)
+        value = value_of(last)
         next_cursor = codec.encode(
-            fingerprint,
-            ["1", "", last.totals.barcode] if value is None else ["0", str(value), last.totals.barcode],
+            fingerprint, ["1", "", id_of(last)] if value is None else ["0", str(value), id_of(last)]
         )
     return page, next_cursor
+
+
+def product_page(
+    rows: Sequence[ProductRow],
+    sort: SortField,
+    order: SortOrder,
+    limit: int,
+    cursor: str | None,
+    fingerprint: str,
+    codec: CursorCodec,
+) -> tuple[list[ProductRow], str | None]:
+    """Sıralı ürün sayfası ve sonraki imleç. `rows` süzülmüş olmalıdır; imleç parmak izine bağlıdır."""
+    return value_page(
+        rows,
+        lambda r: sort_value(r, sort),
+        lambda r: r.totals.barcode,
+        order,
+        limit,
+        cursor,
+        fingerprint,
+        codec,
+    )
 
 
 async def product_titles(
@@ -492,6 +519,153 @@ async def order_days(
     if first is None or last is None:
         return None
     return first.astimezone(ISTANBUL).date(), last.astimezone(ISTANBUL).date()
+
+
+# --------------------------------------------------------------------------- sipariş listesi
+
+OrderSort = Literal["date", "net_profit"]
+OrderFilter = Literal["all", "loss", "awaiting_payout", "unexpected_deduction"]
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+_MICROSECOND = timedelta(microseconds=1)
+
+
+@dataclass(frozen=True, slots=True)
+class OrderRow:
+    """Sipariş kârlılık listesi satırı: motorun satırlarından türetilir (yeni kural yok).
+
+    Müşteri bilgisi YOKTUR: yalnız sipariş no ve ürün barkodları (adlar katalogdan sonradan eklenir).
+    """
+
+    order_number: str
+    # Tüm satırlar iptalse True: tutar gösterilmez (B-02), net kâr null'dır (0.00 değil).
+    cancelled: bool
+    cancelled_line_count: int
+    # Aktif (iptal olmayan) satırların toplamı; sipariş tümüyle iptalse None.
+    totals: OrderTotals | None
+    certainty: Certainty
+    loss_reason: LossReason | None
+    # En az bir aktif satır ekstresiz (hakedişi gelmemiş: durum `estimated`).
+    awaiting_payout: bool
+    # En az bir aktif satırda motor BEKLENMEYEN_KESINTI üretmiş.
+    unexpected_deduction: bool
+    status_counts: dict[str, int]
+    # Siparişin ürünleri (tekil barkodlar, satır sırasıyla; iptal satırlar dahil).
+    barcodes: tuple[str, ...]
+
+    @property
+    def net_profit(self) -> Decimal | None:
+        return None if self.totals is None else self.totals.net_profit
+
+
+def order_loss_reason(totals: OrderTotals) -> LossReason | None:
+    """Sipariş zararda mı (K37 kesin zarar, ürün kuralıyla aynı).
+
+    Net kâr varsa o; yoksa bilinen giderlerle kâr negatifse zarar kesindir
+    (eksik kalemler kârı yalnız düşürür).
+    """
+    if totals.net_profit is not None:
+        return "net_profit" if totals.net_profit < 0 else None
+    if totals.known_expenses_profit >= 0:
+        return None
+    if set(totals.missing_items) == {MissingItem.PRODUCT_COST}:
+        return "contribution_before_cost"
+    return "known_expenses"
+
+
+def build_order_rows(result: ProfitResult) -> list[OrderRow]:
+    by_order: dict[str, list[LineResult]] = {}
+    for line in sort_lines(result.lines):
+        by_order.setdefault(line.order_number, []).append(line)
+    rows = []
+    for number, lines in by_order.items():
+        active = [line for line in lines if line.status is not Status.CANCELLED]
+        totals = order_totals(active) if active else None
+        rows.append(
+            OrderRow(
+                order_number=number,
+                cancelled=not active,
+                cancelled_line_count=len(lines) - len(active),
+                totals=totals,
+                certainty=summarize_certainty(active) if active else Certainty.CANCELLED,
+                loss_reason=None if totals is None else order_loss_reason(totals),
+                awaiting_payout=any(line.status is Status.ESTIMATED for line in active),
+                unexpected_deduction=any(
+                    WarningCode.UNEXPECTED_DEDUCTION in line.warnings for line in active
+                ),
+                status_counts=status_counts(lines),
+                barcodes=tuple(dict.fromkeys(line.barcode for line in lines)),
+            )
+        )
+    return rows
+
+
+def filter_orders(rows: Iterable[OrderRow], name: OrderFilter, number: str | None) -> list[OrderRow]:
+    """Süzgeç ve sipariş no ile TAM eşleşme araması (kısmi eşleşme yok)."""
+    selected = [r for r in rows if number is None or r.order_number == number]
+    if name == "loss":
+        return [r for r in selected if r.loss_reason is not None]
+    if name == "awaiting_payout":
+        return [r for r in selected if r.awaiting_payout]
+    if name == "unexpected_deduction":
+        return [r for r in selected if r.unexpected_deduction]
+    return selected
+
+
+def order_sort_value(row: OrderRow, sort: OrderSort, ordered_at: datetime | None) -> Decimal | None:
+    """Sıralama değeri; hesaplanamayan (None) her yönde SONA gider.
+
+    `date`: sipariş anı (mikrosaniye, tam sayı). `net_profit`: net kâr; null ama zarar kesinse
+    (AD-04 deseni, ürün listesindeki gibi) bilinen değer (eksik giderler hariç kâr) kullanılır,
+    böylece kesin zararlı sipariş `asc` sıralamada belirsizlerden önce gelir.
+    İptal sipariş her yönde sonda.
+    """
+    if sort == "date":
+        return None if ordered_at is None else Decimal((ordered_at - _EPOCH) // _MICROSECOND)
+    if row.totals is None:
+        return None
+    if row.totals.net_profit is None and row.loss_reason is not None:
+        return row.totals.known_expenses_profit
+    return row.totals.net_profit
+
+
+def order_page(
+    rows: Sequence[OrderRow],
+    dates: dict[str, datetime],
+    sort: OrderSort,
+    order: SortOrder,
+    limit: int,
+    cursor: str | None,
+    fingerprint: str,
+    codec: CursorCodec,
+) -> tuple[list[OrderRow], str | None]:
+    return value_page(
+        rows,
+        lambda r: order_sort_value(r, sort, dates.get(r.order_number)),
+        lambda r: r.order_number,
+        order,
+        limit,
+        cursor,
+        fingerprint,
+        codec,
+    )
+
+
+async def order_dates(
+    db: AsyncSession, tenant_id: UUID, account_id: UUID, numbers: Sequence[str]
+) -> dict[str, datetime]:
+    """Siparişlerin ilk paket anı (tek sorgu, dizi parametresi: bağlayıcı sayısı sınırına takılmaz)."""
+    if not numbers:
+        return {}
+    found = await db.execute(
+        select(Order.order_number, func.min(Order.ordered_at))
+        .where(
+            Order.tenant_id == tenant_id,
+            Order.marketplace_account_id == account_id,
+            Order.order_number == any_(bindparam("numbers", list(numbers), type_=ARRAY(Text))),
+        )
+        .group_by(Order.order_number)
+    )
+    return {number: moment for number, moment in found.all()}
 
 
 # --------------------------------------------------------------------------- uyarılar
