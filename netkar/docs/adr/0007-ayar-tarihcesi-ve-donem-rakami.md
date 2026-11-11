@@ -10,6 +10,10 @@
   sonrası uygulama ve belge güncellemesi. Eski içerik silinmedi; değişen yerlerde "Revizyon 1" notu vardır: §3
   (kullanıcı kimlikleri, tetikleyici ve `SET NULL`), §4 (`ck_..._replace` taslağı, başlıksız hesap taşıması, yeni
   migrasyon 0009), §5.1 (`confirm_affects_from`, `changed_by`, mühürlü `GET /history` imleci), §7 madde 1.
+- **Revizyon 3 (11 Kasım 2026):** kapanış denetimi `docs/security/denetim_2026-11-11_ayar_tarihcesi_kapanis.md`
+  (YK-01..YK-05) sonrası: §4.1 yeni migrasyon 0010 (sayaç işlem bağı), bileşik FK'nin koruma sınırı, üyelik silme ve
+  kiracı imha sırası, indeks tanımının hizalanması, `search_path`; §5.1 (`confirm_affects_from` gövde ayrıştırması,
+  üyelik silindiyse ifadesi). Eski içerik silinmedi.
 - **Revizyon 2 (11 Kasım 2026):** yalnız belge düzeltmesi; kod kuralı değişmedi: §5.2 "Ayar ekranı" madde 1 (panel K43
   etki tarihini önceden hesaplamaz, sunucunun 409'una dayanır; geri çekmede istemci önce kendi onayını ister).
 
@@ -263,7 +267,9 @@ SELECT tenant_id, marketplace_account_id, revision, now(), 'tasima', 'tasima', f
 Geri alınabilir ek migrasyon (0008'e eklenmedi; yalnız YT-03 0008'de düzeltildi). İçerik:
 
 - **YT-02:** `CREATE INDEX ix_<tablo>_replaces ON <tablo> (replaces_id) WHERE replaces_id IS NOT NULL` (üç sürümlü
-  tablo). `settings-record-ended` halef zinciri tek özyinelemeli sorguyla yürünür (üst sınır 10.000; aşılırsa
+  tablo). **Revizyon 3 (YK-05):** uygulanan tanım `e320f7d` sonrası `(replaces_id, tenant_id, marketplace_account_id)
+  WHERE replaces_id IS NOT NULL`'dir (kapsam sütunları indekste; istatistiği olmayan tabloda planlayıcı her adımda
+  hesabın bütün satırlarını taramasın); yukarıdaki tek sütunlu tanım ilk taslaktır. `settings-record-ended` halef zinciri tek özyinelemeli sorguyla yürünür (üst sınır 10.000; aşılırsa
   `current_id` null).
 - **YT-04 (derinlemesine savunma):** `netkar_app` INSERT ile tarihçeyi sahteleyebiliyordu. Eklenenler:
   `BEFORE INSERT` tetikleyicisi (üç sürümlü tablo): satır baştan kapalı olamaz, `revision_from` aynı işlemde
@@ -276,9 +282,49 @@ Geri alınabilir ek migrasyon (0008'e eklenmedi; yalnız YT-03 0008'de düzeltil
   (YT-05) sıra kuralına takılmamalıdır. Değişmezlik tetikleyicisi (kapanmış satır, iş alanları) ve bileşik FK
   herkesi bağlar. Denetimin beş sahte yazımının (geçmiş `revision_from`, baştan kapalı satır, sahte `tasima`, başka
   kiracı kullanıcısı `changed_by`, sayaçtan kopuk `revision_to`) her biri testle reddedilir.
+  **Revizyon 3 (YK-01, YK-02):** "aynı işlemde artırılmış" ifadesi 0009'da koda yansımamıştı (kural yalnız sayaca
+  EŞİTLİK arıyordu ve `netkar_app` sayacı serbestçe yazabiliyordu); 0010 bunu kapatır (aşağıda §4.2). Bileşik FK
+  (`changed_by`, `tenant_id`) HATALI KODA karşı güvencedir (yanlış ya da başka kiracının kullanıcı kimliği
+  yazılamaz); ELE GEÇİRİLMİŞ uygulama rolüne karşı değildir: `netkar_app` `memberships`'e satır ekleyebildiği için
+  (davet akışı) başka kiracının kullanıcısına kendi kiracısında üyelik açıp `changed_by` olarak yazabilir (denetim
+  PoC C). Bu risk bilinçli kabul edilmiştir: ek bir iz (üyelik satırı) bırakır ve rol ele geçirildiğinde tarihçe
+  zaten yazılabilir bir alandır. İstenirse günlük tetikleyicisi `changed_by` üyeliğinin bu işlemde oluşturulmamış
+  olmasını da arayabilir (yapılmadı).
+  **Revizyon 3 (YK-03):** FK referans eylemi `NO ACTION` olduğundan günlükte kaydı olan kullanıcının üyeliği
+  SİLİNEMEZ (her rol için `ForeignKeyViolation`; denetim PoC D). Bugün üyelik silen bir kod yolu yoktur. İleride üye
+  çıkarma özelliği üyeliği silmemeli, pasifleştirmelidir (kimliksizleştirme ilkesi, §3). Kiracı imha (KVKK) akışı
+  sırası: önce `profit_settings_changes` (ve gerekirse sürümlü tablolar, `DISABLE TRIGGER` deseniyle), SONRA
+  `memberships`; ters sıra FK'ye takılır. Bu sıra imha runbook'una eklenmelidir.
 - **YT-09:** `ck_profit_settings_changes_replace` yukarıdaki sıkı tanımla değiştirilir.
 - **Geri alma:** tetikleyiciler, işlevler, FK ve indeksler düşer; kapanış işlevi 0008 gövdesine, kısıt 0008
   tanımına döner. Veri kaybı yoktur; test: downgrade, nesnelerin yokluğu, veri korunumu, upgrade.
+
+### 4.2 Revizyon 3: migrasyon `0010_profit_settings_revision_xact.py` (revises `0009`; YK-01, YK-05)
+
+Geri alınabilir ek migrasyon. Sorun: 0009 sıra kuralları satır sürümünün sayaca eşitliğine bakıyordu, sayacın bu
+işlemde artırıldığına bakmıyordu; `netkar_app` sayacı geri sarıp geçmiş sürüme ya da sayaç artırılmadan yayımlanmış
+sürüme satır ekleyebiliyordu (denetim PoC A ve B). Eklenenler:
+
+- `profit_settings.revision_xact xid8`: sayacın son artırıldığı işlem. Sütunu istemci yazamaz; `BEFORE INSERT OR
+  UPDATE` tetikleyicisi (`profit_settings_head_guard`) her rol için atar: satır yeniyse ya da sayaç değiştiyse
+  `pg_current_xact_id()`, değilse eski değer (istemcinin gönderdiği değer yok sayılır).
+- Tekdüzelik (yalnız `netkar_app`): INSERT'te sayaç 1; UPDATE'te sayaç ya aynı kalır ya +1 artar; azalma ve atlama
+  `check_violation`. Sahip rol ve yönetici muaftır (veri doldurma ve düzeltme; tetikleyiciyi zaten kapatabilirler).
+- 0009'un üç sıra kuralı (sürümlü tablolara ekleme, kapanış sürümü, günlük kaydı) ek olarak
+  `revision_xact = pg_current_xact_id()` ister. Satır ancak sayacı BU işlemde artıran akışla yazılabilir.
+- **Gerekçe (`xid8`):** `pg_current_xact_id()` en üst düzey işlem kimliğini döndürür; SAVEPOINT bunu değiştirmez, bu
+  yüzden alt işlem kullanımı kuralı bozmaz (uygulama zaten SAVEPOINT/`begin_nested` kullanmaz). 64 bit olduğundan
+  sarmalama sorunu yoktur. `now()` tabanlı bir bağ aynı işlemde ve eşzamanlı işlemlerde ayrım yapamazdı.
+- Dürüst akış değişmez: `begin_write` kilitler, `finish_write` sayacı +1 yapıp flush eder, sonra satır, kapanış ve
+  günlük gelir; aynı işlemde varsayılan desi için ikinci başlık UPDATE'i sürümü değiştirmediğinden bağ korunur.
+- **YK-05 sertleştirmesi:** dört tetikleyici işlevine `SET search_path = pg_catalog, public` eklendi. İşlevler
+  `SECURITY INVOKER` olduğundan çağıranın haklarıyla çalışır ve `search_path` ile yetki yükseltme riski yoktur
+  (düşük risk); ek önlem 0006'daki `sync_gate` işlevleriyle tutarlılık ve ileriye dönük güvence içindir.
+- **Geri alma:** tetikleyici, işlev ve sütun düşer; üç kural işlevi 0009 gövdesine döner; veri kaybı yoktur.
+  Test: PoC A ve B reddi, dürüst akış geçişi, upgrade, downgrade, upgrade.
+- **Kalan risk (kabul):** ele geçirilmiş `netkar_app` sayacı +1 artırıp aynı işlemde gerçek yazım akışını taklit
+  edebilir; bu zaten meşru yazımdır (günlük ve sürüm sayacı tutarlı kalır). Sahip rol ve yönetici muafiyeti §4.1'deki
+  gibidir.
 
 ## 5. API davranış değişikliği ve panel
 
@@ -292,7 +338,7 @@ Geri alınabilir ek migrasyon (0008'e eklenmedi; yalnız YT-03 0008'de düzeltil
 | `DELETE .../{id}` (üç kalem) | satırı kalıcı siler | Satırı `geri_cekildi` ile kapatır; satır tabloda kalır |
 | `PUT /defaults` | yerinde günceller, iz yok | Yerinde günceller, önceki ve yeni değer günlüğe |
 | `GET /profit-settings` | tüm satırlar | Yalnız etkin satırlar (biçim aynı) |
-| `GET /profit-settings/history` | yok | Yeni: günlük, yeniden eskiye, imleçli (`cursor`, `limit` en çok 100); her kayıtta `revision`, `changed_at`, `changed_by` (kullanıcı kimliği ve görünen adı, üyeler listesindeki gibi; **Revizyon 1 (YT-08): uygulandığı biçim `{user_id, role}`, görünen ad yoktur.** Üyeler listesi (`/v1/tenant/members`) de ad ya da e-posta döndürmez ve kullanıcı satırları RLS ile yalnız kendine açıktır; ad eklemek görüntüleyiciye yeni kişisel veri açardı (KVKK en aza indirme). `role` bugünkü roldür, değişiklik anındaki rol değildir; üyelik silindiyse `null`), `item`, `action`, `affects_from`, `affects_past`, `past_change_confirmed`, `record` ve `replaced_record` (satırın tam içeriği: girilen ve KDV hariç değerler); varsayılan desi için önceki ve yeni değer. owner, admin, viewer; okuma sınırlayıcısını paylaşır (AD-02 sayacı) |
+| `GET /profit-settings/history` | yok | Yeni: günlük, yeniden eskiye, imleçli (`cursor`, `limit` en çok 100); her kayıtta `revision`, `changed_at`, `changed_by` (kullanıcı kimliği ve görünen adı, üyeler listesindeki gibi; **Revizyon 1 (YT-08): uygulandığı biçim `{user_id, role}`, görünen ad yoktur.** Üyeler listesi (`/v1/tenant/members`) de ad ya da e-posta döndürmez ve kullanıcı satırları RLS ile yalnız kendine açıktır; ad eklemek görüntüleyiciye yeni kişisel veri açardı (KVKK en aza indirme). `role` bugünkü roldür, değişiklik anındaki rol değildir; **Revizyon 3 (YK-03): günlükte kaydı olan kullanıcının üyeliği silinemez (0009 bileşik FK, §4.1), bu yüzden `role` bugün `null` olamaz; üye çıkarma üyeliği pasifleştirerek yapılmalıdır. Eski ifade "üyelik silindiyse `null`" idi**), `item`, `action`, `affects_from`, `affects_past`, `past_change_confirmed`, `record` ve `replaced_record` (satırın tam içeriği: girilen ve KDV hariç değerler); varsayılan desi için önceki ve yeni değer. owner, admin, viewer; okuma sınırlayıcısını paylaşır (AD-02 sayacı) |
 
 - **Onay alanı:** PUT ve POST gövdelerinde `confirm_past_change: bool = false`; DELETE'te aynı adlı sorgu
   parametresi (`expected_revision` kalıbı). K43'e göre geçmişi etkileyen ve ilk giriş istisnasına girmeyen yazım
@@ -304,7 +350,7 @@ Geri alınabilir ek migrasyon (0008'e eklenmedi; yalnız YT-03 0008'de düzeltil
     SAYILMAZ (alan geriye uyum için kabul edilir, karara etkisi yoktur; web istemcisi henüz bu uca bağlı değildir).
     İstemci 409 gövdesindeki `affects_from` değerini PUT/POST gövdesinde `confirm_affects_from` (YYYY-AA-GG) olarak
     geri gönderir; `affects_from` null ise (varsayılan desi) `all`. DELETE'te aynı adlı sorgu parametresi
-    (`confirm_affects_from=2026-01-01` ya da `all`; geçersiz biçim 422). Sunucunun hesapladığı etki tarihiyle
+    (`confirm_affects_from=2026-01-01` ya da `all`; geçersiz biçim 422; **Revizyon 3 (YK-04):** gövde alanı sorgu parametresiyle aynı katı desenle (`all` ya da tam `YYYY-AA-GG`) ayrıştırılır, saat dilimli tarih-saat ve sayısal zaman damgası dizgesi 422 `date_invalid` verir). Sunucunun hesapladığı etki tarihiyle
     eşleşmeyen ya da eksik onay (ilk giriş istisnası hariç) yeniden 409 `settings-past-change-unconfirmed` olur ve
     hiçbir şey yazılmaz; gövde sunucunun `affects_from` değerini taşır. İlk giriş istisnasında onay gerekmez ama
     gönderilmiş ve eşleşmeyen onay yine 409'dur; etki tarihi geçmiş değilse onay değerlendirilmez. Değişken gider

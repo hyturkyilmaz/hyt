@@ -236,8 +236,8 @@ def test_app_role_cannot_delete_or_change_work_fields_but_can_close_active_rows(
 ) -> None:
     seller = make_seller(admin_conn)
     insert_all(admin_conn, seller)
-    # 0009: uygulama rolü satırı yalnız ayar sayacındaki sürümle kapatır (CLOSE `revision_to = 2`).
-    admin_conn.execute("UPDATE profit_settings SET revision = 2")
+    # 0009/0010: uygulama rolü satırı yalnız ayar sayacındaki sürümle ve sayacı bu işlemde artırarak kapatır
+    # (sayaç 1, `bump` ile 2; CLOSE `revision_to = 2`).
     denied = (
         "DELETE FROM cargo_tariffs",
         "DELETE FROM service_fee_estimates",
@@ -259,6 +259,7 @@ def test_app_role_cannot_delete_or_change_work_fields_but_can_close_active_rows(
         ):
             conn.execute(sql)
     with role_tx(database.app_dsn(), seller.tenant_id) as conn:  # kapanış sütunları serbest
+        assert bump(conn, seller) == 2
         for table in VERSIONED:
             assert conn.execute(f"UPDATE {table} SET {CLOSE}", (seller.user_id,)).rowcount == 1, table
 
@@ -303,7 +304,7 @@ def test_journal_is_tenant_isolated_for_read_and_write(
     for tenant in (a, b):  # uygulama rolünün günlük tetikleyicisi sayaçla karşılaştırır (0009)
         admin_conn.execute(
             "INSERT INTO profit_settings (tenant_id, marketplace_account_id, updated_by, revision) "
-            "VALUES (%s, %s, %s, 2)",
+            "VALUES (%s, %s, %s, 1)",
             (tenant.tenant_id, tenant.account_id, tenant.user_id),
         )
     with role_tx(database.app_dsn(), a.tenant_id) as conn:
@@ -323,7 +324,7 @@ def test_journal_is_tenant_isolated_for_read_and_write(
         with pytest.raises(psycopg.errors.CheckViolation):  # uygulama rolünde tetikleyici de reddeder
             add_change(conn, b, 2)
     with role_tx(database.app_dsn(), a.tenant_id) as conn:
-        add_change(conn, a, 2)  # kendi kiracısına ekleyebilir
+        add_change(conn, a, bump(conn, a))  # kendi kiracısına ekleyebilir (sayaç 1 -> 2, bu işlemde)
     # hesap başka kiracıya ait bir kayda bağlanamaz (bileşik yabancı anahtar, RLS olmasa bile)
     with pytest.raises(psycopg.errors.ForeignKeyViolation):
         add_change(admin_conn, a, 3, marketplace_account_id=b.account_id)
@@ -592,6 +593,16 @@ def forged_tariff(
     )
 
 
+def bump(conn: psycopg.Connection[Any], seller: Seller, by: int = 1) -> int:
+    """Dürüst akışın ilk adımı: ayar sayacını BU işlemde artırır (`finish_write`); yeni sayacı döndürür."""
+    row = conn.execute(
+        "UPDATE profit_settings SET revision = revision + %s WHERE marketplace_account_id = %s RETURNING revision",
+        (by, seller.account_id),
+    ).fetchone()
+    assert row is not None
+    return int(row[0])
+
+
 def test_app_role_cannot_forge_history_rows_the_five_audit_attempts(
     admin_conn: psycopg.Connection[Any], database: DatabaseInfo
 ) -> None:
@@ -612,7 +623,7 @@ def test_app_role_cannot_forge_history_rows_the_five_audit_attempts(
         add_change(conn, a, 5, item="tasima", action="tasima", changed_by=None, default_desi_after=2)
     # 4. başka kiracının kullanıcısı `changed_by`
     with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.ForeignKeyViolation):
-        add_change(conn, a, 5, changed_by=b.user_id)
+        add_change(conn, a, bump(conn, a), changed_by=b.user_id)  # sayaç bu işlemde artırıldı: FK'ye ulaşır
     # 5. etkin satırı sayaçtan kopuk bir `revision_to` ile kapatmak
     with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation, match="sayacindaki"):
         conn.execute(
@@ -637,25 +648,114 @@ def test_app_role_cannot_forge_history_rows_the_five_audit_attempts(
 def test_app_role_honest_write_sequence_still_passes_the_guards(
     admin_conn: psycopg.Connection[Any], database: DatabaseInfo
 ) -> None:
-    """Yazım akışının yaptığı dizi geçer: satır sayaca eşit sürümle eklenir, eski satır sayaçla kapanır, günlük sayaçla."""
+    """Yazım akışının dizisi geçer: sayaç +1 (bu işlemde), satır sayaca eşit sürümle, eski satır sayaçla kapanır, günlük."""
     a, _ = seed_forgery_target(admin_conn)
     with role_tx(database.app_dsn(), a.tenant_id) as conn:
+        head = bump(conn, a)  # `finish_write`: sayaç 5 -> 6, aynı işlemde
+        assert head == 6
         assert (
             conn.execute(
-                f"UPDATE cargo_tariffs SET {CLOSE.replace('revision_to = 2', 'revision_to = 5')}",
+                f"UPDATE cargo_tariffs SET {CLOSE.replace('revision_to = 2', f'revision_to = {head}')}",
                 (a.user_id,),
             ).rowcount
             == 1
         )
-        forged_tariff(conn, a, 5, None)
-        add_change(conn, a, 5, action="degistir", replaced_record_id=uuid4(), record_id=uuid4())
+        forged_tariff(conn, a, head, None)
+        # varsayılan desi yazımı: aynı işlemde ikinci başlık UPDATE'i sürümü değiştirmez, işlem bağı korunur
+        conn.execute("UPDATE profit_settings SET default_desi = 3, updated_at = now()")
+        add_change(conn, a, head, action="degistir", replaced_record_id=uuid4(), record_id=uuid4())
         for table in ("service_fee_estimates", "variable_expenses"):
             assert (
                 conn.execute(
-                    f"UPDATE {table} SET {CLOSE.replace('revision_to = 2', 'revision_to = 5')}", (a.user_id,)
+                    f"UPDATE {table} SET {CLOSE.replace('revision_to = 2', f'revision_to = {head}')}",
+                    (a.user_id,),
                 ).rowcount
                 == 1
             )
+
+
+def test_app_role_cannot_add_rows_to_a_published_revision_without_bumping_the_counter(
+    admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    """Denetim YK-01 PoC A: sayaç artırılmadan yayımlanmış sürüme satır, kapanış ve günlük eklenemez."""
+    a, _ = seed_forgery_target(admin_conn)  # sayaç 5 başka bir işlemde yazıldı
+    dsn = database.app_dsn()
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation, match="bu islemde"):
+        forged_tariff(conn, a, 5, None)
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation, match="bu islemde"):
+        add_change(conn, a, 5)
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation, match="bu islemde"):
+        conn.execute(
+            f"UPDATE cargo_tariffs SET {CLOSE.replace('revision_to = 2', 'revision_to = 5')}", (a.user_id,)
+        )
+    # başlık güncellemesi sürümü artırmıyorsa işlem bağı kurulmaz (aynı değerle UPDATE bağ vermez)
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation, match="bu islemde"):
+        conn.execute("UPDATE profit_settings SET revision = 5, default_desi = 2")
+        forged_tariff(conn, a, 5, None)
+    assert admin_conn.execute("SELECT count(*) FROM profit_settings_changes").fetchone() == (0,)
+    assert admin_conn.execute("SELECT count(*) FROM cargo_tariffs").fetchone() == (1,)
+
+
+def test_app_role_cannot_rewind_or_skip_the_counter(
+    admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    """Denetim YK-01 PoC B: sayaç geri sarılamaz, atlanamaz ve yeni hesapta 1 dışında başlayamaz."""
+    a, _ = seed_forgery_target(admin_conn)
+    dsn = database.app_dsn()
+    for target in (2, 0, 4, 7, 1000000):  # geri sarma, sıfır, geri, atlama, uçurum
+        with (
+            role_tx(dsn, a.tenant_id) as conn,
+            pytest.raises(psycopg.errors.CheckViolation, match=r"artabilir|baslar"),
+        ):
+            conn.execute("UPDATE profit_settings SET revision = %s", (target,))
+    # PoC B'nin tamamı: geri sar, sahte satır ekle, sayacı eski değerine getir
+    with role_tx(dsn, a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation):
+        conn.execute("UPDATE profit_settings SET revision = 2")
+    with role_tx(dsn, a.tenant_id) as conn:  # +1 serbest, aynı değer serbest
+        assert bump(conn, a) == 6
+        conn.execute("UPDATE profit_settings SET default_desi = 2")
+    # başka bir hesap için sayaçla başlama (INSERT): yalnız 1
+    other = make_seller(admin_conn, seller_id="5555")
+    with role_tx(dsn, other.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation, match="baslar"):
+        conn.execute(
+            "INSERT INTO profit_settings (tenant_id, marketplace_account_id, updated_by, revision) "
+            "VALUES (%s, %s, %s, 9)",
+            (other.tenant_id, other.account_id, other.user_id),
+        )
+    with role_tx(dsn, other.tenant_id) as conn:
+        conn.execute(
+            "INSERT INTO profit_settings (tenant_id, marketplace_account_id, updated_by, revision) "
+            "VALUES (%s, %s, %s, 1)",
+            (other.tenant_id, other.account_id, other.user_id),
+        )
+        forged_tariff(conn, other, 1, None)  # yeni hesap: satır aynı işlemde oluştu, bağ kurulu
+
+
+def test_revision_xact_is_assigned_by_the_trigger_and_cannot_be_forged(
+    admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    """`revision_xact` istemci değerini yok sayar; yalnız sayaç artınca bu işleme taşınır (her rol için)."""
+    a, _ = seed_forgery_target(admin_conn)
+    dsn = database.app_dsn()
+    with role_tx(dsn, a.tenant_id) as conn:
+        # sahte işlem kimliği göndermek bağ kurmaz: sayaç artmadığı için eski değer korunur
+        conn.execute("UPDATE profit_settings SET revision_xact = pg_current_xact_id()")
+        with pytest.raises(psycopg.errors.CheckViolation, match="bu islemde"):
+            forged_tariff(conn, a, 5, None)
+    with role_tx(dsn, a.tenant_id) as conn:
+        head = bump(conn, a)
+        row = conn.execute(
+            "SELECT revision_xact = pg_current_xact_id() FROM profit_settings WHERE revision = %s", (head,)
+        ).fetchone()
+        assert row == (True,)
+        conn.execute("UPDATE profit_settings SET revision_xact = '1'::text::xid8")  # sahte değer yok sayılır
+        row = conn.execute("SELECT revision_xact = pg_current_xact_id() FROM profit_settings").fetchone()
+        assert row == (True,)
+    # yönetici sayacı geri alabilir (muafiyet) ve `revision_xact` yine tetikleyiciyle atanır
+    row = admin_conn.execute(
+        "UPDATE profit_settings SET revision = 3 RETURNING revision_xact = pg_current_xact_id()"
+    ).fetchone()
+    assert row == (True,)
 
 
 def test_sequence_guards_bind_only_the_app_role_but_immutability_binds_everyone(
@@ -732,6 +832,53 @@ def test_replaces_indexes_exist_and_are_partial(admin_conn: psycopg.Connection[A
         assert "replaces_id IS NOT NULL" in row[0], table
 
 
+def test_0010_downgrade_upgrade_roundtrip_restores_0009_bodies_and_keeps_data(
+    alembic_cfg: Config, admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    """0010 geri alınabilir: sütun, tetikleyici ve işlev düşer, 0009 gövdeleri döner; yeniden upgrade tam kurar."""
+    a, _ = seed_forgery_target(admin_conn)
+    before = tables_state(admin_conn)
+
+    def column_present() -> bool:
+        return admin_conn.execute(
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_name = 'profit_settings' AND column_name = 'revision_xact'"
+        ).fetchone() == (1,)
+
+    def functions() -> dict[str, tuple[bool, list[str] | None]]:
+        rows = admin_conn.execute(
+            "SELECT proname, prosecdef, proconfig FROM pg_proc WHERE proname LIKE 'profit_settings%guard'"
+        ).fetchall()
+        return {r[0]: (r[1], r[2]) for r in rows}
+
+    search_path = ["search_path=pg_catalog, public"]
+    assert column_present()
+    assert set(functions()) == {
+        "profit_settings_version_guard",
+        "profit_settings_insert_guard",
+        "profit_settings_changes_guard",
+        "profit_settings_head_guard",
+    }
+    # YK-05: dört işlev de INVOKER ve sabit search_path
+    assert all(config == (False, search_path) for config in functions().values())
+    try:
+        command.downgrade(alembic_cfg, "0009")
+        assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0009",)
+        assert not column_present()
+        assert "profit_settings_head_guard" not in functions()
+        assert all(config == (False, None) for config in functions().values())  # 0009 gövdeleri
+        assert tables_state(admin_conn) == before  # veri kaybı yok
+        # 0009 davranışı: sayaç serbestçe geri sarılabilir (bu yüzden 0010 vardır)
+        with role_tx(database.app_dsn(), a.tenant_id) as conn:
+            conn.execute("UPDATE profit_settings SET revision = 2")
+    finally:
+        command.upgrade(alembic_cfg, "head")
+    assert column_present() and len(functions()) == 4
+    assert all(config == (False, search_path) for config in functions().values())
+    with role_tx(database.app_dsn(), a.tenant_id) as conn, pytest.raises(psycopg.errors.CheckViolation):
+        conn.execute("UPDATE profit_settings SET revision = 2")
+
+
 def test_0009_downgrade_removes_only_its_objects_and_roundtrips(
     alembic_cfg: Config, admin_conn: psycopg.Connection[Any], database: DatabaseInfo
 ) -> None:
@@ -750,7 +897,10 @@ def test_0009_downgrade_removes_only_its_objects_and_roundtrips(
         return {r[0] for r in admin_conn.execute(sql)}
 
     full_triggers = {f"trg_{t}_version_guard" for t in VERSIONED}
-    new_triggers = {f"trg_{t}_insert_guard" for t in VERSIONED} | {"trg_profit_settings_changes_guard"}
+    new_triggers = {f"trg_{t}_insert_guard" for t in VERSIONED} | {
+        "trg_profit_settings_changes_guard",
+        "trg_profit_settings_head_guard",  # 0010
+    }
     assert names("trigger") == full_triggers | new_triggers
     try:
         command.downgrade(alembic_cfg, "0008")

@@ -19,11 +19,21 @@ from typing import Any
 from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Numeric, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import UserDefinedType
 
 from app.db.base import Base
 from app.models.trendyol_data import _AccountScoped
 
 _NOW = func.now()
+
+
+class _Xid8(UserDefinedType[int]):
+    """PostgreSQL `xid8` (64 bit işlem kimliği). Yalnız tetikleyici yazar; uygulama okumaz ve yazmaz."""
+
+    cache_ok = True
+
+    def get_col_spec(self, **kw: Any) -> str:
+        return "XID8"
 
 
 class _Versioned:
@@ -46,6 +56,8 @@ class ProfitSettingsRecord(_AccountScoped, Base):
     updated_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
+    # Sayacın son artırıldığı işlem (0010): tetikleyici atar, uygulama yazmaz ve okumaz (deferred).
+    revision_xact: Mapped[int | None] = mapped_column(_Xid8, deferred=True)
 
 
 class CargoTariffRecord(_Versioned, _AccountScoped, Base):

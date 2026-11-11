@@ -30,6 +30,9 @@ from app.services.product_costs import RuleError, check_valid_from
 
 # İşaretli, yalnız ASCII rakam (aralık dışı değer `*_out_of_range` koduyla reddedilir; denetim S3 B-01).
 _PLAIN_DECIMAL = re.compile(r"-?[0-9]{1,15}(?:\.[0-9]{1,10})?")
+# Onay tarihi: sorgu parametresindeki katı desenle aynı (YYYY-AA-GG; saat dilimli tarih-saat ve sayısal zaman
+# damgası pydantic esnek kipinde kabul edilirdi, YK-04).
+_STRICT_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 Agreement = Literal["trendyol", "seller"]
 ExpenseKindName = Literal["siparis_basi", "adet_basi", "satis_yuzdesi"]
@@ -54,6 +57,16 @@ def _require_text(value: Any) -> Any:
     if not isinstance(value, str):
         raise PydanticCustomError("date_type", "Tarih YYYY-AA-GG dizgesi olmalıdır.")
     return value
+
+
+def _require_strict_date(value: Any) -> Any:
+    """`confirm_affects_from` gövde alanı: yalnız `all` ya da tam `YYYY-AA-GG` dizgesi (sorguyla aynı sözleşme)."""
+    if value is None or value == "all":
+        return value
+    text = _require_text(value)
+    if not _STRICT_DATE.fullmatch(text):
+        raise PydanticCustomError("date_invalid", "Tarih YYYY-AA-GG olmalıdır (ya da all).")
+    return text
 
 
 def _run[T](check: Any, value: T) -> T:
@@ -90,7 +103,7 @@ ConfirmPastChange = Annotated[
 ]
 ConfirmAffectsFrom = Annotated[
     date | Literal["all"] | None,
-    BeforeValidator(lambda v: v if v is None or v == "all" else _require_text(v)),
+    BeforeValidator(_require_strict_date),
     Field(
         description=(
             "Geçmiş raporların değişeceğinin onayı (K43): 409 `settings-past-change-unconfirmed` gövdesindeki "

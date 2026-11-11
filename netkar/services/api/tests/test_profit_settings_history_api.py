@@ -830,7 +830,23 @@ def test_confirmation_must_match_the_affects_from_the_server_computed(
     last = journal(admin_conn, shop)[-1]
     assert last["past_change_confirmed"] is True and str(last["affects_from"]) == "2026-01-01"
     # geçersiz biçim doğrulama hatasıdır
-    for junk in ("garbage", "2026-13-45", "", 5, True):
+    # YK-04: gövde sorgudaki katı desenle aynı ayrıştırılır (saat dilimli tarih-saat ve zaman damgası 422)
+    junk_values: tuple[Any, ...] = (
+        "garbage",
+        "2026-13-45",
+        "",
+        5,
+        True,
+        "2026-01-01T00:00:00",
+        "2026-01-01T00:00:00+03:00",
+        "2026-01-01T00:00:00Z",
+        "1735689600",
+        "20260101",
+        "ALL",
+        " 2026-01-01",
+        "2026-01-01\n",
+    )
+    for junk in junk_values:
         bad = raw_put_tariff(shop, valid_from="2026-01-01", brackets=changed, confirm_affects_from=junk)
         assert bad.status_code == 422, junk
 
