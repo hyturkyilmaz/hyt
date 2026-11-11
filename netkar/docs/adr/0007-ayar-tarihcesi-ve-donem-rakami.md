@@ -14,6 +14,9 @@
   (YK-01..YK-05) sonrası: §4.1 yeni migrasyon 0010 (sayaç işlem bağı), bileşik FK'nin koruma sınırı, üyelik silme ve
   kiracı imha sırası, indeks tanımının hizalanması, `search_path`; §5.1 (`confirm_affects_from` gövde ayrıştırması,
   üyelik silindiyse ifadesi). Eski içerik silinmedi.
+- **Revizyon 4 (11 Kasım 2026):** kapanış denetimi `docs/security/denetim_2026-11-11_0010_kapanis.md` (ZK-01..ZK-05)
+  sonrası: §4.2 yeni migrasyon 0011 (başlık kilidi: sütun düzeyi UPDATE, hesap anahtarı değişmezliği, işlem başına tek
+  artış, olumlu muafiyet listesi). Eski içerik silinmedi.
 - **Revizyon 2 (11 Kasım 2026):** yalnız belge düzeltmesi; kod kuralı değişmedi: §5.2 "Ayar ekranı" madde 1 (panel K43
   etki tarihini önceden hesaplamaz, sunucunun 409'una dayanır; geri çekmede istemci önce kendi onayını ister).
 
@@ -325,6 +328,45 @@ sürüme satır ekleyebiliyordu (denetim PoC A ve B). Eklenenler:
 - **Kalan risk (kabul):** ele geçirilmiş `netkar_app` sayacı +1 artırıp aynı işlemde gerçek yazım akışını taklit
   edebilir; bu zaten meşru yazımdır (günlük ve sürüm sayacı tutarlı kalır). Sahip rol ve yönetici muafiyeti §4.1'deki
   gibidir.
+
+**Revizyon 4 (11 Kasım 2026): migrasyon `0011_profit_settings_head_lockdown.py` (revises `0010`; ZK-01..ZK-04).**
+Kapanış denetimi (`denetim_2026-11-11_0010_kapanis.md`) yukarıdaki "sayaç geri sarılamaz" iddiasının üç açığını
+buldu; hepsi geri alınabilir yeni migrasyonla kapatıldı (0010 yayımlanmış sayıldığı için değiştirilmedi).
+
+- **ZK-01 (düşük):** `netkar_app` `profit_settings` tablosunun tüm sütunlarını güncelleyebiliyordu; başlığın
+  `marketplace_account_id` değerini aynı kiracıdaki başka hesaba çevirip hesaba yeni başlık (`revision = 1`) ekleyerek
+  sayacı dolaylı olarak 1'e indirebiliyordu (yayımlanmış sürüm 1'e sahte satır ve günlük). Düzeltme: tablo düzeyi
+  UPDATE geri alındı; yalnız uygulamanın gerçekten yazdığı `default_desi`, `revision`, `updated_by`, `updated_at`
+  sütunlarına sütun düzeyi UPDATE verildi (kod doğrulaması: `begin_write` yalnız ekler ve `FOR UPDATE` ile kilitler,
+  `finish_write` ve `write_default_desi` yalnız bu dört sütunu yazar; `SELECT ... FOR UPDATE` için tek sütunda UPDATE
+  yetkisi yeterlidir). Derinlemesine savunma: `profit_settings_head_guard` `id`, `tenant_id`,
+  `marketplace_account_id` değişimini HER rol için (sahip rol ve süper kullanıcı dahil) `check_violation` ile
+  reddeder. Denetim PoC'u testle (InsufficientPrivilege) reddedilir; dürüst akış testleri geçer.
+- **ZK-02 (bilgi):** "atlama reddedilir" yalnız deyim başınaydı; aynı işlemde sayaç istenen kadar artırılabiliyordu.
+  Düzeltme: sayaç bu işlemde zaten artırılmışsa (`OLD.revision_xact = pg_current_xact_id()`) yeni artış reddedilir;
+  yani uygulama rolü için işlem başına en fazla bir artış. Dürüst akış uyumludur: `finish_write` işlem başına bir kez
+  artırır, başlığın yeni oluşturulduğu işlemde (`ticket.created`) hiç artırmaz.
+- **ZK-03 (bilgi):** muafiyet "netkar_app dışındaki her rol" biçimindeydi. **Seçilen yön: olumlu liste.** Yalnız
+  açıkça adlandırılmış bakım rolleri muaftır: `netkar_owner` ve süper kullanıcı (`profit_settings_maintenance_role()`
+  yardımcı işlevi, dört kural işlevinde tek kaynak). Gerekçe: (1) varsayılan ret ("fail closed"): yazma yetkisi
+  alan yeni bir rol (destek paneli, yönetim API'si, ayrı içe aktarma işçisi) hiçbir bakım yapılmadan kurallara tabi
+  olur; ters yön ("kural netkar_app ve gelecekteki tüm uygulama rollerine") bir rol listesini sürekli güncel tutmayı
+  ve unutulduğunda sessiz muafiyeti gerektirirdi; (2) muaf kümesi küçük, adlı ve denetlenebilir (sahip rol ve
+  süper kullanıcı tetikleyiciyi zaten kapatabilir, bu yüzden bağlanmaları ek güvenlik katmaz); (3) `netkar_worker`
+  bugün yalnız SELECT sahibidir, tabloya yazsaydı kurallar onu da bağlardı. Test: yazma yetkili rol kümesi tam
+  olarak `{netkar_app, netkar_owner}` (yeni rol yetki alırsa kırılır), muaf küme `{netkar_owner} + süper kullanıcılar`,
+  ve yazma yetkisi verilen varsayımsal bir rolün sıra kurallarına takıldığı.
+- **ZK-04 (bilgi):** 0010 downgrade'i 0009 gövdelerini `importlib` ile dosyadan yüklüyordu (dosya adına ve sabit
+  adlarına bağımlı). 0010 değiştirilmedi; 0011 downgrade'i 0010 gövdelerini kendi içinde METİN olarak taşır ve
+  başka migrasyon dosyasına dayanmaz. Test `pg_get_functiondef` ile 0011, 0010 ve 0009 durumlarında dört işlevin
+  tanımının beklenen sabitlerle eşit olduğunu doğrular.
+- **ZK-05 (bilgi):** `earliest_order_day` için aynı kiracıda ikinci hesap senaryosu testi eklendi (kod değişmedi).
+- **Geri alma:** dört işlev 0010 gövdelerine döner, yardımcı işlev düşer, sütun düzeyi UPDATE geri alınıp tablo
+  düzeyi UPDATE verilir; veri kaybı yoktur. Test: upgrade, downgrade, upgrade gidiş-dönüşü.
+- **Kalan risk (kabul):** ele geçirilmiş `netkar_app` hâlâ kendi hesabında işlem başına bir artış yapıp gerçek yazım
+  akışını taklit edebilir (meşru yazımla aynıdır; sürüm ve günlük tutarlı kalır). Denetimin isteğe bağlı üçüncü
+  önerisi (INSERT'te sürümlü tablo ya da günlükte satırı olan hesaba başlık eklemeyi reddetme) uygulanmadı: hesap
+  anahtarı artık değiştirilemediği ve başlık silinemediği için geri sarma yolu kapalıdır.
 
 ## 5. API davranış değişikliği ve panel
 

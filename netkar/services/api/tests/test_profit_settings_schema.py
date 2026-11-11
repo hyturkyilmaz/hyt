@@ -404,9 +404,17 @@ def test_app_role_privileges_are_least_privilege(admin_conn: psycopg.Connection[
             assert has("netkar_app", table, privilege), (table, privilege)
         assert not has("netkar_app", table, "TRUNCATE") and not has("netkar_app", table, "REFERENCES")
         # 0008: sürümlü tablolarda tablo düzeyi UPDATE ve DELETE yok (yalnız kapanış sütunları güncellenir);
-        # hesap satırında (`profit_settings`) UPDATE kalır, DELETE hiçbir tabloda yoktur.
-        assert has("netkar_app", table, "UPDATE") is (table not in DELETABLE), table
+        # hesap satırında (`profit_settings`) 0011'den beri tablo düzeyi UPDATE de yoktur (yalnız dört sütun,
+        # aşağıda); DELETE hiçbir tabloda yoktur.
+        assert not has("netkar_app", table, "UPDATE"), table
         assert not has("netkar_app", table, "DELETE"), table
+    # 0011 (ZK-01): `profit_settings` sütun düzeyinde yalnız uygulamanın yazdığı dört sütunu günceller
+    columns = admin_conn.execute(
+        "SELECT attname FROM pg_attribute WHERE attrelid = 'profit_settings'::regclass AND attnum > 0 "
+        "AND NOT attisdropped AND has_column_privilege('netkar_app', 'profit_settings', attname, 'UPDATE') "
+        "ORDER BY attname"
+    ).fetchall()
+    assert [c[0] for c in columns] == ["default_desi", "revision", "updated_at", "updated_by"]
     # worker yalnız okur; sync_gate ve PUBLIC erişemez
     for table in TABLES:
         assert has("netkar_worker", table, "SELECT"), table

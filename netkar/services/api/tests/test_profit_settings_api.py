@@ -22,7 +22,7 @@ from app.profit.inputs import Order as EngineOrder
 from app.profit.inputs import OrderItem, OrderLine, ProfitInput
 from app.services import profit_settings as ps
 from tests.conftest import Api, DatabaseInfo
-from tests.product_cost_helpers import Shop, fixed_today, make_shop_factory  # noqa: F401
+from tests.product_cost_helpers import Shop, add_account, fixed_today, make_shop_factory  # noqa: F401
 from tests.report_helpers import seed_basic
 
 pytestmark = pytest.mark.usefixtures("fixed_today")
@@ -729,6 +729,26 @@ def test_earliest_order_day_is_oldest_order_of_this_account_only(
     seed_order(admin_conn, other, "9", 9, None, None, ordered_at=datetime(2025, 1, 5, 8, 0, tzinfo=UTC))
     assert mine.api.get(url(mine)).json()["earliest_order_day"] == "2026-09-10"
     assert other.api.get(url(other)).json()["earliest_order_day"] == "2025-01-05"
+
+
+def test_earliest_order_day_ignores_a_second_account_of_the_same_tenant(
+    shop: Shop, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """ZK-05: aynı kiracıdaki ikinci hesabın daha eski siparişi bu hesabın `earliest_order_day` değerini etkilemez."""
+    second = Shop(
+        shop.api, shop.tenant_id, shop.user_id, add_account(admin_conn, shop.tenant_id, shop.user_id, "5151")
+    )
+    seed_order(admin_conn, shop, "1", 1, None, None, ordered_at=datetime(2026, 9, 10, 8, 0, tzinfo=UTC))
+    seed_order(admin_conn, second, "2", 2, None, None, ordered_at=datetime(2025, 3, 1, 8, 0, tzinfo=UTC))
+    assert shop.api.get(url(shop)).json()["earliest_order_day"] == "2026-09-10"
+    assert (
+        shop.api.get(url(second)).json()["earliest_order_day"] == "2025-03-01"
+    )  # ikinci hesap kendi gününü görür
+    # ikinci hesapta hiç sipariş yoksa ilk hesabın siparişi ona sızmaz
+    third = Shop(
+        shop.api, shop.tenant_id, shop.user_id, add_account(admin_conn, shop.tenant_id, shop.user_id, "5252")
+    )
+    assert shop.api.get(url(third)).json()["earliest_order_day"] is None
 
 
 def test_earliest_order_day_uses_istanbul_day_boundary(
