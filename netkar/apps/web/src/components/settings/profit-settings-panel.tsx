@@ -87,7 +87,7 @@ function PanelBody({ accountId }: { accountId: string }) {
 function SettingsBody({ accountId, settings }: { accountId: string; settings: SettingsOut }) {
   const carriersQuery = useCarriersQuery(accountId);
   const { canEdit, readOnly } = useEditAccess();
-  const today = useTodayIstanbul();
+  const today = useTodayIstanbul(settings.today_istanbul);
   const steps = setupSteps(settings.completeness);
 
   // Özetteki bant /panel/ayarlar#kargo gibi bağlantı verir; içerik sonradan geldiği için kaydırma burada yapılır.

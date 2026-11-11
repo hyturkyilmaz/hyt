@@ -821,7 +821,7 @@ Hiçbiri yoksa kalem "eksik"tir; eksik kalem 0 sayılarak net kâra karışmaz.*
   izlenir.
 
 ### K34 · Kargo tarifesi çözümleme (tahmini gönderi kargosu)
-- **Model:** tarife = anlaşma (`trendyol` | `satici`) x firma x sürüm; sürüm = artan üst desi kademeleri (üst
+- **Model:** tarife = anlaşma (`trendyol` | `seller`) x firma x sürüm; sürüm = artan üst desi kademeleri (üst
   sınır dahil) ve kademe başına KDV hariç fiyat. Golden şeması: `{"Firma": [[desi, fiyat], ...]}` (başlangıçsız
   tek sürüm, eski biçim) ya da `{"Firma": [{"gecerlilik_baslangic": "2026-10-10", "kademeler": [[desi, fiyat],
   ...]}, ...]}`.
@@ -838,7 +838,12 @@ Hiçbiri yoksa kalem "eksik"tir; eksik kalem 0 sayılarak net kâra karışmaz.*
   `KARGO_DESI_FARKI` karşılaştırmasına girmez (yalnız siparişten gelen desi faturadaki desiyle karşılaştırılır).
 - **Eksik kargo:** tutar 0 yazılır ama kaynak `eksik`, uyarı `KARGO_TARIFESI_EKSIK`, kalem `eksik_kalemler`e
   girer (K37). Kargo faturası (K08) gelince kalem `kesin` olur ve eksiklik kalkar; kesin kargo için tarife
-  gerekmez. Satıcı anlaşmalı siparişte aynı kural `satici` tarifesiyle uygulanır, kaynak `kullanici`.
+  gerekmez. Satıcı anlaşmalı siparişte aynı kural `seller` tarifesiyle uygulanır, kaynak `kullanici`.
+- **Revizyon 2 (11 Kasım 2026, belge kayması düzeltmesi):** anlaşma değeri API şemasındaki
+  (`services/api/app/api/v1/profit_settings_schemas.py`, `Agreement = Literal["trendyol", "seller"]`) ve veritabanındaki
+  adlarla hizalandı: Trendyol anlaşmalı `trendyol`, satıcı anlaşmalı (`whoPays = 1`) `seller`. Önceki metindeki
+  `satici` yalnız Türkçe anlatımdı ve hiçbir yerde saklanan değer değildir; kural değişmedi. Altın test betiğinin
+  `satici_kargo_tarifesi` alanı (§8 tablosu) motor ayarının Türkçe adıdır, anlaşma değeri değildir.
 - **Örnekler:** G44: Trendyol Express tarifesi 10 Ekim'de değişti; 5 Ekim siparişi desi 2 -> 42,00 (eski
   sürüm), 15 Ekim siparişi -> 45,00 (yeni sürüm). G45 satır 1: "Ornek Kargo" için tarife yok, siparişte desi yok;
   varsayılan desi 3, `*` kademesi `<= 3` -> 50,00 + `KARGO_DESI_VARSAYILAN`. G45 satır 2: Trendyol Express desi 7,

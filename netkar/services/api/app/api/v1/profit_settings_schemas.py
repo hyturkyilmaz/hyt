@@ -239,6 +239,13 @@ class CompletenessOut(BaseModel):
     default_desi_defined: bool
 
 
+class VatRatesOut(BaseModel):
+    """Motorun kargo ve platform hizmet bedeli için kullandığı KDV oranları (yüzde, Decimal dizgesi)."""
+
+    shipping: Decimal
+    service_fee: Decimal
+
+
 class SettingsOut(BaseModel):
     revision: int
     default_desi: Decimal | None
@@ -246,6 +253,10 @@ class SettingsOut(BaseModel):
     service_fee_estimates: list[ServiceFeeOut]
     variable_expenses: list[VariableExpenseOut]
     completeness: CompletenessOut
+    # Panelin başlangıç tarihi önerisi, "bugün" ve KDV hariç karşılık hesabı için sunucu değerleri.
+    earliest_order_day: date | None
+    today_istanbul: date
+    vat_rates: VatRatesOut
 
 
 class CarrierOut(BaseModel):

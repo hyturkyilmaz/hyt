@@ -36,7 +36,8 @@ import {
   type SettingsOut,
   type VariableExpenseOut,
 } from '@/lib/api/profit-settings';
-import { addDays, formatLongDate, isDateText, toInputText } from '@/lib/profit/settings-input';
+import { formatLongDate, isDateText, toInputText } from '@/lib/profit/settings-input';
+import { startSuggestionNote, suggestStartDay } from '@/lib/profit/settings-server-facts';
 import {
   EXPENSE_KIND_LABELS,
   describeExpenseAmount,
@@ -115,6 +116,7 @@ export function ExpensesSection({
             mode={mode}
             lookbackDays={lookbackDays ?? DEFAULT_LOOKBACK_DAYS}
             today={today}
+            earliestOrderDay={settings.earliest_order_day}
             onClose={() => setMode(null)}
           />
         ) : null}
@@ -182,17 +184,21 @@ function ExpenseForm({
   mode,
   lookbackDays,
   today,
+  earliestOrderDay,
   onClose,
 }: {
   accountId: string;
   mode: FormMode;
   lookbackDays: number;
   today: string;
+  /** Sunucudaki en eski sipariş günü; yoksa (sipariş yok ya da eski API) yaklaşık öneri kullanılır */
+  earliestOrderDay: string | null | undefined;
   onClose: () => void;
 }) {
   const writer = useSettingsWriter();
   const editing = mode.kind === 'edit' ? mode.expense : null;
   const schema = useMemo(() => expenseSchema(today), [today]);
+  const suggestion = suggestStartDay({ today, earliestOrderDay, lookbackDays });
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(schema),
     defaultValues: editing
@@ -211,7 +217,7 @@ function ExpenseForm({
           amount: '',
           percent: '',
           vatRate: '20',
-          validFrom: addDays(today, -lookbackDays),
+          validFrom: suggestion.day,
           validTo: '',
         },
   });
@@ -400,7 +406,7 @@ function ExpenseForm({
                     ? `${formatLongDate(field.value)} ve sonrasındaki siparişlerde kullanılır.`
                     : 'Bu tarihten sonraki siparişlerde kullanılır.'}
                   {editing === null
-                    ? ` Önerilen tarih yaklaşıktır (bugünden ${lookbackDays} gün önce); geçmiş siparişleri de kapsamak için hesabınızdaki en eski siparişten ÖNCE bir tarih seçin.`
+                    ? ` ${startSuggestionNote(suggestion, lookbackDays, 'short')}`
                     : ''}
                 </FormDescription>
                 <FormMessage />

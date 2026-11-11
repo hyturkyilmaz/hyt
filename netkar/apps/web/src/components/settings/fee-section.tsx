@@ -10,7 +10,6 @@ import { useSettingsWriter } from '@/components/settings/settings-writer';
 import {
   FormActions,
   FormRootError,
-  SERVICE_FEE_VAT_RATE,
   EchoLine,
   ZeroEnteredNote,
   applyServerErrors,
@@ -32,7 +31,13 @@ import {
 import { Input } from '@/components/ui/input';
 import type { ApiError } from '@/lib/api/client';
 import { profitSettingsApi, type ServiceFeeOut, type SettingsOut } from '@/lib/api/profit-settings';
-import { addDays, formatLongDate, isDateText, toInputText } from '@/lib/profit/settings-input';
+import { formatLongDate, isDateText, toInputText } from '@/lib/profit/settings-input';
+import {
+  formatVatRate,
+  resolveVatRates,
+  startSuggestionNote,
+  suggestStartDay,
+} from '@/lib/profit/settings-server-facts';
 import { isZeroAmount, vatPair } from '@/lib/profit/settings-present';
 import { feeSchema, toFeeBody, type FeeFormValues } from '@/lib/validation/profit-settings';
 
@@ -114,6 +119,8 @@ export function FeeSection({
             lookbackDays={lookbackDays ?? DEFAULT_LOOKBACK_DAYS}
             existing={fees}
             today={today}
+            earliestOrderDay={settings.earliest_order_day}
+            vatRate={resolveVatRates(settings).serviceFee}
             onClose={() => setMode(null)}
           />
         ) : null}
@@ -180,6 +187,8 @@ function FeeForm({
   lookbackDays,
   existing,
   today,
+  earliestOrderDay,
+  vatRate,
   onClose,
 }: {
   accountId: string;
@@ -188,11 +197,16 @@ function FeeForm({
   /** Kayıtlı sürümler: bugün başlayan sürüm varsa "bugünden itibaren" gönderimi onu ezeceği için sunulmaz (AF-07) */
   existing: readonly ServiceFeeOut[];
   today: string;
+  /** Sunucudaki en eski sipariş günü; yoksa (sipariş yok ya da eski API) yaklaşık öneri kullanılır */
+  earliestOrderDay: string | null | undefined;
+  /** Hizmet bedeli KDV oranı (yüzde, Decimal dizgesi); sunucudan gelir, yoksa %20 */
+  vatRate: string;
   onClose: () => void;
 }) {
   const writer = useSettingsWriter();
   const editing = mode.kind === 'edit' ? mode.fee : null;
   const schema = useMemo(() => feeSchema(today), [today]);
+  const suggestion = suggestStartDay({ today, earliestOrderDay, lookbackDays });
   const form = useForm<FeeFormValues>({
     resolver: zodResolver(schema),
     defaultValues: editing
@@ -201,7 +215,7 @@ function FeeForm({
           vatMode: editing.amount_includes_vat ? 'dahil' : 'haric',
           amount: toInputText(editing.amount),
         }
-      : { validFrom: addDays(today, -lookbackDays), vatMode: 'dahil', amount: '' },
+      : { validFrom: suggestion.day, vatMode: 'dahil', amount: '' },
   });
   const watched = useWatch({ control: form.control });
   const includesVat = (watched.vatMode ?? 'dahil') === 'dahil';
@@ -209,7 +223,7 @@ function FeeForm({
   const equivalent = parsedEcho(amountText, {
     kind: 'money',
     includesVat,
-    vatRate: SERVICE_FEE_VAT_RATE,
+    vatRate,
   });
 
   function submit(values: FeeFormValues) {
@@ -284,9 +298,7 @@ function FeeForm({
                   {field.value && isDateText(field.value)
                     ? `${formatLongDate(field.value)} ve sonrasındaki siparişlerde kullanılır.`
                     : 'Bu tarihten sonraki siparişlerde kullanılır.'}{' '}
-                  Önerilen tarih yaklaşıktır (bugünden {lookbackDays} gün önce). Geçmiş
-                  siparişlerinizi de hesaplatmak için tarihi hesabınızdaki en eski siparişten ÖNCE
-                  seçin; emin değilseniz daha eski bir tarih seçin.
+                  {startSuggestionNote(suggestion, lookbackDays)}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -311,7 +323,7 @@ function FeeForm({
                 },
                 { value: 'haric', label: 'KDV hariç', hint: 'Girdiğiniz tutar aynen kullanılır.' },
               ]}
-              description={`Hizmet bedeli KDV oranı %${SERVICE_FEE_VAT_RATE}.`}
+              description={`Hizmet bedeli KDV oranı %${formatVatRate(vatRate)}.`}
             />
           )}
         />

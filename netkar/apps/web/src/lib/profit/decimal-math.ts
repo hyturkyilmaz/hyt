@@ -76,17 +76,28 @@ export function absDecimal(a: string): string {
 
 /**
  * KDV dahil tutardan KDV hariç karşılığı (K02): `rnd(dahil / (1 + oran/100))`, kuruşa yarım yukarı.
- * Float yok: tam sayı kuruş üzerinden BigInt ile hesaplanır. Yalnız negatif olmayan tutar ve tamsayı oran.
- * exclusiveOfVat("54.00", 20) === "45.00"; exclusiveOfVat("50.00", 20) === "41.67".
+ * Float yok: tam sayı kuruş üzerinden BigInt ile hesaplanır. Yalnız negatif olmayan tutar ve oran; oran tamsayı
+ * ya da sunucudan gelen Decimal dizgesi olabilir ("20", "0.5").
+ * exclusiveOfVat("54.00", 20) === "45.00"; exclusiveOfVat("50.00", "20") === "41.67".
  */
-export function exclusiveOfVat(inclusive: string, ratePercent: number): string {
+export function exclusiveOfVat(inclusive: string, ratePercent: number | string): string {
   const { value, scale } = parse(inclusive);
-  if (value < 0n || !Number.isInteger(ratePercent) || ratePercent < 0) {
-    throw new TypeError('KDV hariç hesabı için negatif olmayan tutar ve tamsayı oran gerekir.');
+  let rate: Scaled;
+  if (typeof ratePercent === 'number') {
+    if (!Number.isInteger(ratePercent)) {
+      throw new TypeError('KDV hariç hesabı için tamsayı oran ya da Decimal dizgesi gerekir.');
+    }
+    rate = { value: BigInt(ratePercent), scale: 0 };
+  } else {
+    rate = parse(ratePercent);
   }
-  // tutar = value / 10^scale; sonuç kuruş: value * 100 / (10^scale * (100 + oran) / 100) = value*10^4 / (10^scale*(100+oran))
-  const numerator = value * 10_000n;
-  const denominator = 10n ** BigInt(scale) * BigInt(100 + ratePercent);
+  if (value < 0n || rate.value < 0n) {
+    throw new TypeError('KDV hariç hesabı için negatif olmayan tutar ve oran gerekir.');
+  }
+  // kuruş = value*100 / 10^scale / (1 + oran/100), oran = rv / 10^rs
+  //       = value * 10^4 * 10^rs / (10^scale * (100 * 10^rs + rv))
+  const numerator = value * 10_000n * 10n ** BigInt(rate.scale);
+  const denominator = 10n ** BigInt(scale) * (100n * 10n ** BigInt(rate.scale) + rate.value);
   const cents = (numerator * 2n + denominator) / (denominator * 2n);
   return format(cents, 2);
 }

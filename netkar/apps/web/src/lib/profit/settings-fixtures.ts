@@ -79,6 +79,24 @@ export function makeSettings(over: Partial<SettingsOut> = {}): SettingsOut {
   };
 }
 
+/** Sunucu bilgileri gönderen (yeni) API yanıtı: en eski sipariş günü, sunucunun bugünü ve KDV oranları */
+export function makeSettingsWithServerFacts(
+  facts: {
+    earliest_order_day: string | null;
+    today_istanbul: string;
+    shipping?: string;
+    service_fee?: string;
+  },
+  over: Partial<SettingsOut> = {},
+): SettingsOut {
+  return makeSettings({
+    earliest_order_day: facts.earliest_order_day,
+    today_istanbul: facts.today_istanbul,
+    vat_rates: { shipping: facts.shipping ?? '20', service_fee: facts.service_fee ?? '20' },
+    ...over,
+  });
+}
+
 /** Hiç ayar girilmemiş hesap (ilk giriş): her şey boş, tamlık bayrakları yanlış */
 export function makeEmptySettings(over: Partial<SettingsOut> = {}): SettingsOut {
   return makeSettings({

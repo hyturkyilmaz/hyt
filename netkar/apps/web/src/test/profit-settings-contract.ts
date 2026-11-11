@@ -4,6 +4,7 @@
 //
 // Kaynak (okunan sınıflar): BracketIn, CargoTariffIn, ServiceFeeIn, VariableExpenseIn, DefaultsIn (hepsi `_Strict`);
 // sorgu parametreleri: profit_settings.py (DELETE: expected_revision, confirm_affects_from, confirm_past_change).
+// Yanıt tarafı: `SettingsOut` (GET profit-settings) üst düzey alanları `SETTINGS_RESPONSE_FIELDS` listesindedir.
 
 type FieldKind =
   'string' | 'list' | 'decimal' | 'decimalOrNull' | 'date' | 'dateOrNull' | 'bool' | 'int';
@@ -76,6 +77,60 @@ export const BODY_SPECS = {
 
 // `PUT /variable-expenses/{id}` aynı gövdeyi (VariableExpenseIn) kullanır
 export type ContractKey = keyof typeof BODY_SPECS;
+
+/**
+ * GET profit-settings yanıtının üst düzey alanları (`SettingsOut`). `legacy: true`: istemci bu alan olmayan eski
+ * API'ye de uyar (alan eksikse yedek değer kullanılır); diğerleri her zaman vardır.
+ */
+export const SETTINGS_RESPONSE_FIELDS: Record<string, { legacy: boolean }> = {
+  revision: { legacy: false },
+  default_desi: { legacy: false },
+  cargo_tariffs: { legacy: false },
+  service_fee_estimates: { legacy: false },
+  variable_expenses: { legacy: false },
+  completeness: { legacy: false },
+  earliest_order_day: { legacy: true }, // YYYY-AA-GG | null (İstanbul günü)
+  today_istanbul: { legacy: true }, // YYYY-AA-GG
+  vat_rates: { legacy: true }, // { shipping, service_fee } Decimal dizgesi
+};
+
+/** `vat_rates` alt alanları (VatRatesOut) */
+export const VAT_RATES_FIELDS = ['shipping', 'service_fee'] as const;
+
+/** Yanıtın sözleşmeyle uyumsuzlukları: şemada olmayan alan, eksik zorunlu alan, bozuk yeni alan değerleri */
+export function settingsResponseViolations(body: Record<string, unknown>): string[] {
+  const problems: string[] = [];
+  for (const key of Object.keys(body)) {
+    if (!(key in SETTINGS_RESPONSE_FIELDS)) problems.push(`${key}: yanıt şemasında yok`);
+  }
+  for (const [key, spec] of Object.entries(SETTINGS_RESPONSE_FIELDS)) {
+    if (!spec.legacy && !(key in body)) problems.push(`${key}: zorunlu alan eksik`);
+  }
+  const day = body.earliest_order_day;
+  if (day !== undefined && day !== null && !(typeof day === 'string' && ISO_DATE.test(day))) {
+    problems.push('earliest_order_day: YYYY-AA-GG ya da null olmalı');
+  }
+  const today = body.today_istanbul;
+  if (today !== undefined && !(typeof today === 'string' && ISO_DATE.test(today))) {
+    problems.push('today_istanbul: YYYY-AA-GG olmalı');
+  }
+  const rates = body.vat_rates;
+  if (rates !== undefined) {
+    const record = (rates ?? {}) as Record<string, unknown>;
+    for (const key of VAT_RATES_FIELDS) {
+      const value = record[key];
+      if (typeof value !== 'string' || !PLAIN_DECIMAL.test(value)) {
+        problems.push(`vat_rates.${key}: sade ondalık dizge olmalı (float değil)`);
+      }
+    }
+    for (const key of Object.keys(record)) {
+      if (!(VAT_RATES_FIELDS as readonly string[]).includes(key)) {
+        problems.push(`vat_rates.${key}: şemada yok`);
+      }
+    }
+  }
+  return problems;
+}
 
 /** DELETE sorgu parametreleri (gövde yok) */
 export const DELETE_QUERY_PARAMS = ['expected_revision', 'confirm_affects_from'] as const;

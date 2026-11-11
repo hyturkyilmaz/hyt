@@ -47,6 +47,7 @@ from app.api.v1.profit_settings_schemas import (
     TariffWriteOut,
     VariableExpenseIn,
     VariableExpenseOut,
+    VatRatesOut,
 )
 from app.core.clock import today_istanbul
 from app.core.errors import ProblemError
@@ -291,13 +292,18 @@ async def read_settings(
     """Hesabın tüm kâr ayarları, sürüm ve tamlık bayrakları (tüm roller; kiracı başına dakikalık sınır)."""
     await _read_guard(db, ctx, account_id, limiter, settings)
     bundle = await ps.load_bundle(db, ctx.tenant_id, account_id)
+    today = today_istanbul()
+    shipping_vat, fee_vat = ps.vat_rates()
     return SettingsOut(
         revision=bundle.revision,
         default_desi=bundle.default_desi,
         cargo_tariffs=[_tariff_out(t) for t in bundle.tariffs],
         service_fee_estimates=[_fee_out(f) for f in bundle.fees],
         variable_expenses=[_expense_out(e) for e in bundle.expenses],
-        completeness=_completeness_out(ps.completeness_of(bundle, today_istanbul())),
+        completeness=_completeness_out(ps.completeness_of(bundle, today)),
+        earliest_order_day=await ps.earliest_order_day(db, ctx.tenant_id, account_id),
+        today_istanbul=today,
+        vat_rates=VatRatesOut(shipping=shipping_vat, service_fee=fee_vat),
     )
 
 

@@ -711,6 +711,38 @@ def test_carriers_lists_recent_pairs_with_coverage(shop: Shop, admin_conn: psyco
     assert covered[("Aras Kargo", "seller")] is False  # satıcı tarifesi ayrı
 
 
+# --------------------------------------------------------------------------- sunucu bilgileri (panel formu)
+def test_settings_expose_server_facts_without_orders(shop: Shop) -> None:
+    body = shop.api.get(url(shop)).json()
+    assert body["earliest_order_day"] is None  # sipariş yok
+    assert body["today_istanbul"] == TODAY.isoformat()  # saat sabitlendi (fixed_today)
+    assert body["vat_rates"] == {"shipping": "20", "service_fee": "20"}  # Decimal dizgesi, float değil
+
+
+def test_earliest_order_day_is_oldest_order_of_this_account_only(
+    two_shops: tuple[Shop, Shop], admin_conn: psycopg.Connection[Any]
+) -> None:
+    mine, other = two_shops
+    seed_order(admin_conn, mine, "1", 1, None, None, ordered_at=datetime(2026, 9, 10, 8, 0, tzinfo=UTC))
+    seed_order(admin_conn, mine, "2", 2, None, None, ordered_at=datetime(2026, 10, 20, 8, 0, tzinfo=UTC))
+    # Başka kiracının daha eski siparişi görünmez (RLS ve kiracı süzgeci).
+    seed_order(admin_conn, other, "9", 9, None, None, ordered_at=datetime(2025, 1, 5, 8, 0, tzinfo=UTC))
+    assert mine.api.get(url(mine)).json()["earliest_order_day"] == "2026-09-10"
+    assert other.api.get(url(other)).json()["earliest_order_day"] == "2025-01-05"
+
+
+def test_earliest_order_day_uses_istanbul_day_boundary(
+    shop: Shop, admin_conn: psycopg.Connection[Any]
+) -> None:
+    # UTC 20:59 hala aynı İstanbul günü (23:59); UTC 21:00 İstanbul'da ertesi gün 00:00.
+    seed_order(admin_conn, shop, "1", 1, None, None, ordered_at=datetime(2026, 9, 10, 20, 59, tzinfo=UTC))
+    assert shop.api.get(url(shop)).json()["earliest_order_day"] == "2026-09-10"
+    seed_order(admin_conn, shop, "2", 2, None, None, ordered_at=datetime(2026, 9, 9, 21, 0, tzinfo=UTC))
+    assert shop.api.get(url(shop)).json()["earliest_order_day"] == "2026-09-10"  # 21:00 UTC = 10 Eylül 00:00
+    seed_order(admin_conn, shop, "3", 3, None, None, ordered_at=datetime(2026, 9, 9, 20, 59, tzinfo=UTC))
+    assert shop.api.get(url(shop)).json()["earliest_order_day"] == "2026-09-09"
+
+
 # --------------------------------------------------------------------------- motora yansıma
 @pytest.fixture
 async def app_sessions(database: DatabaseInfo) -> AsyncIterator[async_sessionmaker[AsyncSession]]:

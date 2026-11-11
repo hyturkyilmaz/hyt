@@ -48,6 +48,7 @@ from app.models import (
 from app.profit.constants import CANCELLED_STATUSES, SELLER_PAYS_CARGO
 from app.profit.enums import ExpenseKind
 from app.profit.money import rnd, split_inclusive
+from app.profit.schema_v1 import ISTANBUL
 from app.profit.settings import (
     FALLBACK_CARRIER,
     CargoTariff,
@@ -496,6 +497,32 @@ def _covers(bundle: SettingsBundle, agreement: str, carrier: str, today: date) -
         t.agreement == agreement and t.carrier in (carrier, CARRIER_WILDCARD) and t.valid_from <= today
         for t in bundle.tariffs
     )
+
+
+async def earliest_order_day(db: AsyncSession, tenant_id: UUID, account_id: UUID) -> date | None:
+    """Hesabın en eski siparişinin İstanbul takvim günü; sipariş yoksa None.
+
+    Süzgeç `ix_orders_tenant_account_ordered (tenant_id, marketplace_account_id, ordered_at)` indeksini
+    kullanır (MIN, indeksin ilk kaydıdır); iptal edilmiş siparişler de sayılır (panelin başlangıç önerisi
+    hesabın tüm geçmişini kapsamalı). Gün dönüşümü motorla aynı sabit UTC+3'tür (K16).
+    """
+    first = (
+        await db.execute(
+            select(func.min(Order.ordered_at)).where(
+                Order.tenant_id == tenant_id, Order.marketplace_account_id == account_id
+            )
+        )
+    ).scalar_one_or_none()
+    return None if first is None else first.astimezone(ISTANBUL).date()
+
+
+def vat_rates() -> tuple[Decimal, Decimal]:
+    """Kargo ve platform hizmet bedeli KDV oranları (yüzde, sırayla).
+
+    Kaynak: `ProfitSettings.shipping_vat_rate` ve `service_fee_vat_rate` motor sabitleri (docs/12 K02:
+    komisyon, kargo, platform hizmet bedeli ve reklam için genel oran, varsayılan %20). Tabloda tutulmaz.
+    """
+    return _BASE.shipping_vat_rate, _BASE.service_fee_vat_rate
 
 
 async def carrier_usage(

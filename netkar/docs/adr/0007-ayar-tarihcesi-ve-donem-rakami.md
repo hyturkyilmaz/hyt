@@ -10,6 +10,8 @@
   sonrası uygulama ve belge güncellemesi. Eski içerik silinmedi; değişen yerlerde "Revizyon 1" notu vardır: §3
   (kullanıcı kimlikleri, tetikleyici ve `SET NULL`), §4 (`ck_..._replace` taslağı, başlıksız hesap taşıması, yeni
   migrasyon 0009), §5.1 (`confirm_affects_from`, `changed_by`, mühürlü `GET /history` imleci), §7 madde 1.
+- **Revizyon 2 (11 Kasım 2026):** yalnız belge düzeltmesi; kod kuralı değişmedi: §5.2 "Ayar ekranı" madde 1 (panel K43
+  etki tarihini önceden hesaplamaz, sunucunun 409'una dayanır; geri çekmede istemci önce kendi onayını ister).
 
 ## 1. Karar: kısmi dönemde dönem rakamı (AO-03, docs/12 K39 Revizyon 1)
 
@@ -362,6 +364,14 @@ Geri alınabilir ek migrasyon (0008'e eklenmedi; yalnız YT-03 0008'de düzeltil
      **Revizyon 1 (YT-07):** "Değişikliği uygula" artık yalnız `confirm_past_change=true` göndermez; 409'daki
      `affects_from` değerini `confirm_affects_from` olarak (tarihsizde `all`), 409'daki `current_revision`'ı
      `expected_revision` olarak geri gönderir (§5.1 Revizyon 1).
+     **Revizyon 2 (11 Kasım 2026, belge kayması düzeltmesi):** yukarıdaki "panel `GET profit-settings` verisiyle K43'ü
+     önceden hesaplar" cümlesi uygulanmadı ve geçersizdir. Panel K43 etki tarihini (`affects_from`) önceden
+     HESAPLAMAZ; karar sunucudadır: panel yazımı gönderir, geçmişi etkiliyorsa sunucunun 409
+     `settings-past-change-unconfirmed` yanıtındaki `affects_from` (tarihsizde `all`) ile onay penceresini açar ve
+     onaylanırsa aynı değeri `confirm_affects_from` olarak geri gönderir (istemci tarafı tarih hesabı sunucudaki
+     kuralla ayrışabilirdi). İstisna geri çekmedir: DELETE'te istemci, sunucuyu beklemeden önce KENDİ onayını ister
+     ("geri çekme" metni; önceki değer ayar geçmişinde kalır); ardından gönderilen DELETE de geçmişi etkiliyorsa
+     sunucunun 409'u yine aynı akışla ikinci onayı ister.
 2. "Ayar geçmişi" sekmesi: `GET /history`; her kayıt "{tarih saat}, {kişi}: Trendyol Express tarifesi
    (başlangıç 1 Ekim 2026) değiştirildi: 2 desi 54,00 -> 60,00 (KDV dahil)" biçiminde; fark `record` ve
    `replaced_record`'dan panelde hesaplanır; "geri çekildi" ve "geçmişi etkiledi (onaylı)" rozetleri.

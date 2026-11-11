@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 
 import { authApi } from '@/lib/api/endpoints';
 import { profitSettingsApi } from '@/lib/api/profit-settings';
-import { todayIstanbul } from '@/lib/profit/settings-input';
+import { advanceServerDay, resolveToday } from '@/lib/profit/settings-server-facts';
+import { isDateText, todayIstanbul } from '@/lib/profit/settings-input';
 
 export const settingsKeys = {
   settings: (accountId: string) => ['profit-settings', accountId, 'settings'] as const,
@@ -43,13 +44,15 @@ export function useEditAccess(): { canEdit: boolean; readOnly: boolean } {
 }
 
 /**
- * "Bugün" (İstanbul günü): sekme açık kalıp gece yarısı geçince ya da sekmeye dönülünce yenilenir (AF-12). Sunucunun
- * bugünü `SettingsOut` içinde gelince oradan beslenmelidir; o zamana kadar istemci saati kullanılır.
+ * "Bugün" (İstanbul günü): sunucunun günü (`today_istanbul`) varsa o, yoksa cihaz saati (eski API). Sunucu günü
+ * alındığı andaki cihaz günüyle birlikte tutulur; sekme açık kalıp gece yarısı geçince ya da sekmeye dönülünce
+ * yalnız geçen gün sayısı kadar ilerler (AF-12); sunucu günü değişince (yeni okuma) demir yenilenir.
  */
-export function useTodayIstanbul(): string {
-  const [today, setToday] = useState(() => todayIstanbul());
+export function useTodayIstanbul(serverToday?: string | null): string {
+  const [device, setDevice] = useState(() => todayIstanbul());
+  const [anchor, setAnchor] = useState<{ server: string; device: string } | null>(null);
   useEffect(() => {
-    const update = () => setToday(todayIstanbul());
+    const update = () => setDevice(todayIstanbul());
     const timer = window.setInterval(update, 60_000);
     document.addEventListener('visibilitychange', update);
     return () => {
@@ -57,5 +60,14 @@ export function useTodayIstanbul(): string {
       document.removeEventListener('visibilitychange', update);
     };
   }, []);
-  return today;
+  useEffect(() => {
+    setAnchor(
+      typeof serverToday === 'string' && isDateText(serverToday)
+        ? { server: serverToday, device: todayIstanbul() }
+        : null,
+    );
+  }, [serverToday]);
+  // Demir henüz kurulmadıysa (ilk çizim) sunucu günü doğrudan kullanılır
+  if (anchor === null) return resolveToday(serverToday, device);
+  return advanceServerDay(anchor.server, anchor.device, device);
 }

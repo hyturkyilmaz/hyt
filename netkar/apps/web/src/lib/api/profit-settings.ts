@@ -53,6 +53,12 @@ export interface Completeness {
   default_desi_defined: boolean;
 }
 
+/** Motorun kargo ve platform hizmet bedeli için kullandığı KDV oranları (yüzde, Decimal dizgesi) */
+export interface VatRates {
+  shipping: Money;
+  service_fee: Money;
+}
+
 export interface SettingsOut {
   revision: number;
   default_desi: Money | null;
@@ -60,6 +66,12 @@ export interface SettingsOut {
   service_fee_estimates: ServiceFeeOut[];
   variable_expenses: VariableExpenseOut[];
   completeness: Completeness;
+  // Sunucu bilgileri: eski API'de bulunmaz, bu yüzden isteğe bağlıdır (yoksa istemci yedeği kullanılır)
+  /** Hesabın en eski siparişinin İstanbul günü; sipariş yoksa null */
+  earliest_order_day?: string | null;
+  /** Sunucunun İstanbul günü */
+  today_istanbul?: string;
+  vat_rates?: VatRates;
 }
 
 export interface CarrierOut {

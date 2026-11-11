@@ -18,10 +18,6 @@ import { formatTRY } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { mapFieldErrors } from '@/lib/validation/profit-settings';
 
-/** Sistem parametresi (K02): kargo ve hizmet bedeli KDV oranı %20. Yazımdan sonra liste sunucunun hesabını gösterir. */
-export const SHIPPING_VAT_RATE = 20;
-export const SERVICE_FEE_VAT_RATE = 20;
-
 export interface ParsedEcho {
   /** ok: ayrıştırılan değer; warn: yazılan metin okunamadı ya da belirsiz */
   tone: 'ok' | 'warn';
@@ -37,7 +33,7 @@ export interface ParsedEcho {
 export function parsedEcho(
   text: string,
   options:
-    | { kind: 'money'; includesVat: boolean; vatRate: number }
+    | { kind: 'money'; includesVat: boolean; vatRate: number | string }
     | { kind: 'desi' }
     | { kind: 'percent' },
 ): ParsedEcho | null {

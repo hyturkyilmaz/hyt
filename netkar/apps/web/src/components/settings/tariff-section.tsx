@@ -15,7 +15,6 @@ import { useSettingsWriter } from '@/components/settings/settings-writer';
 import {
   FormActions,
   FormRootError,
-  SHIPPING_VAT_RATE,
   EchoLine,
   ZeroEnteredNote,
   applyServerErrors,
@@ -44,13 +43,13 @@ import {
   type CarriersOut,
   type SettingsOut,
 } from '@/lib/api/profit-settings';
+import { formatDesi, formatLongDate, isDateText, toInputText } from '@/lib/profit/settings-input';
 import {
-  addDays,
-  formatDesi,
-  formatLongDate,
-  isDateText,
-  toInputText,
-} from '@/lib/profit/settings-input';
+  formatVatRate,
+  resolveVatRates,
+  startSuggestionNote,
+  suggestStartDay,
+} from '@/lib/profit/settings-server-facts';
 import {
   AGREEMENT_LABELS,
   carrierLabel,
@@ -144,6 +143,8 @@ export function TariffSection({
             carriers={carriers}
             existing={tariffs}
             today={today}
+            earliestOrderDay={settings.earliest_order_day}
+            vatRate={resolveVatRates(settings).shipping}
             onClose={() => setMode(null)}
           />
         ) : null}
@@ -262,6 +263,8 @@ function TariffForm({
   carriers,
   existing,
   today,
+  earliestOrderDay,
+  vatRate,
   onClose,
 }: {
   accountId: string;
@@ -270,12 +273,17 @@ function TariffForm({
   /** Kayıtlı sürümler: "bugünden itibaren" gönderimi aynı anahtarlı bugünkü sürümü ezecekse sunulmaz (AF-07) */
   existing: readonly CargoTariffOut[];
   today: string;
+  /** Sunucudaki en eski sipariş günü; yoksa (sipariş yok ya da eski API) yaklaşık öneri kullanılır */
+  earliestOrderDay: string | null | undefined;
+  /** Kargo KDV oranı (yüzde, Decimal dizgesi); sunucudan gelir, yoksa %20 */
+  vatRate: string;
   onClose: () => void;
 }) {
   const writer = useSettingsWriter();
   const editing = mode.kind === 'edit' ? mode.tariff : null;
   const lookback = carriers.data?.lookback_days ?? DEFAULT_LOOKBACK_DAYS;
   const schema = useMemo(() => tariffSchema(today), [today]);
+  const suggestion = suggestStartDay({ today, earliestOrderDay, lookbackDays: lookback });
 
   const form = useForm<TariffFormValues>({
     resolver: zodResolver(schema),
@@ -293,9 +301,9 @@ function TariffForm({
       : {
           agreement: 'trendyol',
           carrier: '',
-          // AB-01, AF-05: ilk siparişten önce bir başlangıç. Hesabın ilk sipariş günü API'de yok (earliest_order_day
-          // gelince oradan beslenecek); şimdilik YAKLAŞIK öneri: tarama penceresi kadar geri
-          validFrom: addDays(today, -lookback),
+          // AB-01, AF-05: ilk siparişten önce bir başlangıç: en eski sipariş gününden 1 gün önce; sunucu günü
+          // vermiyorsa YAKLAŞIK öneri (tarama penceresi kadar geri)
+          validFrom: suggestion.day,
           vatMode: 'dahil',
           brackets: [{ maxDesi: '', price: '' }],
         },
@@ -486,9 +494,7 @@ function TariffForm({
                     {field.value && isDateText(field.value)
                       ? `${formatLongDate(field.value)} ve sonrasındaki siparişlerde kullanılır.`
                       : 'Bu tarihten sonraki siparişlerde kullanılır.'}{' '}
-                    Önerilen tarih yaklaşıktır (bugünden {lookback} gün önce). Geçmiş
-                    siparişlerinizi de hesaplatmak için tarihi hesabınızdaki en eski siparişten ÖNCE
-                    seçin; emin değilseniz daha eski bir tarih seçin.
+                    {startSuggestionNote(suggestion, lookback)}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -515,7 +521,7 @@ function TariffForm({
                 },
                 { value: 'haric', label: 'KDV hariç', hint: 'Girdiğiniz tutar aynen kullanılır.' },
               ]}
-              description={`Kargo KDV oranı %${SHIPPING_VAT_RATE}.`}
+              description={`Kargo KDV oranı %${formatVatRate(vatRate)}.`}
             />
           )}
         />
@@ -528,7 +534,7 @@ function TariffForm({
               const equivalent = parsedEcho(priceText, {
                 kind: 'money',
                 includesVat,
-                vatRate: SHIPPING_VAT_RATE,
+                vatRate,
               });
               const desiEcho = parsedEcho(watched.brackets?.[index]?.maxDesi ?? '', {
                 kind: 'desi',

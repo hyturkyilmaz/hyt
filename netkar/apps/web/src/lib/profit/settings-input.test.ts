@@ -14,6 +14,24 @@ import {
   toMoneyString,
 } from '@/lib/profit/settings-input';
 
+describe('exclusiveOfVat, Decimal dizgesi oran (sunucudan gelen)', () => {
+  it('tamsayı oranla aynı sonucu verir', () => {
+    expect(exclusiveOfVat('54.00', '20')).toBe('45.00');
+    expect(exclusiveOfVat('50.00', '20.0000')).toBe('41.67');
+  });
+
+  it('kesirli oranı destekler (float yok)', () => {
+    // 10,05 / 1,005 = 10,00
+    expect(exclusiveOfVat('10.05', '0.5')).toBe('10.00');
+    expect(exclusiveOfVat('100.00', '0')).toBe('100.00');
+  });
+
+  it('negatif oran ve kesirli sayı tipi reddedilir', () => {
+    expect(() => exclusiveOfVat('10.00', '-1')).toThrow(TypeError);
+    expect(() => exclusiveOfVat('10.00', 0.5)).toThrow(TypeError);
+  });
+});
+
 describe('exclusiveOfVat (K02, float yok)', () => {
   it('KDV dahil tutarı kuruşa yarım yukarı hariçleştirir', () => {
     expect(exclusiveOfVat('54.00', 20)).toBe('45.00');
