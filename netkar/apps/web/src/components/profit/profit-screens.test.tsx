@@ -424,12 +424,20 @@ describe('Özet ekranı', () => {
     expect(screen.queryByText(/Zarar eden ürünler şu an yüklenemedi/)).not.toBeInTheDocument();
   });
 
-  it('"Tüm uyarılar" yer tutucu bağlantısı yok (UX-08)', async () => {
+  it('"Tüm uyarılar (N)" bağlantısı uyarılar ekranına dönemi taşır (UX-08)', async () => {
+    navigation.search = 'range=7d';
     renderSummary();
     render(<SummaryScreen />);
     await screen.findByText(/Zararına satış/);
-    expect(screen.queryByRole('link', { name: 'Tüm uyarılar' })).not.toBeInTheDocument();
-    expect(document.querySelector('a[href="/panel/uyarilar"]')).toBeNull();
+    const link = screen.getByRole('link', { name: 'Tüm uyarılar (5)' });
+    expect(link).toHaveAttribute('href', '/panel/uyarilar?range=7d');
+  });
+
+  it('uyarı yoksa "Tüm uyarılar" bağlantısı çıkmaz', async () => {
+    renderSummary(makeTotals(), makeAlerts([]));
+    render(<SummaryScreen />);
+    await screen.findByText('Bu dönemde uyarı yok.');
+    expect(screen.queryByRole('link', { name: /Tüm uyarılar/ })).not.toBeInTheDocument();
   });
 
   it('eksik kalem yoksa kurulum bandı çıkmaz', async () => {

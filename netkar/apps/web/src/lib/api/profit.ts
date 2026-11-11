@@ -248,11 +248,34 @@ export interface AlertCount {
   message: string;
 }
 
+/** `scope`: period (dönem geneli) ya da line (satır). Alan adları AlertOut şemasıyla aynıdır. */
+export interface AlertItem {
+  code: string;
+  scope: 'period' | 'line';
+  message: string;
+  order_number?: string | null;
+  package_id?: number | null;
+  line_id?: number | null;
+  barcode?: string | null;
+  net_profit?: Money | null;
+  known_expenses_profit?: Money | null;
+  difference?: Money | null;
+  threshold?: Money | null;
+}
+
+/** Panelde beklenen ama motorun henüz üretmediği uyarı (UnavailableAlertOut). */
+export interface UnavailableAlert {
+  code: string;
+  reason: string;
+}
+
 export interface ProfitAlerts extends SettingsRevisioned {
   period: ReportPeriod;
   counts: AlertCount[];
   total_count: number;
+  items: AlertItem[];
   next_cursor: string | null;
+  not_yet_available: UnavailableAlert[];
 }
 
 function query(params: Record<string, string | number | null | undefined>): string {
@@ -275,9 +298,16 @@ export const profitApi = {
   summary: (accountId: string, range: RangeName, signal?: AbortSignal) =>
     apiFetch<ProfitSummary>(`${base(accountId)}/summary${query({ range })}`, { signal }),
 
-  /** Yalnız sayımlar için `limit=1`; liste ekranı bu sürümün kapsamı dışındadır. */
+  /** Yalnız sayımlar için `limit=1` (özet kartı); liste için `alerts`. */
   alertCounts: (accountId: string, range: RangeName, signal?: AbortSignal) =>
     apiFetch<ProfitAlerts>(`${base(accountId)}/alerts${query({ range, limit: 1 })}`, { signal }),
+
+  /** Uyarı listesi: `code` ile tek koda süzülür; `counts` süzgeçten ve sayfalamadan bağımsız tüm dönemi sayar. */
+  alerts: (
+    accountId: string,
+    params: { range: RangeName; code?: string; cursor?: string | null; limit?: number },
+    signal?: AbortSignal,
+  ) => apiFetch<ProfitAlerts>(`${base(accountId)}/alerts${query(params)}`, { signal }),
 
   products: (
     accountId: string,

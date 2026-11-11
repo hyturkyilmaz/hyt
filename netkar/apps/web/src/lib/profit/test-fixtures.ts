@@ -2,6 +2,7 @@
 // Üretim kodunda kullanılmaz. Yalnız tür içe aktarımı yapılır: Playwright de bu dosyayı doğrudan yükler.
 import type {
   AlertCount,
+  AlertItem,
   MarketplaceAccount,
   PeriodTotals,
   ProductProfitDetail,
@@ -126,13 +127,36 @@ export function makeSummary(totals: PeriodTotals = makeTotals()): ProfitSummary 
   };
 }
 
-export function makeAlerts(counts: AlertCount[] = []): ProfitAlerts {
+export function makeAlerts(
+  counts: AlertCount[] = [],
+  over: Partial<ProfitAlerts> = {},
+): ProfitAlerts {
   return {
     period: PERIOD,
     settings_revision: SETTINGS_REVISION,
     counts,
     total_count: counts.reduce((sum, c) => sum + c.count, 0),
+    items: [],
     next_cursor: null,
+    not_yet_available: [],
+    ...over,
+  };
+}
+
+export function makeAlertItem(over: Partial<AlertItem> = {}): AlertItem {
+  return {
+    code: 'BEKLENMEYEN_KESINTI',
+    scope: 'line',
+    message: 'Beklenmeyen kesinti: ekstredeki kesinti tahmini aşıyor.',
+    order_number: '10004',
+    package_id: 5004,
+    line_id: 9004,
+    barcode: 'BRK-0001',
+    net_profit: null,
+    known_expenses_profit: null,
+    difference: '75.00',
+    threshold: '5.00',
+    ...over,
   };
 }
 
