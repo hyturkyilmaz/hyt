@@ -6,7 +6,7 @@
 | Saat | 08:50 TRT (30 günlük plan) |
 | Anahtar kelime | ARAMA |
 | Yazım hatası | "gitmesni" (doğrusu: gitmesini) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 11 Kasım akşamı tekrar bakıldı: Google 28 Ekim duyurusu (10 yeni ülke, ABD'de takip sorularında reklam) geçerli. Metinde istem dışı hata yok. |
 
 ## Açıklama
 
