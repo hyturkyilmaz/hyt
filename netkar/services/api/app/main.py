@@ -24,6 +24,7 @@ from app.core.security import PasswordWorker
 from app.db.session import create_engine, create_rate_limit_engine, create_sessionmaker
 from app.services.import_gate import ImportGate
 from app.services.marketplace_accounts import TrendyolClientFactory, default_client_factory
+from app.services.report_cache import ReportCache
 from app.services.report_gate import ReportGate
 from app.services.xlsx_stream import require_defusedxml
 from app.worker.queue import JobQueue, ProcrastinateJobQueue
@@ -89,6 +90,13 @@ def create_app(
             settings.profit_report_process_concurrency,
             settings.profit_report_tenant_concurrency,
             settings.profit_report_retry_after_seconds,
+        )
+        # Dönem sonucu önbelleği (SU-01): aynı dönem, ayar ve veri sürümü için motor yeniden çalışmaz.
+        app.state.report_cache = ReportCache(
+            ttl_seconds=settings.profit_report_cache_ttl_seconds,
+            max_entries=settings.profit_report_cache_max_entries,
+            max_lines=settings.profit_report_cache_max_lines,
+            tenant_entries=settings.profit_report_cache_tenant_entries,
         )
         try:
             yield

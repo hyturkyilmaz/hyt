@@ -185,6 +185,9 @@ def settings(database: DatabaseInfo) -> Settings:
         email_backend="memory",
         log_level="WARNING",
         web_base_url="https://app.test.invalid",
+        # Dönem sonucu önbelleği testlerde kapalıdır: testler veriyi doğrudan SQL ile değiştirir ve motor
+        # çalışma sayısını sayar; önbellek testleri (test_report_cache.py) onu açıkça açar.
+        profit_report_cache_ttl_seconds=0,
     )
 
 

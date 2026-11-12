@@ -487,7 +487,10 @@ class OrderListItemOut(ApiModel):
     """
 
     order_number: str
-    ordered_on: date | None = Field(description="Siparişin ilk paketinin İstanbul günü (kayıt yoksa null).")
+    ordered_on: date | None = Field(
+        description="Siparişin DÖNEM İÇİNDEKİ ilk paketinin İstanbul günü (dönem dışı paket tarihi görünmez; "
+        "kayıt yoksa null). Kart yalnız dönem içi paketleri toplar."
+    )
     cancelled: bool = Field(description="Tüm satırlar iptal: net kâr ve tutarlar null, rozet 'İptal'.")
     line_count: int = Field(description="Aktif (iptal olmayan) satır sayısı.")
     cancelled_line_count: int
@@ -532,6 +535,20 @@ class OrderListOut(ApiModel):
     next_cursor: str | None
 
 
+class AlertBreakdownItemOut(ApiModel):
+    """BEKLENMEYEN_KESINTI kalem dökümü (KDV hariç; motorun `karsilastirma` bloğundan, yeni hesap yok).
+
+    `compared` false ise kalem fark toplamına girmedi (K38: tahmini tanımsız ya da kesin değeri gelmemiş);
+    girenlerin `difference` toplamı uyarının `difference` değerine eşittir. `difference` = kesin - tahmini
+    (pozitif: Trendyol beklenenden fazla kesti)."""
+
+    item: Literal["commission", "outbound_shipping", "platform_service_fee"]
+    estimated: Amount | None
+    actual: Amount | None
+    compared: bool
+    difference: Amount | None
+
+
 class AlertOut(ApiModel):
     """Motorun ürettiği uyarı. `scope`: period (dönem) ya da line (satır). Önem derecesi motorda yoktur."""
 
@@ -546,6 +563,16 @@ class AlertOut(ApiModel):
     known_expenses_profit: Amount | None = None
     difference: Amount | None = None
     threshold: Amount | None = None
+    breakdown: list[AlertBreakdownItemOut] | None = Field(
+        default=None,
+        description="Yalnız BEKLENMEYEN_KESINTI: beklenen ve gerçekleşen kesinti kalemleri (komisyon, gönderi "
+        "kargosu, platform hizmet bedeli). Diğer kodlarda null.",
+    )
+    default_desi_used: bool | None = Field(
+        default=None,
+        description="Yalnız BEKLENMEYEN_KESINTI: tahmini kargo siparişte desi olmadığı için hesabın varsayılan "
+        "desisiyle yapıldı (docs/12 K38, AD-05); fark varsayımdan doğuyor olabilir. Diğer kodlarda null.",
+    )
 
 
 class AlertCountOut(ApiModel):

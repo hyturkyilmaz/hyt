@@ -20,14 +20,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import DbDep, RateLimiterDep, ReportGateDep, SettingsDep
+from app.api.deps import DbDep, RateLimiterDep, ReportCacheDep, ReportGateDep, SettingsDep
 from app.api.v1.product_costs import AnyRoleDep, BarcodePath
 from app.api.v1.profit_schemas import (
     AlertCountOut,
@@ -63,8 +63,10 @@ from app.profit.schema_v1 import ISTANBUL
 from app.services import product_costs as costs
 from app.services import profit_views as views
 from app.services.auth import AuthContext
+from app.services.profit_feed import period_bounds
 from app.services.profit_report import PeriodReport, period_profit
 from app.services.profit_settings import LoadedSettings, completeness_of, load_profit_settings
+from app.services.report_cache import ReportCache, ReportKey, report_data_version
 from app.services.report_gate import ReportGate
 
 router = APIRouter(prefix="/marketplace-accounts/{account_id}/profit", tags=["profit"])
@@ -154,35 +156,58 @@ async def _guard(
 
 
 async def _report(
-    db: AsyncSession, ctx: AuthContext, account_id: UUID, period: Period, gate: ReportGate
+    db: AsyncSession,
+    ctx: AuthContext,
+    account_id: UUID,
+    period: Period,
+    gate: ReportGate,
+    cache: ReportCache,
 ) -> tuple[PeriodReport, LoadedSettings]:
-    """Motoru dönem için bir kez çalıştırır; raporla birlikte hesaplandığı ayarları (sürüm damgası K44 ve tamlık için demet) döndürür. Girdi tutarsızlığı iç ayrıntı sızdırmadan 500 olur.
+    """Dönem sonucunu önbellekten ya da motoru bir kez çalıştırarak verir; raporla birlikte hesaplandığı
+    ayarları (sürüm damgası K44 ve tamlık için demet) döndürür. Girdi tutarsızlığı iç ayrıntı sızdırmadan 500 olur.
 
-    Kapı beklemez (doluysa 429/503). Besleyici okumaları bitince bağlantı havuza iade edilir; veritabanına
-    sonradan dokunan uçlar `_restore_context` çağırmalıdır.
+    Önbellek anahtarı (kiracı, hesap, dönem, ayar sürümü, veri sürümü) olduğundan ayar yazımı, maliyet içe
+    aktarma ve senkron sonrası eski sonuç dönmez (SU-01). İsabet kapıya girmez ve motoru çalıştırmaz; yalnız
+    ıskada kapı yuvası alınır (kapı beklemez, doluysa 429/503). Besleyici okumaları bitince bağlantı havuza iade
+    edilir; veritabanına sonradan dokunan uçlar `_restore_context` çağırmalıdır.
     """
-    async with gate.slot(ctx.tenant_id):
-        try:
-            loaded = await load_profit_settings(db, ctx.tenant_id, account_id)
-            report = await period_profit(
-                db,
-                ctx.tenant_id,
-                account_id,
-                period.start,
-                period.end,
-                loaded.settings,
-                release_connection=True,
-            )
-            return report, loaded
-        except ProfitInputError as exc:
-            # Ayrıntı (sipariş no, tutar) log'a yazılmaz: yalnız hesap kimliği ve hata sınıfı.
-            log.error("profit_calculation_failed account=%s error=%s", account_id, type(exc).__name__)
-            raise ProblemError(
-                500,
-                "Rapor hesaplanamadı",
-                "profit-calculation-failed",
-                "Kayıtlar tutarsız; rapor üretilemedi.",
-            ) from None
+    loaded = await load_profit_settings(db, ctx.tenant_id, account_id)
+    # Veri sürümü motor girdisi okunmadan ÖNCE alınır (okuma sırasında veri değişirse sonuç eski sürümle saklanır).
+    version = await report_data_version(db, ctx.tenant_id, account_id) if cache.enabled else ()
+    key = ReportKey(ctx.tenant_id, account_id, period.start, period.end, loaded.revision, version)
+    released = False
+
+    async def release() -> None:
+        nonlocal released
+        await db.commit()
+        released = True
+
+    async def compute() -> PeriodReport:
+        if released:  # bekleme sırasında işlem kapandı: RLS bağlamı yeniden kurulur
+            await _restore_context(db, ctx)
+        async with gate.slot(ctx.tenant_id):
+            try:
+                return await period_profit(
+                    db,
+                    ctx.tenant_id,
+                    account_id,
+                    period.start,
+                    period.end,
+                    loaded.settings,
+                    release_connection=True,
+                )
+            except ProfitInputError as exc:
+                # Ayrıntı (sipariş no, tutar) log'a yazılmaz: yalnız hesap kimliği ve hata sınıfı.
+                log.error("profit_calculation_failed account=%s error=%s", account_id, type(exc).__name__)
+                raise ProblemError(
+                    500,
+                    "Rapor hesaplanamadı",
+                    "profit-calculation-failed",
+                    "Kayıtlar tutarsız; rapor üretilemedi.",
+                ) from None
+
+    report, _ = await cache.get_or_compute(key, compute, release)
+    return report, loaded
 
 
 async def _restore_context(db: AsyncSession, ctx: AuthContext) -> None:
@@ -217,6 +242,7 @@ async def summary(
     settings: SettingsDep,
     limiter: RateLimiterDep,
     gate: ReportGateDep,
+    cache: ReportCacheDep,
     period: PeriodDep,
 ) -> SummaryOut:
     """Dönem toplamları (motorun dönem toplamı), durum dağılımı, maliyeti eksik satırlar ve besleyici notları.
@@ -227,7 +253,7 @@ async def summary(
     `estimated_line_count`. Eksik kalemli dönemde `totals.net_kar_kismi` doğrudur ve dönem marjı null'dır (K39).
     """
     await _guard(db, ctx, account_id, limiter, settings)
-    report, loaded = await _report(db, ctx, account_id, period, gate)
+    report, loaded = await _report(db, ctx, account_id, period, gate, cache)
     # Tamlık motorla AYNI ayar demetinden hesaplanır (YT-01, AB-02): yanıtta damga, rakamlar ve tamlık tek sürümdür
     # ve bağlantı iade edildikten sonra ayrı bir ayar okuması yapılmaz.
     completeness = completeness_of(loaded.bundle, today_istanbul())
@@ -254,6 +280,7 @@ async def list_products(
     settings: SettingsDep,
     limiter: RateLimiterDep,
     gate: ReportGateDep,
+    cache: ReportCacheDep,
     period: PeriodDep,
     sort: views.SortField = "net_profit",
     order: views.SortOrder = "desc",
@@ -269,7 +296,7 @@ async def list_products(
     fingerprint = f"products|{sort}|{order}|{filter}|{period.start}|{period.end}"
     codec = _codec(settings, ctx, account_id)
     _check_cursor(cursor, fingerprint, 3, codec)
-    report, loaded = await _report(db, ctx, account_id, period, gate)
+    report, loaded = await _report(db, ctx, account_id, period, gate, cache)
     rows = views.filter_rows(views.build_product_rows(report.result), filter)
     try:
         page, next_cursor = views.product_page(rows, sort, order, limit, cursor, fingerprint, codec)
@@ -327,6 +354,7 @@ async def product_detail(
     settings: SettingsDep,
     limiter: RateLimiterDep,
     gate: ReportGateDep,
+    cache: ReportCacheDep,
     period: PeriodDep,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     cursor: Annotated[str | None, Query(min_length=1, max_length=400)] = None,
@@ -338,7 +366,7 @@ async def product_detail(
     fingerprint = f"lines|{barcode}|{period.start}|{period.end}"
     codec = _codec(settings, ctx, account_id)
     _check_cursor(cursor, fingerprint, 3, codec)
-    report, loaded = await _report(db, ctx, account_id, period, gate)
+    report, loaded = await _report(db, ctx, account_id, period, gate, cache)
     mine = [line for line in report.result.lines if line.barcode == barcode]
     product = next((p for p in report.result.products if p.barcode == barcode), None)
     try:
@@ -372,6 +400,7 @@ async def list_orders(
     settings: SettingsDep,
     limiter: RateLimiterDep,
     gate: ReportGateDep,
+    cache: ReportCacheDep,
     period: PeriodDep,
     sort: views.OrderSort = "date",
     order: views.SortOrder = "desc",
@@ -397,14 +426,39 @@ async def list_orders(
     fingerprint = f"orders|{sort}|{order}|{filter}|{q or ''}|{period.start}|{period.end}"
     codec = _codec(settings, ctx, account_id)
     _check_cursor(cursor, fingerprint, 3, codec)
-    report, loaded = await _report(db, ctx, account_id, period, gate)
+    lower, upper = period_bounds(period.start, period.end)
+    if q is not None and not await views.order_in_period(db, ctx.tenant_id, account_id, q, lower, upper):
+        # SU-04: dönemde böyle bir sipariş yok; sonuç boş olacağı için motor ve kapı atlanır (yalnız ayar sürümü okunur).
+        empty = await load_profit_settings(db, ctx.tenant_id, account_id)
+        return OrderListOut(
+            period=period.out(),
+            settings_revision=empty.revision,
+            sort=sort,
+            order=order,
+            filter=filter,
+            q=q,
+            total_count=0,
+            items=[],
+            next_cursor=None,
+        )
+    report, loaded = await _report(db, ctx, account_id, period, gate, cache)
     rows = views.filter_orders(views.build_order_rows(report.result), filter, q)
     await _restore_context(db, ctx)
-    dates = await views.order_dates(db, ctx.tenant_id, account_id, [r.order_number for r in rows])
+    # Tarih sıralamasında tüm satırların dönem içi sipariş anı gerekir; net kâr sıralamasında yalnız sayfadakilerin
+    # (SU-04). Tarih her iki durumda da dönemle sınırlıdır (SU-02).
+    dates: dict[str, datetime] = {}
+    if sort == "date":
+        dates = await views.order_dates(
+            db, ctx.tenant_id, account_id, [r.order_number for r in rows], lower, upper
+        )
     try:
         page, next_cursor = views.order_page(rows, dates, sort, order, limit, cursor, fingerprint, codec)
     except views.CursorError:
         raise _cursor_error() from None
+    if sort != "date":
+        dates = await views.order_dates(
+            db, ctx.tenant_id, account_id, [r.order_number for r in page], lower, upper
+        )
     shown = {r.order_number: r.barcodes[:2] for r in page}
     titles = await views.product_titles(
         db, ctx.tenant_id, account_id, sorted({b for barcodes in shown.values() for b in barcodes})
@@ -456,6 +510,7 @@ async def order_detail(
     settings: SettingsDep,
     limiter: RateLimiterDep,
     gate: ReportGateDep,
+    cache: ReportCacheDep,
     period: OptionalPeriodDep,
 ) -> OrderDetailOut:
     """Sipariş kırılımı (satırlar ve kalemler). Dönem verilmezse siparişin kendi günleri kullanılır.
@@ -474,7 +529,7 @@ async def order_detail(
             raise _invalid(exc.field, exc.code, exc.message) from None
     else:
         used = period
-    report, loaded = await _report(db, ctx, account_id, used, gate)
+    report, loaded = await _report(db, ctx, account_id, used, gate, cache)
     lines = views.sort_lines(line for line in report.result.lines if line.order_number == order_number)
     if not lines:
         raise _not_found()  # sipariş var ama seçilen dönemde değil (ya da motora verilmedi)
@@ -497,6 +552,7 @@ async def alerts(
     settings: SettingsDep,
     limiter: RateLimiterDep,
     gate: ReportGateDep,
+    cache: ReportCacheDep,
     period: PeriodDep,
     code: Annotated[WarningCode | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
@@ -508,7 +564,7 @@ async def alerts(
     fingerprint = f"alerts|{code.value if code else ''}|{period.start}|{period.end}"
     codec = _codec(settings, ctx, account_id)
     _check_cursor(cursor, fingerprint, 5, codec)
-    report, loaded = await _report(db, ctx, account_id, period, gate)
+    report, loaded = await _report(db, ctx, account_id, period, gate, cache)
     everything = views.build_alerts(report.result)
     selected = [a for a in everything if code is None or a.code is code]
     try:

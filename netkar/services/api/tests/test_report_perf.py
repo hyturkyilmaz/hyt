@@ -132,3 +132,44 @@ def test_peak_memory_of_a_large_report_is_bounded(big_shop: Shop) -> None:
     megabytes = peak / (1024 * 1024)
     print(f"\nPERF bellek tepe (products, 5.000 satir): {megabytes:.1f} MB")
     assert megabytes < PEAK_MB_LIMIT
+
+
+@pytest.fixture
+def cached_big_shop(make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any]) -> Shop:
+    shop = make_shop_factory(make_api, admin_conn)(
+        "a@example.com", "Mağaza A", rate_limit_profit_report_tenant=1000, profit_report_cache_ttl_seconds=300
+    )
+    seed_large(admin_conn, shop)
+    return shop
+
+
+def test_cached_second_request_does_not_run_the_engine_and_retained_memory_is_bounded(
+    cached_big_shop: Shop, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Önbellek (SU-01): ikinci istekte motor 0 kez çalışır; saklanan sonucun bellek ayak izi ölçülür ve raporlanır."""
+    from app.profit import calculate_profit
+    from app.services import profit_report
+
+    runs: list[int] = []
+
+    def counting(profit_input: Any) -> Any:
+        runs.append(1)
+        return calculate_profit(profit_input)
+
+    monkeypatch.setattr(profit_report, "calculate_profit", counting)
+    tracemalloc.start()
+    try:
+        before, _ = tracemalloc.get_traced_memory()
+        t_first, _ = timed(cached_big_shop, "summary")
+        retained, _ = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    t_second, _ = timed(cached_big_shop, "products", limit=200)  # izleme dışı: süre karşılaştırması gerçekçi
+    retained_mb = (retained - before) / (1024 * 1024)
+    print(
+        f"\nPERF onbellek 5.000 satir: ilk (iz acik)={t_first:.2f}s ikinci={t_second:.2f}s "
+        f"saklanan={retained_mb:.1f} MB ({retained_mb * 1024 * 1024 / ORDERS / 1024:.1f} KB/satir)"
+    )
+    assert len(runs) == 1  # ikinci istekte motor çalışma sayısı 0
+    # Saklanan sonuç tepe belleğin altında kalmalı; varsayılan satır tavanı (40.000) bu ayak izine göre seçilmiştir.
+    assert retained_mb < PEAK_MB_LIMIT

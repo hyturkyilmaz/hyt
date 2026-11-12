@@ -24,6 +24,7 @@ from app.models import Role
 from app.services.auth import TOUCH_INTERVAL_SECONDS, AuthContext, lookup_session, touch_session
 from app.services.import_gate import ImportGate
 from app.services.marketplace_accounts import TrendyolClientFactory
+from app.services.report_cache import ReportCache
 from app.services.report_gate import ReportGate
 from app.worker.queue import JobQueue
 
@@ -94,6 +95,11 @@ def get_report_gate(request: Request) -> ReportGate:
     return gate
 
 
+def get_report_cache(request: Request) -> ReportCache:
+    cache: ReportCache = request.app.state.report_cache
+    return cache
+
+
 def get_trendyol_factory(request: Request) -> TrendyolClientFactory:
     factory: TrendyolClientFactory = request.app.state.trendyol_client_factory
     return factory
@@ -109,6 +115,7 @@ TrendyolFactoryDep = Annotated[TrendyolClientFactory, Depends(get_trendyol_facto
 JobQueueDep = Annotated[JobQueue, Depends(get_job_queue)]
 ImportGateDep = Annotated[ImportGate, Depends(get_import_gate)]
 ReportGateDep = Annotated[ReportGate, Depends(get_report_gate)]
+ReportCacheDep = Annotated[ReportCache, Depends(get_report_cache)]
 
 
 def client_ip(request: Request) -> str:

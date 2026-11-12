@@ -219,3 +219,15 @@ POC q_nonexistent 200 0 engine_runs 1
 2. SU-01: Siparişler ekranı yazılmadan önce dönem sonucu önbelleği (O-01 madde 3, YO-01 ile birlikte).
 3. SU-02, SU-04: tarih sorgusunu dönemle sınırlamak, boş aramada motoru atlamak (küçük kod).
 4. SU-03, SU-08, SU-09: etiket, sayı ve erişilebilirlik iyileştirmeleri.
+
+## 7. Backend kapanışı (12 Kasım 2026)
+
+| No | Durum | Karşılık |
+|---|---|---|
+| SU-01 | Kapandı | Süreç içi dönem sonucu önbelleği: `app/services/report_cache.py`; anahtar (kiracı, hesap, dönem, `settings_revision`, hesap veri sürümü), TTL 90 sn, LRU (16 girdi, 40.000 satır, kiracı başına 4). Tüm rapor uçları aynı girdiyi paylaşır; isabet kapıya girmez ve motoru çalıştırmaz (test: ikinci istekte motor 0). Ayar yazımı, maliyet içe aktarma ve PUT, senkron yazımı sonrası eski sonuç dönmez (test). Kiracılar arası sızıntı testle çürütüldü. Ölçüm (5.000 satır): ilk istek yaklaşık 1,5 sn, isabet 0,06 sn; saklanan sonuç yaklaşık 4 KB/satır. Şema değişikliği yok. |
+| SU-02 | Kapandı | `order_dates` dönem sınırlı (`ordered_at` İstanbul günü [start, end]); PoC testi: `ordered_on` dönem içi paketten, tarih sıralaması aynı anla. ADR-0005 §7'ye "kart yalnız dönem içi paketlerdir" yazıldı. `partial_period` bayrağı eklenmedi (isteğe bağlıydı). |
+| SU-03 | Kapandı (belge) | ADR-0005 §7: `awaiting_payout` = "ekstresi gelmeyen", ödeme durumu değil. Alan adı geriye uyum için korundu. |
+| SU-04 | Kapandı | `q` verildiğinde dönemde böyle bir paket yoksa motor çalıştırılmadan boş liste; `sort=net_profit` iken tarih sorgusu yalnız sayfadaki siparişler için (testli). |
+| SU-05 (API) | Kapandı | `AlertOut.breakdown` ve `AlertOut.default_desi_used` (yalnız `BEKLENMEYEN_KESINTI`, isteğe bağlı); motorun `karsilastirma` bloğundan türer, motor değişmedi. Panel kısmı (metin, koşullu ipucu) web ajanındadır. |
+| YO-01 | Kısmen kapandı | Önbellek isabeti yuva tutmaz ve eşzamanlı aynı anahtar tek motor çalıştırması paylaşır; kapıda adalet kuralı: son boş süreç yuvası yuvası olmayan kiracıya ayrılır (iki ağır kiracı üçüncüyü sürekli 503'te bırakamaz). Dört ve üzeri farklı ağır kiracı yine tüm yuvaları doldurabilir; ağır rapor havuzu (öneri 3) yapılmadı. |
+| O-01 madde 3 | Kapandı | SU-01 ile. Çok süreçli dağıtımda önbellek süreç başınadır. |

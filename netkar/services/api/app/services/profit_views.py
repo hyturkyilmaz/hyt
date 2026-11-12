@@ -31,7 +31,7 @@ from app.core.crypto import derive_key
 from app.models import Order, OrderLine, Product
 from app.profit.aggregate import summarize_certainty
 from app.profit.enums import Certainty, MissingItem, Status, WarningCode
-from app.profit.results import LineResult, ProductTotals, ProfitResult
+from app.profit.results import LineComparison, LineResult, ProductTotals, ProfitResult
 from app.profit.schema_v1 import ISTANBUL
 
 ZERO = Decimal("0.00")
@@ -651,9 +651,19 @@ def order_page(
 
 
 async def order_dates(
-    db: AsyncSession, tenant_id: UUID, account_id: UUID, numbers: Sequence[str]
+    db: AsyncSession,
+    tenant_id: UUID,
+    account_id: UUID,
+    numbers: Sequence[str],
+    lower: datetime,
+    upper: datetime,
 ) -> dict[str, datetime]:
-    """Siparişlerin ilk paket anı (tek sorgu, dizi parametresi: bağlayıcı sayısı sınırına takılmaz)."""
+    """Siparişlerin DÖNEM İÇİNDEKİ ilk paket anı (SU-02).
+
+    Motor dönemi paket düzeyinde seçer (`ordered_at` İstanbul günü [lower, upper) içinde); kart yalnız dönem
+    içi paketlerin satırlarını topladığından tarih de aynı paketlerden gelir: dönem dışı paket tarihi dönem
+    kartında görünmez. Tek sorgu, dizi parametresi (bağlayıcı sayısı sınırına takılmaz).
+    """
     if not numbers:
         return {}
     found = await db.execute(
@@ -661,11 +671,31 @@ async def order_dates(
         .where(
             Order.tenant_id == tenant_id,
             Order.marketplace_account_id == account_id,
+            Order.ordered_at >= lower,
+            Order.ordered_at < upper,
             Order.order_number == any_(bindparam("numbers", list(numbers), type_=ARRAY(Text))),
         )
         .group_by(Order.order_number)
     )
     return {number: moment for number, moment in found.all()}
+
+
+async def order_in_period(
+    db: AsyncSession, tenant_id: UUID, account_id: UUID, number: str, lower: datetime, upper: datetime
+) -> bool:
+    """Siparişin dönem içinde en az bir paketi var mı (SU-04: yoksa `q` araması motoru çalıştırmaz)."""
+    found = await db.execute(
+        select(Order.id)
+        .where(
+            Order.tenant_id == tenant_id,
+            Order.marketplace_account_id == account_id,
+            Order.order_number == number,
+            Order.ordered_at >= lower,
+            Order.ordered_at < upper,
+        )
+        .limit(1)
+    )
+    return found.first() is not None
 
 
 # --------------------------------------------------------------------------- uyarılar
@@ -709,6 +739,51 @@ UNAVAILABLE_ALERTS: tuple[tuple[str, str], ...] = (
 
 
 @dataclass(frozen=True, slots=True)
+class AlertBreakdownItem:
+    """Karşılaştırma kalemi (KDV hariç). `compared`: kalem fark toplamına girdi mi (K38: kargo ve hizmet
+    bedeli yalnız tahmini tanımlı VE kesin değeri gelmişse girer; komisyon her zaman girer). Giren kalemlerin
+    `difference` toplamı uyarının `difference` değerine eşittir."""
+
+    item: Literal["commission", "outbound_shipping", "platform_service_fee"]
+    estimated: Decimal | None
+    actual: Decimal | None
+    compared: bool
+    difference: Decimal | None
+
+
+def alert_breakdown(comparison: LineComparison) -> tuple[AlertBreakdownItem, ...]:
+    """Motorun karşılaştırma bloğundan kalem dökümü (yeni hesap yok; yalnız fark = kesin - tahmini)."""
+    rows: list[AlertBreakdownItem] = [
+        AlertBreakdownItem(
+            "commission",
+            comparison.commission_estimated,
+            comparison.commission_actual,
+            True,
+            comparison.commission_actual - comparison.commission_estimated,
+        )
+    ]
+    for item, estimated, actual in (
+        ("outbound_shipping", comparison.shipping_outbound_estimated, comparison.shipping_outbound_actual),
+        (
+            "platform_service_fee",
+            comparison.platform_service_fee_estimated,
+            comparison.platform_service_fee_actual,
+        ),
+    ):
+        compared = estimated is not None and actual is not None
+        rows.append(
+            AlertBreakdownItem(
+                item,  # type: ignore[arg-type]
+                estimated,
+                actual,
+                compared,
+                actual - estimated if estimated is not None and actual is not None else None,
+            )
+        )
+    return tuple(rows)
+
+
+@dataclass(frozen=True, slots=True)
 class AlertItem:
     """Tek uyarı: satır uyarısı (`line`) ya da dönem uyarısı (`period`)."""
 
@@ -724,6 +799,10 @@ class AlertItem:
     known_expenses_profit: Decimal | None = None
     difference: Decimal | None = None
     threshold: Decimal | None = None
+    # BEKLENMEYEN_KESINTI için motorun `karsilastirma` bloğundan kalem dökümü (SU-05) ve kargo tahmininin
+    # varsayılan desiyle yapılıp yapılmadığı (AD-05); diğer kodlarda None.
+    breakdown: tuple[AlertBreakdownItem, ...] | None = None
+    default_desi_used: bool | None = None
 
 
 def _alert_key(alert: AlertItem) -> tuple[object, ...]:
@@ -759,6 +838,12 @@ def build_alerts(result: ProfitResult) -> list[AlertItem]:
                     if code is WarningCode.UNEXPECTED_DEDUCTION and line.comparison
                     else None,
                     threshold=line.comparison.threshold
+                    if code is WarningCode.UNEXPECTED_DEDUCTION and line.comparison
+                    else None,
+                    breakdown=alert_breakdown(line.comparison)
+                    if code is WarningCode.UNEXPECTED_DEDUCTION and line.comparison
+                    else None,
+                    default_desi_used=line.comparison.shipping_estimate_default_desi
                     if code is WarningCode.UNEXPECTED_DEDUCTION and line.comparison
                     else None,
                 )

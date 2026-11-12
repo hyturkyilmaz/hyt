@@ -360,3 +360,5 @@ Dosyalar oturumun geçici dizinindedir: `/tmp/claude-0/-home-user-hyt/9e0dcdb7-1
 - Kapanan: Y-01, D-01, D-02, B-01. Kısmen: O-01 (önbellek ve adalet eksik). Açık (kapsam dışı): Y-02 (Yüksek, alan), O-02, O-03, O-04, D-03, B-02 - B-05.
 - Yeni bulgular: 4 (Orta 1: YO-01; Düşük 1: YD-01; Bilgi 2: YB-01, YB-02). Yeni Kritik veya Yüksek yok.
 - Güvenlik açısından merge engeli KALMADI (açık Yüksek güvenlik bulgusu yok). Açık tek Yüksek bulgu Y-02'dir (alan doğruluğu): kod merge'ünü engellemez, panelde net kâr gösterilmeden önce yayın engelidir. YO-01, büyük satıcılar canlıya alınmadan (önbellek ile birlikte) ele alınmalı.
+
+> Güncelleme (12 Kasım 2026): O-01'in açık önbellek maddesi ve YO-01 (kısmen: adalet kuralı) kapatıldı; ayrıntı `denetim_2026-11-11_siparis_uyari.md` §7.

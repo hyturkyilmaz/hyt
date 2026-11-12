@@ -4,6 +4,10 @@ Her rapor isteği motoru çalıştırır (CPU, yüzlerce MB bellek). Kapı iki s
 (sıra tutmak istekleri ve bağlantıları şişirir): doluysa hemen problem+json ve `Retry-After` döner.
   1. Kiracı başına aynı anda en fazla `tenant_slots` rapor (kiracı dolarsa 429).
   2. Süreç başına aynı anda en fazla `process_slots` rapor (süreç dolarsa 503).
+  3. Adalet (denetim S4 YO-01): süreçteki SON boş yuva, henüz yuvası olmayan bir kiracı için ayrılır; zaten
+     yuva tutan kiracı onu alamaz (429). Böylece iki ağır kiracı tüm yuvaları doldurup üçüncüyü sürekli 503'te
+     bırakamaz. Dört ve üzeri farklı ağır kiracı yine tüm yuvaları doldurabilir; asıl çözüm önbellektir
+     (`app.services.report_cache`: isabet yuva tutmaz).
 
 Sayaçlar süreç içidir: çok süreçli dağıtımda sınırlar süreç sayısıyla çarpılır (`ImportGate` ile aynı not).
 Kontrol ve artırma arasında `await` yoktur; tek olay döngüsünde bu bölüm bölünemez, kilit gerekmez.
@@ -53,6 +57,15 @@ class ReportGate:
                 "Rapor servisi yoğun",
                 "report-busy",
                 "Şu an çok sayıda rapor hesaplanıyor. Kısa süre sonra tekrar deneyin.",
+                headers={"Retry-After": self._retry_after},
+            )
+        if self._per_tenant.get(tenant_id, 0) >= 1 and self._active + 1 >= self.process_slots:
+            raise ProblemError(
+                429,
+                "Rapor hesaplanıyor",
+                "report-in-progress",
+                "Diğer mağazalara da yer bırakmak için bu mağazanın eşzamanlı rapor sayısı sınırlandı. "
+                "Biri bitince tekrar deneyin.",
                 headers={"Retry-After": self._retry_after},
             )
         self._active += 1
