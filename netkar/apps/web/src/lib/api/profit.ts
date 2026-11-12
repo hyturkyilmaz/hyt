@@ -24,6 +24,8 @@ export type RangeName = 'today' | '7d' | '30d';
 export type ProductSort = 'net_profit' | 'net_margin' | 'sales' | 'units';
 export type SortOrder = 'asc' | 'desc';
 export type ProductFilter = 'all' | 'loss' | 'missing_cost';
+export type OrderSort = 'date' | 'net_profit';
+export type OrderFilter = 'all' | 'loss' | 'awaiting_payout' | 'unexpected_deduction';
 
 export interface MarketplaceAccount {
   id: string;
@@ -242,10 +244,82 @@ export interface ProductProfitDetail extends SettingsRevisioned {
   next_cursor: string | null;
 }
 
+/** Sipariş kartındaki ürün (OrderProductOut): katalogda yoksa `title` null. */
+export interface OrderProduct {
+  barcode: string;
+  title: string | null;
+}
+
+/**
+ * Sipariş kârlılık kartı (OrderListItemOut). Paralar KDV hariçtir, dönem düzeyi giderler dahil değildir.
+ * Tümüyle iptal siparişte `cancelled` true, tutar alanları null (0,00 gösterilmez). Müşteri verisi yoktur.
+ */
+export interface OrderListItem {
+  order_number: string;
+  ordered_on: string | null;
+  cancelled: boolean;
+  line_count: number;
+  cancelled_line_count: number;
+  products: OrderProduct[];
+  more_product_count: number;
+  net_sales_excl_vat: Money | null;
+  net_profit: Money | null;
+  /** Eksik giderler hariç kâr: yalnız etiketli gösterilir; iptalde null. */
+  known_expenses_profit: Money | null;
+  certainty: CertaintyLabel;
+  missing_items: MissingItemCode[];
+  cost_missing: boolean;
+  loss_reason: LossReason | null;
+  /** En az bir aktif satırın ekstresi henüz gelmemiş (ödeme durumu değildir). */
+  awaiting_payout: boolean;
+  unexpected_deduction: boolean;
+  status_counts: StatusCounts;
+}
+
+export interface OrderList extends SettingsRevisioned {
+  period: ReportPeriod;
+  sort: string;
+  order: string;
+  filter: string;
+  q: string | null;
+  total_count: number;
+  items: OrderListItem[];
+  next_cursor: string | null;
+}
+
+export interface OrderTotals {
+  line_count: number;
+  net_sales_excl_vat: Money;
+  total_expenses: Money | null;
+  net_profit: Money | null;
+  known_expenses_profit: Money;
+  cost_missing: boolean;
+  missing_items: MissingItemCode[];
+}
+
+/** Sipariş kırılımı (OrderDetailOut): satırlar ürün kırılımındaki satırlarla aynı biçimdedir. */
+export interface OrderDetail extends SettingsRevisioned {
+  period: ReportPeriod;
+  order_number: string;
+  ordered_on: string;
+  totals: OrderTotals;
+  status_counts: StatusCounts;
+  lines: ProfitLine[];
+}
+
 export interface AlertCount {
   code: string;
   count: number;
   message: string;
+}
+
+/** BEKLENMEYEN_KESINTI kalem dökümü (AlertBreakdownItemOut). `difference` = kesin - tahmini; `compared` false ise toplama girmedi. */
+export interface AlertBreakdownItem {
+  item: 'commission' | 'outbound_shipping' | 'platform_service_fee';
+  estimated: Money | null;
+  actual: Money | null;
+  compared: boolean;
+  difference: Money | null;
 }
 
 /** `scope`: period (dönem geneli) ya da line (satır). Alan adları AlertOut şemasıyla aynıdır. */
@@ -261,6 +335,10 @@ export interface AlertItem {
   known_expenses_profit?: Money | null;
   difference?: Money | null;
   threshold?: Money | null;
+  /** Yalnız BEKLENMEYEN_KESINTI; eski API'de yoktur. */
+  breakdown?: AlertBreakdownItem[] | null;
+  /** Yalnız BEKLENMEYEN_KESINTI: tahmini kargo varsayılan desiyle yapıldı; eski API'de yoktur. */
+  default_desi_used?: boolean | null;
 }
 
 /** Panelde beklenen ama motorun henüz üretmediği uyarı (UnavailableAlertOut). */
@@ -321,6 +399,32 @@ export const profitApi = {
     },
     signal?: AbortSignal,
   ) => apiFetch<ProductProfitList>(`${base(accountId)}/products${query(params)}`, { signal }),
+
+  orders: (
+    accountId: string,
+    params: {
+      range: RangeName;
+      sort: OrderSort;
+      order: SortOrder;
+      filter: OrderFilter;
+      q?: string | null;
+      cursor?: string | null;
+      limit?: number;
+    },
+    signal?: AbortSignal,
+  ) => apiFetch<OrderList>(`${base(accountId)}/orders${query(params)}`, { signal }),
+
+  /** Dönem verilirse (listedeki start/end) ortak giderler listeyle aynı dağıtılır; sayılar birebir tutar. */
+  orderDetail: (
+    accountId: string,
+    orderNumber: string,
+    params: { start: string; end: string },
+    signal?: AbortSignal,
+  ) =>
+    apiFetch<OrderDetail>(
+      `${base(accountId)}/orders/${encodeURIComponent(orderNumber)}${query(params)}`,
+      { signal },
+    ),
 
   productDetail: (
     accountId: string,

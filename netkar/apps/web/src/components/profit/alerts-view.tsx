@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { profitApi, type ProfitAlerts, type RangeName } from '@/lib/api/profit';
+import { formatCount } from '@/lib/format';
 import {
   buildAlertGroups,
   deductionRows,
@@ -36,10 +37,11 @@ import {
 } from '@/lib/profit/alerts';
 import { describeReportError } from '@/lib/profit/errors';
 import { periodLabel } from '@/lib/profit/present';
-import { parseRange } from '@/lib/profit/query';
+import { isValidOrderSearch, ordersHref, parseRange } from '@/lib/profit/query';
 import { retryOnceOnRateLimit } from '@/lib/profit/rate-limit-retry';
 import { useReportAccount } from '@/lib/profit/use-account';
 import { usePagedList } from '@/lib/profit/use-paged-list';
+import { useIsViewer } from '@/lib/profit/use-viewer';
 import { useReportQuery } from '@/lib/profit/use-report-query';
 
 /** "Etkilenen siparişler" listesi sayfa boyu */
@@ -51,6 +53,13 @@ const TONE_ICON: Record<AlertTone, LucideIcon> = {
   warning: TriangleAlert,
   info: Info,
   neutral: CircleHelp,
+};
+// Simge aria-hidden olduğundan ton ayrımı ekran okuyucuya başlıkta sr-only önekle verilir (SU-09).
+const TONE_PREFIX: Record<AlertTone, string> = {
+  loss: 'Uyarı:',
+  warning: 'Uyarı:',
+  info: 'Bilgi:',
+  neutral: '',
 };
 const TONE_TEXT: Record<AlertTone, string> = {
   loss: 'text-loss',
@@ -124,6 +133,7 @@ function AlertsContent({
   data: ProfitAlerts;
 }) {
   const groups = buildAlertGroups(data.counts);
+  const viewer = useIsViewer();
   const pending = unavailableAlertNames(data.not_yet_available ?? []);
 
   return (
@@ -140,7 +150,13 @@ function AlertsContent({
         />
       ) : (
         groups.map((group) => (
-          <GroupSection key={group.id} group={group} accountId={accountId} range={range} />
+          <GroupSection
+            key={group.id}
+            group={group}
+            accountId={accountId}
+            range={range}
+            viewer={viewer}
+          />
         ))
       )}
 
@@ -154,10 +170,12 @@ function GroupSection({
   group,
   accountId,
   range,
+  viewer,
 }: {
   group: AlertGroup;
   accountId: string;
   range: RangeName;
+  viewer: boolean;
 }) {
   const headingId = `alert-group-${group.id}`;
   return (
@@ -168,10 +186,10 @@ function GroupSection({
         </h2>
         <p className="text-base text-muted-foreground">{group.description}</p>
       </div>
-      <ul className="grid list-none items-start gap-4 lg:grid-cols-2">
+      <ul role="list" className="grid list-none items-start gap-4 lg:grid-cols-2">
         {group.cards.map((card) => (
           <li key={card.code} className="flex">
-            <AlertCardView card={card} accountId={accountId} range={range} />
+            <AlertCardView card={card} accountId={accountId} range={range} viewer={viewer} />
           </li>
         ))}
       </ul>
@@ -183,45 +201,57 @@ function AlertCardView({
   card,
   accountId,
   range,
+  viewer,
 }: {
   card: AlertCard;
   accountId: string;
   range: RangeName;
+  viewer: boolean;
 }) {
   const Icon = TONE_ICON[card.tone];
   const badgeVariant = card.tone === 'neutral' ? 'neutral' : card.tone;
   const action = card.action;
+  const linkLabel = (a: { label: string; viewerLabel?: string }) =>
+    viewer && a.viewerLabel ? a.viewerLabel : a.label;
   return (
     <Card className="flex w-full flex-col">
       <CardHeader className="gap-2">
         <div className="flex items-start justify-between gap-3">
           <CardTitle as="h3" className="flex items-start gap-2 text-lg">
             <Icon className={`mt-0.5 size-5 shrink-0 ${TONE_TEXT[card.tone]}`} aria-hidden="true" />
-            <span className="break-words">{card.title}</span>
+            <span className="break-words">
+              {TONE_PREFIX[card.tone] ? (
+                <>
+                  <span className="sr-only">{TONE_PREFIX[card.tone]}</span>{' '}
+                </>
+              ) : null}
+              {card.title}
+            </span>
           </CardTitle>
           <Badge variant={badgeVariant} className="num shrink-0">
             {card.periodLevel ? (
               'Dönem geneli'
             ) : (
               <>
-                {card.count}
+                {formatCount(card.count)}
                 <span className="sr-only"> uyarı</span>
               </>
             )}
           </Badge>
         </div>
         <p className="break-words text-base text-muted-foreground">{card.sentence}</p>
-        {card.known ? null : (
-          <p className="break-all text-xs text-muted-foreground">
-            Uyarı kodu: <code>{card.code}</code>
-          </p>
-        )}
+        {card.partialNote ? (
+          <p className="text-base text-muted-foreground">{card.partialNote}</p>
+        ) : null}
+        {viewer && action?.kind === 'link' && card.viewerNote ? (
+          <p className="text-base text-muted-foreground">{card.viewerNote}</p>
+        ) : null}
       </CardHeader>
       {action ? (
         <CardContent className="mt-auto flex flex-col gap-3">
           {action.kind === 'link' ? (
             <Button asChild variant="secondary" className="w-full sm:w-auto sm:self-start">
-              <Link href={action.href(range)}>{action.label}</Link>
+              <Link href={action.href(range)}>{linkLabel(action)}</Link>
             </Button>
           ) : (
             <DeductionDetails
@@ -317,7 +347,7 @@ function DeductionList({
           Liste güncellendi, baştan yüklendi.
         </p>
       ) : null}
-      <ul className="flex list-none flex-col gap-3" aria-label="Etkilenen siparişler">
+      <ul role="list" className="flex list-none flex-col gap-3" aria-label="Etkilenen siparişler">
         {rows.map((row) => (
           <li key={row.key} className="flex flex-col gap-1 border-t border-border pt-3">
             <span className="text-base font-semibold">
@@ -329,6 +359,14 @@ function DeductionList({
                 'Sipariş bilgisi yok'
               )}
             </span>
+            {row.orderNumber && isValidOrderSearch(row.orderNumber) ? (
+              <Link
+                href={ordersHref({ range, q: row.orderNumber })}
+                className="inline-flex min-h-touch items-center break-all text-base text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Siparişi gör: {row.orderNumber}
+              </Link>
+            ) : null}
             {row.barcode ? (
               <Link
                 href={`/panel/urunler/${encodeURIComponent(row.barcode)}?range=${range}`}
@@ -348,6 +386,54 @@ function DeductionList({
                   </>
                 ) : null}
               </span>
+            ) : null}
+            {row.breakdown && row.breakdown.length > 0 ? (
+              <table className="w-full border-collapse text-left text-sm">
+                <caption className="sr-only">
+                  Sipariş {row.orderNumber ?? ''} beklenen ve gerçekleşen kesinti kalemleri
+                </caption>
+                <thead>
+                  <tr className="text-muted-foreground">
+                    <th scope="col" className="py-1 pr-2 font-medium">
+                      Kalem
+                    </th>
+                    <th scope="col" className="px-2 py-1 text-right font-medium">
+                      Tahmini
+                    </th>
+                    <th scope="col" className="px-2 py-1 text-right font-medium">
+                      Kesin
+                    </th>
+                    <th scope="col" className="py-1 pl-2 text-right font-medium">
+                      Fark
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {row.breakdown.map((entry) => (
+                    <tr key={entry.label}>
+                      <th scope="row" className="py-1 pr-2 font-normal">
+                        {entry.label}
+                      </th>
+                      <td className="px-2 py-1 text-right">
+                        {entry.estimated === null ? '-' : <Money value={entry.estimated} />}
+                      </td>
+                      <td className="px-2 py-1 text-right">
+                        {entry.actual === null ? '-' : <Money value={entry.actual} />}
+                      </td>
+                      <td className="py-1 pl-2 text-right">
+                        {entry.compared && entry.difference !== null ? (
+                          <Money value={entry.difference} />
+                        ) : (
+                          <span className="text-muted-foreground">Karşılaştırılmadı</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+            {row.desiHint ? (
+              <span className="text-sm text-muted-foreground">{row.desiHint}</span>
             ) : null}
           </li>
         ))}
@@ -381,7 +467,7 @@ function PendingAlerts({ names }: { names: readonly string[] }) {
       <p className="text-base text-muted-foreground">
         Bu uyarılar için veri henüz hazır değil; şu an görünmemeleri sorun olmadığını göstermez.
       </p>
-      <ul className="flex list-none flex-wrap gap-2">
+      <ul role="list" className="flex list-none flex-wrap gap-2">
         {names.map((name) => (
           <li key={name}>
             <Badge variant="neutral">{name}</Badge>

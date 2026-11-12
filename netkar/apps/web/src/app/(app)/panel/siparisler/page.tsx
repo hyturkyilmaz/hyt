@@ -1,21 +1,15 @@
-import { Receipt } from 'lucide-react';
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 
-import { EmptyState } from '@/components/panel/empty-state';
-import { PageHeader } from '@/components/panel/page-header';
+import { PanelSkeleton } from '@/components/panel/panel-skeleton';
+import { OrderListScreen } from '@/components/profit/order-list';
 
 export const metadata: Metadata = { title: 'Siparişler' };
 
 export default function OrdersPage() {
   return (
-    <>
-      <PageHeader title="Siparişler" description="Sipariş bazında tahmini ve kesinleşmiş kâr." />
-      <EmptyState
-        Icon={Receipt}
-        title="Henüz sipariş yok"
-        description="Mağazanız bağlanınca siparişleriniz burada görünür. Hakediş ekstresi geldikçe tahmini kâr kesinleşir."
-        action={{ href: '/panel/ayarlar', label: 'Mağazayı bağla' }}
-      />
-    </>
+    <Suspense fallback={<PanelSkeleton />}>
+      <OrderListScreen />
+    </Suspense>
   );
 }

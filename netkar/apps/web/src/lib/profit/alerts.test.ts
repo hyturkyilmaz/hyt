@@ -4,7 +4,7 @@ import type { AlertCount } from '@/lib/api/profit';
 import {
   buildAlertGroups,
   deductionRows,
-  totalAlertCount,
+  alertKindCount,
   unavailableAlertNames,
 } from '@/lib/profit/alerts';
 import { makeAlertItem } from '@/lib/profit/test-fixtures';
@@ -43,7 +43,7 @@ describe('buildAlertGroups', () => {
       const action = byCode[code]?.action;
       return action?.kind === 'link' ? action.href('7d') : null;
     };
-    expect(href('ZARAR')).toBe('/panel/urunler?range=7d&filter=loss');
+    expect(href('ZARAR')).toBe('/panel/siparisler?range=7d&filter=loss');
     expect(href('MALIYET_EKSIK')).toBe('/panel/urunler?range=7d&filter=missing_cost');
     expect(href('KARGO_TARIFESI_EKSIK')).toBe('/panel/ayarlar#kargo');
     expect(href('HIZMET_BEDELI_TAHMINI_EKSIK')).toBe('/panel/ayarlar#hizmet-bedeli');
@@ -94,7 +94,37 @@ describe('buildAlertGroups', () => {
   it('aynı kodun sayıları toplanır, boş liste boş grup verir', () => {
     expect(buildAlertGroups([count('ZARAR', 2), count('ZARAR', 3)])[0]?.cards[0]?.count).toBe(5);
     expect(buildAlertGroups([])).toEqual([]);
-    expect(totalAlertCount([count('ZARAR', 2), count('MALIYET_EKSIK', 3)])).toBe(5);
+    expect(alertKindCount([count('ZARAR', 2), count('MALIYET_EKSIK', 3)])).toBe(2);
+  });
+
+  it('SU-08: dönem geneli kod satır koduyla gelirse kartı satır kartına katlanır, sayı türdür', () => {
+    const counts = [
+      count('MALIYET_EKSIK', 5231),
+      count('MALIYET_EKSIK_SATIRLAR_VAR', 1),
+      count('KARGO_TARIFESI_EKSIK', 5231),
+      count('KARGO_EKSIK_SATIRLAR_VAR', 1),
+    ];
+    const cards = buildAlertGroups(counts).flatMap((g) => g.cards);
+    expect(cards.map((c) => c.code)).toEqual(['MALIYET_EKSIK', 'KARGO_TARIFESI_EKSIK']);
+    expect(cards.every((c) => c.partialNote === 'Dönem net kârı bu yüzden kısmi.')).toBe(true);
+    expect(alertKindCount(counts)).toBe(2);
+    // Satır kodu yoksa dönem kartı kendi başına kalır
+    const alone = buildAlertGroups([count('KARGO_EKSIK_SATIRLAR_VAR', 1)]).flatMap((g) => g.cards);
+    expect(alone.map((c) => c.code)).toEqual(['KARGO_EKSIK_SATIRLAR_VAR']);
+    expect(alone[0]?.partialNote).toBeNull();
+  });
+
+  it('SU-09: görüntüleyici etiketi ve notu; tanınmayan kod başlığında kod yazar', () => {
+    const cards = buildAlertGroups([count('KARGO_TARIFESI_EKSIK', 1), count('X_KOD', 1)]).flatMap(
+      (g) => g.cards,
+    );
+    const cargo = cards.find((c) => c.code === 'KARGO_TARIFESI_EKSIK');
+    expect(cargo?.action).toMatchObject({
+      label: 'Kargo tarifesini kontrol et',
+      viewerLabel: 'Kargo tarifesini gör',
+    });
+    expect(cargo?.viewerNote).toBe('Hesap yöneticiniz girebilir.');
+    expect(cards.find((c) => c.code === 'X_KOD')?.title).toBe('Tanınmayan uyarı: X_KOD');
   });
 });
 

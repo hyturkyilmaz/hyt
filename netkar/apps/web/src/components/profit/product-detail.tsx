@@ -347,7 +347,11 @@ function lineRows(line: ProfitLine): KalemRow[] {
   ];
 }
 
-function LineCard({ line }: { line: ProfitLine }) {
+/**
+ * Satır kartı (kalem dökümü). Ürün kırılımı ve sipariş kalem dökümü aynı bileşeni kullanır; `by` başlıkta
+ * hangi anahtarın yazılacağını seçer (ürün ekranında sipariş no, sipariş ekranında ürün barkodu).
+ */
+export function LineCard({ line, by = 'order' }: { line: ProfitLine; by?: 'order' | 'product' }) {
   const cancelled = line.durum === 'cancelled' || line.kesinlik === 'iptal';
   const certainty = certaintyBadge(line.kesinlik);
   const refund = refundPending(line);
@@ -358,7 +362,15 @@ function LineCard({ line }: { line: ProfitLine }) {
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-lg font-semibold">
-            Sipariş <span className="num break-all">{line.orderNumber}</span>
+            {by === 'order' ? (
+              <>
+                Sipariş <span className="num break-all">{line.orderNumber}</span>
+              </>
+            ) : (
+              <>
+                Ürün <span className="num break-all">{line.barcode}</span>
+              </>
+            )}
           </h3>
           {certainty ? <SpecBadge spec={certainty} /> : null}
           <Badge variant="neutral">{STATUS_LABELS[line.durum]}</Badge>

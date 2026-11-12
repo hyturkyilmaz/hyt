@@ -63,3 +63,9 @@ export function getSign(value: DecimalInput, digits = 2): 'positive' | 'negative
   if (isZero) return 'zero';
   return negative ? 'negative' : 'positive';
 }
+
+/** Tam sayıyı tr-TR binlik ayırıcıyla yazar: 5231 -> "5.231". Geçersiz ya da negatif değer "0" olur. */
+export function formatCount(value: number): string {
+  const safe = Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  return groupThousands(String(safe));
+}

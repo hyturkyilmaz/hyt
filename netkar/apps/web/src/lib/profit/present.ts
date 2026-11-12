@@ -145,6 +145,11 @@ const LOSS_REASON_BADGES: Record<LossReason, BadgeSpec> = {
   known_expenses: { label: 'Bilinen giderlerle bile zarar', tone: 'loss' },
 };
 
+/** Zarar nedeni rozeti (ürün ve sipariş listeleri aynı K37 etiketlerini kullanır). */
+export function lossReasonBadge(reason: LossReason): BadgeSpec {
+  return LOSS_REASON_BADGES[reason];
+}
+
 /**
  * Kural 5: `loss_reason` üç değeri ayrı rozet alır. Net kârı null olup zarar kesin değilse ürün
  * "Belirsiz"dir, "kârlı" değildir. İptal ürün rozet almaz.
@@ -171,7 +176,7 @@ export interface KnownProfitView {
   note: string;
 }
 
-function decreaseNote(names: string): string {
+export function decreaseNote(names: string): string {
   return `${names ? capitalize(names) : 'Eksik giderler'} düşülünce bu rakam azalır.`;
 }
 

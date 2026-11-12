@@ -182,6 +182,47 @@ export function RangeSwitcher({
   );
 }
 
+/** Süzgeç çipleri: bağlantılar URL'deki süzgeci değiştirir (geri düğmesi ve paylaşım çalışır). */
+export function FilterNav<T extends string>({
+  label,
+  options,
+  active,
+  hrefFor,
+}: {
+  label: string;
+  options: readonly { value: T; label: string }[];
+  active: T;
+  hrefFor: (value: T) => string;
+}) {
+  return (
+    <nav aria-label={label}>
+      <ul role="list" className="flex list-none flex-wrap gap-2">
+        {options.map((option) => {
+          const isActive = option.value === active;
+          return (
+            <li key={option.value}>
+              <Link
+                href={hrefFor(option.value)}
+                replace
+                scroll={false}
+                aria-current={isActive ? 'true' : undefined}
+                className={cn(
+                  'flex min-h-touch items-center rounded-full border px-4 text-base font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  isActive
+                    ? 'border-transparent bg-primary text-primary-foreground'
+                    : 'border-input-border bg-surface text-foreground hover:bg-surface-muted',
+                )}
+              >
+                {option.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
 export function ReportError({
   message,
   onRetry,

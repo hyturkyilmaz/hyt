@@ -25,6 +25,9 @@ const eslintConfig = [
       // Kullanıcı girdisi HTML olarak yazılmaz; tek istisna JsonLd bileşeninde açıkça kapatılır.
       'react/no-danger': 'error',
       'no-console': ['error', { allow: ['warn', 'error'] }],
+      // Tailwind `list-none` Safari/VoiceOver'da liste anlamını düşürür (denetim SU-09): ul/ol için açık
+      // role="list" bilerek yazılır.
+      'jsx-a11y/no-redundant-roles': ['error', { ul: ['list'], ol: ['list'] }],
     },
   },
   {

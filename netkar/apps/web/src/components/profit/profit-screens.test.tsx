@@ -429,7 +429,7 @@ describe('Özet ekranı', () => {
     renderSummary();
     render(<SummaryScreen />);
     await screen.findByText(/Zararına satış/);
-    const link = screen.getByRole('link', { name: 'Tüm uyarılar (5)' });
+    const link = screen.getByRole('link', { name: 'Tüm uyarılar (2 tür)' });
     expect(link).toHaveAttribute('href', '/panel/uyarilar?range=7d');
   });
 

@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { EmptyState } from '@/components/panel/empty-state';
 import { PageHeader } from '@/components/panel/page-header';
 import {
+  FilterNav,
   LossAmount,
   Money,
   NetProfitCell,
@@ -40,7 +41,6 @@ import {
 import { useReportAccount } from '@/lib/profit/use-account';
 import { usePagedList } from '@/lib/profit/use-paged-list';
 import { formatTRY } from '@/lib/format';
-import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 50;
 
@@ -75,7 +75,9 @@ export function ProductListScreen() {
       />
       <div className="flex flex-col gap-4">
         <RangeSwitcher range={query.range} hrefFor={(range) => href({ range })} />
-        <FilterChips
+        <FilterNav
+          label="Ürün süzgeci"
+          options={FILTER_OPTIONS}
           active={query.filter}
           hrefFor={(filter) => href({ filter, order: defaultOrderFor(filter) })}
         />
@@ -101,42 +103,6 @@ export function ProductListScreen() {
         <ProductResults accountId={account.accountId} query={query} />
       ) : null}
     </>
-  );
-}
-
-function FilterChips({
-  active,
-  hrefFor,
-}: {
-  active: ProductQuery['filter'];
-  hrefFor: (filter: ProductQuery['filter']) => string;
-}) {
-  return (
-    <nav aria-label="Ürün süzgeci">
-      <ul className="flex list-none flex-wrap gap-2">
-        {FILTER_OPTIONS.map((option) => {
-          const isActive = option.value === active;
-          return (
-            <li key={option.value}>
-              <Link
-                href={hrefFor(option.value)}
-                replace
-                scroll={false}
-                aria-current={isActive ? 'true' : undefined}
-                className={cn(
-                  'flex min-h-touch items-center rounded-full border px-4 text-base font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  isActive
-                    ? 'border-transparent bg-primary text-primary-foreground'
-                    : 'border-input-border bg-surface text-foreground hover:bg-surface-muted',
-                )}
-              >
-                {option.label}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
   );
 }
 

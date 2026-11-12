@@ -27,7 +27,7 @@ import {
   type ProfitSummary,
   type RangeName,
 } from '@/lib/api/profit';
-import { totalAlertCount } from '@/lib/profit/alerts';
+import { alertKindCount } from '@/lib/profit/alerts';
 import { describeReportError } from '@/lib/profit/errors';
 import {
   certaintyBadge,
@@ -464,13 +464,13 @@ function AlertsCard({ accountId, range }: { accountId: string; range: RangeName 
             ))}
           </ul>
         ) : null}
-        {/* UX-08: uyarılar ekranı artık var; sayı sayfadaki kartların toplamıyla aynıdır. */}
+        {/* UX-08: uyarılar ekranı artık var; sayı uyarı TÜRÜ (kart) sayısıdır; satır sayıları toplanmaz (SU-08). */}
         {alerts.state.status === 'ready' && alerts.state.data.counts.length > 0 ? (
           <Link
             href={`/panel/uyarilar?range=${range}`}
             className="num inline-flex min-h-touch items-center text-base text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {`Tüm uyarılar (${totalAlertCount(alerts.state.data.counts)})`}
+            {`Tüm uyarılar (${alertKindCount(alerts.state.data.counts)} tür)`}
           </Link>
         ) : null}
       </CardContent>

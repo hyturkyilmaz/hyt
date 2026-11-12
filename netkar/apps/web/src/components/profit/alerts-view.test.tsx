@@ -105,32 +105,22 @@ describe('Uyarılar ekranı', () => {
     const cardTitles = within(loss)
       .getAllByRole('heading', { level: 3 })
       .map((h) => h.textContent);
-    expect(cardTitles).toEqual(['Zarar eden satışlar', 'Beklenmeyen kesintiler']);
+    // SU-09: simge aria-hidden olduğundan ton ekran okuyucuya başlıkta sr-only önekle verilir.
+    expect(cardTitles).toEqual(['Uyarı: Zarar eden satışlar', 'Uyarı: Beklenmeyen kesintiler']);
     expect(within(loss).getByText('3')).toBeInTheDocument();
-    expect(within(loss).getByRole('link', { name: 'Zarar eden ürünleri gör' })).toHaveAttribute(
+    // SU-06: sayı satır sayısıdır; eylem sipariş düzeyine gider ve cümle bunu söyler
+    expect(within(loss).getByText(/Sayı satış satırı sayısıdır/)).toBeInTheDocument();
+    expect(within(loss).getByRole('link', { name: 'Zarar eden siparişleri gör' })).toHaveAttribute(
       'href',
-      '/panel/urunler?range=7d&filter=loss',
+      '/panel/siparisler?range=7d&filter=loss',
     );
-
-    const setup = screen.getByRole('region', { name: 'Kurulum' });
-    expect(
-      within(setup).getByRole('link', { name: 'Maliyeti eksik ürünleri gör' }),
-    ).toHaveAttribute('href', '/panel/urunler?range=7d&filter=missing_cost');
-    expect(
-      within(setup)
-        .getAllByRole('link', { name: 'Kargo tarifesini gir' })
-        .map((a) => a.getAttribute('href')),
-    ).toEqual(['/panel/ayarlar#kargo', '/panel/ayarlar#kargo']);
-    expect(within(setup).getByRole('link', { name: 'Hizmet bedelini gir' })).toHaveAttribute(
-      'href',
-      '/panel/ayarlar#hizmet-bedeli',
-    );
-    // Dönem geneli uyarıda sayı yerine "Dönem geneli" yazar
-    expect(within(setup).getByText('Dönem geneli')).toBeInTheDocument();
+    // SU-05: koşulsuz desi ipucu yok; koşullu ifade var
+    expect(within(loss).queryByText(/Siparişte desi yoksa/)).not.toBeInTheDocument();
+    expect(within(loss).queryByText(/desiyi kontrol edin/)).not.toBeInTheDocument();
 
     // İade kaydı: bilgi tonu, eylem yok
     const check = screen.getByRole('region', { name: 'Bilgi ve kontrol' });
-    expect(within(check).getByText('İade kaydı bekleniyor')).toBeInTheDocument();
+    expect(within(check).getByText(/İade kaydı bekleniyor/)).toBeInTheDocument();
     expect(within(check).queryByRole('link')).not.toBeInTheDocument();
     expect(within(check).queryByRole('button')).not.toBeInTheDocument();
 
@@ -197,7 +187,7 @@ describe('Uyarılar ekranı', () => {
     const retry = screen.getAllByRole('button', { name: 'Tekrar dene' });
     await userEvent.click(retry[retry.length - 1]!);
     expect(await screen.findByText('10004')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Zarar eden satışlar' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Zarar eden satışlar/ })).toBeInTheDocument();
   });
 
   it('bilinmeyen kod genel kartta, HTML metin olarak basılır, çökmez', async () => {
@@ -213,10 +203,131 @@ describe('Uyarılar ekranı', () => {
     );
     const { container } = render(<AlertsScreen />);
     const other = await screen.findByRole('region', { name: 'Diğer uyarılar' });
-    expect(within(other).getByRole('heading', { name: 'Tanınmayan uyarı' })).toBeInTheDocument();
+    // SU-09: birden çok bilinmeyen kod ayırt edilsin diye başlıkta kod da yazar
+    expect(
+      within(other).getByRole('heading', { name: 'Tanınmayan uyarı: YENI_UYARI' }),
+    ).toBeInTheDocument();
     expect(within(other).getByText('<b>kalın</b> yeni uyarı')).toBeInTheDocument();
-    expect(within(other).getByText('YENI_UYARI')).toBeInTheDocument();
     expect(container.querySelector('b')).toBeNull();
     expect(within(other).queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('SU-08 ve SU-09: sayılar binlik ayırıcılı, listeler role="list", görüntüleyicide eylem "gör" der', async () => {
+    mockFetch(
+      accounts,
+      (url) => (url.pathname === '/api/v1/me' ? { body: { role: 'viewer' } } : undefined),
+      (url) =>
+        url.pathname === alertsPath
+          ? {
+              body: makeAlerts([
+                { code: 'KARGO_TARIFESI_EKSIK', count: 5231, message: 'k' },
+                { code: 'KARGO_EKSIK_SATIRLAR_VAR', count: 1, message: 'p' },
+                { code: 'IADE_KAYDI_BEKLENIYOR', count: 1, message: 'i' },
+              ]),
+            }
+          : undefined,
+    );
+    render(<AlertsScreen />);
+    const setup = await screen.findByRole('region', { name: 'Kurulum' });
+    expect(within(setup).getByText('5.231')).toBeInTheDocument();
+    expect(
+      await within(setup).findByRole('link', { name: 'Kargo tarifesini gör' }),
+    ).toHaveAttribute('href', '/panel/ayarlar#kargo');
+    expect(within(setup).queryByRole('link', { name: /gir$/ })).not.toBeInTheDocument();
+    expect(within(setup).getByText('Hesap yöneticiniz girebilir.')).toBeInTheDocument();
+    for (const list of within(setup).getAllByRole('list')) {
+      expect(list).toHaveAttribute('role', 'list');
+    }
+    // Bilgi tonu ekran okuyucuya "Bilgi:" önekiyle söylenir
+    const check = screen.getByRole('region', { name: 'Bilgi ve kontrol' });
+    expect(within(check).getByRole('heading', { level: 3 })).toHaveAccessibleName(
+      'Bilgi: İade kaydı bekleniyor',
+    );
+  });
+
+  it('SU-10: etkilenen siparişten sipariş listesine arama bağlantısı verilir', async () => {
+    navigation.search = 'range=7d';
+    mockFetch(accounts, (url) => {
+      if (url.pathname !== alertsPath) return undefined;
+      return url.searchParams.get('code') === 'BEKLENMEYEN_KESINTI'
+        ? { body: makeAlerts(MANY, { items: [makeAlertItem()] }) }
+        : { body: makeAlerts(MANY) };
+    });
+    render(<AlertsScreen />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Etkilenen siparişleri göster' }),
+    );
+    expect(await screen.findByRole('link', { name: 'Siparişi gör: 10004' })).toHaveAttribute(
+      'href',
+      '/panel/siparisler?range=7d&q=10004',
+    );
+  });
+
+  it('SU-05: kalem dökümü gösterilir; desi ipucu yalnız varsayılan desi ve kargo farkı baskınken', async () => {
+    const bd = (cargo: string, commission: string) => [
+      {
+        item: 'commission' as const,
+        estimated: '10.00',
+        actual: '12.00',
+        compared: true,
+        difference: commission,
+      },
+      {
+        item: 'outbound_shipping' as const,
+        estimated: '20.00',
+        actual: '30.00',
+        compared: true,
+        difference: cargo,
+      },
+      {
+        item: 'platform_service_fee' as const,
+        estimated: null,
+        actual: '1.00',
+        compared: false,
+        difference: null,
+      },
+    ];
+    mockFetch(accounts, (url) => {
+      if (url.pathname !== alertsPath) return undefined;
+      return url.searchParams.get('code') === 'BEKLENMEYEN_KESINTI'
+        ? {
+            body: makeAlerts(MANY, {
+              items: [
+                makeAlertItem({
+                  order_number: '1',
+                  breakdown: bd('10.00', '2.00'),
+                  default_desi_used: true,
+                }),
+                makeAlertItem({
+                  order_number: '2',
+                  breakdown: bd('2.00', '10.00'),
+                  default_desi_used: true,
+                }),
+                makeAlertItem({
+                  order_number: '3',
+                  breakdown: bd('10.00', '2.00'),
+                  default_desi_used: false,
+                }),
+                makeAlertItem({ order_number: '4', breakdown: null, default_desi_used: null }),
+              ],
+            }),
+          }
+        : { body: makeAlerts(MANY) };
+    });
+    render(<AlertsScreen />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Etkilenen siparişleri göster' }),
+    );
+    const list = await screen.findByRole('list', { name: 'Etkilenen siparişler' });
+    const rows = within(list).getAllByRole('listitem');
+    const hint = /Tahmini kargo varsayılan desiyle hesaplandı/;
+    expect(within(rows[0]!).getByRole('table')).toBeInTheDocument();
+    expect(within(rows[0]!).getByText(hint)).toBeInTheDocument();
+    expect(within(rows[0]!).getByText('Karşılaştırılmadı')).toBeInTheDocument();
+    expect(within(rows[1]!).queryByText(hint)).not.toBeInTheDocument();
+    expect(within(rows[2]!).queryByText(hint)).not.toBeInTheDocument();
+    // Eski API: döküm yok, koşullu metin
+    expect(within(rows[3]!).queryByRole('table')).not.toBeInTheDocument();
+    expect(within(rows[3]!).getByText(/Fark kargodaysa ve varsayılan desi/)).toBeInTheDocument();
   });
 });

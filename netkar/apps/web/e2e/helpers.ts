@@ -15,6 +15,10 @@ export async function waitForReady(page: Page) {
   await page.waitForLoadState('load');
   // Yazı tipi yüklenmeden görüntü alma
   await page.evaluate(() => document.fonts.ready);
+  // İstemci tarafı geçişte (ör. arama sonrası URL değişimi) Next.js <title>'ı kısa bir an
+  // yeniden yazar; axe o an çalışırsa document-title yanlış alarmı verir. Başlık gelene dek
+  // bekle: başlık hiç gelmezse bu bekleme zaman aşımına düşer ve test yine başarısız olur.
+  await page.waitForFunction(() => document.title.trim().length > 0);
 }
 
 export const SESSION_COOKIE = '__Host-nk_session';

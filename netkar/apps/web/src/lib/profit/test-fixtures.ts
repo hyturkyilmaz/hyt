@@ -4,6 +4,9 @@ import type {
   AlertCount,
   AlertItem,
   MarketplaceAccount,
+  OrderDetail,
+  OrderList,
+  OrderListItem,
   PeriodTotals,
   ProductProfitDetail,
   ProductProfitItem,
@@ -290,6 +293,65 @@ export function makeDetail(
     total_lines: lines.length,
     lines,
     next_cursor: null,
+    ...over,
+  };
+}
+
+export function makeOrderItem(over: Partial<OrderListItem> = {}): OrderListItem {
+  return {
+    order_number: '10001',
+    ordered_on: '2026-11-09',
+    cancelled: false,
+    line_count: 1,
+    cancelled_line_count: 0,
+    products: [{ barcode: 'BRK-0001', title: 'Örnek Ürün Çelik Termos 500 ml' }],
+    more_product_count: 0,
+    net_sales_excl_vat: '250.00',
+    net_profit: '39.17',
+    known_expenses_profit: '39.17',
+    certainty: 'kesin',
+    missing_items: [],
+    cost_missing: false,
+    loss_reason: null,
+    awaiting_payout: false,
+    unexpected_deduction: false,
+    status_counts: { estimated: 0, settled: 1, adjusted: 0, cancelled: 0 },
+    ...over,
+  };
+}
+
+export function makeOrderList(items: OrderListItem[], over: Partial<OrderList> = {}): OrderList {
+  return {
+    period: PERIOD,
+    settings_revision: SETTINGS_REVISION,
+    sort: 'date',
+    order: 'desc',
+    filter: 'all',
+    q: null,
+    total_count: items.length,
+    items,
+    next_cursor: null,
+    ...over,
+  };
+}
+
+export function makeOrderDetail(lines: ProfitLine[], over: Partial<OrderDetail> = {}): OrderDetail {
+  return {
+    period: PERIOD,
+    settings_revision: SETTINGS_REVISION,
+    order_number: lines[0]?.orderNumber ?? '10001',
+    ordered_on: '2026-11-09',
+    totals: {
+      line_count: lines.length,
+      net_sales_excl_vat: '250.00',
+      total_expenses: '210.83',
+      net_profit: '39.17',
+      known_expenses_profit: '39.17',
+      cost_missing: false,
+      missing_items: [],
+    },
+    status_counts: { estimated: 0, settled: lines.length, adjusted: 0, cancelled: 0 },
+    lines,
     ...over,
   };
 }
