@@ -31,6 +31,7 @@ from app.services.profit_settings import LoadedSettings
 from app.services.profit_settings import load_profit_settings as real_load_settings
 from app.services.sync.runner import SyncRunner
 from tests.conftest import Api, DatabaseInfo
+from tests.leak_helpers import visible_text
 from tests.product_cost_helpers import Shop, add_product, fixed_today, make_shop_factory  # noqa: F401
 from tests.report_helpers import (
     B1,
@@ -457,7 +458,7 @@ def test_other_tenants_account_is_404_and_leaks_nothing(two_shops: tuple[Shop, S
     a, b = two_shops
     r = b.api.get(f"{a.base}/profit/orders", params=PERIOD)
     assert r.status_code == 404 and r.json()["type"] == "urn:netkar:problem:not-found"
-    assert "1001" not in r.text and "Ürün" not in r.text
+    assert "1001" not in visible_text(r) and "Ürün" not in r.text
     assert numbers(a.api.get(f"{a.base}/profit/orders", params=PERIOD)) == ["1004", "1003", "1002", "1001"]
     missing = b.api.get(f"/v1/marketplace-accounts/{uuid4()}/profit/orders", params=PERIOD)
     assert missing.status_code == 404
@@ -530,7 +531,7 @@ def test_inconsistent_records_are_a_500_problem_without_internal_detail(
     monkeypatch.setattr(profit_module, "period_profit", boom)
     r = call(shop)
     assert r.status_code == 500 and r.json()["type"] == "urn:netkar:problem:profit-calculation-failed"
-    assert "1003" not in r.text and "12345" not in r.text
+    assert "1003" not in visible_text(r) and "12345" not in visible_text(r)
 
 
 def test_report_gate_tenant_slot_full_is_429_and_process_full_is_503(

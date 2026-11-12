@@ -26,6 +26,7 @@ from app.services import profit_views as views
 from app.services.report_cache import ReportCache, ReportKey
 from app.services.report_gate import ReportGate
 from tests.conftest import Api
+from tests.leak_helpers import visible_text
 from tests.product_cost_helpers import (
     B1,
     B2,
@@ -311,7 +312,7 @@ def test_other_tenant_never_gets_the_cached_result_of_this_tenant(
     assert len(engine_calls) == 2  # B önbellek isabeti almadı
     # A'nın hesabı B'nin oturumuyla yine 404: önbellek yetkilendirmeyi atlamaz.
     foreign = api.get(f"{shop.base}/profit/orders", params=PERIOD)
-    assert foreign.status_code == 404 and "1001" not in foreign.text and len(engine_calls) == 2
+    assert foreign.status_code == 404 and "1001" not in visible_text(foreign) and len(engine_calls) == 2
 
 
 def test_cache_hit_skips_the_gate_and_the_rate_limited_gate_still_protects_misses(

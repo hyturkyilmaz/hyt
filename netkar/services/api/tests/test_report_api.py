@@ -25,6 +25,7 @@ from app.services import profit_views as views
 from app.services.profit_report import period_profit
 from app.services.sync.runner import SyncRunner
 from tests.conftest import Api, DatabaseInfo
+from tests.leak_helpers import visible_text
 from tests.product_cost_helpers import Shop, add_product, fixed_today, make_shop_factory  # noqa: F401
 from tests.report_helpers import (
     B1,
@@ -730,7 +731,7 @@ def test_inconsistent_records_are_a_500_problem_without_internal_detail(
     monkeypatch.setattr(profit_module, "period_profit", boom)
     r = call(shop, "summary")
     assert r.status_code == 500 and r.json()["type"] == "urn:netkar:problem:profit-calculation-failed"
-    assert "1003" not in r.text and "12345" not in r.text
+    assert "1003" not in visible_text(r) and "12345" not in visible_text(r)
     assert "1003" not in caplog.text and "12345" not in caplog.text  # ayrıntı log'a da girmez
     assert "ProfitInputError" in caplog.text and str(shop.account_id) in caplog.text
 

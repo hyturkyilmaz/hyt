@@ -22,6 +22,7 @@ from app.profit.inputs import Order as EngineOrder
 from app.profit.inputs import OrderItem, OrderLine, ProfitInput
 from app.services import profit_settings as ps
 from tests.conftest import Api, DatabaseInfo
+from tests.leak_helpers import visible_text
 from tests.product_cost_helpers import Shop, add_account, fixed_today, make_shop_factory  # noqa: F401
 from tests.report_helpers import seed_basic
 
@@ -334,7 +335,8 @@ def test_validation_error_does_not_echo_input(shop: Shop) -> None:
     secret = "GIZLI-FIRMA-ADI-12345"
     response = put_tariff(shop, carrier=secret + " ", brackets=[{"max_desi": "9999", "price": "88888888"}])
     assert response.status_code == 422
-    assert secret not in response.text and "9999" not in response.text and "88888888" not in response.text
+    text = visible_text(response)
+    assert secret not in text and "9999" not in text and "88888888" not in text
 
 
 @pytest.mark.parametrize(
