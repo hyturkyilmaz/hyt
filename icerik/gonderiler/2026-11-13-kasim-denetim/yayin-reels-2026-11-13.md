@@ -6,7 +6,7 @@
 | Saat | 21:20 TRT (30 günlük plan) |
 | Anahtar kelime | ETIKET |
 | Yazım hatası | "arşivlemk" (doğrusu: arşivlemek) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 12 Kasım akşamı tekrar bakıldı: Bakanlığın 28 Ekim açıklaması (Kasım indirimleri tüm mecralarda takipte, aldatıcı reklama 39,9 milyon TL'ye kadar ceza) geçerli. Metinde istem dışı hata yok. |
 
 ## Açıklama
 
