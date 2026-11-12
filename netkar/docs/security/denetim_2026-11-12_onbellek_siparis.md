@@ -176,3 +176,16 @@ Bekleyen tarafta `await asyncio.shield(fut)`; başarıda sonucu alır, paylaşı
 - `pending.wait()` süresizdir (`report_cache.py:197`); lider bir DB kilidinde ya da iş parçacığı havuzunda takılırsa bekleyenler de takılır (bağlantı tutmazlar, hız sınırıyla sınırlı). Kodda `statement_timeout` bulunamadı (veritabanı ya da rol düzeyinde olabilir, doğrulanmadı). Öneri: `asyncio.wait_for(..., timeout)` ve süre aşımında 503 + `Retry-After`.
 - İstemci bağlantıyı kesip lider iptal edilirse `run_in_threadpool` içindeki motor iş parçacığı sürmeye devam eder, kapı yuvası ise `async with` çıkışında bırakılır (önceden var olan davranış; kapı CPU işini tam sınırlamaz).
 - `order-list.tsx:55-56` yorumu "Önbellek gelene dek" diyor; önbellek geldi, sayfa boyutu gerekçesi güncellenmeli.
+
+## 7. Backend kapanışı (OS-01, OS-02, OS-03, OS-04, OS-05, OS-06, OS-07, OS-10)
+
+| No | Durum | Kapanış |
+| --- | --- | --- |
+| OS-01 | Kapandı | Tek uçuş sonucu `asyncio.Future` ile bekleyenlere doğrudan verir; sonuç saklanmasa da motor 1 kez çalışır. Hata paylaşılmaz (kural değişmedi): hesaplayan 429/503/500/iptal ile biterse bekleyen döngüye girip kendi denemesini yapar (kendi kapı yuvasını ister, kendi hatasını alır). |
+| OS-02 | Kapandı | Kiracı başına satır tavanı (`profit_report_cache_tenant_lines`, varsayılan 10.000); kiracı önce kendi en eski girdilerini düşürür; genel tavan dolarsa en çok satır tutan kiracının en eski girdisi düşer (az yer kaplayan korunur); kiracı tavanını aşan tek sonuç saklanmaz. Docstring düzeltildi. |
+| OS-03 | Kapandı | Migrasyon 0012: `report_data_revisions` hesap başına sayaç; sekiz motor girdisi tablosunda ERTELENMİŞ kısıt tetikleyicisi commit anında işlem başına bir kez `revision + 1` (`ON CONFLICT DO UPDATE`). Yazım yolu unutulamaz (uygulama, betik, elle SQL). Uygulama rolleri sayacı yazamaz (yalnız `netkar_app` SELECT, FORCE RLS); okuma tek satırdır. |
+| OS-04 | Kapandı (OS-03 ile) | Artış ve veri aynı işlemde, commit anında ve satır kilidi altında görünür: `now()` işlem başlangıcı penceresi yok. Besleyicinin `REPEATABLE READ` önerisi bu turda yapılmadı (S4 anlık görüntü notu açık). |
+| OS-05 | Kapandı | Yorum bellek gerçeğine göre düzeltildi (yaklaşık 4 KB/satır, süreç başına, işçi sayısıyla çarpılır); süresi dolanlar her `put`'ta süpürülür. Varsayılan tavan değiştirilmedi. |
+| OS-06 | Kapandı | Son yuva yalnız GERÇEKTEN bekleyen yuvasız kiracı için ayrılır (süreç doluluğundan 503 alan, `2 x Retry-After` penceresinde, hâlâ yuvasız). Kimse beklemiyorsa kural işlemez; `process_slots <= tenant_slots` ayarı da çalışır. |
+| OS-07 | Kapandı | `removed_at`, bekleme sonrası isabet + veritabanına dokunan uçlar, OS-01, OS-02, YO-01 HTTP testleri; `test_report_orders_api.py` önbellek AÇIK koşar. |
+| OS-10 | Kapandı | Bekleme `profit_report_cache_wait_seconds` (25 sn) ile sınırlı; aşımda 503 `report-wait-timeout` + `Retry-After`. Gerekçe: bekleyenin kendi hesabını başlatması takılmış hesaplayanın pahalı işini çoğaltır ve kapının CPU korumasını zorlar. |

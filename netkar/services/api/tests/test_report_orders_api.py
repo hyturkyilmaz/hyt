@@ -66,7 +66,17 @@ ORDERS_PATH = "orders"
 
 @pytest.fixture
 def make_shop(make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any]) -> Callable[..., Shop]:
-    return make_shop_factory(make_api, admin_conn)
+    """Bu modül dönem sonucu önbelleği AÇIKken koşar (denetim 2026-11-12 OS-07): önbellekli yol tam suite'te
+    gerçek uç testleriyle de sınanır. Testler veriyi doğrudan SQL ile değiştirse de veri sürümü sayacı
+    (migrasyon 0012 tetikleyicisi) eski sonucun dönmesini engeller; önbelleği kapatması gereken test
+    `profit_report_cache_ttl_seconds=0` verir."""
+    factory = make_shop_factory(make_api, admin_conn)
+
+    def _make(email: str, tenant: str, seller_id: str = "2738", **overrides: Any) -> Shop:
+        overrides.setdefault("profit_report_cache_ttl_seconds", 300)
+        return factory(email, tenant, seller_id, **overrides)
+
+    return _make
 
 
 @pytest.fixture
@@ -504,8 +514,16 @@ def test_rate_limit_is_per_tenant_per_minute_and_shared_with_the_other_report_en
 
 
 def test_one_request_runs_the_engine_exactly_once_and_a_second_page_is_a_new_run(
-    shop: Shop, monkeypatch: pytest.MonkeyPatch
+    make_shop: Callable[..., Shop], admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Önbellek KAPALI davranışı (TTL 0): her istek motoru bir kez çalıştırır (açık davranış test_report_cache.py)."""
+    shop = make_shop(
+        "a@example.com",
+        "Mağaza A",
+        rate_limit_profit_report_tenant=100_000,
+        profit_report_cache_ttl_seconds=0,
+    )
+    seed_basic(admin_conn, shop)
     calls: list[int] = []
     real = calculate_profit
 
@@ -543,6 +561,7 @@ def test_report_gate_tenant_slot_full_is_429_and_process_full_is_503(
     shop = make_shop(
         "a@example.com", "Mağaza A", rate_limit_profit_report_tenant=10_000,
         profit_report_tenant_concurrency=1, profit_report_process_concurrency=5,
+        profit_report_cache_ttl_seconds=0,  # kapı davranışı: tek uçuş aynı istekleri beklemeye alırdı
     )  # fmt: skip
     seed_basic(admin_conn, shop)
     engine = BlockedEngine()
@@ -569,6 +588,7 @@ def test_report_gate_process_slots_full_is_503(
     shop = make_shop(
         "a@example.com", "Mağaza A", rate_limit_profit_report_tenant=10_000,
         profit_report_tenant_concurrency=5, profit_report_process_concurrency=1,
+        profit_report_cache_ttl_seconds=0,  # kapı davranışı: tek uçuş aynı istekleri beklemeye alırdı
     )  # fmt: skip
     seed_basic(admin_conn, shop)
     engine = BlockedEngine()

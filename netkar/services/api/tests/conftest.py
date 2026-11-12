@@ -169,7 +169,8 @@ def _clean_tables(database: DatabaseInfo) -> None:
     with psycopg.connect(database.admin_dsn(), autocommit=True) as conn:
         conn.execute(
             "TRUNCATE tenants, users, memberships, sessions, password_reset_tokens, "
-            "audit_log, rate_limits, marketplace_accounts, procrastinate_jobs RESTART IDENTITY CASCADE"
+            "audit_log, rate_limits, marketplace_accounts, report_data_revisions, procrastinate_jobs "
+            "RESTART IDENTITY CASCADE"
         )
 
 

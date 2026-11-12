@@ -172,8 +172,9 @@ async def _report(
     edilir; veritabanına sonradan dokunan uçlar `_restore_context` çağırmalıdır.
     """
     loaded = await load_profit_settings(db, ctx.tenant_id, account_id)
-    # Veri sürümü motor girdisi okunmadan ÖNCE alınır (okuma sırasında veri değişirse sonuç eski sürümle saklanır).
-    version = await report_data_version(db, ctx.tenant_id, account_id) if cache.enabled else ()
+    # Veri sürümü (hesap başına tek sayaç satırı, OS-03) motor girdisi okunmadan ÖNCE alınır (okuma sırasında
+    # veri değişirse sonuç eski sürümle saklanır; sonraki istek yeni sürümü görüp yeniden hesaplar).
+    version = await report_data_version(db, ctx.tenant_id, account_id) if cache.enabled else 0
     key = ReportKey(ctx.tenant_id, account_id, period.start, period.end, loaded.revision, version)
     released = False
 

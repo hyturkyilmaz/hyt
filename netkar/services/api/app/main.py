@@ -97,6 +97,8 @@ def create_app(
             max_entries=settings.profit_report_cache_max_entries,
             max_lines=settings.profit_report_cache_max_lines,
             tenant_entries=settings.profit_report_cache_tenant_entries,
+            tenant_lines=settings.profit_report_cache_tenant_lines,
+            wait_seconds=settings.profit_report_cache_wait_seconds,
         )
         try:
             yield

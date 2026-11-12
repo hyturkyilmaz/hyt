@@ -104,7 +104,7 @@ def report_of(lines: int = 1) -> Any:
     return dataclasses.make_dataclass("P", [("result", object)])(result)
 
 
-def key_of(tenant: UUID, account: UUID | None = None, revision: int = 0, version: Any = ()) -> ReportKey:
+def key_of(tenant: UUID, account: UUID | None = None, revision: int = 0, version: int = 0) -> ReportKey:
     return ReportKey(tenant, account or tenant, date(2026, 10, 1), date(2026, 10, 31), revision, version)
 
 
@@ -116,7 +116,7 @@ def test_key_carries_tenant_and_account_so_nobody_can_reach_a_foreign_entry() ->
     assert cache.get(key_of(b)) is None  # her şey aynı, yalnız kiracı farklı
     assert cache.get(key_of(a, account=uuid4())) is None  # aynı kiracı, başka hesap
     assert cache.get(key_of(a, revision=1)) is None  # ayar sürümü değişti
-    assert cache.get(key_of(a, version=(("orders", "x", 1),))) is None  # veri sürümü değişti
+    assert cache.get(key_of(a, version=1)) is None  # veri sürümü değişti
 
 
 def test_ttl_expires_entries_and_zero_ttl_disables_the_cache() -> None:
@@ -142,7 +142,7 @@ def test_lru_entry_limit_line_weight_limit_and_oversized_entry() -> None:
     cache.put(key_of(tenants[3]), report_of())
     assert cache.get(key_of(tenants[1])) is None  # en az kullanılan düştü
     assert cache.get(key_of(tenants[0])) is not None and len(cache) == 3
-    by_lines = make_cache(max_lines=10, tenant_entries=10)
+    by_lines = make_cache(max_lines=10, tenant_entries=10, tenant_lines=10)
     first, second = uuid4(), uuid4()
     by_lines.put(key_of(first), report_of(5))  # ağırlık 6
     by_lines.put(key_of(second), report_of(5))  # toplam 12 > 10: ilk düşer
@@ -356,19 +356,72 @@ def test_concurrent_identical_requests_share_one_engine_run_without_holding_gate
 # ================================================================================ YO-01: kapı adaleti
 
 
-async def test_gate_reserves_the_last_process_slot_for_a_tenant_without_any_slot() -> None:
-    gate = ReportGate(process_slots=4, tenant_slots=2, retry_after_seconds=1)
-    a, b, c = uuid4(), uuid4(), uuid4()
+class _Tick:
+    """Kapı için sahte saat (süre penceresi testte deterministik)."""
+
+    def __init__(self) -> None:
+        self.now = 100.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+async def _rejected(gate: ReportGate, tenant: UUID) -> Any:
     from app.core.errors import ProblemError
 
+    with pytest.raises(ProblemError) as caught:
+        async with gate.slot(tenant):
+            pytest.fail("yuva verilmemeliydi")
+    return caught.value
+
+
+async def test_gate_reserves_the_last_slot_only_while_a_tenant_without_a_slot_is_actually_waiting() -> None:
+    tick = _Tick()
+    gate = ReportGate(process_slots=4, tenant_slots=2, retry_after_seconds=2, clock=tick)
+    a, b, c = uuid4(), uuid4(), uuid4()
     async with gate.slot(a), gate.slot(a), gate.slot(b):
-        with pytest.raises(ProblemError) as greedy:  # B ikinci yuvayı isterse son yuva C'ye ayrılmış
-            async with gate.slot(b):
-                pytest.fail("son yuva yuvasız kiracıya ayrılmalı")
-        assert greedy.value.status == 429 and greedy.value.slug == "report-in-progress"
-        async with gate.slot(c):  # üçüncü kiracı starve olmadı
+        # OS-06: kimse beklemiyor: B ikinci yuvayı alır (eskiden 429 verirdi).
+        async with gate.slot(b):
+            assert gate.active == 4
+            full = await _rejected(gate, c)  # C yuvasız, süreç dolu: 503 ve artık "bekleyen"
+            assert full.status == 503 and full.slug == "report-busy"
+        # B bıraktı (3 aktif): son yuva C'ye ayrılmış, B ikinciyi alamaz
+        greedy = await _rejected(gate, b)
+        assert greedy.status == 429 and greedy.slug == "report-in-progress"
+        async with gate.slot(c):  # C yeniden denedi: bekleyen kayıt silinir, üçüncü kiracı starve olmadı
+            assert gate.active == 4
+        assert gate._starved == {}
+        async with gate.slot(b):  # C bitti ve kimse beklemiyor: B yine alabilir
             assert gate.active == 4
     assert gate.active == 0 and gate.active_tenants == 0
+
+
+async def test_gate_waiting_mark_expires_after_two_retry_after_windows() -> None:
+    tick = _Tick()
+    gate = ReportGate(process_slots=2, tenant_slots=2, retry_after_seconds=3, clock=tick)
+    a, b = uuid4(), uuid4()
+    async with gate.slot(a), gate.slot(a):
+        await _rejected(gate, b)  # B bekleyen sayıldı
+        tick.now += 5.9  # 2 x 3 sn penceresi içinde
+        assert gate._other_tenant_waiting(a) is True
+        tick.now += 0.2  # pencere aşıldı: B artık gelmiyor, yuva boşuna ayrılmaz
+        assert gate._other_tenant_waiting(a) is False
+    async with gate.slot(a):  # A tek başına, yuva ayrımı yok
+        async with gate.slot(a):
+            assert gate.active == 2
+
+
+async def test_gate_a_lone_tenant_can_use_all_its_slots_even_when_process_slots_equal_tenant_slots() -> None:
+    gate = ReportGate(process_slots=2, tenant_slots=2, retry_after_seconds=1)
+    only = uuid4()
+    async with gate.slot(only), gate.slot(only):  # eskiden ikinci yuva hiç alınamazdı (1 + 1 >= 2)
+        assert gate.active == 2
+        assert (await _rejected(gate, only)).status == 429  # kiracı yuvaları dolu
+    one = ReportGate(process_slots=1, tenant_slots=2, retry_after_seconds=1)
+    async with one.slot(only):  # süreç yuvası tek: ikinci istek 503, kendi kendini 429'a kilitlemez
+        refused = await _rejected(one, only)
+        assert refused.status == 503 and refused.slug == "report-busy"
+    assert one.active == 0
 
 
 # ================================================================================ SU-02, SU-04
@@ -506,3 +559,394 @@ def test_su05_alert_schema_fields_are_optional_and_additive() -> None:
         "item": "commission", "estimated": "10.00", "actual": "22.50", "compared": True, "difference": "12.50",
     }  # fmt: skip
     assert body["default_desi_used"] is True
+
+
+# =========================================================== OS-01, OS-02, OS-10: birim (ReportCache)
+
+
+async def _three_concurrent(cache: ReportCache, key: ReportKey, lines: int) -> tuple[list[Any], list[int]]:
+    runs: list[int] = []
+    gate = asyncio.Event()
+
+    async def compute() -> Any:
+        runs.append(1)
+        await gate.wait()
+        return report_of(lines)
+
+    async def noop() -> None:
+        return None
+
+    tasks = [asyncio.create_task(cache.get_or_compute(key, compute, noop)) for _ in range(3)]
+    await asyncio.sleep(0.02)
+    gate.set()
+    return list(await asyncio.gather(*tasks)), runs
+
+
+async def test_os01_unstored_oversized_result_is_still_shared_by_single_flight() -> None:
+    cache = make_cache(max_lines=100, tenant_lines=10)  # 50 satırlık sonuç kiracı tavanını aşar: saklanmaz
+    key = key_of(uuid4())
+    results, runs = await _three_concurrent(cache, key, 50)
+    assert len(runs) == 1  # motor 1 kez (eskiden 3 kez, sırayla)
+    assert results[0][0] is results[1][0] is results[2][0]  # üçü de aynı sonuç nesnesi
+    assert sorted(hit for _, hit in results) == [False, True, True]
+    assert len(cache) == 0 and cache.get(key) is None  # sonuç saklanmadı
+    assert cache._inflight == {}
+    again, _ = await cache.get_or_compute(key, lambda: _async(report_of(50)), _noop)
+    assert again is not results[0][0]  # sonraki istek saklanmadığı için yeniden hesaplar
+
+
+async def _async(value: Any) -> Any:
+    return value
+
+
+async def _noop() -> None:
+    return None
+
+
+async def test_os01_leader_failure_is_not_shared_waiters_retry_on_their_own_even_when_nothing_is_stored() -> (
+    None
+):
+    cache = make_cache()
+    key = key_of(uuid4())
+    attempts: list[int] = []
+    release = asyncio.Event()
+
+    async def flaky() -> Any:
+        attempts.append(1)
+        if len(attempts) == 1:
+            await release.wait()
+            raise RuntimeError("ilk hesap düştü")
+        return report_of(2)
+
+    leader = asyncio.create_task(cache.get_or_compute(key, flaky, _noop))
+    await asyncio.sleep(0.01)
+    follower = asyncio.create_task(cache.get_or_compute(key, flaky, _noop))
+    await asyncio.sleep(0.01)
+    release.set()
+    with pytest.raises(RuntimeError):
+        await leader  # hata yalnız hesaplayana gider
+    report, shared = await follower  # bekleyen hatayı almaz, kendi hesabını yapar
+    assert len(attempts) == 2 and shared is False and report is not None and cache._inflight == {}
+
+
+async def test_os01_cancelled_leader_does_not_wedge_waiters() -> None:
+    cache = make_cache()
+    key = key_of(uuid4())
+    started = asyncio.Event()
+
+    async def hang() -> Any:
+        started.set()
+        await asyncio.Event().wait()
+
+    leader = asyncio.create_task(cache.get_or_compute(key, hang, _noop))
+    await started.wait()
+    follower = asyncio.create_task(cache.get_or_compute(key, lambda: _async(report_of(1)), _noop))
+    await asyncio.sleep(0.01)
+    leader.cancel()
+    report, shared = await asyncio.wait_for(follower, 5)
+    assert report is not None and shared is False  # bekleyen devraldı, kilitlenmedi
+
+
+async def test_os10_waiter_gives_up_with_503_after_the_wait_limit_while_the_leader_finishes() -> None:
+    from app.core.errors import ProblemError
+
+    cache = make_cache(wait_seconds=0.05)
+    key = key_of(uuid4())
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def slow() -> Any:
+        started.set()
+        await release.wait()
+        return report_of(1)
+
+    leader = asyncio.create_task(cache.get_or_compute(key, slow, _noop))
+    await started.wait()
+    with pytest.raises(ProblemError) as caught:
+        await cache.get_or_compute(key, slow, _noop)
+    assert caught.value.status == 503 and caught.value.slug == "report-wait-timeout"
+    assert int(caught.value.headers["Retry-After"]) >= 1
+    assert not leader.done() and key in cache._inflight  # bekleyenin zaman aşımı ortak hesabı iptal etmedi
+    release.set()
+    await leader
+    hit, was_hit = await cache.get_or_compute(key, slow, _noop)
+    assert was_hit is True and hit is not None  # yeniden deneyen isabet alır
+
+
+def test_os02_one_tenant_with_four_big_periods_cannot_evict_the_others_poc_scenario() -> None:
+    """Denetim PoC 2: varsayılan ayarlar (16 girdi, 40.000 satır, kiracı başına 4 girdi)."""
+    cache = ReportCache(ttl_seconds=60, max_entries=16, max_lines=40_000, tenant_entries=4)
+    assert cache.tenant_lines == 10_000  # varsayılan: toplamın dörtte biri
+    victims = [uuid4() for _ in range(5)]
+    for v in victims:
+        cache.put(key_of(v), report_of(999))  # 1.000'er satır
+    noisy = uuid4()
+    for revision in range(4):  # tek kiracı, tek hesap, 4 dönem x 9.998 satır
+        cache.put(key_of(noisy, revision=revision), report_of(9_997))
+    assert all(cache.get(key_of(v)) is not None for v in victims)  # kurbanların 5'i de yerinde
+    assert cache.tenant_weight(noisy) <= cache.tenant_lines
+    assert sum(1 for k in cache._entries if k.tenant_id == noisy) == 1  # kendi eski girdilerini düşürdü
+    assert cache.get(key_of(noisy, revision=3)) is not None  # en yenisi kaldı
+    assert cache.total_lines <= cache.max_lines
+
+
+def test_os02_tenant_evicts_only_its_own_entries_and_oversized_single_result_is_not_stored() -> None:
+    cache = make_cache(max_lines=1000, tenant_lines=100, tenant_entries=10)
+    a, b = uuid4(), uuid4()
+    cache.put(key_of(b), report_of(30))
+    for revision in range(5):
+        cache.put(
+            key_of(a, revision=revision), report_of(39)
+        )  # ağırlık 40: kiracı tavanı 100'e 2 girdi sığar
+    assert cache.get(key_of(b)) is not None
+    assert [k.settings_revision for k in cache._entries if k.tenant_id == a] == [3, 4]
+    cache.put(key_of(a, revision=9), report_of(100))  # ağırlık 101 > 100: saklanmaz, başkasına dokunmaz
+    assert cache.get(key_of(a, revision=9)) is None and cache.get(key_of(b)) is not None
+    assert cache.get(key_of(a, revision=4)) is not None  # kendi girdileri de düşmedi
+
+
+def test_os02_when_the_global_cap_is_full_the_tenant_with_the_most_lines_loses_an_entry() -> None:
+    cache = make_cache(max_lines=100, tenant_lines=40, tenant_entries=10)
+    heavy, mid, small, newcomer = uuid4(), uuid4(), uuid4(), uuid4()
+    cache.put(key_of(small), report_of(4))  # ağırlık 5, en eski girdi
+    cache.put(key_of(heavy), report_of(34))  # 35
+    cache.put(key_of(mid), report_of(29))  # 30: toplam 70
+    cache.put(key_of(newcomer), report_of(34))  # 35: toplam 105 > 100 -> en çok tutan (heavy) düşer
+    assert cache.get(key_of(heavy)) is None
+    for kept in (small, mid, newcomer):  # en eski olan küçük kiracı korundu (eskiden ilk o düşerdi)
+        assert cache.get(key_of(kept)) is not None
+    assert cache.total_lines == 70
+
+
+def test_os05_expired_entries_are_swept_on_put_and_do_not_evict_live_ones() -> None:
+    clock = FakeClock()
+    cache = make_cache(clock, max_lines=20, tenant_lines=20, tenant_entries=10)
+    old, live = uuid4(), uuid4()
+    cache.put(key_of(old), report_of(9))  # 10
+    clock.now += 61  # süresi doldu ama kimse okumadı
+    cache.put(key_of(live), report_of(9))
+    assert cache.total_lines == 10 and len(cache) == 1 and cache.get(key_of(live)) is not None
+
+
+# ======================================================================= OS-01/02, YO-01: HTTP
+
+
+def _threads_started(*threads: threading.Thread) -> None:
+    for t in threads:
+        t.start()
+
+
+def test_os01_http_three_concurrent_requests_share_one_engine_run_even_when_the_result_is_not_stored(
+    make_shop: Callable[..., Shop], admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shop = make_shop(
+        "a@example.com", "Mağaza A", profit_report_cache_tenant_lines=1, **CACHE_ON
+    )  # tavan 1 satır: hiçbir sonuç saklanmaz
+    seed_basic(admin_conn, shop)
+    engine = BlockedEngine()
+    monkeypatch.setattr(profit_report, "calculate_profit", engine)
+    out: list[Any] = []
+    threads = [
+        threading.Thread(target=lambda p=p: out.append(call(shop, p)))
+        for p in ("summary", "products", "alerts")
+    ]
+    threads[0].start()
+    assert engine.started.wait(15)
+    _threads_started(*threads[1:])
+    threads[1].join(0.5)
+    assert threads[1].is_alive() and threads[2].is_alive()  # bekliyorlar: 429/503 almadılar, ayrı motor yok
+    engine.release.set()
+    for t in threads:
+        t.join()
+    assert sorted(r.status_code for r in out) == [200, 200, 200] and engine.calls == 1
+    assert len(cache_of(shop)) == 0  # sonuç saklanmadı
+    assert call(shop, "summary").status_code == 200 and engine.calls == 2  # saklanmadığı için yeniden hesap
+
+
+def _extra_client(shop: Shop, email: str, tenant: str, seller: str, conn: psycopg.Connection[Any]) -> Shop:
+    """Aynı uygulamaya (aynı kapı ve önbellek) bağlı İKİNCİ kiracı: ayrı çerez kavanozlu istemci."""
+    from fastapi.testclient import TestClient
+
+    from tests.product_cost_helpers import add_account
+
+    client = TestClient(shop.api.client.app, base_url="https://testserver", client=("testclient", 50001))
+    api = Api(client)
+    api.signup_and_login(email, tenant=tenant)
+    me = api.get("/v1/me").json()
+    tenant_id, user_id = UUID(me["tenant"]["id"]), UUID(me["user_id"])
+    account = add_account(conn, tenant_id, user_id, seller)
+    return Shop(api, tenant_id, user_id, account)
+
+
+def test_os02_http_noisy_tenant_walking_periods_does_not_evict_another_tenants_cached_result(
+    shop: Shop, admin_conn: psycopg.Connection[Any], engine_calls: list[int]
+) -> None:
+    cache = cache_of(shop)
+    other = _extra_client(shop, "b@example.com", "Mağaza B", "9999", admin_conn)
+    add_order(
+        admin_conn, seller_of(other), "9001", 9001, datetime(2026, 10, 12, 9, tzinfo=UTC),
+        lines=[{"line_id": 9001, "barcode": B1, "gross": "60.00"}],
+    )  # fmt: skip
+    ends = ("2026-10-31", "2026-10-30", "2026-10-29", "2026-10-28", "2026-10-27")
+
+    def a_summary(end: str) -> Any:
+        return shop.api.get(f"{shop.base}/profit/summary", params={"start": START, "end": end})
+
+    weights = []
+    for end in ends:  # her dönemin gerçek ağırlığı (boş önbellekte tek girdi)
+        cache.clear()
+        assert a_summary(end).status_code == 200
+        weights.append(cache.total_lines)
+    cache.clear()
+    assert call(other, "orders").status_code == 200
+    b_weight = cache.total_lines
+    w_max = max(weights)
+    # Genel tavan B + A'nın iki girdisi; kiracı tavanı A'ya üç girdi tanır: A'nın üçüncüsü GENEL taşma yaratır.
+    # Eski kural en eski girdiyi (B'nin) düşürürdü; adil kural en çok tutan kiracıyı (A) kendi içinden düşürür.
+    cache.tenant_entries = 10
+    cache.tenant_lines = 3 * w_max
+    cache.max_lines = b_weight + 2 * w_max
+    runs = len(engine_calls)
+    for end in ends:
+        assert a_summary(end).status_code == 200
+    assert len(engine_calls) == runs + len(ends)  # A'nın her dönemi ilk kez hesaplandı
+    assert cache.tenant_weight(shop.tenant_id) <= cache.max_lines - b_weight
+    before = len(engine_calls)
+    assert call(other, "orders").status_code == 200
+    assert len(engine_calls) == before  # B'nin sonucu hâlâ önbellekte: A onu düşüremedi
+
+
+def _wait_for(predicate: Callable[[], bool], seconds: float = 15.0) -> bool:
+    import time
+
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        if predicate():
+            return True
+        time.sleep(0.02)
+    return False
+
+
+def test_os06_http_lone_tenant_gets_its_second_slot_when_process_slots_equal_tenant_slots(
+    make_shop: Callable[..., Shop], admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shop = make_shop(
+        "a@example.com", "Mağaza A", profit_report_tenant_concurrency=2, profit_report_process_concurrency=2,
+        **CACHE_ON,
+    )  # fmt: skip
+    seed_basic(admin_conn, shop)
+    engine = BlockedEngine()
+    monkeypatch.setattr(profit_report, "calculate_profit", engine)
+    out: list[Any] = []
+    first = threading.Thread(target=lambda: out.append(call(shop, "summary")))
+    second = threading.Thread(  # farklı dönem: farklı anahtar, tek uçuş birleştirmez, kapıdan geçer
+        target=lambda: out.append(
+            shop.api.get(f"{shop.base}/profit/summary", params={"start": START, "end": "2026-10-30"})
+        )
+    )
+    first.start()
+    assert engine.started.wait(15)
+    second.start()
+    assert _wait_for(lambda: engine.calls == 2)  # ikisi de motorda: ikinci istek 429 almadı
+    engine.release.set()
+    first.join()
+    second.join()
+    assert sorted(r.status_code for r in out) == [200, 200]
+
+
+def test_yo01_http_last_slot_is_reserved_only_for_a_tenant_that_was_actually_turned_away(
+    make_shop: Callable[..., Shop], admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shop_a = make_shop(
+        "a@example.com", "Mağaza A", profit_report_tenant_concurrency=2, profit_report_process_concurrency=2,
+        profit_report_retry_after_seconds=60, **CACHE_ON,
+    )  # fmt: skip
+    seed_basic(admin_conn, shop_a)
+    shop_b = _extra_client(shop_a, "b@example.com", "Mağaza B", "9999", admin_conn)
+    shop_c = _extra_client(shop_a, "c@example.com", "Mağaza C", "8888", admin_conn)
+    engine = BlockedEngine()
+    monkeypatch.setattr(profit_report, "calculate_profit", engine)
+    out: dict[str, Any] = {}
+
+    def run(name: str, shop: Shop, end: str) -> threading.Thread:
+        return threading.Thread(
+            target=lambda: out.__setitem__(
+                name, shop.api.get(f"{shop.base}/profit/summary", params={"start": START, "end": end})
+            )
+        )
+
+    a1, b1 = run("a1", shop_a, "2026-10-31"), run("b1", shop_b, "2026-10-31")
+    a1.start()
+    assert engine.started.wait(15)
+    b1.start()
+    assert _wait_for(lambda: engine.calls == 2)  # süreç dolu (2/2)
+    c_first = shop_c.api.get(f"{shop_c.base}/profit/summary", params={"start": START, "end": END})
+    assert c_first.status_code == 503  # C yuvasız ve süreç dolu: bekleyen sayıldı
+    gate: ReportGate = shop_a.api.client.app.state.report_gate  # type: ignore[attr-defined]
+    assert shop_c.tenant_id in gate._starved
+    engine.release.set()
+    a1.join()
+    b1.join()
+    assert out["a1"].status_code == out["b1"].status_code == 200
+    gate._active = 1  # A bir yuva tutuyormuş gibi (yalnız kapı durumu): son yuva C'ye ayrılmış olmalı
+    gate._per_tenant[shop_a.tenant_id] = 1
+    try:
+        greedy = shop_a.api.get(f"{shop_a.base}/profit/summary", params={"start": START, "end": "2026-10-29"})
+        assert greedy.status_code == 429 and greedy.json()["type"].endswith("report-in-progress")
+        retry = shop_c.api.get(f"{shop_c.base}/profit/summary", params={"start": START, "end": END})
+        assert retry.status_code == 200  # C'nin yeniden denemesi ayrılmış yuvayı buldu
+    finally:
+        gate._active = 0
+        gate._per_tenant.clear()
+    assert gate._starved == {}
+
+
+# ================================================================================ OS-07: boşluklar
+
+
+def test_os07_removed_at_flag_invalidates_the_cached_result(
+    shop: Shop, admin_conn: psycopg.Connection[Any], engine_calls: list[int]
+) -> None:
+    """Senkron `removed_at` ile yalnız işaretler (satır silinmez, `updated_at` ayrıca yazılmasa da sürüm değişir)."""
+    before = call(shop, "orders").json()
+    assert before["total_count"] == 4 and len(engine_calls) == 1
+    assert call(shop, "orders").json() == before and len(engine_calls) == 1  # isabet
+    flagged = admin_conn.execute(
+        "UPDATE order_lines SET removed_at = now() WHERE marketplace_account_id = %s AND line_id = 1",
+        (shop.account_id,),
+    ).rowcount
+    assert flagged == 1
+    after = call(shop, "orders").json()
+    assert len(engine_calls) == 2  # yeniden hesaplandı
+    assert after != before and "1001" not in {
+        i["order_number"] for i in after["items"] if i["line_count"] > 0
+    }
+
+
+def test_os07_waiters_that_hit_the_cache_after_waiting_can_still_touch_the_database(
+    make_shop: Callable[..., Shop], admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bekleyen, bekleme öncesi bağlantıyı iade eder; isabet sonrası orders, products ve detay uçları RLS bağlamını
+    yeniden kurup veritabanına (başlık, tarih) dokunur: sonuç, önbelleksiz sıralı çağrıyla aynıdır."""
+    shop = make_shop("a@example.com", "Mağaza A", **CACHE_ON)
+    seed_basic(admin_conn, shop)
+    paths = ["summary", "orders", "products", f"products/{B1}", "orders/1001", "alerts"]
+    engine = BlockedEngine()
+    monkeypatch.setattr(profit_report, "calculate_profit", engine)
+    out: dict[str, Any] = {}
+    threads = {p: threading.Thread(target=lambda p=p: out.__setitem__(p, call(shop, p))) for p in paths}
+    threads["summary"].start()
+    assert engine.started.wait(15)
+    for p in paths[1:]:
+        threads[p].start()
+    threads["orders"].join(0.5)
+    assert all(threads[p].is_alive() for p in paths[1:])  # hepsi tek uçuşu bekliyor
+    engine.release.set()
+    for t in threads.values():
+        t.join()
+    assert engine.calls == 1 and all(r.status_code == 200 for r in out.values())
+    cache_of(shop).clear()
+    for p in paths:  # önbelleksiz sıralı sonuçla aynı gövde
+        assert call(shop, p).json() == out[p].json(), p
+    assert (
+        "Ürün Bir" in out["products"].text and "Ürün Bir" in out[f"products/{B1}"].text
+    )  # başlık DB'den geldi

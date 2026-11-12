@@ -133,12 +133,20 @@ class Settings(BaseSettings):
     profit_report_process_concurrency: int = Field(4, ge=1)
     profit_report_retry_after_seconds: int = Field(2, ge=1)
     # Dönem sonucu önbelleği (denetim S4 O-01, SU-01): süreç içi, TTL'li, sınırlı LRU. TTL 0 kapatır.
-    # Anahtar kiracı, hesap, dönem, ayar sürümü ve veri sürümünü içerir; satır sınırı bellek tavanıdır
-    # (satır başına yaklaşık birkaç KB nesne; 40.000 satır yüzlerce MB'a varmaz ama tavan bellek içindir).
+    # Anahtar kiracı, hesap, dönem, ayar sürümü ve veri sürümünü içerir. Bellek: saklanan sonuç ölçülen
+    # YAKLAŞIK 4 KB/satırdır; 40.000 satır tavanı SÜREÇ BAŞINA yaklaşık 160 MB eder ve işçi (süreç) sayısıyla
+    # ÇARPILIR (motorun hesaplama tepe belleğine ek). Küçük kapsayıcıda tavanı (max_lines) düşürün:
+    # tavan_MB ~ max_lines * 4 / 1000 * işçi sayısı. Kiracı başına satır tavanı (tenant_lines, OS-02) tek
+    # kiracının tüm önbelleği doldurmasını önler: bu tavanı aşan tek sonuç saklanmaz (yine de eşzamanlı
+    # bekleyenlerle paylaşılır). Süresi dolan girdiler her yazımda süpürülür.
     profit_report_cache_ttl_seconds: int = Field(90, ge=0)
     profit_report_cache_max_entries: int = Field(16, ge=1)
     profit_report_cache_max_lines: int = Field(40_000, ge=1)
     profit_report_cache_tenant_entries: int = Field(4, ge=1)
+    profit_report_cache_tenant_lines: int = Field(10_000, ge=1)
+    # Tek uçuşta bekleyenin üst süre sınırı (OS-10): aşılırsa 503 + Retry-After. Ters vekilin istek zaman
+    # aşımından kısa tutulmalıdır.
+    profit_report_cache_wait_seconds: float = Field(25.0, gt=0)
     # Ana havuz (istek oturumları): havuz tükenince en çok bu kadar beklenir, sonra 503 + Retry-After.
     # Varsayılan 30 sn kilitlenmeyi büyütüyordu (denetim S4 Y-01).
     db_pool_size: int = Field(10, ge=1)

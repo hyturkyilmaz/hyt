@@ -231,3 +231,17 @@ class SyncCursor(Base):
     last_window_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     backfill_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
+
+
+class ReportDataRevision(Base):
+    """Hesabın rapor motoru girdisinin veri sürümü (migrasyon 0012; denetim 2026-11-12 OS-03).
+
+    Satırı YALNIZ veritabanı tetikleyicisi yazar (uygulama rolleri yalnız okur): motor girdisini besleyen
+    tablolara her yazan işlem COMMIT edilirken sayacı `revision + 1` yapar. Satır yoksa sürüm 0'dır.
+    """
+
+    __tablename__ = "report_data_revisions"
+
+    marketplace_account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    revision: Mapped[int] = mapped_column(BigInteger)
