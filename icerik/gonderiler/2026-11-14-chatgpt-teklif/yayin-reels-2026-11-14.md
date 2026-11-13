@@ -6,14 +6,15 @@
 | Saat | 21:20 TRT (30 günlük plan) |
 | Anahtar kelime | TEKLIF |
 | Yazım hatası | "zorlşıyor" (doğrusu: zorlaşıyor) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 13 Kasım akşamı: 9 Kasım hedef CPC/CPA değişikliği ve 89 ülke teyit edildi (Relevant Audience, SE Roundtable, OpenAI). "Türkiye listede" bilgisi ikinci kaynakla teyit edilemedi; cümleden çıkarıldı. |
+| Düzeltme | Kanca ve 2. paragraf: Türkiye ifadesi yerine ülke listesini kontrol önerisi ve 1 Ocak 2027 geçiş tarihi. |
 
 ## Açıklama
 
 ```
-ChatGPT reklamlarında teklif mantığı değişti. Türkiye de reklam verilebilen ülkeler listesinde.
+ChatGPT reklamlarında teklif mantığı değişti. Hedef artık tek tıklama değil, ortalama maliyet.
 
-OpenAI 9 Kasım'dan itibaren yeni tıklama kampanyalarında maksimum CPC yerine hedef CPC, yeni dönüşüm kampanyalarında maksimum teklif yerine hedef CPA kullanıyor. Çoklu görselli reklamlar açık betada. Basına göre ChatGPT reklamları 89 ülkede; Türkiye Eylül'de listeye eklendi, ancak bazı kategoriler sınırlı ve kimlik doğrulaması gerekiyor.
+OpenAI 9 Kasım'dan itibaren yeni tıklama kampanyalarında maksimum CPC yerine hedef CPC, yeni dönüşüm kampanyalarında maksimum teklif yerine hedef CPA kullanıyor. Çoklu görselli reklamlar açık betada. ChatGPT reklamları 89 ülkede; hesap açmadan önce Ads Manager'daki ülke listesine ve kategori kısıtlarına bakmak gerekiyor. Mevcut kampanyalar eski teklifle sürüyor, eski seçenekler 1 Ocak 2027'de kalkıyor.
 
 Yeni bir kanalda ilk iş kazanç hedefi değil, kayıp sınırı. Aylık bütçenin küçük bir kısmıyla 14 gün test, önce hedef CPC ile trafik, yeterli veri geldikten sonra hedef CPA. Durma kuralını baştan yazmazsan testi bitirmek zorlşıyor.
 
