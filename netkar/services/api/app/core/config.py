@@ -137,8 +137,9 @@ class Settings(BaseSettings):
     # YAKLAŞIK 4 KB/satırdır; 40.000 satır tavanı SÜREÇ BAŞINA yaklaşık 160 MB eder ve işçi (süreç) sayısıyla
     # ÇARPILIR (motorun hesaplama tepe belleğine ek). Küçük kapsayıcıda tavanı (max_lines) düşürün:
     # tavan_MB ~ max_lines * 4 / 1000 * işçi sayısı. Kiracı başına satır tavanı (tenant_lines, OS-02) tek
-    # kiracının tüm önbelleği doldurmasını önler: bu tavanı aşan tek sonuç saklanmaz (yine de eşzamanlı
-    # bekleyenlerle paylaşılır). Süresi dolan girdiler her yazımda süpürülür.
+    # kiracının tüm önbelleği doldurmasını önler (etkin tavan her zaman en çok max_lines // 4'tür, OK-03:
+    # max_lines düşürülse de tek kiracı önbelleği dolduramaz): bu tavanı aşan tek sonuç saklanmaz (yine de
+    # eşzamanlı bekleyenlerle paylaşılır). Süresi dolan girdiler her yazımda süpürülür.
     profit_report_cache_ttl_seconds: int = Field(90, ge=0)
     profit_report_cache_max_entries: int = Field(16, ge=1)
     profit_report_cache_max_lines: int = Field(40_000, ge=1)
@@ -147,6 +148,12 @@ class Settings(BaseSettings):
     # Tek uçuşta bekleyenin üst süre sınırı (OS-10): aşılırsa 503 + Retry-After. Ters vekilin istek zaman
     # aşımından kısa tutulmalıdır.
     profit_report_cache_wait_seconds: float = Field(25.0, gt=0)
+    # Hesaplayanın üst süre sınırı (OK-05): takılmış ya da çok yavaş bir hesap bu süreden sonra iptal edilir,
+    # tek uçuş kaydı ve kapı yuvası bırakılır, istek 503 + Retry-After (`report-compute-timeout`) alır.
+    # Bekleyenin süresinden (wait_seconds) UZUN, ters vekilin istek zaman aşımından KISA olmalıdır (istemci
+    # bağlantı kopmadan problem+json görsün). Aynı değer rapor işleminde `statement_timeout` olarak da kurulur
+    # (veritabanı tarafı sınırı; tek deyim bu süreyi aşamaz).
+    profit_report_compute_timeout_seconds: float = Field(45.0, gt=0)
     # Ana havuz (istek oturumları): havuz tükenince en çok bu kadar beklenir, sonra 503 + Retry-After.
     # Varsayılan 30 sn kilitlenmeyi büyütüyordu (denetim S4 Y-01).
     db_pool_size: int = Field(10, ge=1)
@@ -213,6 +220,17 @@ class Settings(BaseSettings):
             KeyRing.parse(self.data_keks.get_secret_value(), self.data_kek_active)
         except KeyRingError as exc:
             raise ValueError(f"DATA_KEKS/DATA_KEK_ACTIVE geçersiz: {exc}") from None
+        return self
+
+    @model_validator(mode="after")
+    def _validate_report_timeouts(self) -> Settings:
+        """Hesaplama üst sınırı, bekleyenin süresinden uzun olmalı (OK-05): aksi halde bekleyen, hesaplayan
+        sınırı aşmadan 503 alır ve takılmış hesap hiç sonlanmazdı."""
+        if self.profit_report_compute_timeout_seconds <= self.profit_report_cache_wait_seconds:
+            raise ValueError(
+                "PROFIT_REPORT_COMPUTE_TIMEOUT_SECONDS, PROFIT_REPORT_CACHE_WAIT_SECONDS "
+                "değerinden büyük olmalı"
+            )
         return self
 
     @field_validator("trusted_proxy_cidrs", mode="before")

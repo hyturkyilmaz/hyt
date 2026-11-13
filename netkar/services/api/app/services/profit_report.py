@@ -8,16 +8,21 @@ hesaplamak farklı sonuç verirdi; ürün özeti dönem sonucundan seçilir.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
+import anyio.to_thread
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.concurrency import run_in_threadpool
 
 from app.profit import ProfitSettings, calculate_profit
 from app.profit.results import LineResult, PeriodTotals, ProductTotals, ProfitResult
 from app.services.profit_feed import FeedNotes, build_profit_input
+from app.services.report_gate import SlotHandle
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +61,7 @@ async def period_profit(
     settings: ProfitSettings | None = None,
     *,
     release_connection: bool = False,
+    slot: SlotHandle | None = None,
 ) -> PeriodReport:
     """[start, end] (İstanbul günleri) için kâr motorunu veritabanı kayıtlarıyla çalıştırır.
 
@@ -67,7 +73,28 @@ async def period_profit(
     if release_connection:
         await db.commit()
     # Motor saf ve CPU işidir (binlerce satırda yüzlerce ms): olay döngüsünü bloklamamak için iş parçacığında.
-    result = await run_in_threadpool(calculate_profit, feed.profit_input)
+    if slot is None:
+        result = await anyio.to_thread.run_sync(calculate_profit, feed.profit_input)
+        return PeriodReport(start, end, result, feed.notes)
+    # Kapı yuvası verildiyse (OK-05, DK-01): iş parçacığı görevi kalkana kadar ayrı bir görevde yürür ve
+    # `shield` ile beklenir. Üst süre aşımı beklemeyi hemen keser (istek zamanında 503 alır) ama Python iş
+    # parçacığını öldüremez; yuva görev bitene dek tutulur (geri çağrı olay döngüsünde bırakır), böylece
+    # terk edilen motorlar kapının "süreçte en çok N motor" sınırını aşamaz.
+    task = asyncio.ensure_future(anyio.to_thread.run_sync(calculate_profit, feed.profit_input))
+    slot.defer()  # görev oluşturma ile ertelemenin arasında `await` yok: yuva sızmaz
+
+    def _finished(done: asyncio.Future[ProfitResult]) -> None:
+        if not done.cancelled():
+            done.exception()  # sonuç/hata terk edilmişse "never retrieved" uyarısı çıkmasın
+        slot.release()
+
+    task.add_done_callback(_finished)
+    try:
+        result = await asyncio.shield(task)
+    except asyncio.CancelledError:
+        if not task.done():
+            log.warning("profit_engine_abandoned account=%s", account_id)
+        raise
     return PeriodReport(start, end, result, feed.notes)
 
 

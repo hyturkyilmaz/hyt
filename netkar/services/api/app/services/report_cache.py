@@ -19,7 +19,8 @@ uyarı görünümleri aynı dönem sonucundan seçildiği için sonuç şu anaht
   4 KB/satır, süreç başına; işçi sayısıyla çarpılır (bkz. `core/config.py`).
 - Tek uçuş (single-flight): aynı anahtar için eşzamanlı istekler tek motor çalıştırması paylaşır (panel
   açılışında özet, ürünler ve uyarılar aynı anda gelir); sonuç saklanmasa bile bekleyenlere doğrudan verilir;
-  bekleyenler kapı yuvası TUTMAZ ve en çok `wait_seconds` bekler (aşımda 503).
+  bekleyenler kapı yuvası TUTMAZ ve en çok `wait_seconds` bekler (aşımda 503); hesaplayan da
+  `compute_timeout_seconds` ile sınırlıdır (aşımda iptal, yuva ve uçuş kaydı bırakılır, 503; OK-05).
 """
 
 from __future__ import annotations
@@ -104,17 +105,23 @@ class ReportCache:
         tenant_entries: int,
         tenant_lines: int | None = None,
         wait_seconds: float = 25.0,
+        compute_timeout_seconds: float | None = None,
+        retry_after_seconds: int = 2,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.ttl_seconds = ttl_seconds
         self.max_entries = max_entries
         self.max_lines = max_lines
         self.tenant_entries = tenant_entries
-        # Varsayılan: toplam tavanın dörtte biri (tek kiracı tüm önbelleği dolduramaz).
-        self.tenant_lines = min(
-            max_lines, tenant_lines if tenant_lines is not None else max(1, max_lines // 4)
-        )
+        # Etkin kiracı satır tavanı HER ZAMAN toplam tavanın dörtte birini aşamaz (OK-03): operatör
+        # `max_lines` değerini düşürse ve `tenant_lines` sabit kalsa da tek kiracı önbelleği dolduramaz.
+        # Varsayılan 40.000 / 10.000 davranışı aynıdır (min(10.000, 40.000 // 4)).
+        fair_share = max(1, max_lines // 4)
+        self.tenant_lines = min(tenant_lines if tenant_lines is not None else fair_share, fair_share)
         self.wait_seconds = wait_seconds
+        # Hesaplayanın üst süre sınırı (OK-05); None = sınırsız (yalnız birim testleri).
+        self.compute_timeout_seconds = compute_timeout_seconds
+        self.retry_after = str(max(1, retry_after_seconds))
         self._clock = clock
         self._entries: OrderedDict[ReportKey, _Entry] = OrderedDict()
         # Tek uçuş: sonuç `Future` ile paylaşılır; None = hesaplayan başarısız oldu (hata paylaşılmaz).
@@ -204,6 +211,30 @@ class ReportCache:
         self._entries.clear()
         self._weight = 0
 
+    async def _run(self, compute: Callable[[], Awaitable[PeriodReport]]) -> PeriodReport:
+        """Hesabı `compute_timeout_seconds` ile sınırlar (OK-05).
+
+        Süre aşılırsa hesap iptal edilir: `compute` içindeki kapı yuvası `async with` ile bırakılır ve
+        çağıran (`get_or_compute`) tek uçuş kaydını `finally` ile siler; istek 503 + `Retry-After` alır.
+        Yalnız KENDİ zaman aşımımız çevrilir (`expired()`): hesabın içinden gelen başka `TimeoutError` olduğu
+        gibi yayılır. Motorun iş parçacığı iptalde bırakılır (`abandon_on_cancel`, bkz. `profit_report`).
+        """
+        if self.compute_timeout_seconds is None:
+            return await compute()
+        try:
+            async with asyncio.timeout(self.compute_timeout_seconds) as scope:
+                return await compute()
+        except TimeoutError:
+            if not scope.expired():
+                raise
+            raise ProblemError(
+                503,
+                "Rapor hesaplanamadı",
+                "report-compute-timeout",
+                "Rapor belirlenen sürede hazırlanamadı. Kısa süre sonra tekrar deneyin.",
+                headers={"Retry-After": self.retry_after},
+            ) from None
+
     async def get_or_compute(
         self,
         key: ReportKey,
@@ -228,7 +259,7 @@ class ReportCache:
         istek zaman aşımından kısa tutulur ki istemci bağlantı kopmadan problem+json görsün.
         """
         if not self.enabled:  # kapalıyken tek uçuş da yok: her istek kendi hesabını yapar
-            return await compute(), False
+            return await self._run(compute), False
         released = False
         loop = asyncio.get_running_loop()
         deadline = loop.time() + self.wait_seconds  # gerçek olay döngüsü saati (TTL saati sahte olabilir)
@@ -253,7 +284,7 @@ class ReportCache:
                     "Rapor hazırlanıyor",
                     "report-wait-timeout",
                     "Aynı rapor uzun süredir hesaplanıyor. Kısa süre sonra tekrar deneyin.",
-                    headers={"Retry-After": "2"},
+                    headers={"Retry-After": self.retry_after},
                 )
             shared = pending.result()
             if shared is not None:
@@ -265,7 +296,7 @@ class ReportCache:
         self._inflight[key] = flight
         report: PeriodReport | None = None
         try:
-            report = await compute()
+            report = await self._run(compute)
             self.put(key, report)
             return report, False
         finally:

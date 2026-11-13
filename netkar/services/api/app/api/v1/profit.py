@@ -19,12 +19,15 @@ eksik kalem 0 sayılmaz, net kâr null olur (K33-K37).
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Query
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import DbDep, RateLimiterDep, ReportCacheDep, ReportGateDep, SettingsDep
@@ -71,6 +74,11 @@ from app.services.report_gate import ReportGate
 
 router = APIRouter(prefix="/marketplace-accounts/{account_id}/profit", tags=["profit"])
 log = logging.getLogger(__name__)
+
+# PostgreSQL "query_canceled" (statement_timeout aşımı).
+_QUERY_CANCELED = "57014"
+# Deyim sınırı, hesap üst süresinden bu kadar sn kısa kurulur (DK-05).
+_STATEMENT_MARGIN = 5.0
 
 _MINUTE = 60
 _DATE_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
@@ -163,6 +171,32 @@ async def _report(
     gate: ReportGate,
     cache: ReportCache,
 ) -> tuple[PeriodReport, LoadedSettings]:
+    """Rapor hesabı; veritabanı deyim sınırı (`statement_timeout`, sqlstate 57014) aşılırsa HER sorguda (ayar
+    ve sürüm okumaları, besleyici, bekleme sonrası bağlam kurulumu) aynı 503 `report-compute-timeout` (OK-05,
+    DK-04). Log'a SQL ve parametre yazılmaz: yalnız hesap kimliği."""
+    try:
+        return await _report_inner(db, ctx, account_id, period, gate, cache)
+    except DBAPIError as exc:
+        if getattr(exc.orig, "sqlstate", None) != _QUERY_CANCELED:
+            raise
+        log.error("profit_statement_timeout account=%s", account_id)
+        raise ProblemError(
+            503,
+            "Rapor hesaplanamadı",
+            "report-compute-timeout",
+            "Rapor belirlenen sürede hazırlanamadı. Kısa süre sonra tekrar deneyin.",
+            headers={"Retry-After": cache.retry_after},
+        ) from None
+
+
+async def _report_inner(
+    db: AsyncSession,
+    ctx: AuthContext,
+    account_id: UUID,
+    period: Period,
+    gate: ReportGate,
+    cache: ReportCache,
+) -> tuple[PeriodReport, LoadedSettings]:
     """Dönem sonucunu önbellekten ya da motoru bir kez çalıştırarak verir; raporla birlikte hesaplandığı
     ayarları (sürüm damgası K44 ve tamlık için demet) döndürür. Girdi tutarsızlığı iç ayrıntı sızdırmadan 500 olur.
 
@@ -171,6 +205,7 @@ async def _report(
     ıskada kapı yuvası alınır (kapı beklemez, doluysa 429/503). Besleyici okumaları bitince bağlantı havuza iade
     edilir; veritabanına sonradan dokunan uçlar `_restore_context` çağırmalıdır.
     """
+    await _bound_statements(db, cache)
     loaded = await load_profit_settings(db, ctx.tenant_id, account_id)
     # Veri sürümü (hesap başına tek sayaç satırı, OS-03) motor girdisi okunmadan ÖNCE alınır (okuma sırasında
     # veri değişirse sonuç eski sürümle saklanır; sonraki istek yeni sürümü görüp yeniden hesaplar).
@@ -184,9 +219,10 @@ async def _report(
         released = True
 
     async def compute() -> PeriodReport:
-        if released:  # bekleme sırasında işlem kapandı: RLS bağlamı yeniden kurulur
+        if released:  # bekleme sırasında işlem kapandı: RLS bağlamı ve deyim sınırı yeniden kurulur
             await _restore_context(db, ctx)
-        async with gate.slot(ctx.tenant_id):
+            await _bound_statements(db, cache)
+        async with gate.slot(ctx.tenant_id) as slot:
             try:
                 return await period_profit(
                     db,
@@ -196,6 +232,7 @@ async def _report(
                     period.end,
                     loaded.settings,
                     release_connection=True,
+                    slot=slot,
                 )
             except ProfitInputError as exc:
                 # Ayrıntı (sipariş no, tutar) log'a yazılmaz: yalnız hesap kimliği ve hata sınıfı.
@@ -209,6 +246,21 @@ async def _report(
 
     report, _ = await cache.get_or_compute(key, compute, release)
     return report, loaded
+
+
+async def _bound_statements(db: AsyncSession, cache: ReportCache) -> None:
+    """Rapor işleminin her deyimine üst süre koyar (OK-05): `SET LOCAL statement_timeout` (işlem yerel).
+
+    Değer hesaplama üst süresinden birkaç sn kısadır (`compute - 5 sn`, en az 1 sn; DK-05): deyim sınırı
+    `asyncio.timeout`tan ÖNCE dolar, böylece veritabanı aşamasında temiz 57014 yolu (bağlantı geçersiz
+    kılınmadan) çalışır; `asyncio.timeout` yalnız yedektir. Takılmış bir sorgu (kilit beklemesi, yavaş tarama) bağlantıyı
+    süresiz tutamaz. İşlem commit ile biter ve değer sıfırlanır, bu yüzden bağlantı iade edildikten sonra
+    yeniden kurulur. Süre sınırsızsa (None) hiçbir şey ayarlanmaz.
+    """
+    if cache.compute_timeout_seconds is None:
+        return
+    millis = math.ceil(max(1.0, cache.compute_timeout_seconds - _STATEMENT_MARGIN) * 1000)
+    await db.execute(text("SELECT set_config('statement_timeout', :v, true)"), {"v": str(millis)})
 
 
 async def _restore_context(db: AsyncSession, ctx: AuthContext) -> None:

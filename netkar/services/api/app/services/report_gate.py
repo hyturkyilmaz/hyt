@@ -13,6 +13,10 @@ Her rapor isteği motoru çalıştırır (CPU, yüzlerce MB bellek). Kapı iki s
      deneme (Retry-After sonrası) ayrılmış yuvayı bulur. Dört ve üzeri farklı ağır kiracı yine tüm yuvaları
      doldurabilir; asıl çözüm önbellektir (`app.services.report_cache`: isabet yuva tutmaz).
 
+Terk edilen motor (DK-01): hesap üst süresi aşılınca istek 503 alır ama motor iş parçacığı Python'da
+öldürülemez; yuva (`SlotHandle.defer`) iş parçacığı gerçekten bitene dek tutulur, böylece "süreçte en çok N
+motor" sınırı zaman aşımında bozulmaz: terk edilen motor bitene dek yeni hesap kapıdan geçemez (429/503).
+
 Sayaçlar süreç içidir: çok süreçli dağıtımda sınırlar süreç sayısıyla çarpılır (`ImportGate` ile aynı not).
 Kontrol ve artırma arasında `await` yoktur; tek olay döngüsünde bu bölüm bölünemez, kilit gerekmez.
 """
@@ -25,6 +29,34 @@ from contextlib import asynccontextmanager
 from uuid import UUID
 
 from app.core.errors import ProblemError
+
+
+class SlotHandle:
+    """Alınmış bir yuvanın tutamağı (DK-01): yuva, motor iş parçacığı GERÇEKTEN bitene dek tutulabilir.
+
+    `defer()` sonrası `slot()` çıkışı yuvayı bırakmaz; bırakma `release()` ile (iş parçacığı görevinin
+    bitiş geri çağrısında, olay döngüsünde) yapılır. `release()` tekrarlanabilir (idempotent).
+    """
+
+    __slots__ = ("_deferred", "_gate", "_released", "_tenant_id")
+
+    def __init__(self, gate: ReportGate, tenant_id: UUID) -> None:
+        self._gate = gate
+        self._tenant_id = tenant_id
+        self._deferred = False
+        self._released = False
+
+    def defer(self) -> None:
+        self._deferred = True
+
+    @property
+    def deferred(self) -> bool:
+        return self._deferred
+
+    def release(self) -> None:
+        if not self._released:
+            self._released = True
+            self._gate._release(self._tenant_id)
 
 
 class ReportGate:
@@ -55,17 +87,21 @@ class ReportGate:
     def active_tenants(self) -> int:
         return len(self._per_tenant)
 
-    def _other_tenant_waiting(self, tenant_id: UUID) -> bool:
-        """Başka bir kiracı yuvasızken yakın zamanda 503 aldı mı (eski kayıtlar silinir)."""
+    def _sweep_starved(self) -> None:
+        """Süresi dolmuş ya da artık yuva tutan kiracıların "bekleyen" kaydını siler (OK-11)."""
         now = self._clock()
         for t in [
             t for t, at in self._starved.items() if now - at > self._starve_window or t in self._per_tenant
         ]:
             del self._starved[t]
+
+    def _other_tenant_waiting(self, tenant_id: UUID) -> bool:
+        """Başka bir kiracı yuvasızken yakın zamanda 503 aldı mı (eski kayıtlar silinir)."""
+        self._sweep_starved()
         return any(t != tenant_id for t in self._starved)
 
     @asynccontextmanager
-    async def slot(self, tenant_id: UUID) -> AsyncIterator[None]:
+    async def slot(self, tenant_id: UUID) -> AsyncIterator[SlotHandle]:
         """Boş yuva varsa alır ve çıkışta (hata ve iptalde de) bırakır; yoksa beklemeden 429/503."""
         if self._per_tenant.get(tenant_id, 0) >= self.tenant_slots:
             raise ProblemError(
@@ -76,6 +112,7 @@ class ReportGate:
                 headers={"Retry-After": self._retry_after},
             )
         if self._active >= self.process_slots:
+            self._sweep_starved()  # yeniden denemeyen kiracıların kayıtları bu dalda da temizlenir (OK-11)
             if self._per_tenant.get(tenant_id, 0) == 0:
                 self._starved[tenant_id] = self._clock()  # yuvasız ve süreç dolu: bekleyen sayılır
             raise ProblemError(
@@ -101,12 +138,17 @@ class ReportGate:
         self._starved.pop(tenant_id, None)
         self._active += 1
         self._per_tenant[tenant_id] = self._per_tenant.get(tenant_id, 0) + 1
+        handle = SlotHandle(self, tenant_id)
         try:
-            yield
+            yield handle
         finally:
-            self._active -= 1
-            remaining = self._per_tenant[tenant_id] - 1
-            if remaining:
-                self._per_tenant[tenant_id] = remaining
-            else:
-                del self._per_tenant[tenant_id]
+            if not handle.deferred:  # ertelendiyse bırakma, iş parçacığının bitişine devredilmiştir (DK-01)
+                handle.release()
+
+    def _release(self, tenant_id: UUID) -> None:
+        self._active -= 1
+        remaining = self._per_tenant[tenant_id] - 1
+        if remaining:
+            self._per_tenant[tenant_id] = remaining
+        else:
+            del self._per_tenant[tenant_id]

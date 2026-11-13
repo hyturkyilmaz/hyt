@@ -270,6 +270,53 @@ def test_one_increment_per_transaction_per_account_rollback_and_other_accounts_a
     assert row == (0,)  # başka hesap için satır açılmadı
 
 
+def test_ok01_session_level_guc_cannot_suppress_the_bump(
+    database: DatabaseInfo, admin_conn: psycopg.Connection[Any], make_api: Callable[..., Api]
+) -> None:
+    """OK-01: 0012'deki özel GUC `netkar.rdr_<hesap>` oturum düzeyinde '1' yapılınca artış bastırılabiliyordu.
+    Tekilleştirme artık satırdaki `last_xact` (xid8) ile yapılır: hiçbir oturum ayarı artışı engelleyemez."""
+    shop = make_shop_factory(make_api, admin_conn)("a@example.com", "Mağaza A")
+    seed_basic(admin_conn, shop)
+    account = str(shop.account_id)
+    hexed = account.replace("-", "")
+    with psycopg.connect(database.admin_dsn(), autocommit=True) as session:
+        # Eski anahtar ve olası başka adlar, oturum düzeyinde (is_local = false) ve işlem yerel.
+        for name in (f"netkar.rdr_{hexed}", "netkar.rdr_x", "netkar.rdr"):
+            session.execute("SELECT set_config(%s, '1', false)", (name,))
+        before = revision(admin_conn, shop.account_id)
+        for expected in (before + 1, before + 2):  # her işlem bir artış (ayar bunu bastıramaz)
+            session.execute(
+                "UPDATE orders SET updated_at = now() WHERE marketplace_account_id = %s", (account,)
+            )
+            assert revision(admin_conn, shop.account_id) == expected
+    # Aynı işlemde birden çok yazım yine tek artış (xid8 işareti, GUC değil).
+    with psycopg.connect(database.admin_dsn()) as tx:
+        tx.execute("SELECT set_config(%s, '1', false)", (f"netkar.rdr_{hexed}",))
+        for table in ("orders", "products", "order_lines"):
+            tx.execute(
+                f"UPDATE {table} SET updated_at = now() WHERE marketplace_account_id = %s",  # type: ignore[arg-type]
+                (account,),
+            )
+        tx.commit()
+    assert revision(admin_conn, shop.account_id) == before + 3
+    marker = admin_conn.execute(
+        "SELECT last_xact IS NOT NULL FROM report_data_revisions WHERE marketplace_account_id = %s",
+        (shop.account_id,),
+    ).fetchone()
+    assert marker == (True,)
+
+
+def test_ok01_marker_column_is_not_writable_by_application_roles(
+    database: DatabaseInfo, admin_conn: psycopg.Connection[Any], make_api: Callable[..., Api]
+) -> None:
+    shop = make_shop_factory(make_api, admin_conn)("a@example.com", "Mağaza A")
+    seed_basic(admin_conn, shop)
+    for dsn in (None, database.worker_dsn()):
+        with app_tx(database, str(shop.tenant_id), dsn=dsn) as conn:
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                conn.execute("UPDATE report_data_revisions SET last_xact = NULL")
+
+
 def test_concurrent_writers_never_lose_an_increment(
     database: DatabaseInfo, admin_conn: psycopg.Connection[Any], make_api: Callable[..., Api]
 ) -> None:
@@ -385,4 +432,45 @@ def test_migration_0012_downgrades_cleanly_and_upgrades_again(
     assert admin_conn.execute("SELECT count(*) FROM orders").fetchone() is not None
     command.upgrade(alembic_cfg, "head")
     assert present() == (True, 8, True)
-    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0012",)
+    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0013",)
+
+
+def test_migration_0013_downgrade_restores_the_0012_state_without_losing_data_and_upgrades_again(
+    alembic_cfg: Config, admin_conn: psycopg.Connection[Any], make_api: Callable[..., Api]
+) -> None:
+    shop = make_shop_factory(make_api, admin_conn)("a@example.com", "Mağaza A")
+    seed_basic(admin_conn, shop)
+    before = revision(admin_conn, shop.account_id)
+    assert before >= 1
+
+    def state() -> tuple[bool, bool, list[str], str]:
+        column = admin_conn.execute(
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_name = 'report_data_revisions' AND column_name = 'last_xact'"
+        ).fetchone()
+        body = admin_conn.execute(
+            "SELECT prosrc FROM pg_proc WHERE proname = 'bump_report_data_revision'"
+        ).fetchone()
+        policy = admin_conn.execute(
+            "SELECT roles FROM pg_policies WHERE tablename = 'report_data_revisions' AND policyname = 'owner_counter'"
+        ).fetchone()
+        assert column is not None and body is not None and policy is not None
+        return column[0] == 1, "netkar.rdr_" in body[0], sorted(policy[0]), body[0]
+
+    has_column, uses_guc, roles, body_0013 = state()
+    assert (has_column, uses_guc, roles) == (True, False, ["netkar_owner"])
+    command.downgrade(alembic_cfg, "0012")
+    has_column, uses_guc, roles, _ = state()
+    assert (has_column, uses_guc, roles) == (False, True, ["netkar_owner"])  # 0012 durumu (GUC'li, sütunsuz)
+    assert revision(admin_conn, shop.account_id) == before  # veri kaybı yok
+    func = admin_conn.execute(
+        "SELECT prosecdef, proconfig FROM pg_proc WHERE proname = 'bump_report_data_revision'"
+    ).fetchone()
+    assert func is not None and func[0] and any(c.startswith("search_path=") for c in func[1])
+    admin_conn.execute(
+        "UPDATE orders SET updated_at = now() WHERE marketplace_account_id = %s", (shop.account_id,)
+    )
+    assert revision(admin_conn, shop.account_id) == before + 1  # 0012 tetikleyicisi çalışıyor
+    command.upgrade(alembic_cfg, "head")
+    assert state() == (True, False, ["netkar_owner"], body_0013)
+    assert revision(admin_conn, shop.account_id) == before + 1

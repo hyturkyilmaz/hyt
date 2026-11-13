@@ -99,6 +99,8 @@ def create_app(
             tenant_entries=settings.profit_report_cache_tenant_entries,
             tenant_lines=settings.profit_report_cache_tenant_lines,
             wait_seconds=settings.profit_report_cache_wait_seconds,
+            compute_timeout_seconds=settings.profit_report_compute_timeout_seconds,
+            retry_after_seconds=settings.profit_report_retry_after_seconds,
         )
         try:
             yield

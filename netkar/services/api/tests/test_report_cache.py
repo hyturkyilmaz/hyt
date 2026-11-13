@@ -21,7 +21,7 @@ import pytest
 
 from app.profit import calculate_profit
 from app.profit.enums import WarningCode
-from app.services import profit_report
+from app.services import profit_feed, profit_report
 from app.services import profit_views as views
 from app.services.report_cache import ReportCache, ReportKey
 from app.services.report_gate import ReportGate
@@ -142,14 +142,16 @@ def test_lru_entry_limit_line_weight_limit_and_oversized_entry() -> None:
     cache.put(key_of(tenants[3]), report_of())
     assert cache.get(key_of(tenants[1])) is None  # en az kullanılan düştü
     assert cache.get(key_of(tenants[0])) is not None and len(cache) == 3
-    by_lines = make_cache(max_lines=10, tenant_entries=10, tenant_lines=10)
-    first, second = uuid4(), uuid4()
-    by_lines.put(key_of(first), report_of(5))  # ağırlık 6
-    by_lines.put(key_of(second), report_of(5))  # toplam 12 > 10: ilk düşer
-    assert by_lines.get(key_of(first)) is None and by_lines.get(key_of(second)) is not None
-    assert by_lines.total_lines == 6
-    by_lines.put(key_of(uuid4()), report_of(50))  # tek başına tavanı aşar: hiç saklanmaz
-    assert len(by_lines) == 1
+    by_lines = make_cache(max_lines=24, max_entries=16, tenant_entries=10, tenant_lines=6)
+    tenants = [uuid4() for _ in range(5)]
+    for t in tenants[:4]:
+        by_lines.put(key_of(t), report_of(5))  # ağırlık 6: dört kiracı toplam tavana (24) tam sığar
+    assert by_lines.total_lines == 24
+    by_lines.put(key_of(tenants[4]), report_of(5))  # toplam 30 > 24: eşitlikte en eski kiracı düşer
+    assert by_lines.get(key_of(tenants[0])) is None and by_lines.get(key_of(tenants[4])) is not None
+    assert by_lines.total_lines == 24
+    by_lines.put(key_of(uuid4()), report_of(50))  # tek başına kiracı tavanını aşar: hiç saklanmaz
+    assert len(by_lines) == 4
 
 
 def test_per_tenant_cap_stops_one_tenant_from_evicting_the_others() -> None:
@@ -705,26 +707,149 @@ def test_os02_tenant_evicts_only_its_own_entries_and_oversized_single_result_is_
 
 
 def test_os02_when_the_global_cap_is_full_the_tenant_with_the_most_lines_loses_an_entry() -> None:
-    cache = make_cache(max_lines=100, tenant_lines=40, tenant_entries=10)
-    heavy, mid, small, newcomer = uuid4(), uuid4(), uuid4(), uuid4()
+    cache = make_cache(max_lines=100, tenant_lines=25, tenant_entries=10)  # kiracı tavanı 100 // 4 = 25
+    heavy, mid, mid2, mid3, small, newcomer = (uuid4() for _ in range(6))
     cache.put(key_of(small), report_of(4))  # ağırlık 5, en eski girdi
-    cache.put(key_of(heavy), report_of(34))  # 35
-    cache.put(key_of(mid), report_of(29))  # 30: toplam 70
-    cache.put(key_of(newcomer), report_of(34))  # 35: toplam 105 > 100 -> en çok tutan (heavy) düşer
+    cache.put(key_of(heavy), report_of(24))  # 25
+    for t in (mid, mid2, mid3):
+        cache.put(key_of(t), report_of(19))  # 20 x 3: toplam 90
+    cache.put(key_of(newcomer), report_of(14))  # 15: toplam 105 > 100 -> en çok tutan (heavy) düşer
     assert cache.get(key_of(heavy)) is None
-    for kept in (small, mid, newcomer):  # en eski olan küçük kiracı korundu (eskiden ilk o düşerdi)
+    for kept in (
+        small,
+        mid,
+        mid2,
+        mid3,
+        newcomer,
+    ):  # en eski olan küçük kiracı korundu (eskiden ilk o düşerdi)
         assert cache.get(key_of(kept)) is not None
-    assert cache.total_lines == 70
+    assert cache.total_lines == 80
 
 
 def test_os05_expired_entries_are_swept_on_put_and_do_not_evict_live_ones() -> None:
     clock = FakeClock()
-    cache = make_cache(clock, max_lines=20, tenant_lines=20, tenant_entries=10)
-    old, live = uuid4(), uuid4()
-    cache.put(key_of(old), report_of(9))  # 10
+    cache = make_cache(clock, max_lines=40, tenant_lines=10, tenant_entries=10)
+    live = uuid4()
+    for _ in range(4):
+        cache.put(key_of(uuid4()), report_of(9))  # 10 x 4: toplam tavan (40) dolu
     clock.now += 61  # süresi doldu ama kimse okumadı
     cache.put(key_of(live), report_of(9))
     assert cache.total_lines == 10 and len(cache) == 1 and cache.get(key_of(live)) is not None
+
+
+def test_ok03_lowering_max_lines_still_keeps_one_tenant_from_evicting_the_others() -> None:
+    """OK-03: `max_lines=8000` ve eski varsayılan `tenant_lines=10_000` iken kiracı tavanı 8000 olup tek kiracı
+    önbelleğin tamamını doldurabiliyordu. Etkin kiracı tavanı her zaman `max_lines // 4`tür."""
+    cache = ReportCache(
+        ttl_seconds=60, max_entries=16, max_lines=8_000, tenant_entries=4, tenant_lines=10_000
+    )
+    assert cache.tenant_lines == 2_000
+    assert (
+        ReportCache(ttl_seconds=60, max_entries=16, max_lines=8_000, tenant_entries=4).tenant_lines == 2_000
+    )
+    victims = [uuid4() for _ in range(3)]
+    for v in victims:
+        cache.put(key_of(v), report_of(999))  # 1.000'er satır
+    noisy = uuid4()
+    for revision in range(6):  # tek kiracı, 6 dönem x 1.999 satır: tavanı (2.000) aşan kendi eskisini düşürür
+        cache.put(key_of(noisy, revision=revision), report_of(1_998))
+    assert all(cache.get(key_of(v)) is not None for v in victims)
+    assert cache.tenant_weight(noisy) <= 2_000
+    assert sum(1 for k in cache._entries if k.tenant_id == noisy) == 1
+    cache.put(key_of(noisy, revision=99), report_of(2_000))  # 2.001 > 2.000: hiç saklanmaz
+    assert cache.get(key_of(noisy, revision=99)) is None
+    assert all(cache.get(key_of(v)) is not None for v in victims)
+    assert cache.total_lines <= cache.max_lines
+
+
+def test_ok03_default_settings_keep_the_10000_line_tenant_cap() -> None:
+    cache = ReportCache(
+        ttl_seconds=60, max_entries=16, max_lines=40_000, tenant_entries=4, tenant_lines=10_000
+    )
+    assert cache.tenant_lines == 10_000
+
+
+async def test_ok05_a_stuck_compute_is_cancelled_and_frees_the_inflight_entry_and_the_gate_slot() -> None:
+    from app.core.errors import ProblemError
+
+    gate = ReportGate(process_slots=2, tenant_slots=1, retry_after_seconds=7)
+    cache = make_cache(wait_seconds=0.05, compute_timeout_seconds=0.1, retry_after_seconds=7)
+    tenant = uuid4()
+    key = key_of(tenant)
+    started, cancelled = asyncio.Event(), asyncio.Event()
+
+    async def stuck() -> Any:
+        async with gate.slot(tenant):
+            started.set()
+            try:
+                await asyncio.Event().wait()  # hiç bitmeyen hesap
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+    with pytest.raises(ProblemError) as caught:
+        await asyncio.wait_for(cache.get_or_compute(key, stuck, _noop), 5)
+    assert started.is_set() and cancelled.is_set()
+    assert caught.value.status == 503 and caught.value.slug == "report-compute-timeout"
+    assert caught.value.headers["Retry-After"] == "7"  # OK-11: sabit değil, ayardan
+    assert cache._inflight == {} and gate.active == 0 and gate.active_tenants == 0
+    assert cache.get(key) is None  # hata saklanmaz
+    report, hit = await cache.get_or_compute(
+        key, lambda: _async(report_of(1)), _noop
+    )  # yeniden deneme çalışır
+    assert report is not None and hit is False
+
+
+async def test_ok05_compute_timeout_does_not_translate_foreign_timeouts_and_can_be_disabled() -> None:
+    cache = make_cache(compute_timeout_seconds=5)
+
+    async def foreign() -> Any:
+        raise TimeoutError("başka yerden")
+
+    with pytest.raises(TimeoutError, match="başka yerden"):
+        await cache.get_or_compute(key_of(uuid4()), foreign, _noop)
+    unlimited = make_cache()  # None = sınırsız (birim testleri)
+    report, _ = await unlimited.get_or_compute(key_of(uuid4()), lambda: _async(report_of(1)), _noop)
+    assert report is not None
+
+
+async def test_ok11_wait_timeout_retry_after_comes_from_the_setting() -> None:
+    from app.core.errors import ProblemError
+
+    cache = make_cache(wait_seconds=0.05, retry_after_seconds=9)
+    key = key_of(uuid4())
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def slow() -> Any:
+        started.set()
+        await release.wait()
+        return report_of(1)
+
+    leader = asyncio.create_task(cache.get_or_compute(key, slow, _noop))
+    await started.wait()
+    with pytest.raises(ProblemError) as caught:
+        await cache.get_or_compute(key, slow, _noop)
+    assert caught.value.slug == "report-wait-timeout" and caught.value.headers["Retry-After"] == "9"
+    release.set()
+    await leader
+
+
+async def test_ok11_starved_records_are_swept_on_the_503_branch_too() -> None:
+    from app.core.errors import ProblemError
+
+    clock = FakeClock()
+    gate = ReportGate(process_slots=1, tenant_slots=1, retry_after_seconds=2, clock=clock)
+    holder, gone, newcomer = uuid4(), uuid4(), uuid4()
+    async with gate.slot(holder):
+        with pytest.raises(ProblemError):
+            async with gate.slot(gone):
+                pass
+        assert set(gate._starved) == {gone}
+        clock.now += 100  # `gone` yeniden denemedi: kaydı bayatladı
+        with pytest.raises(ProblemError):
+            async with gate.slot(newcomer):  # yalnız 503 dalı çalışır; eski kayıt orada temizlenir
+                pass
+        assert set(gate._starved) == {newcomer}
 
 
 # ======================================================================= OS-01/02, YO-01: HTTP
@@ -950,3 +1075,119 @@ def test_os07_waiters_that_hit_the_cache_after_waiting_can_still_touch_the_datab
     assert (
         "Ürün Bir" in out["products"].text and "Ürün Bir" in out[f"products/{B1}"].text
     )  # başlık DB'den geldi
+
+
+# ======================================================================= OK-05: HTTP hesap zaman aşımı
+
+
+def test_ok05_http_stuck_engine_times_out_with_503_and_keeps_the_slot_until_the_thread_really_ends(
+    make_shop: Callable[..., Shop], admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """DK-01: istek zamanında 503 alır ve uçuş kaydı silinir, ama kapı yuvası terk edilen motor iş parçacığı
+    bitene dek DOLU kalır: yeni hesap kapasiteyi aşamaz (503 report-busy), motor bitince yuva serbest kalır."""
+    shop = make_shop(
+        "a@example.com", "Mağaza A", profit_report_compute_timeout_seconds=1.0,
+        profit_report_cache_wait_seconds=0.5, profit_report_retry_after_seconds=3,
+        profit_report_process_concurrency=1, profit_report_tenant_concurrency=2, **CACHE_ON,
+    )  # fmt: skip
+    seed_basic(admin_conn, shop)
+    engine = BlockedEngine()
+    monkeypatch.setattr(profit_report, "calculate_profit", engine)
+    gate: ReportGate = shop.api.client.app.state.report_gate  # type: ignore[attr-defined]
+    try:
+        stuck = call(shop, "summary")
+        assert engine.started.is_set() and engine.calls == 1
+        assert stuck.status_code == 503 and stuck.json()["type"].endswith("report-compute-timeout")
+        assert stuck.headers["Retry-After"] == "3"
+        assert (
+            cache_of(shop)._inflight == {} and len(cache_of(shop)) == 0
+        )  # uçuş kaydı silindi, hata saklanmadı
+        assert gate.active == 1 and gate.active_tenants == 1  # motor hâlâ bloke: yuva tutuluyor
+        busy = call(shop, "summary")  # ikinci hesap kapasiteyi aşamaz, yeni motor başlamaz
+        assert busy.status_code == 503 and busy.json()["type"].endswith("report-busy")
+        assert engine.calls == 1
+    finally:
+        engine.release.set()  # takılan iş parçacığı biter
+    assert _wait_for(lambda: gate.active == 0)  # bitince yuva serbest kaldı
+    assert gate.active_tenants == 0
+    ok = call(shop, "summary")
+    assert ok.status_code == 200 and engine.calls == 2
+
+
+def test_ok05_http_report_transaction_gets_a_database_side_statement_timeout(
+    make_shop: Callable[..., Shop], admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shop = make_shop(
+        "a@example.com", "Mağaza A", profit_report_compute_timeout_seconds=7.0,
+        profit_report_cache_wait_seconds=1.0, **CACHE_ON,
+    )  # fmt: skip
+    seed_basic(admin_conn, shop)
+    seen: list[str] = []
+    original = profit_feed.build_profit_input
+
+    async def spying(db: Any, *args: Any, **kwargs: Any) -> Any:
+        from sqlalchemy import text
+
+        seen.append((await db.execute(text("SHOW statement_timeout"))).scalar_one())
+        return await original(db, *args, **kwargs)
+
+    monkeypatch.setattr(profit_report, "build_profit_input", spying)
+    assert call(shop, "summary").status_code == 200
+    assert (
+        seen == ["2s"]
+    )  # compute 7 sn, deyim sınırı 5 sn kısa (DK-05); işlem yerel: besleyici okumaları sınırlı oturumda çalıştı
+
+
+def test_ok05_http_statement_timeout_in_the_feed_becomes_the_same_503(
+    make_shop: Callable[..., Shop], admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shop = make_shop(
+        "a@example.com", "Mağaza A", profit_report_compute_timeout_seconds=30.0, **CACHE_ON
+    )  # fmt: skip
+    seed_basic(admin_conn, shop)
+    gate: ReportGate = shop.api.client.app.state.report_gate  # type: ignore[attr-defined]
+
+    async def slow_query(db: Any, *args: Any, **kwargs: Any) -> Any:
+        from sqlalchemy import text
+
+        await db.execute(text("SET LOCAL statement_timeout = 100"))  # sınır küçültülüp sorgu uyutulur
+        await db.execute(text("SELECT pg_sleep(5)"))
+        raise AssertionError("deyim sınırı çalışmadı")
+
+    monkeypatch.setattr(profit_report, "build_profit_input", slow_query)
+    resp = call(shop, "summary")
+    assert resp.status_code == 503 and resp.json()["type"].endswith("report-compute-timeout")
+    assert int(resp.headers["Retry-After"]) >= 1
+    assert gate.active == 0 and cache_of(shop)._inflight == {}
+
+
+async def test_dk01_deferred_slot_is_released_only_by_the_handle_and_release_is_idempotent() -> None:
+    gate = ReportGate(process_slots=2, tenant_slots=2, retry_after_seconds=2)
+    tenant = uuid4()
+    async with gate.slot(tenant) as handle:
+        handle.defer()
+    assert gate.active == 1  # çıkış bırakmadı (iş parçacığına devredildi)
+    handle.release()
+    handle.release()
+    assert gate.active == 0 and gate.active_tenants == 0
+
+
+def test_dk04_statement_timeout_in_the_settings_read_becomes_the_same_503(
+    make_shop: Callable[..., Shop], admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.api.v1 import profit as profit_api
+
+    shop = make_shop("a@example.com", "Mağaza A", **CACHE_ON)
+    seed_basic(admin_conn, shop)
+
+    async def slow_settings(db: Any, *args: Any, **kwargs: Any) -> Any:
+        from sqlalchemy import text
+
+        await db.execute(text("SET LOCAL statement_timeout = 100"))
+        await db.execute(text("SELECT pg_sleep(5)"))
+        raise AssertionError("deyim sınırı çalışmadı")
+
+    monkeypatch.setattr(profit_api, "load_profit_settings", slow_settings)
+    resp = call(shop, "summary")
+    assert resp.status_code == 503 and resp.json()["type"].endswith("report-compute-timeout")
+    assert int(resp.headers["Retry-After"]) >= 1
