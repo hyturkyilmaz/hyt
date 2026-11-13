@@ -42,9 +42,14 @@ export function orderNetView(item: OrderListItem): OrderNetView {
   return { kind: 'uncomputable', missing: missingItemNames(item.missing_items), known };
 }
 
-/** Ürün adı metin düğümü olarak basılır (HTML yorumlanmaz); katalogda yoksa barkod gösterilir. */
+/**
+ * Ürün adı metin düğümü olarak basılır (HTML yorumlanmaz). Katalogda adı yoksa barkod parantez içinde gösterilir
+ * (OS-08): başlıksız iki ürünlü siparişte satırlar böylece ayırt edilir. Barkod da boşsa yalnız "Başlıksız ürün".
+ */
 export function orderProductTitle(product: OrderProduct): string {
-  return product.title && product.title.trim() ? product.title : 'Başlıksız ürün';
+  if (product.title && product.title.trim()) return product.title;
+  const barcode = product.barcode?.trim();
+  return barcode ? `Başlıksız ürün (barkod ${barcode})` : 'Başlıksız ürün';
 }
 
 /**

@@ -89,9 +89,10 @@ describe('orderBadges ve ürün adı', () => {
     expect(orderBadges(makeOrderItem({ cancelled: true, certainty: 'iptal' }))).toEqual([]);
   });
 
-  it('katalogda adı olmayan ürün "Başlıksız ürün" olur', () => {
-    expect(orderProductTitle({ barcode: 'B', title: null })).toBe('Başlıksız ürün');
-    expect(orderProductTitle({ barcode: 'B', title: '   ' })).toBe('Başlıksız ürün');
+  it('katalogda adı olmayan ürün barkoduyla gösterilir (OS-08); barkod da yoksa yalnız "Başlıksız ürün"', () => {
+    expect(orderProductTitle({ barcode: 'B', title: null })).toBe('Başlıksız ürün (barkod B)');
+    expect(orderProductTitle({ barcode: 'B', title: '   ' })).toBe('Başlıksız ürün (barkod B)');
+    expect(orderProductTitle({ barcode: '  ', title: null })).toBe('Başlıksız ürün');
     expect(orderProductTitle({ barcode: 'B', title: 'Ad' })).toBe('Ad');
   });
 });
@@ -125,8 +126,11 @@ describe('sipariş sorgusu', () => {
       order: 'desc',
       filter: 'all',
       q: '',
+      qRejected: true,
     });
-    expect(parseOrderQuery(params('q=%2010004%20')).q).toBe('10004');
+    expect(parseOrderQuery(params('q=%2010004%20'))).toMatchObject({ q: '10004', qRejected: false });
+    expect(parseOrderQuery(params('q=%20%20'))).toMatchObject({ q: '', qRejected: false });
+    expect(parseOrderQuery(params(''))).toMatchObject({ q: '', qRejected: false });
     expect(isValidOrderSearch('A-1.b_2')).toBe(true);
     expect(isValidOrderSearch('.1')).toBe(false);
     expect(isValidOrderSearch('a b')).toBe(false);

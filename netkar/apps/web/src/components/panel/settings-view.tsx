@@ -1,15 +1,44 @@
 'use client';
 
-import { Link2, Truck } from 'lucide-react';
+import { Link2, Store, Truck } from 'lucide-react';
+import dynamic from 'next/dynamic';
 
-import { ConnectStoreDialog } from '@/components/panel/connect-store-dialog';
 import { EmptyState } from '@/components/panel/empty-state';
-import { ProfitSettingsPanel } from '@/components/settings/profit-settings-panel';
 import { ReportError, ReportSkeleton } from '@/components/profit/shared';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { describeReportError } from '@/lib/profit/errors';
 import { useReportAccount, type AccountState } from '@/lib/profit/use-account';
+
+// Bağlantı diyaloğu (Radix Dialog) ilk boyamayı geciktirmesin diye ayrı pakette yüklenir. Paket gelene kadar
+// aynı görünümde düğme gösterilir; tıklama diyalog yüklendikten sonra açılır, yerleşim değişmez.
+const ConnectStoreDialog = dynamic(
+  () => import('@/components/panel/connect-store-dialog').then((m) => m.ConnectStoreDialog),
+  {
+    ssr: false,
+    loading: () => (
+      <Button disabled>
+        <Store aria-hidden="true" />
+        Trendyol mağazasını bağla
+      </Button>
+    ),
+  },
+);
+
+// Kâr ayarları formu (form kütüphanesi, doğrulama, geçmiş listesi) yalnız bağlı mağazada çizilir. Bağlı
+// olmayan ya da hâlâ kontrol edilen kullanıcıya bu paketi yollamamak için istek üzerine yüklenir.
+const ProfitSettingsPanel = dynamic(
+  () => import('@/components/settings/profit-settings-panel').then((m) => m.ProfitSettingsPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <section aria-label="Kâr ayarları">
+        <ReportSkeleton rows={3} />
+      </section>
+    ),
+  },
+);
 
 /** Bağlantı rozeti gerçek hesap durumundan gelir; sabit "Bağlı değil" yazılmaz (UX-02). */
 function connectionBadge(state: AccountState): { label: string; variant: 'neutral' | 'info' } {

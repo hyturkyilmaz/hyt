@@ -58,3 +58,42 @@ Performans, erişilebilirlik ve en iyi uygulamalar 90 üstünde. SEO 91 olup eş
 - Açılış sayfası ve dört panel sayfası performans ve erişilebilirlikte 90 üstünde.
 - `/panel/ayarlar` performansta 89 (medyan). Tek başarısız ölçüt bu sayfa. Düzeltmek için önce LCP öğesinin neden geç çizildiğini incelemek gerekiyor.
 - Ölçümler simüle edilmiş mobil kısıtlama ile yerel üretim derlemesinde ve sahte API ile yapıldı. Gerçek ağ ve gerçek veriyle sonuçlar farklılaşabilir.
+
+## Ölçüm 2026-11-13: `/panel/ayarlar` düzeltmesi
+
+### Neden
+
+`/panel/ayarlar` ilk yüklemede 44 kB sayfa JS'i çekiyordu (diğer panel sayfaları 3 ile 5 kB). Kök neden, `settings-view.tsx` içinde iki ağır bileşenin statik içe aktarılmasıydı:
+
+1. `ProfitSettingsPanel` (form kütüphanesi, doğrulama, ayar geçmişi, onay diyaloğu, dört bölüm). Yalnız mağaza bağlıyken çizilir, ama paket her kullanıcıya yükleniyordu. Ölçümdeki sahte API boş hesap listesi döndürdüğü için panel hiç çizilmediği halde paketi iniyordu.
+2. `ConnectStoreDialog` (Radix Dialog ve bağımlılıkları). Rapordaki `992-*.js` kümesi (yaklaşık 42 KB, %88 kullanılmayan) bu iki parçanın ortak paketiydi.
+
+LCP öğesi (`section#kargo` paragrafı) hesap listesi gelince çizilir. Bu paketlerin ayrıştırılması ve çalıştırılması, hidrasyonu ve ardından gelen çizimi geciktiriyordu.
+
+### Düzeltme
+
+Her ikisi de `next/dynamic` ile (`ssr: false`) istek üzerine yüklenir. Davranış aynı: kâr ayarları paketi gelene kadar aynı iskelet gösterilir, bağlama diyaloğu için aynı görünümde (pasif) düğme çizilir. Derleme çıktısı (`next build`):
+
+| | Önce | Sonra |
+|---|---|---|
+| `/panel/ayarlar` sayfa boyutu | 44 kB | 3,71 kB |
+| `/panel/ayarlar` ilk yükleme JS | 212 kB | 130 kB |
+
+### Yöntem
+
+Raporla aynı: yerel üretim derlemesi, `e2e/fake-api.mjs`, Lighthouse 12.8.2, Chrome for Testing 153, mobil, simülasyonlu kısıtlama, aynı oturum çerezi. Ölçüm sırasında aynı makinede başka bir işlem (arka uç testleri) CPU kullanıyordu (yük ortalaması yaklaşık 2,5); bu nedenle sonuçlar önceki ölçümden biraz daha gürültülüdür. Her sayfa 7 kez denendi. Üç denemede Lighthouse `NO_NAVSTART` hatası verdi (`/panel` 3. deneme, `/panel/ayarlar` 1. deneme ve ilk turdaki bir başka sıfır puanlı deneme); bunlar puan üretmediği için medyana girmedi, ama gizlenmedi.
+
+### Sonuçlar (performans, mobil)
+
+| Sayfa | Önce (3 deneme) | Önce medyan | Sonra (geçerli denemeler, sırayla) | Sonra medyan |
+|---|---|---|---|---|
+| `/panel/ayarlar` | 89, 89, 90 | 89 | 93, 89, 91, 91, 92, 92 | 91,5 (ilk üç: 93, 89, 91 → 91) |
+| `/panel` | 92, 91, 92 | 92 | 91, 93, 93, 91, 92, 91 | 91,5 (ilk üç: 91, 93, 93 → 93) |
+
+Erişilebilirlik 13 geçerli denemenin 13'ünde 100, en iyi uygulamalar 100. `/panel/ayarlar` LCP 3,2 ile 3,3 s (önce 3,6 s), TBT 80 ile 200 ms (önce 100 ms).
+
+### Değerlendirme
+
+- `/panel/ayarlar` medyanı 89'dan 91 ile 91,5 aralığına çıktı, hedef olan 90 aşıldı. "Rahat 92 ve üstü" hedefi karşılanmadı: tek tek denemeler 89 ile 93 arasında oynuyor, makinedeki eş zamanlı yük bu yayılımı büyütmüş olabilir. Yük olmayan bir makinede yeniden ölçmek gerekir.
+- `/panel` geriye gitmedi (kod değişikliği bu sayfaya dokunmuyor); değerler önceki ölçüm aralığında.
+- LCP hâlâ 3,2 ile 3,3 s. Öğe, hesap listesi tarayıcıda alındıktan sonra çizildiği için bu süre diğer panel sayfalarıyla aynı seviyede. Daha fazla kazanç için hesap durumunun sunucuda okunması gerekir; bu bu turun kapsamı dışında bırakıldı.

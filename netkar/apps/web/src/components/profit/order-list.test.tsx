@@ -213,6 +213,54 @@ describe('Siparişler ekranı', () => {
     });
   });
 
+  it('adı olmayan ürünler kartta barkoduyla ayırt edilir (OS-08)', async () => {
+    mockFetch(accounts, (url) =>
+      url.pathname === `${base}/orders`
+        ? {
+            body: makeOrderList([
+              makeOrderItem({
+                order_number: '30001',
+                products: [
+                  { barcode: 'BRK-1', title: null },
+                  { barcode: 'BRK-2', title: '' },
+                ],
+              }),
+            ]),
+          }
+        : undefined,
+    );
+    render(<OrderListScreen />);
+    expect(await screen.findByText('Başlıksız ürün (barkod BRK-1)')).toBeInTheDocument();
+    expect(screen.getByText('Başlıksız ürün (barkod BRK-2)')).toBeInTheDocument();
+  });
+
+  it('bağlantıdaki geçersiz arama yok sayılır ve role=status ile söylenir (OS-09)', async () => {
+    navigation.search = 'q=ab%20cd';
+    const { calls } = mockFetch(accounts, (url) =>
+      url.pathname === `${base}/orders` ? { body: makeOrderList([ITEMS[3]!]) } : undefined,
+    );
+    render(<OrderListScreen />);
+    await screen.findByRole('list', { name: 'Sipariş listesi' });
+    expect(calls.find((u) => u.pathname === `${base}/orders`)!.searchParams.has('q')).toBe(false);
+    expect(screen.getByText(/arama metni geçerli olmadığı için yok sayıldı/)).toHaveAttribute(
+      'role',
+      'status',
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('geçerli ya da boş aramada yok sayıldı bildirimi çıkmaz', async () => {
+    navigation.search = 'q=10004';
+    mockFetch(accounts, (url) =>
+      url.pathname === `${base}/orders`
+        ? { body: makeOrderList([ITEMS[3]!], { q: '10004' }) }
+        : undefined,
+    );
+    render(<OrderListScreen />);
+    await screen.findByRole('list', { name: 'Sipariş listesi' });
+    expect(screen.queryByText(/yok sayıldı/)).not.toBeInTheDocument();
+  });
+
   it('arama sonucu boşsa numarayı bulamadığını söyler', async () => {
     navigation.search = 'q=99999';
     mockFetch(accounts, (url) =>

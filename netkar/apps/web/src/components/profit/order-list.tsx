@@ -82,6 +82,7 @@ export function OrderListScreen() {
         <OrderSearch
           key={query.q}
           value={query.q}
+          rejected={query.qRejected}
           onSearch={(q) => router.replace(href({ q }), { scroll: false })}
         />
       </div>
@@ -112,7 +113,16 @@ export function OrderListScreen() {
  * Sipariş no ile TAM eşleşme araması (kısmi eşleşme yok). Girdi API'deki desenle doğrulanır; geçersizse istek
  * atılmaz ve neden satır içinde söylenir. Boş gönderim aramayı temizler.
  */
-function OrderSearch({ value, onSearch }: { value: string; onSearch: (q: string) => void }) {
+function OrderSearch({
+  value,
+  rejected,
+  onSearch,
+}: {
+  value: string;
+  /** Bağlantıdaki arama metni geçersizdi ve yok sayıldı */
+  rejected: boolean;
+  onSearch: (q: string) => void;
+}) {
   const [draft, setDraft] = useState(value);
   const [invalid, setInvalid] = useState(false);
   const errorId = useId();
@@ -168,6 +178,11 @@ function OrderSearch({ value, onSearch }: { value: string; onSearch: (q: string)
       <p id={hintId} className="text-sm text-muted-foreground">
         Numara tam yazılmalıdır; kısmi eşleşme aranmaz.
       </p>
+      {rejected && !invalid ? (
+        <p role="status" className="text-base text-loss">
+          Bağlantıdaki arama metni geçerli olmadığı için yok sayıldı; tüm siparişler gösteriliyor.
+        </p>
+      ) : null}
       {invalid ? (
         <p id={errorId} role="alert" className="text-base text-loss">
           Sipariş no harf ya da rakamla başlamalı; yalnız harf, rakam, nokta, tire ve alt çizgi

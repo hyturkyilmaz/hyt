@@ -108,6 +108,8 @@ export interface OrderQuery {
   filter: OrderFilter;
   /** Geçerli arama metni; boş ise arama yok */
   q: string;
+  /** URL'de `q` vardı ama geçersizdi ve yok sayıldı; ekran bunu kullanıcıya söyler (OS-09). */
+  qRejected: boolean;
 }
 
 export function parseOrderQuery(params: { get(name: string): string | null }): OrderQuery {
@@ -120,8 +122,9 @@ export function parseOrderQuery(params: { get(name: string): string | null }): O
     sort: pick(params.get('sort'), ORDER_SORTS, fallback.sort),
     order: rawOrder === 'asc' || rawOrder === 'desc' ? rawOrder : fallback.order,
     filter,
-    // Geçersiz arama sessizce yok sayılır (API 422 verirdi); ekran bunu girdi alanında ayrıca söyler.
+    // Geçersiz arama istek olarak gönderilmez (API 422 verirdi); `qRejected` ile ekran bunu bildirir.
     q: isValidOrderSearch(rawQ) ? rawQ : '',
+    qRejected: rawQ !== '' && !isValidOrderSearch(rawQ),
   };
 }
 
@@ -145,6 +148,7 @@ export function ordersHref(partial: Partial<OrderQuery> & { range: RangeName }):
     order: fallback.order,
     filter,
     q: '',
+    qRejected: false,
     ...partial,
   })}`;
 }
