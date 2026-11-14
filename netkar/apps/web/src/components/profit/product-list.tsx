@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProfitValue } from '@/components/profit-value';
 import { profitApi, type ProductProfitItem, type RangeName } from '@/lib/api/profit';
+import { costsHref } from '@/lib/profit/cost-query';
 import { describeReportError } from '@/lib/profit/errors';
 import {
   certaintyBadge,
@@ -72,7 +73,16 @@ export function ProductListScreen() {
       <PageHeader
         title="Ürünler"
         description="Her ürünün komisyon, kargo, iade ve reklam sonrası net kârı."
-      />
+      >
+        <p className="pt-1 text-base">
+          <Link
+            href={costsHref()}
+            className="inline-flex min-h-touch items-center font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Ürün maliyetlerini gir
+          </Link>
+        </p>
+      </PageHeader>
       <div className="flex flex-col gap-4">
         <RangeSwitcher range={query.range} hrefFor={(range) => href({ range })} />
         <FilterNav

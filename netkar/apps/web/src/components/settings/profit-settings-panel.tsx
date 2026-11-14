@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CheckCircle2, Circle, Info } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { ConfirmPastChangeDialog } from '@/components/settings/confirm-dialog';
@@ -22,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { SettingsOut } from '@/lib/api/profit-settings';
 import { describeReportError } from '@/lib/profit/errors';
 import {
-  COMING_STEP,
+  COST_STEP,
   pastCoverageNote,
   setupProgressText,
   setupSteps,
@@ -150,7 +151,14 @@ function SettingsBody({ accountId, settings }: { accountId: string; settings: Se
               <li className="flex items-center gap-2 text-base text-muted-foreground">
                 <Circle className="size-5 shrink-0" aria-hidden="true" />
                 <span>
-                  {steps.length + 1}. {COMING_STEP.label}: {COMING_STEP.text}
+                  {steps.length + 1}. {COST_STEP.label}:{' '}
+                  <Link
+                    href={COST_STEP.href}
+                    className="font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {COST_STEP.linkText}
+                  </Link>{' '}
+                  ({COST_STEP.suffix})
                 </span>
               </li>
             </ol>

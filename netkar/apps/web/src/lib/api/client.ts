@@ -7,6 +7,8 @@ export const API_PREFIX = '/api/v1';
 // Backend hata türleri `urn:netkar:problem:<slug>` biçimindedir (services/api/app/core/errors.py).
 const PROBLEM_TYPE_PREFIX = 'urn:netkar:problem:';
 
+const MAX_DETAIL_LENGTH = 300;
+
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /** Doğrulama hatasında alan yolu ve kural kodu (backend girdi değerini yansıtmaz) */
@@ -39,6 +41,13 @@ export interface ApiProblem {
   details?: ApiProblemDetails;
   /** `Retry-After` başlığı (yalnız saniye cinsinden tamsayı biçimi okunur); yoksa ya da geçersizse tanımsız */
   retryAfterSeconds?: number;
+  /**
+   * Sunucunun sabit Türkçe `detail` metni (en çok 300 karakter). Yalnız dosya yükleme hatalarında (`import-file-invalid`)
+   * kullanılır: girdi değeri taşımaz, arayüz bunu düz metin olarak basar. Diğer ekranlar yok sayar.
+   */
+  detail?: string;
+  /** `import-validation-failed` 422 yanıtındaki ham `report` nesnesi; kullanan modül şeklini doğrular */
+  report?: unknown;
 }
 
 export class ApiError extends Error {
@@ -47,6 +56,8 @@ export class ApiError extends Error {
   readonly errors?: ApiFieldError[];
   readonly details?: ApiProblemDetails;
   readonly retryAfterSeconds?: number;
+  readonly detail?: string;
+  readonly report?: unknown;
 
   constructor(problem: ApiProblem) {
     super(`API hatası (${problem.status})`);
@@ -56,6 +67,8 @@ export class ApiError extends Error {
     this.errors = problem.errors;
     this.details = problem.details;
     this.retryAfterSeconds = problem.retryAfterSeconds;
+    this.detail = problem.detail;
+    this.report = problem.report;
   }
 }
 
@@ -69,6 +82,8 @@ export class NetworkError extends Error {
 export interface ApiRequestInit {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
+  /** Dosya yükleme (multipart): Content-Type'ı tarayıcı sınır değeriyle birlikte kendisi koyar */
+  formData?: FormData;
   signal?: AbortSignal;
 }
 
@@ -119,6 +134,8 @@ async function readProblem(response: Response): Promise<ApiProblem> {
   let code: string | undefined;
   let errors: ApiFieldError[] | undefined;
   let details: ApiProblemDetails | undefined;
+  let detail: string | undefined;
+  let report: unknown;
   try {
     const data: unknown = await response.json();
     if (data && typeof data === 'object') {
@@ -131,6 +148,10 @@ async function readProblem(response: Response): Promise<ApiProblem> {
       }
       if ('errors' in data) errors = parseFieldErrors(data.errors);
       details = parseDetails(data);
+      if ('detail' in data && typeof data.detail === 'string') {
+        detail = data.detail.slice(0, MAX_DETAIL_LENGTH);
+      }
+      if (code === 'import-validation-failed' && 'report' in data) report = data.report;
     }
   } catch {
     // Gövde yoksa veya JSON değilse yalnız durum kodu kullanılır.
@@ -141,6 +162,8 @@ async function readProblem(response: Response): Promise<ApiProblem> {
     errors,
     details,
     retryAfterSeconds: parseRetryAfter(response),
+    detail,
+    report,
   };
 }
 
@@ -181,7 +204,9 @@ async function send(path: string, init: ApiRequestInit): Promise<Response> {
   const method = init.method ?? 'GET';
   const headers = new Headers({ Accept: 'application/json' });
 
-  if (init.body !== undefined) headers.set('Content-Type', 'application/json');
+  if (init.body !== undefined && init.formData === undefined) {
+    headers.set('Content-Type', 'application/json');
+  }
   if (!SAFE_METHODS.has(method)) {
     headers.set(CSRF_HEADER_NAME, await ensureCsrfToken(init.signal));
   }
@@ -190,7 +215,12 @@ async function send(path: string, init: ApiRequestInit): Promise<Response> {
     return await fetch(`${API_PREFIX}${path}`, {
       method,
       headers,
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      body:
+        init.formData !== undefined
+          ? init.formData
+          : init.body === undefined
+            ? undefined
+            : JSON.stringify(init.body),
       credentials: 'same-origin',
       signal: init.signal,
     });
@@ -216,6 +246,16 @@ export async function apiFetch<T = unknown>(path: string, init: ApiRequestInit =
   } catch {
     return undefined as T;
   }
+}
+
+/**
+ * Gövdeyi JSON olarak okumadan ham yanıtı döndürür (dosya indirme). Başarısızlıkta `apiFetch` ile aynı `ApiError` atılır.
+ * Aynı köken olduğu için `X-Template-Truncated` gibi özel yanıt başlıkları okunabilir.
+ */
+export async function apiFetchResponse(path: string, init: ApiRequestInit = {}): Promise<Response> {
+  const response = await send(path, init);
+  if (!response.ok) throw new ApiError(await readProblem(response));
+  return response;
 }
 
 /** Hata nesnesini kullanıcıya gösterilecek Türkçe cümleye çevirir. */

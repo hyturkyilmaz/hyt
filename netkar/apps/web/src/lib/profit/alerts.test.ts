@@ -44,7 +44,7 @@ describe('buildAlertGroups', () => {
       return action?.kind === 'link' ? action.href('7d') : null;
     };
     expect(href('ZARAR')).toBe('/panel/siparisler?range=7d&filter=loss');
-    expect(href('MALIYET_EKSIK')).toBe('/panel/urunler?range=7d&filter=missing_cost');
+    expect(href('MALIYET_EKSIK')).toBe('/panel/maliyetler?filtre=eksik');
     expect(href('KARGO_TARIFESI_EKSIK')).toBe('/panel/ayarlar#kargo');
     expect(href('HIZMET_BEDELI_TAHMINI_EKSIK')).toBe('/panel/ayarlar#hizmet-bedeli');
     expect(byCode['BEKLENMEYEN_KESINTI']?.action?.kind).toBe('details');

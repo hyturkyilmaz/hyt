@@ -627,6 +627,18 @@ test.describe('kâr ayarları, davranış', () => {
     await expect(heading).toBeInViewport();
   });
 
+  test('üçüncü adım "yakında" demez, ürün maliyeti ekranına bağlanır', async ({ page }) => {
+    await mockApi(page);
+    await page.goto('/panel/ayarlar');
+    await expect(page.getByText("2 adımdan 2'si tamam")).toBeVisible();
+    await expect(page.getByText(/Ürünler ekranında girilecek/)).toHaveCount(0);
+    const link = page.getByRole('link', { name: 'Maliyetleri gir' });
+    await expect(link).toHaveAttribute('href', '/panel/maliyetler');
+    await link.click();
+    await expect(page).toHaveURL(/\/panel\/maliyetler$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Ürün maliyetleri' })).toBeVisible();
+  });
+
   test('görüntüleyici yalnız okur', async ({ page }) => {
     await mockApi(page);
     await page.route('**/api/v1/me', (route) => fulfill(route, { body: { role: 'viewer' } }));

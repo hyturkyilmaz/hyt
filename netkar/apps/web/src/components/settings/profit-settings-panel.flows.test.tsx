@@ -541,7 +541,7 @@ describe('AF-08, AF-09, AF-13', () => {
     }
   });
 
-  it('kurulum adımları bölüme bağlantıdır; üçüncü adım "yakında" ve sayıya katılmaz', async () => {
+  it('kurulum adımları bölüme bağlantıdır; üçüncü adım maliyet ekranına gider ve sayıya katılmaz', async () => {
     await renderPanel();
     expect(screen.getByText("2 adımdan 2'si tamam")).toBeInTheDocument();
     const links = screen.getAllByRole('link', { name: 'Kargo tarifesi' });
@@ -549,7 +549,11 @@ describe('AF-08, AF-09, AF-13', () => {
     const fee = screen.getAllByRole('link', { name: 'Hizmet bedeli' });
     expect(fee.map((l) => l.getAttribute('href'))).toEqual(['#hizmet-bedeli', '#hizmet-bedeli']);
     const third = screen.getByText(/3\. Ürün maliyetleri/);
-    expect(third).toHaveTextContent('Ürünler ekranında girilecek (yakında)');
+    expect(third).not.toHaveTextContent('yakında');
+    expect(screen.getByRole('link', { name: 'Maliyetleri gir' })).toHaveAttribute(
+      'href',
+      '/panel/maliyetler',
+    );
   });
 
   it('bugün başlayan tarife girildiğinde geçmiş siparişler için tarife yok notu çıkar', async () => {

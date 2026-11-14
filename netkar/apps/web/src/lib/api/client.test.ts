@@ -220,3 +220,58 @@ describe('describeApiError', () => {
     expect(describeApiError(new Error('?'), 'yedek')).toBe('yedek');
   });
 });
+
+describe('apiFetch: dosya yükleme ve ek hata alanları', () => {
+  beforeEach(() => {
+    setCookie('__Host-nk_csrf=tok123; path=/; Secure');
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setCookie('__Host-nk_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; Secure');
+  });
+
+  it('formData gövdesini olduğu gibi gönderir, JSON Content-Type koymaz, CSRF başlığı ekler', async () => {
+    const fetchMock = mockFetch(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const formData = new FormData();
+    formData.append('file', new File(['a'], 'a.csv'));
+    await apiFetch('/x/import', { method: 'POST', formData });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.body).toBe(formData);
+    const headers = init.headers as Headers;
+    expect(headers.get('Content-Type')).toBeNull();
+    expect(headers.get('X-CSRF-Token')).toBe('tok123');
+  });
+
+  it('hata yanıtındaki detail kırpılır, import-validation-failed raporu taşınır', async () => {
+    mockFetch(
+      new Response(
+        JSON.stringify({
+          type: 'urn:netkar:problem:import-validation-failed',
+          status: 422,
+          detail: 'a'.repeat(500),
+          report: { total: 3 },
+        }),
+        { status: 422 },
+      ),
+    );
+    const error = await apiFetch('/x', { method: 'POST' }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).detail).toHaveLength(300);
+    expect((error as ApiError).report).toEqual({ total: 3 });
+  });
+
+  it('rapor yalnız import-validation-failed koduyla taşınır', async () => {
+    mockFetch(
+      new Response(
+        JSON.stringify({
+          type: 'urn:netkar:problem:validation-error',
+          status: 422,
+          report: { a: 1 },
+        }),
+        { status: 422 },
+      ),
+    );
+    const error = await apiFetch('/x', { method: 'POST' }).catch((e: unknown) => e);
+    expect((error as ApiError).report).toBeUndefined();
+  });
+});

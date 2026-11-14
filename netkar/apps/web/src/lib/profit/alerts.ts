@@ -10,7 +10,8 @@ import type {
 } from '@/lib/api/profit';
 import { compareDecimal } from '@/lib/profit/decimal-math';
 import { compareCodePoints } from '@/lib/profit/present';
-import { defaultOrderFor, ordersHref, productQueryString } from '@/lib/profit/query';
+import { costsHref } from '@/lib/profit/cost-query';
+import { ordersHref } from '@/lib/profit/query';
 
 export type AlertGroupId = 'loss' | 'setup' | 'check' | 'other';
 export type AlertTone = 'loss' | 'warning' | 'info' | 'neutral';
@@ -51,13 +52,8 @@ interface AlertSpec {
 // Eylem sipariş düzeyine gider ve cümle sayının satır olduğunu açıkça söyler.
 const lossOrdersHref = (range: RangeName) => ordersHref({ range, filter: 'loss' });
 
-const missingCostHref = (range: RangeName) =>
-  `/panel/urunler?${productQueryString({
-    range,
-    sort: 'net_profit',
-    order: defaultOrderFor('missing_cost'),
-    filter: 'missing_cost',
-  })}`;
+// Ürün maliyeti girişi ekranı (süzgeç: maliyeti eksik ürünler); dönem bu ekranda yoktur, maliyet tarihe göre geçerlidir.
+const missingCostHref = () => costsHref({ missingOnly: true });
 
 const missingCostAction: AlertAction = {
   kind: 'link',

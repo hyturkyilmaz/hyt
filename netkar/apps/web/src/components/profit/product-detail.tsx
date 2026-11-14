@@ -45,6 +45,7 @@ import {
   type ExpenseCell,
   type TotalsCellSpec,
 } from '@/lib/profit/present';
+import { costsHref } from '@/lib/profit/cost-query';
 import { parseRange } from '@/lib/profit/query';
 import { useReportAccount } from '@/lib/profit/use-account';
 import { usePagedList } from '@/lib/profit/use-paged-list';
@@ -259,6 +260,16 @@ function ProductSummary({ detail }: { detail: ProductProfitDetail }) {
             </p>
             <p className="text-sm text-muted-foreground">{known.note}</p>
           </div>
+        ) : null}
+        {missingCodes.includes('urun_maliyeti') ? (
+          <p className="text-base">
+            <Link
+              href={costsHref({ q: detail.barcode })}
+              className="inline-flex min-h-touch items-center font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Ürün maliyetini gir
+            </Link>
+          </p>
         ) : null}
         <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {rows.map((row) => (

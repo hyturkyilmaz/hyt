@@ -487,6 +487,18 @@ describe('Özet ekranı', () => {
 describe('Ürün kârlılık listesi', () => {
   const productsPath = `${base}/products`;
 
+  it('başlıkta maliyet girişi ekranına bağlantı var', async () => {
+    mockFetch(accounts, (url) =>
+      url.pathname === productsPath ? { body: makeList([makeItem()]) } : undefined,
+    );
+    render(<ProductListScreen />);
+    await screen.findAllByText('Örnek Ürün Çelik Termos 500 ml');
+    expect(screen.getByRole('link', { name: 'Ürün maliyetlerini gir' })).toHaveAttribute(
+      'href',
+      '/panel/maliyetler',
+    );
+  });
+
   it('satır: başlık metin olarak, barkod, adet, net satış, net kâr, marj ve rozetler', async () => {
     const items = [
       makeItem({ barcode: 'A1', title: '<img src=x onerror=alert(1)> Termos' }),
@@ -947,6 +959,25 @@ describe('Ürün kırılımı özet kartı (UX-07, UX-09, UX-10, UX-14)', () => 
     // Toplam satırı: net kâr
     const total = within(card).getByText('Net kâr', { selector: 'dt' }).parentElement;
     expect(total).toHaveTextContent('₺250,00');
+  });
+
+  it('ürün maliyeti eksikse maliyet ekranına barkodla giden bağlantı çıkar, yoksa çıkmaz', async () => {
+    renderWithProduct({
+      urun_maliyeti: null,
+      net_kar: null,
+      net_kar_marji_yuzde: null,
+      eksik_kalem_satir_sayilari: { urun_maliyeti: 2, kargo_gonderi: 0, platform_hizmet_bedeli: 0 },
+    });
+    expect(await screen.findByRole('link', { name: 'Ürün maliyetini gir' })).toHaveAttribute(
+      'href',
+      '/panel/maliyetler?q=BRK-0001',
+    );
+  });
+
+  it('ürün maliyeti eksik değilse maliyet bağlantısı çıkmaz', async () => {
+    renderWithProduct({ net_satis_kdv_haric: '1000.00' });
+    await screen.findByRole('heading', { level: 2, name: 'Ürün net kârı' });
+    expect(screen.queryByRole('link', { name: 'Ürün maliyetini gir' })).not.toBeInTheDocument();
   });
 
   it('Y-6: kısmen eksik kalem bilinen tutarı da gösterir ("₺X + N satırda eksik")', async () => {

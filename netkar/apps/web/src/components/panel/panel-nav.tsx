@@ -10,7 +10,10 @@ import { cn } from '@/lib/utils';
 
 function useIsActive() {
   const pathname = usePathname();
-  return (href: string) => (href === '/panel' ? pathname === href : pathname.startsWith(href));
+  return (href: string, alsoActiveFor: readonly string[] = []) =>
+    href === '/panel'
+      ? pathname === href
+      : [href, ...alsoActiveFor].some((prefix) => pathname.startsWith(prefix));
 }
 
 /** Masaüstü: sol kenar çubuğu (lg ve üstü) */
@@ -24,8 +27,8 @@ export function Sidebar({ email, tenantName }: { email: string; tenantName: stri
       </div>
       <nav aria-label="Ana gezinme" className="flex-1 px-3 py-2">
         <ul className="flex flex-col gap-1">
-          {NAV_ITEMS.map(({ href, label, Icon }) => {
-            const active = isActive(href);
+          {NAV_ITEMS.map(({ href, label, Icon, alsoActiveFor }) => {
+            const active = isActive(href, alsoActiveFor);
             return (
               <li key={href}>
                 <Link
@@ -64,8 +67,8 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <ul className="mx-auto grid h-bottom-nav max-w-xl grid-cols-5">
-        {NAV_ITEMS.map(({ href, label, Icon }) => {
-          const active = isActive(href);
+        {NAV_ITEMS.map(({ href, label, Icon, alsoActiveFor }) => {
+          const active = isActive(href, alsoActiveFor);
           return (
             <li key={href} className="contents">
               <Link

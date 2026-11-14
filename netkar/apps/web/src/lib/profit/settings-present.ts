@@ -61,10 +61,15 @@ export interface SetupStep {
   href: string;
 }
 
-/** Henüz yapılmamış üçüncü adım (UX §8.1): sayıya katılmaz, "yakında" olarak gösterilir (ürün maliyeti ekranı yok). */
-export const COMING_STEP = {
+/**
+ * Üçüncü adım (UX §8.1): ürün maliyetleri ayrı ekranda girilir. Sunucu tamamlanma bilgisinde maliyet yok, bu yüzden
+ * adım sayıya katılmaz ve "tamam" işaretlenmez; yalnız ekrana bağlantı verir.
+ */
+export const COST_STEP = {
   label: 'Ürün maliyetleri',
-  text: 'Ürünler ekranında girilecek (yakında)',
+  linkText: 'Maliyetleri gir',
+  suffix: 'her ürün için ayrı ayrı ya da dosyadan toplu',
+  href: '/panel/maliyetler',
 } as const;
 
 /** UX §8.1: ilerleme göstergesi. `completeness` yalnız bu ekranda "bugün geçerli" anlamıyla kullanılır (§7.3). */

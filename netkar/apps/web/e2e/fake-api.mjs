@@ -5,6 +5,8 @@
 // oturum çerezi `__Host-nk_session`. Çerez değeri "gecersiz" ise 401, başka dolu değer geçerlidir.
 import { createServer } from 'node:http';
 
+import { costAccountId, costRole, costSessionName, handleCostRequest } from './fake-costs.mjs';
+
 const PORT = Number(process.env.FAKE_API_PORT ?? 9101);
 
 const ME = {
@@ -56,12 +58,28 @@ createServer((req, res) => {
         status: 401,
       });
     }
-    return send(res, 200, ME);
+    // Ürün maliyeti senaryoları: `maliyet-<ad>` oturumu (bkz. e2e/fake-costs.mjs); görüntüleyici adı `goruntuleyici...`
+    const costName = costSessionName(session);
+    return send(res, 200, costName ? { ...ME, role: costRole(costName) } : ME);
   }
   // Rapor ekranları için varsayılan: bağlı mağaza yok (boş durum). Veri senaryoları e2e/profit.spec.ts
   // içinde tarayıcı isteklerini Playwright route ile taklit eder.
   if (req.method === 'GET' && url.pathname === '/v1/marketplace-accounts') {
-    return send(res, 200, []);
+    const costName = costSessionName(cookies(req.headers.cookie)['__Host-nk_session']);
+    return send(
+      res,
+      200,
+      costName
+        ? [
+            {
+              id: costAccountId(costName),
+              platform: 'trendyol',
+              seller_id: '123456',
+              status: 'active',
+            },
+          ]
+        : [],
+    );
   }
   if (req.method === 'GET' && url.pathname === '/v1/auth/csrf') {
     const token = 'sahte-csrf-token-0123456789abcdef0123456789';
@@ -72,6 +90,7 @@ createServer((req, res) => {
       { 'Set-Cookie': `__Host-nk_csrf=${token}; Max-Age=3600; Path=/; SameSite=Lax; Secure` },
     );
   }
+  if (handleCostRequest(req, res, url, cookies(req.headers.cookie)['__Host-nk_session'])) return;
   return send(res, 404, { type: 'urn:netkar:problem:not-found', title: 'Bulunamadı', status: 404 });
 }).listen(PORT, '127.0.0.1', () => {
   console.log(`sahte API hazir: http://127.0.0.1:${PORT}`);
