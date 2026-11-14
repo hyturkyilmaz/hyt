@@ -1,0 +1,61 @@
+{
+  "id": "2026-10-28-meta-ai-sorumluluk",
+  "tarih": "2026-10-28",
+  "gun": "Çarşamba",
+  "sutun": "ads",
+  "anahtar": "META",
+  "muzik_tohum": 31,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Reklam · Meta AI", "baslik": "Meta'nın AI düzenlemesi, _senin_ sorumluluğun.",
+     "alt": "30 Ekim'de yeni ticari şartlar. Reklam hesabında **bugün kontrol etmen gerekenler**.",
+     "zaman": [{"t": "6 Ekim", "s": "Statik → video genel", "renk": "ads"}, {"t": "30 Ekim", "s": "Yeni şartlar", "renk": "ai"}, {"t": "Sonrası", "s": "AI değişikliği = senin riskin", "renk": "ecom"}, {"t": "Sen", "s": "Ayarlar açık mı?", "renk": "seo"}],
+     "kaynak": "Kaynak: PPC Land · Relevant Audience, Ekim 2026"},
+    {"tip": "akis", "kicker": "Ne değişti?", "renk": "ads", "baslik": "Kim, neyi _değiştiriyor?_",
+     "satirlar": [[{"ad": "Sen", "alt": "Reklamı yüklersin", "ikon": "kisi", "renk": "ink"}, {"ad": "Meta AI", "alt": "Metin, görsel, müzik ekler", "ikon": "sohbet", "renk": "ai"}, {"ad": "Yayın", "alt": "Değişmiş haliyle", "ikon": "hoparlor", "renk": "ads"}],
+                   [{"ad": "Kullanıcı", "alt": "Reklamı görür", "ikon": "kisi", "renk": "seo"}, {"ad": "Sorumluluk", "alt": "Tamamen reklamverende", "ikon": "kalkan", "renk": "ecom"}],
+                   [{"ad": "Senin kontrolün", "alt": "Özellikleri aç / kapat", "ikon": "onay", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Şema: Meta ticari şartları, 30 Ekim 2026 (basın özetleri)"},
+    {"tip": "matris", "num": "01", "kicker": "Ayar kontrolü", "baslik": "Advantage+ _yaratıcı_ ayarları",
+     "alt": "Her özellik ayrı kapanır; birini kapatmak diğerlerini kapatmaz.",
+     "basliklar": ["Özellik", "Risk", "Öneri"],
+     "satirlar": [[["ai", "Metin varyasyonu"], "Yanlış vaat", "Kapat ya da onayla"], [["ecom", "Görsel genişletme"], "Ürün bozulur", "Önizle"], [["seo", "Müzik ekleme"], "Marka tonu", "Kapat"], [["ads", "Statik → video"], "Yanlış animasyon", "Test et"]],
+     "kaynak": "Ayar yolu: Reklam hesabı ayarları > Yaratıcı özellikler"},
+    {"tip": "kural", "num": "02", "kicker": "Kural", "baslik": "Onay kuralını _yaz._",
+     "alt": "AI'ın yaptığı her değişiklik yayından önce bir insan gözünden geçsin.",
+     "kod": ["<span class=\"c\"># meta ai kuralı · v1</span>", "<span class=\"k\">EĞER</span> fiyat, garanti, sağlık ifadesi", "&nbsp;&nbsp;<span class=\"g\">→</span> AI metin varyasyonu kapalı", "<span class=\"k\">EĞER</span> görsel ürünü gösteriyor", "&nbsp;&nbsp;<span class=\"g\">→</span> görsel genişletme kapalı", "<span class=\"k\">HER HAFTA</span> önizlemeleri kontrol et"],
+     "prompt": "Ekteki reklam metinlerini incele. Yanlış vaat, abartılı ifade veya yasal risk taşıyan cümleleri işaretle ve daha güvenli bir alternatif yaz.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Varsayılan", "baslik": "Varsayılanı _kendin_ seç.",
+     "once": {"dosya": "varsayilan_ayarlar", "etiket": "Kontrolsüz", "basliklar": ["Özellik", "Durum"], "satirlar": [["Metin varyasyonu", "Açık"], ["Görsel genişletme", "Açık"], ["Müzik", "Açık"]]},
+     "sonra": {"dosya": "kontrollu_ayarlar", "etiket": "Kontrollü", "basliklar": ["Özellik", "Durum"], "satirlar": [["Metin varyasyonu", "Kapalı"], ["Görsel genişletme", "Test"], ["Müzik", "Kapalı"]]},
+     "kaynak": "Örnek değerler. Kendi markana göre karar ver."},
+    {"tip": "ekran", "kicker": "Haftalık kontrol", "baslik": "Önizlemeyi _AI ile_ tara.",
+     "pencere": "Claude · reklam önizleme kontrolü", "istek": "Bu 5 reklam varyasyonunda risk var mı?",
+     "yanit": "**2 varyasyonda risk buldum.**",
+     "tablo": {"basliklar": ["Varyasyon", "Risk", "Not"], "satirlar": [["V1", "Yok", "-"], ["V2", "Var", "\"Garantili\" ifadesi"], ["V3", "Yok", "-"], ["V4", "Var", "Fiyat güncel değil"]], "vurgu_sutun": 1},
+     "evet": "Durdur", "hayir": "Yayında kalsın", "aksiyon": "Son karar her zaman sende.", "kaynak": "Temsili kontrol"},
+    {"tip": "cta", "anahtar": "META", "vaat": "**Meta AI ayar kontrol listesini** DM'den göndereyim."}
+  ],
+  "aciklama": "Meta'nın yapay zekâsı reklamını değiştirirse sorumlu kim? 30 Ekim'den itibaren cevap: sen.\n\nBasına yansıyan yeni ticari şartlara göre Meta'nın AI özelliklerinin reklamda oluşturduğu ya da değiştirdiği her şeyden reklamveren tek başına sorumlu. Buna Meta'nın kendisinin açtığı özellikler de dahil. Meta, Advantage+ özelliklerinin Ads Manager'dan tek tek kapatılabildiğini söylüyor.\n\nDanışmanlıkta gördüğüm en yaygın durum şu: hesap kurulurken açık gelen ayarlara kimse bakmıyor. Metin varyasyonu, görsel genişletme, müzik; hepsi yayınlanmdan önce kimsenin görmediği değişiklikler üretebiliyor.\n\nOtomasyona güvenmek rahatlatıyor ama sorumluluğu devretmiyor. Bu ikisini karıştırmamak gerekiyor.\n\nKaydırınca ayar tablosunu, yazılı onay kuralını ve haftalık kontrol yöntemini göreceksin.\n\nYorumlara META yaz, Meta AI ayar kontrol listesini DM'den göndereyim.\n\n#metaads #dijitalpazarlama #performanspazarlama #reklam #yapayzeka",
+  "yazim_hatasi": {"kelime": "yayınlanmdan", "dogrusu": "yayınlanmadan", "paragraf": 3},
+  "dogrulama": ["PPC Land (iki haber), Ekim 2026", "Relevant Audience", "The Keyword"],
+  "senaryo": [
+    {"tts": "Meta'nın yapay zekâsı reklamını değiştirirse sorumlu kim? Otuz Ekim'den itibaren cevap: sen.", "altyazi": "Meta'nın yapay zekâsı reklamını değiştirirse sorumlu kim? 30 Ekim'den itibaren cevap: sen."},
+    {"tts": "Sen reklamı yüklüyorsun, Meta'nın yapay zekâsı metin, görsel ya da müzik ekliyor. Sorumluluk ise tamamen sende.", "altyazi": "Sen reklamı yüklüyorsun, Meta'nın yapay zekâsı metin, görsel ya da müzik ekliyor. Sorumluluk ise tamamen sende."},
+    {"tts": "Bir. Advantage Plus yaratıcı ayarlarını tek tek kontrol et. Birini kapatmak diğerlerini kapatmıyor.", "altyazi": "1. Advantage+ yaratıcı ayarlarını tek tek kontrol et. Birini kapatmak diğerlerini kapatmıyor."},
+    {"tts": "İki. Onay kuralını yaz. Fiyat, garanti ya da sağlık ifadesi varsa yapay zekâ metni kapalı kalsın.", "altyazi": "2. Onay kuralını yaz. Fiyat, garanti ya da sağlık ifadesi varsa AI metni kapalı kalsın."},
+    {"tts": "Üç. Varsayılanı kendin seç. Açık geldi diye açık bırakma.", "altyazi": "3. Varsayılanı kendin seç. Açık geldi diye açık bırakma."},
+    {"tts": "Her hafta önizlemeleri tara. Son karar her zaman sende.", "altyazi": "Her hafta önizlemeleri tara. Son karar her zaman sende."},
+    {"tts": "Kontrol listesini istiyorsan yorumlara meta yaz. Di emden göndereyim.", "altyazi": "Kontrol listesini istiyorsan yorumlara META yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Meta AI _Ayar Kontrolü_", "kicker": "Kontrol listesi · Reklam · Meta",
+    "giris": "30 Ekim 2026 şartlarıyla Meta'nın AI özelliklerinin reklamda yaptığı değişikliklerin sorumluluğu reklamverende. Bu liste, hesabını yayından önce kontrol etmen için.",
+    "bolumler": [
+      {"ad": "Ayarlar", "renk": "ads", "maddeler": [["Hesap düzeyi yaratıcı özellikler", "Reklam hesabı ayarları > Yaratıcı özellikler; varsayılanları tek tek gözden geçir."], ["Metin varyasyonu", "Fiyat, garanti, sağlık içeren reklamlarda kapalı."], ["Görsel genişletme ve kırpma", "Ürün görselinde önizlemeyi mutlaka kontrol et."], ["Müzik ve animasyon", "Marka tonuna uymuyorsa kapat."]]},
+      {"ad": "Onay", "renk": "ai", "maddeler": [["Yazılı onay kuralı", "Hangi durumda hangi özelliğin kapalı olduğu tek sayfada."], ["Haftalık önizleme taraması", "Tüm varyasyonlar yayından önce insan gözünden geçer."], ["Değişiklik kaydı", "Hangi tarihte hangi ayarın değiştiği tabloda."]]},
+      {"ad": "Uyum", "renk": "ecom", "maddeler": [["Reklam mevzuatı", "Ticari Reklam ve Haksız Ticari Uygulamalar Yönetmeliği'ne aykırı vaat yok."], ["İndirim ifadesi", "İndirim öncesi fiyat, son 10 günün en düşük fiyatı."], ["Web sitesi içeriği", "Ürün sayfalarındaki bilgi güncel ve doğru."]]}
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+ "id": "2026-12-01-kampanya-analiz",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Kampanya bitti, ciro rekor kırdı. Peki kâr ne durumda?",
+   "altyazi": "Kampanya bitti, ciro rekor kırdı. Peki kâr ne durumda?"
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Bir. Ürün başına katkı payını hesapla: net satış eksi maliyet, kargo, komisyon ve reklam.",
+   "altyazi": "1. Ürün başına katkı payını hesapla: net satış eksi maliyet, kargo, komisyon ve reklam."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Örnek: en çok satan kulaklık zarar ettirmiş, az satan kupa seti en kârlı.",
+   "altyazi": "Örnek: en çok satan kulaklık zarar ettirmiş, az satan kupa seti en kârlı."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Dört soru: zarar eden ürün, yeni müşteri, iade oranı, kârlı kanal.",
+   "altyazi": "2. 4 soru: zarar eden ürün, yeni müşteri, iade oranı, kârlı kanal."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Klod'a toplu tabloyu ver, hesap bir saatte çıkar. Kişisel veri gerekmez.",
+   "altyazi": "Claude'a toplu tabloyu ver, hesap bir saatte çıkar. Kişisel veri gerekmez."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Rapordaki her rakam bir kararla bitsin. İade süresi bitince tekrar hesapla.",
+   "altyazi": "3. Rapordaki her rakam bir kararla bitsin. İade süresi bitince tekrar hesapla."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Analiz tablosunu istiyorsan yorumlara analiz yaz. Di emden göndereyim.",
+   "altyazi": "Analiz tablosunu istiyorsan yorumlara ANALİZ yaz. DM'den göndereyim."
+  }
+ ]
+}

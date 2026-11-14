@@ -1,0 +1,61 @@
+{
+  "id": "2026-11-08-whatsapp-topluluk",
+  "tarih": "2026-11-08",
+  "gun": "Pazar",
+  "sutun": "ads",
+  "anahtar": "TOPLULUK",
+  "muzik_tohum": 42,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Topluluk · WhatsApp", "baslik": "Takipçini _topluluğa_ çevir.",
+     "alt": "Instagram'da görünürsün, WhatsApp Topluluğu'nda **konuşursun**.",
+     "zaman": [{"t": "Yorum", "s": "Anahtar kelime", "renk": "ads"}, {"t": "DM", "s": "Kontrol listesi", "renk": "ai"}, {"t": "Topluluk", "s": "Duyuru + konu grupları", "renk": "brand"}, {"t": "Sen", "s": "Haftalık ritim", "renk": "ecom"}],
+     "kaynak": "Bu hesabın kendi akışı: yorum → DM → WhatsApp Topluluğu"},
+    {"tip": "akis", "kicker": "Yapı", "renk": "brand", "baslik": "Bir duyuru, _dört_ konu",
+     "satirlar": [[{"ad": "Duyuru grubu", "alt": "Sadece yönetici yazar", "ikon": "hoparlor", "renk": "brand"}],
+                   [{"ad": "E-ticaret", "alt": "Kampanya, ürün", "ikon": "sepet", "renk": "ecom"}, {"ad": "AI", "alt": "Prompt, araç", "ikon": "sohbet", "renk": "ai"}, {"ad": "Reklam", "alt": "Meta, Google", "ikon": "grafik", "renk": "ads"}],
+                   [{"ad": "SEO", "alt": "Arama ve GEO", "ikon": "arama", "renk": "seo"}]],
+     "baglar": [[0, 1], [0, 2], [0, 3], [2, 4]],
+     "kaynak": "Topluluk yapısı: WhatsApp Topluluklar özelliği"},
+    {"tip": "matris", "num": "01", "kicker": "Gizlilik", "baslik": "Numaran _kime_ görünür?",
+     "alt": "Katılmadan önce bilmek istenen ilk şey bu. Davet mesajında açıkça yaz.",
+     "basliklar": ["Yer", "Numara kime görünür", "Not"],
+     "satirlar": [[["brand", "Duyuru grubu"], "Yöneticiler", "Üye listesi gizli"], [["ads", "Konu grubu"], "O grubun üyeleri", "Katılmak isteğe bağlı"], [["ai", "Tepki bırakınca"], "Beta: gizleme ayarı", "Kademeli açılıyor"], [["ecom", "Yönetici"], "Herkes", "İş numarası kullan"]],
+     "kaynak": "Kaynak: WhatsApp Yardım Merkezi · WABetaInfo, 2026 (beta)"},
+    {"tip": "kural", "num": "02", "kicker": "Ritim", "baslik": "Haftada _3 mesaj_ yeter.",
+     "alt": "Sessiz topluluk ölür, gürültülü topluluk sessize alınır.",
+     "kod": ["<span class=\"c\"># haftalık ritim</span>", "<span class=\"k\">PAZARTESİ</span> haftanın 3 gelişmesi, duyuruda", "<span class=\"k\">ÇARŞAMBA</span> bir soru, konu grubunda", "<span class=\"k\">CUMA</span> bir şablon ya da kontrol listesi", "<span class=\"g\">→</span> kural: reklam yok, kişisel veri istenmez"],
+     "prompt": "Konu grubunda bu hafta sorulan soruları ekte paylaşıyorum. Benzer soruları birleştir, en çok sorulan 3 konuyu çıkar ve her biri için kısa bir yanıt taslağı yaz. Kişi adlarını ve numaraları çıktıya koyma.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Duyuru", "baslik": "Duyuruyu _okunur_ yaz.",
+     "once": {"dosya": "uzun_duyuru", "etiket": "Okunmuyor", "basliklar": ["Satır", "İçerik"], "satirlar": [["1-12", "Uzun paragraf"], ["Bağlantı", "5 adet"], ["Eylem", "Belirsiz"]]},
+     "sonra": {"dosya": "kisa_duyuru", "etiket": "Okunuyor", "basliklar": ["Satır", "İçerik"], "satirlar": [["1", "Tek cümle başlık"], ["2-4", "3 madde"], ["5", "Tek bağlantı, tek eylem"]]},
+     "kaynak": "Örnek yapı"},
+    {"tip": "ekran", "kicker": "Haftalık özet", "baslik": "Soruları _özetle_, cevabı paylaş.",
+     "pencere": "Claude · topluluk özeti", "istek": "Bu haftanın sorularını konulara ayır.",
+     "yanit": "**3 konu öne çıkıyor.** Kişi bilgisi çıkarıldı.",
+     "tablo": {"basliklar": ["Konu", "Soru sayısı", "Grup"], "satirlar": [["10 gün kuralı", "7", "E-ticaret"], ["Meta AI ayarları", "5", "Reklam"], ["GA4 AI kanalı", "4", "SEO"]], "vurgu_sutun": 1},
+     "evet": "Duyuruya ekle", "hayir": "Bekle", "aksiyon": "Cuma duyurusunda 3 cevabı paylaş.", "kaynak": "Temsili özet"},
+    {"tip": "cta", "anahtar": "TOPLULUK", "vaat": "**Topluluk kurulum ve haftalık ritim şablonunu** DM'den göndereyim."}
+  ],
+  "aciklama": "Instagram'da görünürsün, WhatsApp Topluluğu'nda konuşursun. İkisi farklı işler.\n\nBu hesapta akış şöyle: gönderinin altına anahtar kelimeyi yazan kişiye DM'den kontrol listesini gönderiyorum, mesajın sonunda topluluk daveti var. Toplulukta bir duyuru grubu ve dört konu grubu bulunuyor: e-ticaret, AI, reklam ve SEO. Duyuru grubunda üye listesi gizli; numaran yöneticilere görünüyor. Konu grubuna katılırsan o grubun üyeleri de görüyor.\n\nBir topluluğu canlı tutan şey üye sayısı değil, ritim. Haftada 3 mesaj yeterli. Grupta geçen konuşmlar her cuma özetlenip duyuruya dönüyor.\n\nİnsanlar bir yere ait hissettiklerinde soru sormaktan çekinmiyor. Topluluk bunun için var.\n\nKaydırınca topluluk yapısını, numara gizliliğini ve haftalık ritmi göreceksin.\n\nYorumlara TOPLULUK yaz, kurulum ve ritim şablonunu DM'den göndereyim.\n\n#whatsapp #topluluk #dijitalpazarlama #eticaret",
+  "yazim_hatasi": {"kelime": "konuşmlar", "dogrusu": "konuşmalar", "paragraf": 3},
+  "dogrulama": ["WhatsApp Yardım Merkezi (Topluluklar ve gizlilik)", "WABetaInfo, Ocak 2026 (tepki bırakınca numara gizleme, beta)", "Outlook Business, 1 Ocak 2026"],
+  "senaryo": [
+    {"tts": "İnstagram'da görünürsün, Vatsap Topluluğu'nda konuşursun.", "altyazi": "Instagram'da görünürsün, WhatsApp Topluluğu'nda konuşursun."},
+    {"tts": "Yorum, di em, topluluk. Bir duyuru grubu ve dört konu grubu.", "altyazi": "Yorum, DM, topluluk. Bir duyuru grubu ve 4 konu grubu."},
+    {"tts": "Bir. Numaran kime görünür, davet mesajında açıkça yaz. Duyuru grubunda sadece yöneticiler görür.", "altyazi": "1. Numaran kime görünür, davet mesajında açıkça yaz. Duyuru grubunda sadece yöneticiler görür."},
+    {"tts": "İki. Haftada üç mesaj: pazartesi gelişme, çarşamba soru, cuma şablon.", "altyazi": "2. Haftada 3 mesaj: pazartesi gelişme, çarşamba soru, cuma şablon."},
+    {"tts": "Üç. Duyuruyu kısa yaz: tek başlık, üç madde, tek bağlantı.", "altyazi": "3. Duyuruyu kısa yaz: tek başlık, 3 madde, tek bağlantı."},
+    {"tts": "Haftanın sorularını özetle, kişi bilgilerini çıkar, cevabı cuma paylaş.", "altyazi": "Haftanın sorularını özetle, kişi bilgilerini çıkar, cevabı cuma paylaş."},
+    {"tts": "Kurulum şablonunu istiyorsan yorumlara topluluk yaz. Di emden göndereyim.", "altyazi": "Kurulum şablonunu istiyorsan yorumlara TOPLULUK yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "WhatsApp _Topluluk Şablonu_", "kicker": "Şablon · Topluluk · WhatsApp",
+    "giris": "Instagram'dan gelen kişiyi konuşan bir topluluğa taşımak için kurulum, gizlilik ve haftalık ritim.",
+    "bolumler": [
+      {"ad": "Kurulum", "renk": "brand", "maddeler": [["Duyuru grubu", "Sadece yöneticiler yazar; haftalık özet buradan çıkar."], ["Konu grupları", "En fazla 4 konu; katılım isteğe bağlı."], ["Grup kuralları", "Reklam yok, kişisel veri istenmez, saygılı dil."], ["İş numarası", "Yönetici numarası herkese görünür; ayrı iş numarası kullan."]]},
+      {"ad": "Gizlilik", "renk": "ai", "maddeler": [["Davette bilgilendir", "Numaranın kime görüneceğini katılmadan önce yaz."], ["Aydınlatma metni", "Topluluk verisi için KVKK aydınlatma bağlantısı davet mesajında."], ["Özetlerde anonimlik", "AI ile özet çıkarırken ad ve numaraları sil."]]},
+      {"ad": "Ritim", "renk": "ecom", "maddeler": [["Pazartesi", "Haftanın 3 gelişmesi, duyuruda."], ["Çarşamba", "Bir soru, konu grubunda."], ["Cuma", "Bir şablon ya da haftanın soruları ve cevapları."]]}
+    ]
+  }
+}

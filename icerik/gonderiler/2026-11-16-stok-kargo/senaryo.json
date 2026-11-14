@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-16-stok-kargo",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Reklam satar, depo teslim eder. İkisi aynı hızda çalışmazsa satış şikâyete döner.",
+   "altyazi": "Reklam satar, depo teslim eder. İkisi aynı hızda çalışmazsa satış şikâyete döner."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Bir. Stok ihtiyacını hesapla: günlük satış çarpı kampanya çarpanı, artı emniyet payı.",
+   "altyazi": "1. Stok ihtiyacını hesapla: günlük satış × kampanya çarpanı, artı emniyet payı."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Örnek: normal haftada yüz kırk adet, kampanya haftasında emniyet payıyla altı yüz kırk.",
+   "altyazi": "Örnek: normal haftada 140 adet, kampanya haftasında emniyet payıyla 640."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Kargo firmasıyla bu hafta konuş: kapasite, teslim alma saati, gecikme bildirimi.",
+   "altyazi": "2. Kargo firmasıyla bu hafta konuş: kapasite, teslim alma saati, gecikme bildirimi."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Yedek firmayı önceden anlaş, taşma olduğunda kullan.",
+   "altyazi": "Yedek firmayı önceden anlaş, taşma olduğunda kullan."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Ürün sayfasında teslim süresini kampanya haftasına göre dürüstçe güncelle.",
+   "altyazi": "3. Ürün sayfasında teslim süresini kampanya haftasına göre dürüstçe güncelle."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Stok ve kargo planını istiyorsan yorumlara stok yaz. Di emden göndereyim.",
+   "altyazi": "Stok ve kargo planını istiyorsan yorumlara STOK yaz. DM'den göndereyim."
+  }
+ ]
+}

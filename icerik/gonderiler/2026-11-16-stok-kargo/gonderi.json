@@ -1,0 +1,59 @@
+{
+  "id": "2026-11-16-stok-kargo",
+  "tarih": "2026-11-16",
+  "gun": "Pazartesi",
+  "sutun": "ecom",
+  "anahtar": "STOK",
+  "muzik_tohum": 50,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Efsane Cuma hazırlığı", "baslik": "Reklam satar, _depo_ teslim eder.",
+     "alt": "Efsane Cuma'ya 11 gün. **Stok ve kargo planı** bugün yazılmalı.",
+     "zaman": [{"t": "16 Kasım", "s": "Stok hesabı", "renk": "ink"}, {"t": "20 Kasım", "s": "Kargo anlaşması", "renk": "ecom"}, {"t": "23 Kasım", "s": "Efsane hafta", "renk": "ads"}, {"t": "27 Kasım", "s": "Zirve", "renk": "seo"}],
+     "kaynak": "Takvim: Kasım 2026"},
+    {"tip": "kural", "num": "01", "kicker": "Hesap", "baslik": "Stok ihtiyacını _hesapla._",
+     "alt": "Tahmin değil, geçen yılın ve son 30 günün verisi.",
+     "kod": ["<span class=\"c\"># kampanya stok hesabı</span>", "<span class=\"k\">GÜNLÜK</span> son 30 günün ortalama satışı", "<span class=\"k\">ÇARPAN</span> geçen Efsane Cuma / normal gün", "<span class=\"k\">İHTİYAÇ</span> günlük × çarpan × kampanya günü", "<span class=\"k\">EMNİYET</span> + %20, vitrin ürününde + %30"],
+     "prompt": "Ekteki satış tablosuyla, vitrin ürünlerim için Efsane Cuma haftasında gereken stok miktarını hesapla. Geçen yılın kampanya çarpanını kullan, emniyet payını ayrı sütunda göster.",
+     "kaynak": "Oranlar örnek; kendi verine göre ayarla."},
+    {"tip": "grafik", "kicker": "Örnek", "renk": "ecom", "baslik": "Bir ürünün _stok_ ihtiyacı",
+     "barlar": [{"ad": "Normal hafta", "etiket": "140 adet", "deger": 140, "renk": "ink", "alt": "Günde 20"}, {"ad": "Efsane hafta (3,5x)", "etiket": "490 adet", "deger": 490, "renk": "ecom"}, {"ad": "Emniyet payıyla", "etiket": "640 adet", "deger": 640, "renk": "ads", "alt": "Vitrin ürünü, +%30"}],
+     "not": "Örnek değerler. Çarpanı geçen yılın kampanya verinden al.",
+     "kaynak": "Temsili hesap"},
+    {"tip": "akis", "kicker": "Kargo", "renk": "ecom", "baslik": "Siparişten _kapıya_",
+     "satirlar": [[{"ad": "Sipariş", "alt": "Günde 3,5x", "ikon": "sepet", "renk": "ink"}, {"ad": "Depo", "alt": "Ek vardiya", "ikon": "kutu", "renk": "ecom"}, {"ad": "Kesim saati", "alt": "Kaçta teslim?", "ikon": "saat", "renk": "seo"}],
+                   [{"ad": "Kargo firması", "alt": "Kapasite teyidi", "ikon": "magaza", "renk": "ads"}, {"ad": "Yedek firma", "alt": "Taşma için", "ikon": "kalkan", "renk": "ai"}],
+                   [{"ad": "Müşteri", "alt": "Söylenen sürede teslim", "ikon": "onay", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım operasyon akışı"},
+    {"tip": "matris", "num": "02", "kicker": "Kargo görüşmesi", "baslik": "Kargo firmasına _sor._",
+     "basliklar": ["Soru", "Neden", "Not"],
+     "satirlar": [[["ecom", "Günlük kapasite"], "Taşma riski", "Rakamla yazılı"], [["ads", "Teslim alma saati"], "Kesim saati", "Ek tur var mı?"], [["seo", "Teslim süresi"], "Sayfadaki vaat", "Kampanya haftası için"], [["ai", "Gecikme bildirimi"], "Müşteri iletişimi", "API ya da e-posta"]],
+     "kaynak": "Örnek görüşme listesi"},
+    {"tip": "oncesonra", "num": "03", "kicker": "Ürün sayfası", "baslik": "Teslim süresini _dürüst_ yaz.",
+     "once": {"dosya": "urun_sayfasi", "etiket": "Normal gün", "basliklar": ["Alan", "Metin"], "satirlar": [["Kargo", "Aynı gün kargoda"], ["Teslim", "1-2 iş günü"], ["Not", "-"]]},
+     "sonra": {"dosya": "kampanya_haftasi", "etiket": "Kampanya haftası", "basliklar": ["Alan", "Metin"], "satirlar": [["Kargo", "2 iş günü içinde"], ["Teslim", "2-4 iş günü"], ["Not", "Yoğunluk nedeniyle güncellendi"]]},
+     "kaynak": "Örnek metin"},
+    {"tip": "cta", "anahtar": "STOK", "vaat": "**Kampanya stok ve kargo planını** (hesap tablosuyla) DM'den göndereyim."}
+  ],
+  "aciklama": "Reklam satar, depo teslim eder. Efsane Cuma'da ikisi aynı hızda çalışmazsa satışın ertesi gün şikâyete döner.\n\nEfsane Cuma'ya 11 gün kaldı. Stok ihtiyacını tahminle değil hesapla bul: son 30 günün günlük ortalaması, geçen yılın kampanya çarpanı ve vitrin ürünlerinde fazladan emniyet payı. Kargo firmasıyla da bu hafta konuş: günlük kapasite, teslim alma saati ve gecikme bildirimi yazılı olsun.\n\nÜrün sayfasındaki teslim süresi de kampanya haftasına göre güncellenmeli. \"Aynı gün kargoda\" yazıp üç günde göndermek, en iyi indirimi bile kötü bir deneyime çeviriyor. Yedek bir kargo firmasıyla önceden anlaşmak, taşma olduğunda en hızlı çözüm oluyor; son gün aramak işe yaramıyr.\n\nMüşteri indirimi bir hafta hatırlar, geç gelen paketi bir yıl.\n\nKaydırınca stok hesabını, kargo akışını ve kargo firmasına soracağın soruları göreceksin.\n\nYorumlara STOK yaz, kampanya stok ve kargo planını DM'den göndereyim.\n\n#eticaret #efsanecuma #lojistik #kasimindirimi #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "yaramıyr", "dogrusu": "yaramıyor", "paragraf": 3},
+  "dogrulama": ["Takvim: Kasım 2026", "Danışmanlık operasyon notları"],
+  "senaryo": [
+    {"tts": "Reklam satar, depo teslim eder. İkisi aynı hızda çalışmazsa satış şikâyete döner.", "altyazi": "Reklam satar, depo teslim eder. İkisi aynı hızda çalışmazsa satış şikâyete döner."},
+    {"tts": "Bir. Stok ihtiyacını hesapla: günlük satış çarpı kampanya çarpanı, artı emniyet payı.", "altyazi": "1. Stok ihtiyacını hesapla: günlük satış × kampanya çarpanı, artı emniyet payı."},
+    {"tts": "Örnek: normal haftada yüz kırk adet, kampanya haftasında emniyet payıyla altı yüz kırk.", "altyazi": "Örnek: normal haftada 140 adet, kampanya haftasında emniyet payıyla 640."},
+    {"tts": "İki. Kargo firmasıyla bu hafta konuş: kapasite, teslim alma saati, gecikme bildirimi.", "altyazi": "2. Kargo firmasıyla bu hafta konuş: kapasite, teslim alma saati, gecikme bildirimi."},
+    {"tts": "Yedek firmayı önceden anlaş, taşma olduğunda kullan.", "altyazi": "Yedek firmayı önceden anlaş, taşma olduğunda kullan."},
+    {"tts": "Üç. Ürün sayfasında teslim süresini kampanya haftasına göre dürüstçe güncelle.", "altyazi": "3. Ürün sayfasında teslim süresini kampanya haftasına göre dürüstçe güncelle."},
+    {"tts": "Stok ve kargo planını istiyorsan yorumlara stok yaz. Di emden göndereyim.", "altyazi": "Stok ve kargo planını istiyorsan yorumlara STOK yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Kampanya _Stok ve Kargo_ Planı", "kicker": "Plan · E-ticaret · Efsane Cuma",
+    "giris": "Efsane Cuma haftasında satışın teslimata dönüşmesi için stok, depo ve kargo tarafının yazılı planı.",
+    "bolumler": [
+      {"ad": "Stok", "renk": "ecom", "maddeler": [["Günlük ortalama", "Son 30 günün ürün bazında satışı."], ["Kampanya çarpanı", "Geçen yılın kampanya günü ÷ normal gün."], ["Emniyet payı", "Genelde +%20, vitrin ürününde +%30."], ["Tedarik tarihi", "Eksik stok 20 Kasım'dan önce depoda."]]},
+      {"ad": "Depo ve kargo", "renk": "ads", "maddeler": [["Ek vardiya", "23-30 Kasım için personel planı."], ["Kapasite teyidi", "Kargo firmasından günlük kapasite yazılı."], ["Yedek firma", "Taşma için önceden anlaşma."]]},
+      {"ad": "Müşteri", "renk": "seo", "maddeler": [["Teslim süresi", "Ürün sayfasında kampanya haftasına göre."], ["Gecikme mesajı", "Hazır metin, sipariş numarasıyla."], ["Takip bağlantısı", "Kargo verildiği anda gönderilir."]]}
+    ]
+  }
+}

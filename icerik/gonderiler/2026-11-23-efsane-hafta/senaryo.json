@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-23-efsane-hafta",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Efsane hafta başladı. Sitende her şey çalışıyor mu?",
+   "altyazi": "Efsane hafta başladı. Sitende her şey çalışıyor mu?"
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Bugün otuz dakikada beş test: ödeme, mobil hız, indirim, stok ve destek.",
+   "altyazi": "Bugün 30 dakikada 5 test: ödeme, mobil hız, indirim, stok ve destek."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Müşteri gibi alışveriş yap: reklamdan sepete, sepetten ödemeye.",
+   "altyazi": "1. Müşteri gibi alışveriş yap: reklamdan sepete, sepetten ödemeye."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Her testin bir sahibi olsun. Biri bakmıştır en pahalı cümle.",
+   "altyazi": "2. Her testin bir sahibi olsun. \"Biri bakmıştır\" en pahalı cümle."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Pazartesi bulunan hata bir saatte düzelir. Cuma bulunan hata siparişe mal olur.",
+   "altyazi": "3. Pazartesi bulunan hata bir saatte düzelir. Cuma bulunan hata siparişe mal olur."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Perşembe aynı testleri tekrarla.",
+   "altyazi": "Perşembe aynı testleri tekrarla."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Test listesini istiyorsan yorumlara hazır yaz. Di emden göndereyim.",
+   "altyazi": "Test listesini istiyorsan yorumlara HAZIR yaz. DM'den göndereyim."
+  }
+ ]
+}

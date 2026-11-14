@@ -1,0 +1,48 @@
+{
+ "id": "2026-10-15-gpt6-model",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "GPT altı geldi, API fiyatı yarıya indi. Ama asıl soru şu: hangi işe hangi model?",
+   "altyazi": "GPT-6 geldi, API fiyatı yarıya indi. Ama asıl soru şu: hangi işe hangi model?"
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Sol, milyon token başına iki dolar girdi, on dolar çıktı. Luna ise on sent ve elli sent. Arada yirmi kat fark var.",
+   "altyazi": "Sol: milyon token başına 2 dolar girdi, 10 dolar çıktı. Luna: 10 sent ve 50 sent. Arada 20 kat fark var."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bin ürün açıklamasını hesapladım. Sol ile yaklaşık dört dolar, Luna ile yirmi bir sent.",
+   "altyazi": "1.000 ürün açıklamasını hesapladım. Sol ile yaklaşık 4 dolar, Luna ile 21 sent."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Seçim basit. İş tekrar ediyorsa Luna, akıl yürütme gerekiyorsa Sol. Son onay her zaman sende.",
+   "altyazi": "Seçim basit. İş tekrar ediyorsa Luna, akıl yürütme gerekiyorsa Sol. Son onay her zaman sende."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Görev listene bir sütun ekle: model. Her işin yanına hangisini kullanacağını yaz.",
+   "altyazi": "Görev listene bir sütun ekle: model. Her işin yanına hangisini kullanacağını yaz."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Haftalık bütçe tablon bir doları bile bulmayabilir.",
+   "altyazi": "Haftalık bütçe tablon 1 doları bile bulmayabilir."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Tabloyu istiyorsan yorumlara model yaz. Di emden göndereyim.",
+   "altyazi": "Tabloyu istiyorsan yorumlara MODEL yaz. DM'den göndereyim."
+  }
+ ]
+}

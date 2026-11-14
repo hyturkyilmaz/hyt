@@ -1,0 +1,1483 @@
+{
+ "aciklama": "Çok platformlu yayın kuyruğu, 11 Kasım - 10 Aralık 2026, 30 video × 6 platform. Durumlar: hazir → planlandi → yayinlandi | hata. Saatler TRT (+03:00).",
+ "platformlar": [
+  "instagram",
+  "facebook",
+  "youtube",
+  "tiktok",
+  "linkedin",
+  "x"
+ ],
+ "videolar": [
+  {
+   "pid": "2026-11-11-meta-piksel",
+   "baslik": "Yarından itibaren Meta daha çok satış sayacak.",
+   "klasor": "icerik/gonderiler/2026-11-11-meta-piksel",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-11T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-11T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-11T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-11T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-11T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-11T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-11T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Meta yarından itibaren daha çok satış sayacak. Bugün baz çizgini kayet, sonra kıyasla. Yorumlara PIKSEL yaz, tabloyu DM'den göndereyim. #metaads #eticaret #performanspazarlama",
+    "facebook": "Meta yarından itibaren daha çok satış sayacak. Bugün baz çizgini kayet, sonra kıyasla.\n\nBaz çizgisi tablosunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı burada:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#metaads #eticaret #performanspazarlama",
+    "youtube_baslik": "Yarından itibaren Meta daha çok satış sayacak.",
+    "youtube": "Meta yarından itibaren daha çok satış sayacak. Bugün baz çizgini kayet, sonra kıyasla.\n\nBaz çizgisi tablosunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#metaads #eticaret #performanspazarlama #shorts",
+    "youtube_sabit_yorum": "Baz çizgisi tablosunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Meta yarından itibaren daha çok satış sayacak. Bugün baz çizgini kayet, sonra kıyasla.\n\nBaz çizgisi tablosunu profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#metaads #eticaret #performanspazarlama",
+    "x": "Meta yarından itibaren daha çok satış sayacak. Bugün baz çizgini kayet, sonra kıyasla.\n\nBaz çizgisi tablosunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#metaads",
+    "linkedin": "Yarından itibaren Meta daha çok satış sayacak. Ama kasana daha çok para girmeyebilir.\n\nBasına yansıyan bilgilere göre Meta, 12 Kasım'dan itibaren Pixel'de \"Measure conversions on customer devices\" ayarını varsayılan olarak açıyor. Reklamı gören ve satın alan aynı cihazdaysa eşleşme telefonda yapılıyor. AB ve Birleşik Krallık dışında geçerli. Sonuç: raporlanan dönüşüm artabilir, gerçek satış aynı kalabilir.\n\nEfsane Cuma'ya iki hafta kala bu fark bütçe kararlarını bozabilir. Bugün son 14 günün Meta, panel ve GA4 rakamlarını tek tabloya kaydet. 12 Kasım sonrası aynı tabloyla kıyasla, ROAS hedefini buna göre güncelle. Yarın kaydedersen geç kalmş olursun, baz çizgisi bugünün iş.\n\nRakam büyüdüğünde sevinmek kolay. Önce neden büyüdüğünü sormak, iyi pazarlamacıyı ayırıyor.\n\nSenin tarafında durum ne? Yorumda konuşalım.\n\nBaz çizgisi tablosunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#metaads #performanspazarlama #eticaret",
+    "linkedin_ilk_yorum": "Baz çizgisi tablosunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar PIKSEL. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-12-ai-mode-reklam",
+   "baslik": "Reklamın artık ikinci soruda da çıkıyor.",
+   "klasor": "icerik/gonderiler/2026-11-12-ai-mode-reklam",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-12T08:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-12T08:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-12T08:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-12T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-12T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-12T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-12T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Google reklamı artık ikinci soruda da gösteriyor ve kapatma düğmesi yok. Kontrol arama terimlernde. Yorumlara ARAMA yaz, listeyi DM'den göndereyim. #googleads #seo #yapayzeka",
+    "facebook": "Google reklamı artık ikinci soruda da gösteriyor ve kapatma düğmesi yok. Kontrol arama terimlernde.\n\nAI Mode reklam kontrol listesini istersen WhatsApp Topluluğu'na gel, orada paylaşıyorum:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#googleads #seo #yapayzeka",
+    "youtube_baslik": "Reklamın artık ikinci soruda da çıkıyor.",
+    "youtube": "Google reklamı artık ikinci soruda da gösteriyor ve kapatma düğmesi yok. Kontrol arama terimlernde.\n\nAI Mode reklam kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#googleads #seo #yapayzeka #shorts",
+    "youtube_sabit_yorum": "AI Mode reklam kontrol listesini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Google reklamı artık ikinci soruda da gösteriyor ve kapatma düğmesi yok. Kontrol arama terimlernde.\n\nAI Mode reklam kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#googleads #seo #yapayzeka",
+    "x": "Google reklamı artık ikinci soruda da gösteriyor ve kapatma düğmesi yok. Kontrol arama terimlernde.\n\nAI Mode reklam kontrol listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#googleads",
+    "linkedin": "Google reklamı artık ikinci soruda da gösteriyor. Ve bunu kapatacak bir düğme yok.\n\n28 Ekim'de Google, AI Mode'daki reklamları 10 ülkeye daha genişlettiğini ve ABD'de takip sorularında da reklam göstermeye başladığını açıkladı. Reklamlar \"Sponsorlu\" etiketiyle çıkıyor. Ayrı bir kampanya türü yok; mevcut Search, Shopping ve Performance Max kampanyaları uygun ve AI Mode'u ayrıca hariç tutma seçeneği bulunmuyor.\n\nKapatamadığın şeyi yönetmen gerekiyor. Kontrol üç yerde: arama terimleri, ürün feed'i ve açılış sayfası. AI Mode'dan gelen sorgular uzun ve konuşma dilinde; haftada bir bunları soru gibi okumak, bütçenin alakasız sohbetlere gitmesni engelliyor.\n\nİnsanlar arama kutusuna artık kelime değil cümle yazıyor. Reklamın da o cümleye cevap vermesi gerekiyor.\n\nSen bunu nasıl çözüyorsun? Merak ediyorum.\n\nAI Mode reklam kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#googleads #seo #yapayzeka",
+    "linkedin_ilk_yorum": "AI Mode reklam kontrol listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar ARAMA. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-13-kasim-denetim",
+   "baslik": "Bakanlık Kasım boyunca her kanalda bakıyor.",
+   "klasor": "icerik/gonderiler/2026-11-13-kasim-denetim",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-13T21:20:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-13T21:20:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-13T21:20:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-13T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-13T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-13T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-13T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Bakanlık Kasım boyunca her kanalda bakıyor. Kampanya metnini 4 kalemde kontrl et. Yorumlara ETIKET yaz, listeyi DM'den göndereyim. #eticaret #efsanecuma #kasimindirimi",
+    "facebook": "Bakanlık Kasım boyunca her kanalda bakıyor. Kampanya metnini 4 kalemde kontrl et.\n\nKampanya metni kontrol listesini toplulukta sabitledim, şuradan katılabilirsin:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret #efsanecuma #kasimindirimi",
+    "youtube_baslik": "Bakanlık Kasım boyunca her kanalda bakıyor.",
+    "youtube": "Bakanlık Kasım boyunca her kanalda bakıyor. Kampanya metnini 4 kalemde kontrl et.\n\nKampanya metni kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#eticaret #efsanecuma #kasimindirimi #shorts",
+    "youtube_sabit_yorum": "Kampanya metni kontrol listesini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Bakanlık Kasım boyunca her kanalda bakıyor. Kampanya metnini 4 kalemde kontrl et.\n\nKampanya metni kontrol listesini profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#eticaret #efsanecuma #kasimindirimi",
+    "x": "Bakanlık Kasım boyunca her kanalda bakıyor. Kampanya metnini 4 kalemde kontrl et.\n\nKampanya metni kontrol listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret",
+    "linkedin": "Ticaret Bakanlığı Kasım indirimlerini bu ay her kanalda inceliyor. Efsane Cuma'dan önce kampanya metnine bir kez daha bakmanın tam zamanı.\n\nBasına yansıyan 28 Ekim açıklamasına göre Bakanlık, indirimli satış reklamlarını yayınlandığı platformdan bağımsız olarak ay boyunca takip ediyor; hem kendi başlattığı incelemeler hem şikâyetler değerlendiriliyor. Kampanyanın başlangıç ve bitiş tarihinin yazılmaması ve birden fazla indirim oranının kullanılması da denetim konuları arasında.\n\nPratikte dört kalem yeterli: tarih ve saat, tek ve ispatlı oran, okunur şart, son 10 günün en düşük fiyatına dayanan referans. Onaylanan metnin ekran görüntüsünü tarihiyle arşivlemk de denetimde elindeki en sağlam kanıt olur. Bu liste hukuki görüş değildir.\n\nMüşteri indirime değil, indirimin gerçek olduğuna güvenmek istiyor. Net metin bu güveni kuruyor.\n\nEkipte bu konuşuldu mu? Yorumlara yaz, birlikte bakalım.\n\nKampanya metni kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#eticaret #efsanecuma #kasimindirimi",
+    "linkedin_ilk_yorum": "Kampanya metni kontrol listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar ETIKET. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-14-chatgpt-teklif",
+   "baslik": "ChatGPT reklamında teklif değişti.",
+   "klasor": "icerik/gonderiler/2026-11-14-chatgpt-teklif",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-14T21:20:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-14T21:20:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-14T21:20:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-14T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-14T11:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-14T10:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-14T11:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "ChatGPT reklamlarında hedef CPC ve hedef CPA dönemi. Küçük bir testle başla, durma kuralnı önden yaz. Yorumlara TEKLIF yaz, planı DM'den göndereyim. #chatgpt #yapayzeka #reklam",
+    "facebook": "ChatGPT reklamlarında hedef CPC ve hedef CPA dönemi. Küçük bir testle başla, durma kuralnı önden yaz.\n\nChatGPT reklam test planını WhatsApp Topluluğu'nda paylaşıyorum, bağlantı burada:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#chatgpt #yapayzeka #reklam",
+    "youtube_baslik": "ChatGPT reklamında teklif değişti.",
+    "youtube": "ChatGPT reklamlarında hedef CPC ve hedef CPA dönemi. Küçük bir testle başla, durma kuralnı önden yaz.\n\nChatGPT reklam test planını WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#chatgpt #yapayzeka #reklam #shorts",
+    "youtube_sabit_yorum": "ChatGPT reklam test planını buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "ChatGPT reklamlarında hedef CPC ve hedef CPA dönemi. Küçük bir testle başla, durma kuralnı önden yaz.\n\nChatGPT reklam test planını WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#chatgpt #yapayzeka #reklam",
+    "x": "ChatGPT reklamlarında hedef CPC ve hedef CPA dönemi. Küçük bir testle başla, durma kuralnı önden yaz.\n\nChatGPT reklam test planını burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#chatgpt",
+    "linkedin": "ChatGPT reklamlarında teklif mantığı değişti. Türkiye de reklam verilebilen ülkeler listesinde.\n\nOpenAI 9 Kasım'dan itibaren yeni tıklama kampanyalarında maksimum CPC yerine hedef CPC, yeni dönüşüm kampanyalarında maksimum teklif yerine hedef CPA kullanıyor. Çoklu görselli reklamlar açık betada. Basına göre ChatGPT reklamları 89 ülkede; Türkiye Eylül'de listeye eklendi, ancak bazı kategoriler sınırlı ve kimlik doğrulaması gerekiyor.\n\nYeni bir kanalda ilk iş kazanç hedefi değil, kayıp sınırı. Aylık bütçenin küçük bir kısmıyla 14 gün test, önce hedef CPC ile trafik, yeterli veri geldikten sonra hedef CPA. Durma kuralını baştan yazmazsan testi bitirmek zorlşıyor.\n\nMerak bir pazarlamacının en değerli özelliği. Disiplin ise merakın bütçeyi yakmasını engelliyor.\n\nSende hangi rakam farklı çıktı? Yorumda paylaşırsan karşılaştıralım.\n\nChatGPT reklam test planını WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#chatgpt #yapayzeka #performanspazarlama",
+    "linkedin_ilk_yorum": "ChatGPT reklam test planını burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar TEKLIF. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-15-haftalik-ozet",
+   "baslik": "Bu hafta 4 gelişme ve 1 düzeltme.",
+   "klasor": "icerik/gonderiler/2026-11-15-haftalik-ozet",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-15T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-15T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-15T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-15T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-15T11:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-15T10:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-15T11:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Bu hafta 4 gelişme ve 1 düzeltme. Bilgi değişince açıkça söylemek güvni artırır. Yorumlara ÖZET yaz, şablonu DM'den göndereyim. #dijitalpazarlama #metaads #eticaret",
+    "facebook": "Bu hafta 4 gelişme ve 1 düzeltme. Bilgi değişince açıkça söylemek güvni artırır.\n\nHaftalık gündem şablonunu istersen WhatsApp Topluluğu'na gel, orada paylaşıyorum:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#dijitalpazarlama #metaads #eticaret",
+    "youtube_baslik": "Bu hafta 4 gelişme ve 1 düzeltme.",
+    "youtube": "Bu hafta 4 gelişme ve 1 düzeltme. Bilgi değişince açıkça söylemek güvni artırır.\n\nHaftalık gündem şablonunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#dijitalpazarlama #metaads #eticaret #shorts",
+    "youtube_sabit_yorum": "Haftalık gündem şablonunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Bu hafta 4 gelişme ve 1 düzeltme. Bilgi değişince açıkça söylemek güvni artırır.\n\nHaftalık gündem şablonunu profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#dijitalpazarlama #metaads #eticaret",
+    "x": "Bu hafta 4 gelişme ve 1 düzeltme. Bilgi değişince açıkça söylemek güvni artırır.\n\nHaftalık gündem şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#dijitalpazarlama",
+    "linkedin": "Bu hafta 4 gelişme var ve bir de düzeltmem.\n\nMeta, Pixel'de cihaz üzerinde dönüşüm ölçümünü 12 Kasım'da varsayılan olarak açtı. Google AI Mode reklamlarını genişletti. Ticaret Bakanlığı Kasım indirimlerini her kanalda inceliyor. ChatGPT reklamlarında hedef CPC ve hedef CPA dönemi başladı.\n\nDüzeltme: 28 Ekim'de Meta'nın yeni ticari şartlarının 30 Ekim'de başlayacağını yazmıştım. Meta bu şartları önce 20 Kasım'a erteldi, ardından sektörle danışma süreci bitene kadar beklemeye aldı; şimdilik mevcut şartlar geçerli. Advantage+ ayarlarını kontrol etme önerisi ise aynen duruyor. Bilgi değiştiğinde bunu sessizce geçmek yerine açıkça yazmayı tercih ediyorum.\n\nGüven, hiç hata yapmamaktan değil, hatayı gördüğünde ne yaptığından doğuyor.\n\nBu hafta bunu deneyen var mı? Sonucu yorumda yaz.\n\nHaftalık gündem şablonunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#dijitalpazarlama #metaads #eticaret",
+    "linkedin_ilk_yorum": "Haftalık gündem şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar ÖZET. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-16-stok-kargo",
+   "baslik": "Reklam satar, depo teslim eder.",
+   "klasor": "icerik/gonderiler/2026-11-16-stok-kargo",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-16T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-16T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-16T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-16T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-16T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-16T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-16T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Reklam satar, depo teslm eder. Efsane Cuma'ya 11 gün kala stok ve kargo planı. Yorumlara STOK yaz, planı DM'den göndereyim. #eticaret #efsanecuma #lojistik",
+    "facebook": "Reklam satar, depo teslm eder. Efsane Cuma'ya 11 gün kala stok ve kargo planı.\n\nKampanya stok ve kargo planını toplulukta sabitledim, şuradan katılabilirsin:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret #efsanecuma #lojistik",
+    "youtube_baslik": "Reklam satar, depo teslim eder.",
+    "youtube": "Reklam satar, depo teslm eder. Efsane Cuma'ya 11 gün kala stok ve kargo planı.\n\nKampanya stok ve kargo planını WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#eticaret #efsanecuma #lojistik #shorts",
+    "youtube_sabit_yorum": "Kampanya stok ve kargo planını buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Reklam satar, depo teslm eder. Efsane Cuma'ya 11 gün kala stok ve kargo planı.\n\nKampanya stok ve kargo planını WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#eticaret #efsanecuma #lojistik",
+    "x": "Reklam satar, depo teslm eder. Efsane Cuma'ya 11 gün kala stok ve kargo planı.\n\nKampanya stok ve kargo planını burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret",
+    "linkedin": "Reklam satar, depo teslim eder. Efsane Cuma'da ikisi aynı hızda çalışmazsa satışın ertesi gün şikâyete döner.\n\nEfsane Cuma'ya 11 gün kaldı. Stok ihtiyacını tahminle değil hesapla bul: son 30 günün günlük ortalaması, geçen yılın kampanya çarpanı ve vitrin ürünlerinde fazladan emniyet payı. Kargo firmasıyla da bu hafta konuş: günlük kapasite, teslim alma saati ve gecikme bildirimi yazılı olsun.\n\nÜrün sayfasındaki teslim süresi de kampanya haftasına göre güncellenmeli. \"Aynı gün kargoda\" yazıp üç günde göndermek, en iyi indirimi bile kötü bir deneyime çeviriyor. Yedek bir kargo firmasıyla önceden anlaşmak, taşma olduğunda en hızlı çözüm oluyor; son gün aramak işe yaramıyr.\n\nMüşteri indirimi bir hafta hatırlar, geç gelen paketi bir yıl.\n\nKatıldığın ya da itiraz ettiğin bir yer varsa yorumda konuşalım.\n\nKampanya stok ve kargo planını WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#eticaret #efsanecuma #lojistik",
+    "linkedin_ilk_yorum": "Kampanya stok ve kargo planını burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar STOK. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-17-yorum-kurali",
+   "baslik": "Olumsuz yorumu silemezsin. Cevaplayabilirsin.",
+   "klasor": "icerik/gonderiler/2026-11-17-yorum-kurali",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-17T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-17T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-17T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-17T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-17T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-17T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-17T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Olumsuz yorumu silemezsin ama cevaplayablirsin. 24 saat içinde, çözümle. Yorumlara YORUM yaz, şablonları DM'den göndereyim. #eticaret #musterideneyimi #efsanecuma",
+    "facebook": "Olumsuz yorumu silemezsin ama cevaplayablirsin. 24 saat içinde, çözümle.\n\nOlumsuz yorum yanıt şablonlarını WhatsApp Topluluğu'nda paylaşıyorum, bağlantı burada:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret #musterideneyimi #efsanecuma",
+    "youtube_baslik": "Olumsuz yorumu silemezsin. Cevaplayabilirsin.",
+    "youtube": "Olumsuz yorumu silemezsin ama cevaplayablirsin. 24 saat içinde, çözümle.\n\nOlumsuz yorum yanıt şablonlarını WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#eticaret #musterideneyimi #efsanecuma #shorts",
+    "youtube_sabit_yorum": "Olumsuz yorum yanıt şablonlarını buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Olumsuz yorumu silemezsin ama cevaplayablirsin. 24 saat içinde, çözümle.\n\nOlumsuz yorum yanıt şablonlarını profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#eticaret #musterideneyimi #efsanecuma",
+    "x": "Olumsuz yorumu silemezsin ama cevaplayablirsin. 24 saat içinde, çözümle.\n\nOlumsuz yorum yanıt şablonlarını burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret",
+    "linkedin": "Olumsuz yorumu artık silemezsin. Ama cevaplayabilirsin ve çoğu zaman bu daha çok işe yarar.\n\n1 Ağustos 2026'da yürürlüğe giren yönetmelik değişikliğiyle, basına yansıyan bilgilere göre ürün değerlendirmesi yalnızca ürünü satın alanlara açık. Olumlu ve olumsuz yorumlar ayrım yapılmadan yayınlanıyor ve en az bir yıl erişilebilir kalıyor; bir yorum yalnızca olumsuz olduğu için silinemiyor. Sıralama da tarih ya da puan gibi objektif ölçütlerle yapılmalı. Bu not hukuki görüş değildir.\n\nEfsane Cuma haftasında yorum sayısı artacak. Hazır yanıt şablonu olmadan 24 saat içinde cevaplamk zor. Olumsuz yorumları sınıflandırınca çoğunun aynı kök nedenden geldiğini görüyorsun: kargo, beden ya da ürün sayfası.\n\nBir olumsuz yoruma verilen iyi yanıt, onu okuyan yüz kişiye markanın karakterini gösteriyor.\n\nSenin tarafında durum ne? Yorumda konuşalım.\n\nOlumsuz yorum yanıt şablonlarını WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#eticaret #musterideneyimi #efsanecuma",
+    "linkedin_ilk_yorum": "Olumsuz yorum yanıt şablonlarını burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar YORUM. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-18-eposta-serisi",
+   "baslik": "Kampanya mesajlarını bugün yaz.",
+   "klasor": "icerik/gonderiler/2026-11-18-eposta-serisi",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-18T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-18T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-18T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-18T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-18T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-18T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-18T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "5 e-postalık Efsane Cuma serisi, Claude ile 1 saatte. Yalnız onaylı listye. Yorumlara EPOSTA yaz, prompt'u DM'den göndereyim. #emailpazarlama #claude #eticaret",
+    "facebook": "5 e-postalık Efsane Cuma serisi, Claude ile 1 saatte. Yalnız onaylı listye.\n\n5 e-postalık seri prompt'unu istersen WhatsApp Topluluğu'na gel, orada paylaşıyorum:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#emailpazarlama #claude #eticaret",
+    "youtube_baslik": "Kampanya mesajlarını bugün yaz.",
+    "youtube": "5 e-postalık Efsane Cuma serisi, Claude ile 1 saatte. Yalnız onaylı listye.\n\n5 e-postalık seri prompt'unu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#emailpazarlama #claude #eticaret #shorts",
+    "youtube_sabit_yorum": "5 e-postalık seri prompt'unu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "5 e-postalık Efsane Cuma serisi, Claude ile 1 saatte. Yalnız onaylı listye.\n\n5 e-postalık seri prompt'unu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#emailpazarlama #claude #eticaret",
+    "x": "5 e-postalık Efsane Cuma serisi, Claude ile 1 saatte. Yalnız onaylı listye.\n\n5 e-postalık seri prompt'unu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#emailpazarlama",
+    "linkedin": "Efsane Cuma e-postalarını kampanya günü değil, bugün yaz. Claude ile beş e-postalık bir seri bir saatte hazır olur.\n\nSeri tek bir hikâye anlatmalı: 23 Kasım'da ön duyuru, 27 Kasım sabahı açılış, ertesi gün ürün rehberi, 30 Kasım'da Siber Pazartesi ve akşam kapanış. Prompt'a önce marka sesini, kampanya tarih ve saatini, kitleyi ve kuralları ver; sonra e-postaları tek tek iste. Konu satırlrı 45 karakteri geçmesin.\n\nKampanya e-postası ticari elektronik ileti sayılıyor. Yalnızca onay vermiş ve İYS'de kayıtlı kişilere gönder, her e-postada ret bağlantısı olsun. Satın alınmış liste ve izinsiz eski müşteri listesi kullanılmaz. Bu not hukuki görüş değildir.\n\nİnsanlar Kasım'da yüzlerce e-posta alıyor. Açılan e-posta en yüksek sesle bağıran değil, en net bilgiyi veren oluyor.\n\nSen bunu nasıl çözüyorsun? Merak ediyorum.\n\n5 e-postalık seri prompt'unu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#emailpazarlama #yapayzeka #claude",
+    "linkedin_ilk_yorum": "5 e-postalık seri prompt'unu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar EPOSTA. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-19-dm-zamanlama",
+   "baslik": "Kampanya haftasında DM'ler sana yetişmez.",
+   "klasor": "icerik/gonderiler/2026-11-19-dm-zamanlama",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-19T08:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-19T08:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-19T08:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-19T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-19T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-19T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-19T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Kampanya haftasında DM'ler yetişmz. Zamanlanmış mesaj, çeviri ve hazır yanıt kullan. Yorumlara MESAJ yaz, 10 yanıtı DM'den göndereyim. #instagram #eticaret #musterideneyimi",
+    "facebook": "Kampanya haftasında DM'ler yetişmz. Zamanlanmış mesaj, çeviri ve hazır yanıt kullan.\n\nKampanya haftası için 10 hazır DM yanıtını toplulukta sabitledim, şuradan katılabilirsin:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#instagram #eticaret #musterideneyimi",
+    "youtube_baslik": "Kampanya haftasında DM'ler sana yetişmez.",
+    "youtube": "Kampanya haftasında DM'ler yetişmz. Zamanlanmış mesaj, çeviri ve hazır yanıt kullan.\n\nKampanya haftası için 10 hazır DM yanıtını WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#instagram #eticaret #musterideneyimi #shorts",
+    "youtube_sabit_yorum": "Kampanya haftası için 10 hazır DM yanıtını buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Kampanya haftasında DM'ler yetişmz. Zamanlanmış mesaj, çeviri ve hazır yanıt kullan.\n\nKampanya haftası için 10 hazır DM yanıtını profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#instagram #eticaret #musterideneyimi",
+    "x": "Kampanya haftasında DM'ler yetişmz. Zamanlanmış mesaj, çeviri ve hazır yanıt kullan.\n\nKampanya haftası için 10 hazır DM yanıtını burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#instagram",
+    "linkedin": "Kampanya haftasında DM'ler sana yetişmez. İşletme hesaplarında bunun için üç araç var ve çoğu kişi kullanmıyor.\n\nInstagram, işletme hesaplarına mesaj zamanlama ve 99 dilde çeviri özelliğini açtı. Mesajı yazıp Gönder'e basılı tutunca tarih ve saat seçebiliyorsun. Bir mesaja basılı tutup Çevir dediğinde de çeviri altında görünüyor. Bunlara hazır yanıtları eklersen sık sorulan bir soruya cevap 10 saniyeye iniyor.\n\nBir sınır var: zamanlanmş mesaj toplu mesaj değildir. Yalnızca seninle yazışan ve \"stok gelince haber ver\" diyen kişiye kullan. Hiç yazışmadığın kişilere aynı mesajı kopyalamak hem güveni hem hesabını riske atar.\n\nMüşteri en çok beklemekten yoruluyor. Hızlı ve kişisel bir cevap, indirim kadar etkili olabiliyor.\n\nEkipte bu konuşuldu mu? Yorumlara yaz, birlikte bakalım.\n\nKampanya haftası için 10 hazır DM yanıtını WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#instagram #musterideneyimi #eticaret",
+    "linkedin_ilk_yorum": "Kampanya haftası için 10 hazır DM yanıtını burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar MESAJ. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-20-gorsel-video",
+   "baslik": "Ürün fotoğrafın videoya dönüşüyor.",
+   "klasor": "icerik/gonderiler/2026-11-20-gorsel-video",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-20T21:20:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-20T21:20:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-20T21:20:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-20T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-20T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-20T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-20T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Ürün fotoğrafın videoya dönüşüyor. Önizlemeyi her yerleşimde izle, hatayı görünce kapt. Yorumlara VIDEO yaz, listeyi DM'den göndereyim. #metaads #reels #yapayzeka",
+    "facebook": "Ürün fotoğrafın videoya dönüşüyor. Önizlemeyi her yerleşimde izle, hatayı görünce kapt.\n\nAnimasyonlu reklam kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı burada:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#metaads #reels #yapayzeka",
+    "youtube_baslik": "Ürün fotoğrafın videoya dönüşüyor.",
+    "youtube": "Ürün fotoğrafın videoya dönüşüyor. Önizlemeyi her yerleşimde izle, hatayı görünce kapt.\n\nAnimasyonlu reklam kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#metaads #reels #yapayzeka #shorts",
+    "youtube_sabit_yorum": "Animasyonlu reklam kontrol listesini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Ürün fotoğrafın videoya dönüşüyor. Önizlemeyi her yerleşimde izle, hatayı görünce kapt.\n\nAnimasyonlu reklam kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#metaads #reels #yapayzeka",
+    "x": "Ürün fotoğrafın videoya dönüşüyor. Önizlemeyi her yerleşimde izle, hatayı görünce kapt.\n\nAnimasyonlu reklam kontrol listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#metaads",
+    "linkedin": "Ürün fotoğrafın artık birkaç dakikada videoya dönüşüyor. Hız kazandırıyor, ama kontrol sende kalmalı.\n\nMeta, Advantage+ yaratıcı araçlarında tek bir ürün görselinden yakınlaşma ve kaydırma gibi hareketlerle kısa video üretebiliyor; bu videolar Reels gibi video yerleşimlerinde kullanılabiliyor. Elinde hiç video olmayan mağaza için Efsane Cuma öncesi iyi bir hızlandırıcı.\n\nAma AI ürün sahnesini değiştirebiliyor: renk tonu kayabiliyor, logo bulanıklaşabiliyor. Bu yüzden her yerleşimde önizlemey izlemek şart. Tek bir hata görürsen animasyonu o reklamda kapat ve kendi videonu kullan. Lüks ve teknik ürünlerde daha dikkatli ol.\n\nOtomasyon zaman kazandırıyor, ama müşterinin göreceği şeye son kez bakmak hâlâ bir insanın işi.\n\nSende hangi rakam farklı çıktı? Yorumda paylaşırsan karşılaştıralım.\n\nAnimasyonlu reklam kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#metaads #reels #performanspazarlama",
+    "linkedin_ilk_yorum": "Animasyonlu reklam kontrol listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar VIDEO. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-21-urun-sss",
+   "baslik": "Müşterinin sorusunu ürün sayfasında cevapla.",
+   "klasor": "icerik/gonderiler/2026-11-21-urun-sss",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-21T21:20:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-21T21:20:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-21T21:20:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-21T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-21T11:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-21T10:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-21T11:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Müşterinin 5 sorusunu ürün sayfsında cevapla, DM yükü azalsın. Yorumlara SSS yaz, şablonu DM'den göndereyim. #seo #eticaret #urunsayfasi",
+    "facebook": "Müşterinin 5 sorusunu ürün sayfsında cevapla, DM yükü azalsın.\n\nÜrün sayfası 5 soru şablonunu istersen WhatsApp Topluluğu'na gel, orada paylaşıyorum:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#seo #eticaret #urunsayfasi",
+    "youtube_baslik": "Müşterinin sorusunu ürün sayfasında cevapla.",
+    "youtube": "Müşterinin 5 sorusunu ürün sayfsında cevapla, DM yükü azalsın.\n\nÜrün sayfası 5 soru şablonunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#seo #eticaret #urunsayfasi #shorts",
+    "youtube_sabit_yorum": "Ürün sayfası 5 soru şablonunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Müşterinin 5 sorusunu ürün sayfsında cevapla, DM yükü azalsın.\n\nÜrün sayfası 5 soru şablonunu profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#seo #eticaret #urunsayfasi",
+    "x": "Müşterinin 5 sorusunu ürün sayfsında cevapla, DM yükü azalsın.\n\nÜrün sayfası 5 soru şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#seo",
+    "linkedin": "Müşteri sorusunun cevabını ürün sayfasında bulamazsa önce DM'e yazar, cevap gecikirse rakibe gider.\n\nEfsane Cuma'da en çok sorulan beş soru hemen hemen her mağazada aynı: ne zaman gelir, iade nasıl olur, hangi beden, neden bu fiyat ve stokta var mı. Bu soruların kısa cevaplarını ürün sayfasının içine koymak hem dönüşümü hem DM yükünü doğrudan etkiliyor.\n\nAynı bilgiyi Product, Offer ve iade politikası işaretlemesiyle de vermek, arama motorunun ve AI asistanlarının fiyatı, stoku ve iade koşulunu net okumasına yardım ediyor. Önemli kural: işaretlemedeki bilgi sayfadakiyle birebir aynı olmalı. En çok satan 10 ürünün sayfalarndan başla, sonra yay.\n\nİyi bir ürün sayfası satıcı gibi konuşmaz, müşterinin aklındaki soruyu ondan önce sorar.\n\nBu hafta bunu deneyen var mı? Sonucu yorumda yaz.\n\nÜrün sayfası 5 soru şablonunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#seo #eticaret #urunsayfasi",
+    "linkedin_ilk_yorum": "Ürün sayfası 5 soru şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar SSS. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-22-haftalik-ozet",
+   "baslik": "Efsane hafta yarın başlıyor.",
+   "klasor": "icerik/gonderiler/2026-11-22-haftalik-ozet",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-22T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-22T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-22T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-22T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-22T11:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-22T10:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-22T11:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Efsane hafta yarın başlıyor. Bu gece 5 madeyi kontrol etmeden yatma. Yorumlara GÜNDEM yaz, formu DM'den göndereyim. #efsanecuma #eticaret #dijitalpazarlama",
+    "facebook": "Efsane hafta yarın başlıyor. Bu gece 5 madeyi kontrol etmeden yatma.\n\nGünlük değerlendirme formunu toplulukta sabitledim, şuradan katılabilirsin:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#efsanecuma #eticaret #dijitalpazarlama",
+    "youtube_baslik": "Efsane hafta yarın başlıyor.",
+    "youtube": "Efsane hafta yarın başlıyor. Bu gece 5 madeyi kontrol etmeden yatma.\n\nGünlük değerlendirme formunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#efsanecuma #eticaret #dijitalpazarlama #shorts",
+    "youtube_sabit_yorum": "Günlük değerlendirme formunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Efsane hafta yarın başlıyor. Bu gece 5 madeyi kontrol etmeden yatma.\n\nGünlük değerlendirme formunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#efsanecuma #eticaret #dijitalpazarlama",
+    "x": "Efsane hafta yarın başlıyor. Bu gece 5 madeyi kontrol etmeden yatma.\n\nGünlük değerlendirme formunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#efsanecuma",
+    "linkedin": "Efsane hafta yarın başlıyor. Bu gece yapman gereken tek şey, bu hafta hazırladıklarını beş maddede kontrol etmek.\n\nBu hafta stok ve kargo planını, olumsuz yorum kurallarını, beş e-postalık kampanya serisini, Instagram DM araçlarını, animasyonlu reklamları ve ürün sayfasındaki beş soruyu konuştuk. Kargo kapasitesi yazılı mı, yanıt şablonları hazır mı, e-postalar zamanlandı mı, ilk 10 ürün sayfasında sorular var mı, DM hazır yanıtları kayıtlı mı? Hazırlklarını bu gece bitir.\n\nKampanya haftasında yeni bir şey denemek cazip geliyor ama test zamanı geçti. Bu hafta hazırladığını uygula, ölç ve her akşam 15 dakika not al. Gelecek yılın planı bu notlardan çıkacak.\n\nYoğun haftalarda en çok kaybettiğimiz şey zaman değil, öğrendiklerimizi hatırlamak.\n\nKatıldığın ya da itiraz ettiğin bir yer varsa yorumda konuşalım.\n\nGünlük değerlendirme formunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#efsanecuma #eticaret #dijitalpazarlama",
+    "linkedin_ilk_yorum": "Günlük değerlendirme formunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar GÜNDEM. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-23-efsane-hafta",
+   "baslik": "Efsane hafta başladı. Sitende her şey çalışıyor mu?",
+   "klasor": "icerik/gonderiler/2026-11-23-efsane-hafta",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-23T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-23T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-23T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-23T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-23T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-23T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-23T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Efsane hafta başladı. Müşteri gibi alışveriş yap, 5 testi bugn bitir. Yorumlara HAZIR yaz, test listesini DM'den göndereyim. #efsanecuma #eticaret #kasimindirimi",
+    "facebook": "Efsane hafta başladı. Müşteri gibi alışveriş yap, 5 testi bugn bitir.\n\n20 maddelik site test listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı burada:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#efsanecuma #eticaret #kasimindirimi",
+    "youtube_baslik": "Efsane hafta başladı. Sitende her şey çalışıyor mu?",
+    "youtube": "Efsane hafta başladı. Müşteri gibi alışveriş yap, 5 testi bugn bitir.\n\n20 maddelik site test listesini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#efsanecuma #eticaret #kasimindirimi #shorts",
+    "youtube_sabit_yorum": "20 maddelik site test listesini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Efsane hafta başladı. Müşteri gibi alışveriş yap, 5 testi bugn bitir.\n\n20 maddelik site test listesini profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#efsanecuma #eticaret #kasimindirimi",
+    "x": "Efsane hafta başladı. Müşteri gibi alışveriş yap, 5 testi bugn bitir.\n\n20 maddelik site test listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#efsanecuma",
+    "linkedin": "Efsane hafta başladı. Sitende her şeyin çalıştığından emin misin?\n\nBugün 30 dakikanı ayır ve müşteri gibi alışveriş yap: reklama telefondan tıkla, kampanya sayfasının hızına ve şartlarına bak, sepette indirimin etiketle aynı olduğunu kontrol et, gerçek kartla küçük bir ödeme yap ve onay e-postasının geldiğini gör. Son bir ürünü sepete ekleyip stokun düştüğünü, DM'e soru yazıp yanıt süresini de dene.\n\nHer testin bir sahibi olsun. \"Biri bakmıştır\" kampanya haftasının en pahalı cümlesi. Pazartesi bulunan hata bir saatte düzelir; aynı hatayı cuma öğlen bulmak yüzlerce kayıp sipariş demek. Perşembe aynı testleri tekrar et, özellikle ödmeyi.\n\nHazırlık sıkıcı görünür ama kampanya gününün sakinliği tam olarak oradan geliyor.\n\nSenin tarafında durum ne? Yorumda konuşalım.\n\n20 maddelik site test listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#efsanecuma #eticaret #kasimindirimi",
+    "linkedin_ilk_yorum": "20 maddelik site test listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar HAZIR. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-24-butce-dagilimi",
+   "baslik": "Bütçenin hepsini cumaya yığma.",
+   "klasor": "icerik/gonderiler/2026-11-24-butce-dagilimi",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-24T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-24T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-24T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-24T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-24T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-24T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-24T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Bütçenin hepsini cumaya yığma. Isınma, zirve, kapanış: üç fazda dağt. Yorumlara BÜTÇE yaz, tabloyu DM'den göndereyim. #metaads #googleads #efsanecuma",
+    "facebook": "Bütçenin hepsini cumaya yığma. Isınma, zirve, kapanış: üç fazda dağt.\n\nGünlük bütçe planı tablosunu istersen WhatsApp Topluluğu'na gel, orada paylaşıyorum:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#metaads #googleads #efsanecuma",
+    "youtube_baslik": "Bütçenin hepsini cumaya yığma.",
+    "youtube": "Bütçenin hepsini cumaya yığma. Isınma, zirve, kapanış: üç fazda dağt.\n\nGünlük bütçe planı tablosunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#metaads #googleads #efsanecuma #shorts",
+    "youtube_sabit_yorum": "Günlük bütçe planı tablosunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Bütçenin hepsini cumaya yığma. Isınma, zirve, kapanış: üç fazda dağt.\n\nGünlük bütçe planı tablosunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#metaads #googleads #efsanecuma",
+    "x": "Bütçenin hepsini cumaya yığma. Isınma, zirve, kapanış: üç fazda dağt.\n\nGünlük bütçe planı tablosunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#metaads",
+    "linkedin": "Reklam bütçesinin hepsini cumaya yığma. Efsane hafta üç fazdan oluşuyor ve bütçe de öyle bölünmeli.\n\nIsınma fazında (23-26 Kasım) kitle ve kreatif öğreniliyor, zirve fazında (27-30 Kasım) satış toplanıyor, kapanış fazında (1-3 Aralık) sepetini bırakan ve siteyi gezen kişilere hatırlatma yapılıyor. Örnek dağılım %25, %55 ve %20. Kendi oranlarını geçen yılın günlük satış verisinden çıkar.\n\nBütçeyi bir gecede üç katına çıkarmak algoritmayı yeniden öğrenmeye itebilir. Günlük %20-30 aralığında kademeli artrmak ve gerçek CPA hedefin 1,3 katını geçince durmak daha güvenli. Her sabah 10 dakika: dünün harcaması, panelden gerçek sipariş, karar ve neden.\n\nKampanya haftasında en zor iş harcamak değil, ne zaman durulacağını bilmek.\n\nSen bunu nasıl çözüyorsun? Merak ediyorum.\n\nGünlük bütçe planı tablosunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#metaads #googleads #performanspazarlama",
+    "linkedin_ilk_yorum": "Günlük bütçe planı tablosunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar BÜTÇE. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-25-ai-destek",
+   "baslik": "AI yanıtı yazsın, insan göndersin.",
+   "klasor": "icerik/gonderiler/2026-11-25-ai-destek",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-25T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-25T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-25T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-25T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-25T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-25T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-25T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "AI yanıtı yazsın, insan göndesin. Modele kişisel veri gitmesin. Yorumlara DESTEK yaz, kural setini DM'den göndereyim. #yapayzeka #claude #musterideneyimi",
+    "facebook": "AI yanıtı yazsın, insan göndesin. Modele kişisel veri gitmesin.\n\nAI destekli müşteri hizmetleri kural setini toplulukta sabitledim, şuradan katılabilirsin:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#yapayzeka #claude #musterideneyimi",
+    "youtube_baslik": "AI yanıtı yazsın, insan göndersin.",
+    "youtube": "AI yanıtı yazsın, insan göndesin. Modele kişisel veri gitmesin.\n\nAI destekli müşteri hizmetleri kural setini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#yapayzeka #claude #musterideneyimi #shorts",
+    "youtube_sabit_yorum": "AI destekli müşteri hizmetleri kural setini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "AI yanıtı yazsın, insan göndesin. Modele kişisel veri gitmesin.\n\nAI destekli müşteri hizmetleri kural setini profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#yapayzeka #claude #musterideneyimi",
+    "x": "AI yanıtı yazsın, insan göndesin. Modele kişisel veri gitmesin.\n\nAI destekli müşteri hizmetleri kural setini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#yapayzeka",
+    "linkedin": "Kampanya haftasında destek yükü birkaç katına çıkıyor. Çözüm basit bir iş bölümü: AI yanıtı yazsın, insan göndersin.\n\nGelen soru önce kişisel verilerden ayıklanıyor, sonra kargo, iade, beden gibi sınıflara ayrılıyor. Tekrar eden sorularda Claude hazır yanıt havuzundan iki üç cümlelik bir taslak çıkarıyor; ekipten biri okuyup düzeltiyor ve gönderiyor. Ödeme sorunu, hukuki şikâyet ve öfkeli müşteri ise doğrudan insana gidiyor.\n\nİki kural önemli. Modele ad, telefon, adres ve sipariş numarası gitmiyor. Model de yalnızca havuzdaki bilgiyle yanıt yazıyor; politika dışında bir söz vermek ya da tarih uydurmak yasak. Böylece müşterilrin aldığı yanıt hem hızlı hem doğru oluyor.\n\nMüşteri yanıtı kimin yazdığını değil, sorununun çözülüp çözülmediğini hatırlıyor.\n\nEkipte bu konuşuldu mu? Yorumlara yaz, birlikte bakalım.\n\nAI destekli müşteri hizmetleri kural setini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#yapayzeka #musterideneyimi #claude",
+    "linkedin_ilk_yorum": "AI destekli müşteri hizmetleri kural setini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar DESTEK. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-26-dolandiricilik",
+   "baslik": "Efsane Cuma'da markanı taklit eden site çıkabilir.",
+   "klasor": "icerik/gonderiler/2026-11-26-dolandiricilik",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-26T08:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-26T08:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-26T08:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-26T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-26T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-26T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-26T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Efsane Cuma'da markanı taklit eden site çıkabilir. Resmi kanallarını bugün duyr. Yorumlara GÜVEN yaz, listeyi DM'den göndereyim. #eticaret #efsanecuma #siberguvenlik",
+    "facebook": "Efsane Cuma'da markanı taklit eden site çıkabilir. Resmi kanallarını bugün duyr.\n\nGüvenlik kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı burada:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret #efsanecuma #siberguvenlik",
+    "youtube_baslik": "Efsane Cuma'da markanı taklit eden site çıkabilir.",
+    "youtube": "Efsane Cuma'da markanı taklit eden site çıkabilir. Resmi kanallarını bugün duyr.\n\nGüvenlik kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#eticaret #efsanecuma #siberguvenlik #shorts",
+    "youtube_sabit_yorum": "Güvenlik kontrol listesini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Efsane Cuma'da markanı taklit eden site çıkabilir. Resmi kanallarını bugün duyr.\n\nGüvenlik kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#eticaret #efsanecuma #siberguvenlik",
+    "x": "Efsane Cuma'da markanı taklit eden site çıkabilir. Resmi kanallarını bugün duyr.\n\nGüvenlik kontrol listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret",
+    "linkedin": "Efsane Cuma'da markanı taklit eden bir site ya da hesap çıkabilir. Bu yıl satıcılar da hedefte.\n\nBasına yansıyan uyarılara göre kampanya döneminde sahte siteler, sahte sosyal medya hesapları ve sahte bağlantılar artıyor; dolandırıcılar artık yalnızca tüketiciyi değil satıcı panellerini de hedefliyor. Müşterine resmi kanallarını bugün duyur: tek resmi web adresin, resmi hesapların ve asla şifre ya da kart bilgisi istemediğin. Bir Story'yi öne çıkanlara sabitlemek yeterli.\n\nEkip tarafında da kontrol yap. Panel, reklam ve e-posta hesaplarında iki adımlı doğrulama açık olsun; ayrılan çalışanların erişimi kapansın. \"Acil ödeme\" ya da \"hesabınız askıya alınacak\" diyen e-postadaki bağlantıya tıklama, önce telefonla teyit et. Taklit bulursan kanıtı al, platformun taklit bildirme formunu kullan ve müşterilerni hemen bilgilendir.\n\nGüven yıllarda kurulur, bir sahte siteyle sarsılabilir. Erken davranan marka bunu korur.\n\nSende hangi rakam farklı çıktı? Yorumda paylaşırsan karşılaştıralım.\n\nGüvenlik kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#eticaret #efsanecuma #siberguvenlik",
+    "linkedin_ilk_yorum": "Güvenlik kontrol listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar GÜVEN. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-27-efsane-cuma",
+   "baslik": "Bugün 5 rakama bak, gerisini kapat.",
+   "klasor": "icerik/gonderiler/2026-11-27-efsane-cuma",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-27T21:20:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-27T21:20:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-27T21:20:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-27T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-27T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-27T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-27T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Bugün Efsane Cuma. 5 rakama bak, gerisini kapat. Eşikler öncedn yazılı olsun. Yorumlara CANLI yaz, panel şablonunu DM'den göndereyim. #efsanecuma #eticaret #blackfriday",
+    "facebook": "Bugün Efsane Cuma. 5 rakama bak, gerisini kapat. Eşikler öncedn yazılı olsun.\n\nSaatlik panel şablonunu istersen WhatsApp Topluluğu'na gel, orada paylaşıyorum:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#efsanecuma #eticaret #blackfriday",
+    "youtube_baslik": "Bugün 5 rakama bak, gerisini kapat.",
+    "youtube": "Bugün Efsane Cuma. 5 rakama bak, gerisini kapat. Eşikler öncedn yazılı olsun.\n\nSaatlik panel şablonunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#efsanecuma #eticaret #blackfriday #shorts",
+    "youtube_sabit_yorum": "Saatlik panel şablonunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Bugün Efsane Cuma. 5 rakama bak, gerisini kapat. Eşikler öncedn yazılı olsun.\n\nSaatlik panel şablonunu profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#efsanecuma #eticaret #blackfriday",
+    "x": "Bugün Efsane Cuma. 5 rakama bak, gerisini kapat. Eşikler öncedn yazılı olsun.\n\nSaatlik panel şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#efsanecuma",
+    "linkedin": "Bugün Efsane Cuma. Her şeyi izlemeye çalışan hiçbir şeyi görmüyor; bugün beş rakama bak, gerisini kapat.\n\nSaatlik beş metrik yeterli: sipariş, dönşüm oranı, gerçek CPA, vitrin ürünlerinin stoku ve destek kuyruğu. Her birinin eşiği önceden yazılı olsun. Eşik aşılınca kimin karar vereceği ve ne yapılacağı da belli olsun: stok 10'un altına inerse o ürünün reklamı durur, CPA hedefin 1,3 katını geçerse bütçe kısılır.\n\nKampanya günü bazı şeyler yasak: fiyatı gün içinde yükseltmek, yeni kampanya açmak ve \"son 1 saat\" deyip uzatmak. Hem verini hem müşterinin güvenini bozar. Gece 23.00'te üç satırlık bir not yaz: satış, sorun ve yarının ilk işi.\n\nKampanya gününü sakin geçiren ekip şanslı değil, kararlarını önceden vermiş ekip.\n\nBu hafta bunu deneyen var mı? Sonucu yorumda yaz.\n\nSaatlik panel şablonunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#efsanecuma #eticaret #blackfriday",
+    "linkedin_ilk_yorum": "Saatlik panel şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar CANLI. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-28-kargo-iletisim",
+   "baslik": "Gecikmeyi müşteri senden duysun.",
+   "klasor": "icerik/gonderiler/2026-11-28-kargo-iletisim",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-28T21:20:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-28T21:20:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-28T21:20:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-28T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-28T11:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-28T10:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-28T11:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Kargo gecikrse müşteri bunu senden duysun. Özür, yeni tarih ve iptal seçeneği. Yorumlara KARGO yaz, şablonları DM'den göndereyim. #eticaret #musterideneyimi #lojistik",
+    "facebook": "Kargo gecikrse müşteri bunu senden duysun. Özür, yeni tarih ve iptal seçeneği.\n\n4 mesaj şablonunu toplulukta sabitledim, şuradan katılabilirsin:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret #musterideneyimi #lojistik",
+    "youtube_baslik": "Gecikmeyi müşteri senden duysun.",
+    "youtube": "Kargo gecikrse müşteri bunu senden duysun. Özür, yeni tarih ve iptal seçeneği.\n\n4 mesaj şablonunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#eticaret #musterideneyimi #lojistik #shorts",
+    "youtube_sabit_yorum": "4 mesaj şablonunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Kargo gecikrse müşteri bunu senden duysun. Özür, yeni tarih ve iptal seçeneği.\n\n4 mesaj şablonunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#eticaret #musterideneyimi #lojistik",
+    "x": "Kargo gecikrse müşteri bunu senden duysun. Özür, yeni tarih ve iptal seçeneği.\n\n4 mesaj şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret",
+    "linkedin": "Efsane Cuma'nın ertesi günü kargo gecikir. Asıl soru, müşterinin bunu senden mi yoksa kendi takip ekranından mı öğreneceği.\n\nSiparişten teslime dört mesaj yeterli: onay, kargoya verildi bilgisi ve takip bağlantısı, gerekirse gecikme mesajı ve teslimde kısa bir teşekkür. Gecikme mesajında dört şey olsun: açık özür, kısa neden, yeni tarih ve ücretsiz iptal seçeneği. Gecikmyi belli olduğu anda bildirmek, müşterinin üç gün sonra sormasını beklemekten çok daha az şikâyet getiriyor.\n\nBir sınır var: kargo bildirimine kampanya ya da \"şunu da al\" önerisi ekleme. Sipariş bildirimi bilgilendirme içindir; reklam eklenince ticari elektronik iletiye dönüşebilir. Bu not hukuki görüş değildir.\n\nMüşteri gecikmeyi affeder, haber verilmemesini zor affeder.\n\nKatıldığın ya da itiraz ettiğin bir yer varsa yorumda konuşalım.\n\n4 mesaj şablonunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#eticaret #musterideneyimi #efsanecuma",
+    "linkedin_ilk_yorum": "4 mesaj şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar KARGO. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-29-siber-pazartesi",
+   "baslik": "Siber Pazartesi'yi cumanın verisiyle kur.",
+   "klasor": "icerik/gonderiler/2026-11-29-siber-pazartesi",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-29T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-29T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-29T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-29T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-29T11:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-29T10:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-29T11:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Siber Pazartesi'yi cumanın verisiyle kur. Bütçeyi kazanan reklamlara kaydr. Yorumlara SİBER yaz, listeyi DM'den göndereyim. #siberpazartesi #efsanecuma #eticaret",
+    "facebook": "Siber Pazartesi'yi cumanın verisiyle kur. Bütçeyi kazanan reklamlara kaydr.\n\nSiber Pazartesi hazırlık listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı burada:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#siberpazartesi #efsanecuma #eticaret",
+    "youtube_baslik": "Siber Pazartesi'yi cumanın verisiyle kur.",
+    "youtube": "Siber Pazartesi'yi cumanın verisiyle kur. Bütçeyi kazanan reklamlara kaydr.\n\nSiber Pazartesi hazırlık listesini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#siberpazartesi #efsanecuma #eticaret #shorts",
+    "youtube_sabit_yorum": "Siber Pazartesi hazırlık listesini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Siber Pazartesi'yi cumanın verisiyle kur. Bütçeyi kazanan reklamlara kaydr.\n\nSiber Pazartesi hazırlık listesini profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#siberpazartesi #efsanecuma #eticaret",
+    "x": "Siber Pazartesi'yi cumanın verisiyle kur. Bütçeyi kazanan reklamlara kaydr.\n\nSiber Pazartesi hazırlık listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#siberpazartesi",
+    "linkedin": "Siber Pazartesi'yi tahminle değil, Efsane Cuma'nın gerçek verisiyle kur. Bu akşam 45 dakika yeter.\n\nCumanın verisinden dört ders çıkar: en çok satan 10 ürün, kazanan üç reklam, sepetini bırakanlar ve stoğu biten ürünler. Kazananlrı vitrinin başına al ve bütçeyi onlara kaydır; sepet terk kitlesine hatırlatma reklamı aç, yalnızca onaylı listeye e-posta gönder; biten ürünlerin reklamlarını kapat ve sayfasını güncelle.\n\nSiber Pazartesi ayrı bir kampanyaysa ayrı yazılmalı: kendi başlangıç ve bitiş saati, son 10 günün en düşük fiyatına dayanan kendi oranı ve açık ürün listesi. Cuma metnini kopyalayıp tarihini değiştirmek, hem müşteriyi hem seni zor durumda bırakabilir. Bu not hukuki görüş değildir.\n\nİyi bir kampanya haftası, her günün bir öncekinden öğrendiği haftadır.\n\nSenin tarafında durum ne? Yorumda konuşalım.\n\nSiber Pazartesi hazırlık listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#siberpazartesi #efsanecuma #performanspazarlama",
+    "linkedin_ilk_yorum": "Siber Pazartesi hazırlık listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar SİBER. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-11-30-uzatma-karari",
+   "baslik": "\"Son gün\" dedin. Uzatacak mısın?",
+   "klasor": "icerik/gonderiler/2026-11-30-uzatma-karari",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-11-30T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-11-30T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-11-30T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-11-30T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-11-30T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-11-30T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-11-30T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "\"Son gün\" dediysen uzatma. Stok fazlası için yeni tarihli bir kampnya planla. Yorumlara UZATMA yaz, kapanış listesini DM'den göndereyim. #siberpazartesi #eticaret #reklam",
+    "facebook": "\"Son gün\" dediysen uzatma. Stok fazlası için yeni tarihli bir kampnya planla.\n\nKampanya kapanış kontrol listesini istersen WhatsApp Topluluğu'na gel, orada paylaşıyorum:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#siberpazartesi #eticaret #reklam",
+    "youtube_baslik": "\"Son gün\" dedin. Uzatacak mısın?",
+    "youtube": "\"Son gün\" dediysen uzatma. Stok fazlası için yeni tarihli bir kampnya planla.\n\nKampanya kapanış kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#siberpazartesi #eticaret #reklam #shorts",
+    "youtube_sabit_yorum": "Kampanya kapanış kontrol listesini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "\"Son gün\" dediysen uzatma. Stok fazlası için yeni tarihli bir kampnya planla.\n\nKampanya kapanış kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#siberpazartesi #eticaret #reklam",
+    "x": "\"Son gün\" dediysen uzatma. Stok fazlası için yeni tarihli bir kampnya planla.\n\nKampanya kapanış kontrol listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#siberpazartesi",
+    "linkedin": "\"Son gün\" dedin ve satışlar iyi gidiyor. Bu gece en çok sorulan soru: uzatalım mı?\n\nUzatmadan önce üç soruya cevap ver. Kampanyayı \"son gün\" diye duyurduysan, ertesi sabah \"uzattık\" demek müşterinin güvenni sarsıyor ve gelecek kampanyalardaki her \"son gün\" ifadesini değersizleştiriyor. Stok fazlan varsa bunu yeni tarihli, ayrı bir kampanyayla planla. Tarih metinde yazılıysa yeni tarih yeni bir metin demek. Bu not hukuki görüş değildir.\n\nKapanış da bir kurala bağlı olsun: 23.59'da fiyatlar kampanya öncesi fiyata dönsün, indirim etiketleri kalksın, kampanya reklamları dursun ve zamanlanmış kampanya e-postaları iptal edilsin. Ana banner ve pop-up en sık unutulan iki kalem.\n\nMüşteri bir sonraki kampanyaya, bu kampanyanın nasıl bittiğine bakarak inanıyor.\n\nSen bunu nasıl çözüyorsun? Merak ediyorum.\n\nKampanya kapanış kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#siberpazartesi #eticaret #performanspazarlama",
+    "linkedin_ilk_yorum": "Kampanya kapanış kontrol listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar UZATMA. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-12-01-kampanya-analiz",
+   "baslik": "Ciro rekor kırdı. Kâr ne durumda?",
+   "klasor": "icerik/gonderiler/2026-12-01-kampanya-analiz",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-12-01T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-12-01T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-12-01T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-12-01T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-12-01T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-12-01T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-12-01T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Ciro rekor kırdı, peki kâr? Ürün bazında katkı payını hesapl. Yorumlara ANALİZ yaz, tabloyu DM'den göndereyim. #eticaret #claude #analitik",
+    "facebook": "Ciro rekor kırdı, peki kâr? Ürün bazında katkı payını hesapl.\n\nKampanya kâr analizi tablosunu toplulukta sabitledim, şuradan katılabilirsin:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret #claude #analitik",
+    "youtube_baslik": "Ciro rekor kırdı. Kâr ne durumda?",
+    "youtube": "Ciro rekor kırdı, peki kâr? Ürün bazında katkı payını hesapl.\n\nKampanya kâr analizi tablosunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#eticaret #claude #analitik #shorts",
+    "youtube_sabit_yorum": "Kampanya kâr analizi tablosunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Ciro rekor kırdı, peki kâr? Ürün bazında katkı payını hesapl.\n\nKampanya kâr analizi tablosunu profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#eticaret #claude #analitik",
+    "x": "Ciro rekor kırdı, peki kâr? Ürün bazında katkı payını hesapl.\n\nKampanya kâr analizi tablosunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret",
+    "linkedin": "Kampanya bitti ve ciro rekor kırdı. Peki kâr ne durumda?\n\nKampanya analizini ciroyla değil, ürün bazında katkı payıyla yapmak gerekiyor: net satıştan ürün maliyeti, kargo, komisyon ve o ürüne düşen reklam harcaması çıkınca geriye kalan. En çok satan ürün, indirim ve reklam yüzünden para kaybettirmiş olabilir. Claude'a toplu ürün tablosunu verince bu hesap bir saatte çıkıyor; müşteri verisine gerek yok.\n\nDört soru sor: hangi ürün zarar etti, kaç yeni müşteri geldi, iade oranı ne olacak ve hangi kanal gerçekten kârlı. Kâr ancak 14 günlük cayma süresi bitince netleşiyor, o yüzden aynı hesabı iade süresi dolduğunda tekrar yap. Rapordaki her rakam bir kararla bitsin; yoksa analz sadece bir alkış listesi olur.\n\nRekor ciro sevindirir. Ama işi büyüten, rekorun içinde neyin para kaybettirdiğini görebilmek.\n\nEkipte bu konuşuldu mu? Yorumlara yaz, birlikte bakalım.\n\nKampanya kâr analizi tablosunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#eticaret #yapayzeka #claude",
+    "linkedin_ilk_yorum": "Kampanya kâr analizi tablosunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar ANALİZ. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-12-02-iade-yonetimi",
+   "baslik": "Kampanyanın ikinci dalgası: iadeler.",
+   "klasor": "icerik/gonderiler/2026-12-02-iade-yonetimi",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-12-02T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-12-02T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-12-02T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-12-02T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-12-02T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-12-02T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-12-02T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "İade, müşterinin en dürüst geri bildirmi. Nedenini sınıfla, ürün sayfasını düzelt. Yorumlara İADE yaz, tabloyu DM'den göndereyim. #eticaret #musterideneyimi #iade",
+    "facebook": "İade, müşterinin en dürüst geri bildirmi. Nedenini sınıfla, ürün sayfasını düzelt.\n\nİade nedeni analiz tablosunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı burada:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret #musterideneyimi #iade",
+    "youtube_baslik": "Kampanyanın ikinci dalgası: iadeler.",
+    "youtube": "İade, müşterinin en dürüst geri bildirmi. Nedenini sınıfla, ürün sayfasını düzelt.\n\nİade nedeni analiz tablosunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#eticaret #musterideneyimi #iade #shorts",
+    "youtube_sabit_yorum": "İade nedeni analiz tablosunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "İade, müşterinin en dürüst geri bildirmi. Nedenini sınıfla, ürün sayfasını düzelt.\n\nİade nedeni analiz tablosunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#eticaret #musterideneyimi #iade",
+    "x": "İade, müşterinin en dürüst geri bildirmi. Nedenini sınıfla, ürün sayfasını düzelt.\n\nİade nedeni analiz tablosunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret",
+    "linkedin": "Kampanyanın ikinci dalgası şimdi geliyor: iadeler.\n\nEfsane Cuma siparişleri teslim edildikçe 14 günlük cayma süresi işliyor. Mesafeli Sözleşmeler Yönetmeliği'ne göre satıcı, cayma bildirimi kendisine ulaştıktan sonra 14 gün içinde ödemeyi iade etmek zorunda. İadeyi zorlaştırmak hem yasal hakkı kısıtlamaya yaklaşır hem de bir sonraki siparişi kaybettirir. Bu not hukuki görüş değildir.\n\nAsıl fırsat iade nedenlrini öğrenmekte. İade formunda neden seçimini zorunlu yap, kayıtları haftada bir sınıfla. Çoğu mağazada ilk iki neden aynı çıkar: beden uymadı ve görselden farklı. İkisi de ürün sayfasında ölçü tablosu, kalıp notu ve gün ışığında çekilmiş fotoğrafla azalır.\n\nİade bir kayıp gibi görünür ama aslında müşterinin sana yazdığı en dürüst geri bildirim.\n\nSende hangi rakam farklı çıktı? Yorumda paylaşırsan karşılaştıralım.\n\nİade nedeni analiz tablosunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#eticaret #musterideneyimi #iade",
+    "linkedin_ilk_yorum": "İade nedeni analiz tablosunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar İADE. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-12-03-ikinci-siparis",
+   "baslik": "Kampanya müşteri getirdi. İkinci sipariş seni büyütür.",
+   "klasor": "icerik/gonderiler/2026-12-03-ikinci-siparis",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-12-03T08:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-12-03T08:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-12-03T08:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-12-03T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-12-03T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-12-03T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-12-03T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Kampanya müşteri getirdi, ikinci sipariş seni büyütür. İlk 45 gün belirleyci. Yorumlara İKİNCİ yaz, akışı DM'den göndereyim. #eticaret #emailpazarlama #musteriyonetimi",
+    "facebook": "Kampanya müşteri getirdi, ikinci sipariş seni büyütür. İlk 45 gün belirleyci.\n\nİkinci sipariş akışı şablonunu istersen WhatsApp Topluluğu'na gel, orada paylaşıyorum:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret #emailpazarlama #musteriyonetimi",
+    "youtube_baslik": "Kampanya müşteri getirdi. İkinci sipariş seni büyütür.",
+    "youtube": "Kampanya müşteri getirdi, ikinci sipariş seni büyütür. İlk 45 gün belirleyci.\n\nİkinci sipariş akışı şablonunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#eticaret #emailpazarlama #musteriyonetimi #shorts",
+    "youtube_sabit_yorum": "İkinci sipariş akışı şablonunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Kampanya müşteri getirdi, ikinci sipariş seni büyütür. İlk 45 gün belirleyci.\n\nİkinci sipariş akışı şablonunu profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#eticaret #emailpazarlama #musteriyonetimi",
+    "x": "Kampanya müşteri getirdi, ikinci sipariş seni büyütür. İlk 45 gün belirleyci.\n\nİkinci sipariş akışı şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret",
+    "linkedin": "Kampanya sana yeni müşteri getirdi. Seni asıl büyütecek olan, bu müşterinin ikinci siparişi.\n\nKampanyayla gelen müşterinin çoğu bir daha gelmiyor; ilk 45 gün belirleyici. İzin vermiş müşteri için üç mesaj yeterli: 7. gün ürünü nasıl kullanacağını anlatan bir ipucu, 21. gün onunla iyi giden tamamlayıcı ürünler, 45. gün yenileme zamanı ya da yeni sezon hatırlatması.\n\nİzin yoksa e-posta yok. Ama başka yollar var: kutunun içine bakım ipucu ve QR kodlu bir kart, sipariş sayfasında tamamlayıcı ürünler ve site ziyaretçilerine yönelik reklam. Teslimden sonra kibarca izin istemek de olur, zorlamak olmaz. Müşteri listesini reklam platformuna yükleyeceksen KVKK koşullarını kontrol et; bu not hukuki görüş değildir.\n\nYeni müşteryi kazanmak bir kampanyanın işi. Onu tutmak, markanın karakterinin işi.\n\nBu hafta bunu deneyen var mı? Sonucu yorumda yaz.\n\nİkinci sipariş akışı şablonunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#eticaret #musteriyonetimi #emailpazarlama",
+    "linkedin_ilk_yorum": "İkinci sipariş akışı şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar İKİNCİ. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-12-04-yilbasi-hediye",
+   "baslik": "Hediye alan kişi tarihe bakar, indirime değil.",
+   "klasor": "icerik/gonderiler/2026-12-04-yilbasi-hediye",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-12-04T21:20:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-12-04T21:20:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-12-04T21:20:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-12-04T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-12-04T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-12-04T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-12-04T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Hediye alan kişi önce tarihe bakar. Son sipariş tarihni hesapla ve duyur. Yorumlara HEDİYE yaz, planı DM'den göndereyim. #eticaret #hediye #yilsonu",
+    "facebook": "Hediye alan kişi önce tarihe bakar. Son sipariş tarihni hesapla ve duyur.\n\nYıl sonu hediye kampanyası planını toplulukta sabitledim, şuradan katılabilirsin:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret #hediye #yilsonu",
+    "youtube_baslik": "Hediye alan kişi tarihe bakar, indirime değil.",
+    "youtube": "Hediye alan kişi önce tarihe bakar. Son sipariş tarihni hesapla ve duyur.\n\nYıl sonu hediye kampanyası planını WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#eticaret #hediye #yilsonu #shorts",
+    "youtube_sabit_yorum": "Yıl sonu hediye kampanyası planını buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Hediye alan kişi önce tarihe bakar. Son sipariş tarihni hesapla ve duyur.\n\nYıl sonu hediye kampanyası planını WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#eticaret #hediye #yilsonu",
+    "x": "Hediye alan kişi önce tarihe bakar. Son sipariş tarihni hesapla ve duyur.\n\nYıl sonu hediye kampanyası planını burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#eticaret",
+    "linkedin": "Hediye alan kişi önce tarihe bakar, sonra indirime. Yıl sonu hediye kampanyasında en önemli bilgi şu: en geç ne zaman sipariş vermeli?\n\nSon sipariş tarihini teslim gününden geriye hesapla: en uzun bölgenin kargo süresi, hazırlık ve kişiselleştirme süresi ve iki günlük emniyet payı. Stoklu ürün, kişiselleştirilen ürün ve yurt dışından gelen ürün için ayrı tarihler çıkar. Bu tarihleri ürün sayfasına, sepete ve reklam metnine yaz; teslmat sözünü de bu tarihe göre ver.\n\nHediye rehberini bütçeye göre kur: 500 TL altı, 500-1.500 TL arası, 1.500 TL üstü ve kararsızlar için hediye çeki. Sepette hediye paketi, ücretsiz not ve paketin içinde fiyatsız fiş seçeneği sunmak, hediye siparişini kolaylaştırıyor.\n\nHediye alan kişi aslında bir ürün değil, zamanında gelen bir güzel an satın alıyor.\n\nKatıldığın ya da itiraz ettiğin bir yer varsa yorumda konuşalım.\n\nYıl sonu hediye kampanyası planını WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#eticaret #hediye #yilsonu",
+    "linkedin_ilk_yorum": "Yıl sonu hediye kampanyası planını burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar HEDİYE. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-12-05-icerik-guncelleme",
+   "baslik": "Sitende hâlâ 2025 yazan sayfa var mı?",
+   "klasor": "icerik/gonderiler/2026-12-05-icerik-guncelleme",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-12-05T21:20:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-12-05T21:20:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-12-05T21:20:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-12-05T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-12-05T11:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-12-05T10:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-12-05T11:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Sitende hâlâ 2025 yazan sayfa var mı? Yeni içerikten önce eskisni güncelle, silme. Yorumlara GÜNCEL yaz, listeyi DM'den göndereyim. #seo #icerikpazarlamasi #geo",
+    "facebook": "Sitende hâlâ 2025 yazan sayfa var mı? Yeni içerikten önce eskisni güncelle, silme.\n\nYıl sonu içerik bakım listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı burada:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#seo #icerikpazarlamasi #geo",
+    "youtube_baslik": "Sitende hâlâ 2025 yazan sayfa var mı?",
+    "youtube": "Sitende hâlâ 2025 yazan sayfa var mı? Yeni içerikten önce eskisni güncelle, silme.\n\nYıl sonu içerik bakım listesini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#seo #icerikpazarlamasi #geo #shorts",
+    "youtube_sabit_yorum": "Yıl sonu içerik bakım listesini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Sitende hâlâ 2025 yazan sayfa var mı? Yeni içerikten önce eskisni güncelle, silme.\n\nYıl sonu içerik bakım listesini profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#seo #icerikpazarlamasi #geo",
+    "x": "Sitende hâlâ 2025 yazan sayfa var mı? Yeni içerikten önce eskisni güncelle, silme.\n\nYıl sonu içerik bakım listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#seo",
+    "linkedin": "Sitende hâlâ başlığında 2025 yazan bir sayfa var mı? Yeni içerik yazmadan önce eskisini güncellemek çoğu zaman daha hızlı sonuç veriyor.\n\nYıl sonu bakımı bir günde yapılabilir. Search Console'da trafiği düşen sayfaları ve site içinde \"2025\" geçen sayfaları listele, öncelik sırasına koy. Her sayfa için tek bir karar ver: bilgi eskimişse güncelle, aynı konuda iki sayfa varsa zayıfı güçlüye 301 ile birleştir, hâlâ doğruysa dokunma, ürün artık yoksa en yakın kategoriye yönlendir. Hiçbir içeriği silme, yönlendir ya da arşivle.\n\nBir kural önemli: yalnızca tarihi değiştirmek güncellemek değildir. Yeni rakam ve kaynağı, yeni ekran görüntüsünü ekle, sonra güncellemyi tarihle göster. Hem Google hem AI asistanlar güncel ve kaynaklı sayfayı tercih ediyor.\n\nİyi bir arşiv, yeni yazılan her şeyden daha uzun süre çalışır.\n\nSenin tarafında durum ne? Yorumda konuşalım.\n\nYıl sonu içerik bakım listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#seo #icerikpazarlamasi #geo",
+    "linkedin_ilk_yorum": "Yıl sonu içerik bakım listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar GÜNCEL. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-12-06-kasim-dersleri",
+   "baslik": "Kasım bitti. 5 ders gelecek yıla kalsın.",
+   "klasor": "icerik/gonderiler/2026-12-06-kasim-dersleri",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-12-06T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-12-06T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-12-06T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-12-06T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-12-06T11:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-12-06T10:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-12-06T11:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Kasım bitti. 5 dersi bugün yaz, her derse bir karr ver. Yorumlara DERS yaz, el kitabı şablonunu DM'den göndereyim. #dijitalpazarlama #eticaret #yonetim",
+    "facebook": "Kasım bitti. 5 dersi bugün yaz, her derse bir karr ver.\n\nKampanya el kitabı şablonunu istersen WhatsApp Topluluğu'na gel, orada paylaşıyorum:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#dijitalpazarlama #eticaret #yonetim",
+    "youtube_baslik": "Kasım bitti. 5 ders gelecek yıla kalsın.",
+    "youtube": "Kasım bitti. 5 dersi bugün yaz, her derse bir karr ver.\n\nKampanya el kitabı şablonunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#dijitalpazarlama #eticaret #yonetim #shorts",
+    "youtube_sabit_yorum": "Kampanya el kitabı şablonunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Kasım bitti. 5 dersi bugün yaz, her derse bir karr ver.\n\nKampanya el kitabı şablonunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#dijitalpazarlama #eticaret #yonetim",
+    "x": "Kasım bitti. 5 dersi bugün yaz, her derse bir karr ver.\n\nKampanya el kitabı şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#dijitalpazarlama",
+    "linkedin": "Kasım bitti. Notları şimdi yazmazsan gelecek Kasım aynı hataları yeniden yaşarsın.\n\nBu ayın beş dersi şunlar oldu: platform raporu kasayla aynı şey değil, stok ve kargo satıştan önce planlanır, kampanya metni denetlenir, AI taslak yazar ama kararı insan verir, kampanya ciroyla değil kârla değerlendirilir. Kendi listen farklı olabilir; önemli olan her dersin bir kararla bitmesi.\n\nBu hafta 45 dakikalık bir ders toplantısı yap. Günlük notları ve rakamları masaya koy, ekipten herkes bir ders getirsin, her derse bir karar ve bir tarih yazılsın. Kuralı da baştan koy: kişiyi değil süreci konuşuyoruz. Suçlu aranan toplantıda kimse doğruyu söylemez. Sonuçları tek bir kampanya el kitabına topla ve gelecek Ekim'de ilk iş onu aç; notlarnı ilk okuyan yine sen olacaksın.\n\nTecrübe yaşadıklarımız değil, yaşadıklarımızdan çıkardığımız kurallar.\n\nSen bunu nasıl çözüyorsun? Merak ediyorum.\n\nKampanya el kitabı şablonunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#dijitalpazarlama #eticaret #performanspazarlama",
+    "linkedin_ilk_yorum": "Kampanya el kitabı şablonunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar DERS. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-12-07-2027-hedef",
+   "baslik": "2027 bütçesini hedeften geriye kur.",
+   "klasor": "icerik/gonderiler/2026-12-07-2027-hedef",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-12-07T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-12-07T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-12-07T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-12-07T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-12-07T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-12-07T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-12-07T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "2027 bütçesini hedeften gerye kur: sipariş, ziyaret, bütçe. Yorumlara HEDEF yaz, tabloyu DM'den göndereyim. #dijitalpazarlama #performanspazarlama #butceplanlama",
+    "facebook": "2027 bütçesini hedeften gerye kur: sipariş, ziyaret, bütçe.\n\n2027 bütçe tablosunu toplulukta sabitledim, şuradan katılabilirsin:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#dijitalpazarlama #performanspazarlama #butceplanlama",
+    "youtube_baslik": "2027 bütçesini hedeften geriye kur.",
+    "youtube": "2027 bütçesini hedeften gerye kur: sipariş, ziyaret, bütçe.\n\n2027 bütçe tablosunu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#dijitalpazarlama #performanspazarlama #butceplanlama #shorts",
+    "youtube_sabit_yorum": "2027 bütçe tablosunu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "2027 bütçesini hedeften gerye kur: sipariş, ziyaret, bütçe.\n\n2027 bütçe tablosunu profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#dijitalpazarlama #performanspazarlama #butceplanlama",
+    "x": "2027 bütçesini hedeften gerye kur: sipariş, ziyaret, bütçe.\n\n2027 bütçe tablosunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#dijitalpazarlama",
+    "linkedin": "2027 bütçesini \"geçen yıl artı yüzde 20\" diye kurmak bir plan değil. Hedeften geriye gitmek gerekiyor.\n\nDört satır yeterli: gelir hedefini ortalama sepete böl, sipariş sayısını bul; siparişi dönüşüm oranına böl, gereken ziyareti bul; bu ziyaretin ne kadarının reklamdan gelmesi gerektiğini belirle; sonra tıklama maliyetiyle çarparak bütçeyi bul. Her rakam 2026 verisinden gelsin. En sonunda bütçeyi katkı payıyla kontrol et; ciroyu büyütüp kârı küçülten bir plan, plan değil.\n\nBütçeyi kanallara 70/20/10 gibi bir oranla dağıt: kanıtlanmış kanallar, büyüyen kanallar ve test. Yıla da eşit yayma; Ocak sakin, Kasım yoğun. Hesaplmak bir öğleden sonra sürer ama bütün yılı daha sakin geçirtir.\n\nHedefi büyük koymak cesaret ister. Onu hesaba dökmek ise disiplin.\n\nEkipte bu konuşuldu mu? Yorumlara yaz, birlikte bakalım.\n\n2027 bütçe tablosunu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#dijitalpazarlama #performanspazarlama #butceplanlama",
+    "linkedin_ilk_yorum": "2027 bütçe tablosunu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar HEDEF. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-12-08-ga4-bakim",
+   "baslik": "Yeni yıla temiz verilerle gir.",
+   "klasor": "icerik/gonderiler/2026-12-08-ga4-bakim",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-12-08T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-12-08T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-12-08T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-12-08T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-12-08T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-12-08T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-12-08T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Yeni yıla temiz verilrle gir. GA4'te 30 dakikalık bakım, 6 ayar. Yorumlara ÖLÇÜM yaz, listeyi DM'den göndereyim. #ga4 #analitik #seo",
+    "facebook": "Yeni yıla temiz verilrle gir. GA4'te 30 dakikalık bakım, 6 ayar.\n\nGA4 yıl sonu bakım listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı burada:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#ga4 #analitik #seo",
+    "youtube_baslik": "Yeni yıla temiz verilerle gir.",
+    "youtube": "Yeni yıla temiz verilrle gir. GA4'te 30 dakikalık bakım, 6 ayar.\n\nGA4 yıl sonu bakım listesini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#ga4 #analitik #seo #shorts",
+    "youtube_sabit_yorum": "GA4 yıl sonu bakım listesini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Yeni yıla temiz verilrle gir. GA4'te 30 dakikalık bakım, 6 ayar.\n\nGA4 yıl sonu bakım listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#ga4 #analitik #seo",
+    "x": "Yeni yıla temiz verilrle gir. GA4'te 30 dakikalık bakım, 6 ayar.\n\nGA4 yıl sonu bakım listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#ga4",
+    "linkedin": "Yeni yıla temiz verilerle gir. Ocak'ta yapacağın her karşılaştırma bugün GA4'te yapacağın 30 dakikalık bakıma bağlı.\n\nAltı ayara bak. Etkinlik verisinin saklma süresi varsayılan olarak 2 ay olabilir; 14 aya çıkar, değişiklik geçmişe dönük çalışmadığı için bugün yap. Anahtar olayları sadeleştir: satın alma, form ve WhatsApp tıklaması gibi gerçekten iş getiren olaylar kalsın. AI asistanlardan gelen trafiği ayrı bir kanal grubunda topla, ofis ve ekip trafiğini filtrele, ödeme sağlayıcısının kaynak olarak görünmesini engelle.\n\nKasım'da aldığın Meta Pixel baz çizgisini de bu bakıma ekle: platform raporu, GA4 ve panel siparişi aynı tabloda dursun. Her değişikliği tarihiyle bir günlüğe yaz; altı ay sonra \"bu rakam neden değişti?\" sorusunun cevabı orada olacak.\n\nVeri temizliği kimsenin sevdiği iş değil ama yanlış veriyle verilen karar çok daha pahalı.\n\nSende hangi rakam farklı çıktı? Yorumda paylaşırsan karşılaştıralım.\n\nGA4 yıl sonu bakım listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#ga4 #analitik #seo",
+    "linkedin_ilk_yorum": "GA4 yıl sonu bakım listesini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar ÖLÇÜM. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-12-09-ai-icerik-takvimi",
+   "baslik": "2027'nin ilk 90 gününü bir saatte planla.",
+   "klasor": "icerik/gonderiler/2026-12-09-ai-icerik-takvimi",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-12-09T20:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-12-09T20:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-12-09T20:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-12-09T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-12-09T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-12-09T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-12-09T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "2027'nin ilk 90 gününü Claude ile bir saatte planla. Özel günlerde satış değil tebrk. Yorumlara TAKVİM yaz, prompt'u DM'den göndereyim. #icerikpazarlamasi #claude #yapayzeka",
+    "facebook": "2027'nin ilk 90 gününü Claude ile bir saatte planla. Özel günlerde satış değil tebrk.\n\n90 günlük içerik takvimi prompt'unu istersen WhatsApp Topluluğu'na gel, orada paylaşıyorum:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#icerikpazarlamasi #claude #yapayzeka",
+    "youtube_baslik": "2027'nin ilk 90 gününü bir saatte planla.",
+    "youtube": "2027'nin ilk 90 gününü Claude ile bir saatte planla. Özel günlerde satış değil tebrk.\n\n90 günlük içerik takvimi prompt'unu WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#icerikpazarlamasi #claude #yapayzeka #shorts",
+    "youtube_sabit_yorum": "90 günlük içerik takvimi prompt'unu buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "2027'nin ilk 90 gününü Claude ile bir saatte planla. Özel günlerde satış değil tebrk.\n\n90 günlük içerik takvimi prompt'unu profildeki bağlantıdan, WhatsApp Topluluğu'nda bulabilirsin.\n\n#icerikpazarlamasi #claude #yapayzeka",
+    "x": "2027'nin ilk 90 gününü Claude ile bir saatte planla. Özel günlerde satış değil tebrk.\n\n90 günlük içerik takvimi prompt'unu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#icerikpazarlamasi",
+    "linkedin": "2027'nin ilk 90 gününün içerik takvimini Claude ile bir saatte çıkarabilirsin. Yeter ki ona doğru bağlamı ver.\n\n\"Bana içerik takvimi yap\" demek yerine dört bilgi ver: ne sattığın ve kime, dört içerik sütunu ve oranları, kampanya ve özel günler, format dağılımı. Çıktıyı tablo olarak iste: tarih, sütun, konu, format ve tek cümlelik hedef. Sonra takvimni bir kez de sen kontrol et; tarihler ve hassas günler insan gözünden geçmeli.\n\nÖzel günler konusunda bir not: her özel gün satış günü değil. Ramazan'ın başında, bayramda ya da 8 Mart'ta indirim kodu yerine kısa bir tebrik ya da anlamlı bir hikâye paylaşmak markaya daha çok güven kazandırıyor. Bayramda kargo çalışma saatlerini duyurmak ise hem faydalı hem saygılı.\n\nPlan yapmak geleceği bilmek değil, sürprizlere hazırlıklı olmak.\n\nBu hafta bunu deneyen var mı? Sonucu yorumda yaz.\n\n90 günlük içerik takvimi prompt'unu WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#icerikpazarlamasi #yapayzeka #claude",
+    "linkedin_ilk_yorum": "90 günlük içerik takvimi prompt'unu burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar TAKVİM. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  },
+  {
+   "pid": "2026-12-10-ajan-rutin",
+   "baslik": "Her hafta yaptığın 3 işi AI'a devret.",
+   "klasor": "icerik/gonderiler/2026-12-10-ajan-rutin",
+   "video_tam": "medya/reels-altyazili.mp4",
+   "video_platform": "medya/reels-altyazili.mp4",
+   "paket": "yayin_paketi.md",
+   "yayin_zamani": "2026-12-10T08:50:00+03:00",
+   "durum": "hazir",
+   "platformlar": {
+    "instagram": {
+     "durum": "hazir",
+     "zaman": "2026-12-10T08:50:00+03:00"
+    },
+    "facebook": {
+     "durum": "hazir",
+     "zaman": "2026-12-10T08:50:00+03:00"
+    },
+    "youtube": {
+     "durum": "hazir",
+     "zaman": "2026-12-10T18:40:00+03:00"
+    },
+    "tiktok": {
+     "durum": "hazir",
+     "zaman": "2026-12-10T22:10:00+03:00"
+    },
+    "linkedin": {
+     "durum": "hazir",
+     "zaman": "2026-12-10T08:40:00+03:00"
+    },
+    "x": {
+     "durum": "hazir",
+     "zaman": "2026-12-10T09:40:00+03:00"
+    }
+   },
+   "metinler": {
+    "instagram": "Her hafta yaptığın 3 işi AI'a devret, pazartesi sabahnı geri al. Yorumlara RUTİN yaz, prompt setini DM'den göndereyim. #yapayzeka #claude #verimlilik",
+    "facebook": "Her hafta yaptığın 3 işi AI'a devret, pazartesi sabahnı geri al.\n\n3 haftalık rutin için prompt setini toplulukta sabitledim, şuradan katılabilirsin:\nhttps://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#yapayzeka #claude #verimlilik",
+    "youtube_baslik": "Her hafta yaptığın 3 işi AI'a devret.",
+    "youtube": "Her hafta yaptığın 3 işi AI'a devret, pazartesi sabahnı geri al.\n\n3 haftalık rutin için prompt setini WhatsApp Topluluğu'nda paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDaha fazlası: https://hyturkyilmaz.com\n\n#yapayzeka #claude #verimlilik #shorts",
+    "youtube_sabit_yorum": "3 haftalık rutin için prompt setini buradan alabilirsin: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh",
+    "tiktok": "Her hafta yaptığın 3 işi AI'a devret, pazartesi sabahnı geri al.\n\n3 haftalık rutin için prompt setini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı profilde.\n\n#yapayzeka #claude #verimlilik",
+    "x": "Her hafta yaptığın 3 işi AI'a devret, pazartesi sabahnı geri al.\n\n3 haftalık rutin için prompt setini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\n\n#yapayzeka",
+    "linkedin": "Her hafta yaptığın üç işi AI'a devret ve pazartesi sabahını geri al: haftalık rapor, yorum ve DM özeti, fiyat ve etiket kontrolü.\n\nYöntem basit: her hafta aynı formatta veri, kayıtlı ve değişmeyen bir prompt iskeleti, AI'ın çıkardığı taslak ve senin vereceğin karar. Rapor için GA4'ten toplu tablo, özet için kişisel verisi ayıklanmış yorum ve DM metinleri, fiyat kontrolü için ürün fiyat tablosu yeterli. Örnekte bu üç iş elle üç saat sürerken, devredildiğinde 40 dakikalık okumaya iniyor.\n\nİki kural var. Modele kişisel veri gitmez ve modelden veride olmayan bir sayı istenmez. Bir de şu: AI yalnızca hazırlar, kararı sen verirsin. Hatalı bir çıktı görürsen prompt'u güncelle ve tarihiyle not al; rutinlri her ay biraz daha iyi hale getirmenin yolu bu.\n\nOtomasyon zamanı geri verir. O zamanı neye harcadığın ise işini büyüten asıl karar.\n\nKatıldığın ya da itiraz ettiğin bir yer varsa yorumda konuşalım.\n\n3 haftalık rutin için prompt setini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.\n\n#yapayzeka #claude #verimlilik",
+    "linkedin_ilk_yorum": "3 haftalık rutin için prompt setini burada paylaşıyorum: https://chat.whatsapp.com/GKWDdd2jVy3GNCngWVHPhh\nDiğer kontrol listeleri: https://hyturkyilmaz.com"
+   },
+   "metrikler_48s": {},
+   "not": "Anahtar RUTİN. Lead PDF WhatsApp Topluluğu'nda sabitlenmeli."
+  }
+ ]
+}

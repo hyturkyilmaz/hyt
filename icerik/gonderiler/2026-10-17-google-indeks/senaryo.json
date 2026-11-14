@@ -1,0 +1,48 @@
+{
+ "id": "2026-10-17-google-indeks",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Google bir değişikliği ne zaman görür? Bu sefer cevabı Google'ın kendisi verdi.",
+   "altyazi": "Google bir değişikliği ne zaman görür? Bu sefer cevabı Google'ın kendisi verdi."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Yeni sayfa yaklaşık yirmi saatte bulunuyor. Bilinen sayfa otuz günde yeniden taranıyor. Güncelleme sonrası toparlanma üç ile altı ay.",
+   "altyazi": "Yeni sayfa yaklaşık 20 saatte bulunuyor. Bilinen sayfa 30 günde yeniden taranıyor. Güncelleme sonrası toparlanma 3-6 ay."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Search Console'u Klod'a bağla, gösterim almayan sayfaları listelet.",
+   "altyazi": "Search Console'u Claude'a bağla, gösterim almayan sayfaları listelet."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki gün geçtiyse ve sayfa bulunmadıysa bak. İki saat geçtiyse bekle.",
+   "altyazi": "İki gün geçtiyse ve sayfa bulunmadıysa bak. İki saat geçtiyse bekle."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Bu promptu kaydet, her pazartesi çalıştır.",
+   "altyazi": "Bu prompt'u kaydet, her pazartesi çalıştır."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Değişikliğin türüne göre beklentini ayarla, gereksiz değişiklik yapma.",
+   "altyazi": "Değişikliğin türüne göre beklentini ayarla, gereksiz değişiklik yapma."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Prompt setini istiyorsan yorumlara indeks yaz. Di emden göndereyim.",
+   "altyazi": "Prompt setini istiyorsan yorumlara INDEKS yaz. DM'den göndereyim."
+  }
+ ]
+}

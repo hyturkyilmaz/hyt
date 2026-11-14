@@ -1,0 +1,61 @@
+{
+  "id": "2026-11-10-sepet-terk",
+  "tarih": "2026-11-10",
+  "gun": "Salı",
+  "sutun": "ecom",
+  "anahtar": "TERK",
+  "muzik_tohum": 44,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Sepet terk", "baslik": "Terk edilen sepete _izinle_ dön.",
+     "alt": "Hatırlatma mesajı satış getirir; **onaysız mesaj ise risk**.",
+     "zaman": [{"t": "1 saat", "s": "Nazik hatırlatma", "renk": "ecom"}, {"t": "24 saat", "s": "Soru ve yardım", "renk": "seo"}, {"t": "72 saat", "s": "Son mesaj", "renk": "ads"}, {"t": "Önce", "s": "Onay ve İYS kaydı", "renk": "ai"}],
+     "kaynak": "Hukuki görüş değildir. Kaynak: 6563 sayılı Kanun · İYS"},
+    {"tip": "akis", "kicker": "Akış", "renk": "ecom", "baslik": "Onay kapısıyla _sepet akışı_",
+     "satirlar": [[{"ad": "Sepet terk", "alt": "Ödeme yapılmadı", "ikon": "sepet", "renk": "ink"}, {"ad": "Onay var mı?", "alt": "Ticari ileti + İYS", "ikon": "kalkan", "renk": "ai"}, {"ad": "Onay yok", "alt": "Mesaj gitmez", "ikon": "kutu", "renk": "ink"}],
+                   [{"ad": "1 saat", "alt": "Hatırlatma", "ikon": "saat", "renk": "ecom"}, {"ad": "24 saat", "alt": "Yardım teklifi", "ikon": "sohbet", "renk": "seo"}],
+                   [{"ad": "72 saat", "alt": "Son mesaj, sonra dur", "ikon": "onay", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [1, 3], [3, 4], [4, 5]],
+     "kaynak": "Şema sadeleştirildi. Hukuki görüş değildir."},
+    {"tip": "matris", "num": "01", "kicker": "Kanal", "baslik": "Hangi kanalda _ne gerekir?_",
+     "alt": "Kampanya ve hatırlatma içeren mesajlar genelde ticari elektronik ileti sayılır.",
+     "basliklar": ["Kanal", "Onay", "Not"],
+     "satirlar": [[["ecom", "E-posta"], "Gerekli + İYS", "Ret bağlantısı her mesajda"], [["ads", "SMS"], "Gerekli + İYS", "Kısa, net, ret yolu"], [["seo", "WhatsApp"], "Gerekli", "Platform kuralları da geçerli"], [["ai", "Site içi bildirim"], "Oturum açık", "Kişisel veri işleme aydınlatması"]],
+     "kaynak": "Hukuki görüş değildir; tereddütte uzmana danış."},
+    {"tip": "kural", "num": "02", "kicker": "Mesajlar", "baslik": "3 mesaj, sonra _dur._",
+     "alt": "Hatırlatma ısrara dönünce müşteri ret bağlantısına basar.",
+     "kod": ["<span class=\"k\">1 SAAT</span> sepetin bekliyor, ürün görseli + fiyat", "<span class=\"k\">24 SAAT</span> sorun mu var? beden, kargo, iade bilgisi", "<span class=\"k\">72 SAAT</span> son hatırlatma, gerçek stok bilgisi", "<span class=\"k\">HER MESAJ</span> ret bağlantısı + gönderen bilgisi", "<span class=\"k\">YASAK</span> sahte aciliyet, olmayan indirim"],
+     "prompt": "Terk edilen sepet için 3 e-posta taslağı yaz: 1 saat, 24 saat ve 72 saat sonra. Sahte aciliyet ve olmayan indirim kullanma. Her mesajın sonuna ret bağlantısı için yer bırak.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Liste", "baslik": "Büyük liste değil, _onaylı_ liste.",
+     "once": {"dosya": "onaysiz_liste", "etiket": "Riskli", "basliklar": ["Kaynak", "Durum"], "satirlar": [["Tüm sepet terkleri", "Onay bilinmiyor"], ["Eski müşteriler", "İYS'de yok"], ["Ret yolu", "Yok"]]},
+     "sonra": {"dosya": "onayli_kitle", "etiket": "Uyumlu", "basliklar": ["Kaynak", "Durum"], "satirlar": [["Onay verenler", "İYS'de kayıtlı"], ["Onay tarihi", "Saklanıyor"], ["Ret yolu", "Her mesajda"]]},
+     "kaynak": "Örnek yapı. Hukuki görüş değildir."},
+    {"tip": "ekran", "kicker": "Kontrol", "baslik": "Göndermeden önce _kontrol et._",
+     "pencere": "Claude · e-posta kontrolü", "istek": "Bu 3 e-postayı uyum açısından kontrol et.",
+     "yanit": "**3 e-postanın 1'inde eksik var.**",
+     "tablo": {"basliklar": ["E-posta", "Ret bağlantısı", "Aciliyet", "Durum"], "satirlar": [["1 saat", "Var", "Yok", "Uygun"], ["24 saat", "Var", "Yok", "Uygun"], ["72 saat", "Yok", "\"Son 1 saat!\"", "Düzelt"]], "vurgu_sutun": 3},
+     "evet": "Düzelt", "hayir": "Bekle", "aksiyon": "Eksik e-posta gönderilmez.", "kaynak": "Temsili kontrol"},
+    {"tip": "cta", "anahtar": "TERK", "vaat": "**İzinli sepet terk akışı ve 3 e-posta şablonunu** DM'den göndereyim."}
+  ],
+  "aciklama": "Terk edilen sepete dönmek satış getirir. Onay almadan dönmek ise risk.\n\nSepet terk mesajları çoğu zaman kampanya, indirim ya da hatırlatma içerdiği için ticari elektronik ileti sayılıyor. Bu da önceden alınmış onay, İYS kaydı ve her mesajda ret bağlantısı demek. Önce onay kapısını kur, sonra mesaj akışını.\n\nAkış için 3 mesaj yeterli: 1 saat sonra nazik bir hatırlatma, 24 saat sonra yardım teklifi, 72 saat sonra son mesaj. Hatırlatmlar ısrara dönmesin; sahte aciliyet ve olmayan indirim hem güveni hem uyumu bozar.\n\nMüşteri sepeti bazen kararsız olduğu için değil, bir sorusu cevapsız kaldığı için bırakıyor. İyi bir mesaj o soruyu cevaplar.\n\nKaydırınca onay kapılı akışı, kanal tablosunu ve mesaj kurallarını göreceksin. Hukuki görüş değildir.\n\nYorumlara TERK yaz, izinli sepet terk akışını ve 3 e-posta şablonunu DM'den göndereyim.\n\n#eticaret #emailpazarlama #kvkk #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "Hatırlatmlar", "dogrusu": "Hatırlatmalar", "paragraf": 3},
+  "dogrulama": ["6563 sayılı Elektronik Ticaretin Düzenlenmesi Hakkında Kanun", "Ticari İletişim ve Ticari Elektronik İletiler Hakkında Yönetmelik", "İleti Yönetim Sistemi (İYS)", "6698 sayılı KVKK"],
+  "senaryo": [
+    {"tts": "Terk edilen sepete dönmek satış getirir. Onay almadan dönmek ise risk.", "altyazi": "Terk edilen sepete dönmek satış getirir. Onay almadan dönmek ise risk."},
+    {"tts": "Önce onay kapısı: ticari ileti onayı ve İ Ye Se kaydı. Onay yoksa mesaj gitmez.", "altyazi": "Önce onay kapısı: ticari ileti onayı ve İYS kaydı. Onay yoksa mesaj gitmez."},
+    {"tts": "Bir. E-posta ve SMS'te onay ve ret bağlantısı her mesajda olsun.", "altyazi": "1. E-posta ve SMS'te onay ve ret bağlantısı her mesajda olsun."},
+    {"tts": "İki. Üç mesaj yeter: bir saat, yirmi dört saat ve yetmiş iki saat. Sonra dur.", "altyazi": "2. 3 mesaj yeter: 1 saat, 24 saat ve 72 saat. Sonra dur."},
+    {"tts": "Üç. Büyük liste değil, onaylı liste. Onay tarihini sakla.", "altyazi": "3. Büyük liste değil, onaylı liste. Onay tarihini sakla."},
+    {"tts": "Göndermeden önce kontrol et. Sahte aciliyet varsa düzelt. Bu hukuki görüş değildir.", "altyazi": "Göndermeden önce kontrol et. Sahte aciliyet varsa düzelt. Hukuki görüş değildir."},
+    {"tts": "E-posta şablonlarını istiyorsan yorumlara terk yaz. Di emden göndereyim.", "altyazi": "E-posta şablonlarını istiyorsan yorumlara TERK yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "İzinli _Sepet Terk Akışı_", "kicker": "Şablon · E-ticaret · İYS ve KVKK",
+    "giris": "Terk edilen sepete onaylı, ölçülü ve dürüst mesajlarla dön. Bu liste hukuki görüş değildir; tereddütte uzmana danış.",
+    "bolumler": [
+      {"ad": "Onay", "renk": "ai", "maddeler": [["Ticari ileti onayı", "E-posta ve SMS için önceden alınmış onay."], ["İYS kaydı", "Onaylar İleti Yönetim Sistemi'nde kayıtlı."], ["Onay kaydı", "Onay tarihi, kanalı ve metni saklanıyor."], ["Aydınlatma", "KVKK aydınlatma metni sepet ve üyelik adımında görünür."]]},
+      {"ad": "Mesajlar", "renk": "ecom", "maddeler": [["1 saat", "Sepetteki ürün, görsel ve güncel fiyat."], ["24 saat", "Beden, kargo ve iade bilgisiyle yardım teklifi."], ["72 saat", "Son hatırlatma, gerçek stok bilgisi; sonra akış durur."]]},
+      {"ad": "Kontrol", "renk": "ads", "maddeler": [["Ret bağlantısı", "Her mesajda tek tıkla ret yolu."], ["Gönderen bilgisi", "Şirket adı ve iletişim bilgisi mesajda."], ["Dürüst dil", "Sahte aciliyet ve olmayan indirim yok."]]}
+    ]
+  }
+}

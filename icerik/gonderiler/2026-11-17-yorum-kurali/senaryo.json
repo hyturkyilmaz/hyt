@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-17-yorum-kurali",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Olumsuz yorumu artık silemezsin. Ama cevaplayabilirsin.",
+   "altyazi": "Olumsuz yorumu artık silemezsin. Ama cevaplayabilirsin."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Yorumu yalnız satın alan yapar, yorumlar en az bir yıl erişilebilir kalır.",
+   "altyazi": "Yorumu yalnız satın alan yapar, yorumlar en az bir yıl erişilebilir kalır."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Olumsuz yoruma yirmi dört saat içinde yanıt ver: özür, çözüm, özel kanal.",
+   "altyazi": "1. Olumsuz yoruma 24 saat içinde yanıt ver: özür, çözüm, özel kanal."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Savunma değil çözüm yaz. Siparişiniz bugün yeniden çıktı gibi.",
+   "altyazi": "2. Savunma değil çözüm yaz. \"Siparişiniz bugün yeniden çıktı\" gibi."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Satın alınmış yorum, seçici silme ve yönlendiren sıralama yok.",
+   "altyazi": "3. Satın alınmış yorum, seçici silme ve yönlendiren sıralama yok."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Olumsuz yorumları sınıflandır, kök nedeni çöz. Bu hukuki görüş değildir.",
+   "altyazi": "Olumsuz yorumları sınıflandır, kök nedeni çöz. Hukuki görüş değildir."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Yanıt şablonlarını istiyorsan yorumlara yorum yaz. Di emden göndereyim.",
+   "altyazi": "Yanıt şablonlarını istiyorsan yorumlara YORUM yaz. DM'den göndereyim."
+  }
+ ]
+}

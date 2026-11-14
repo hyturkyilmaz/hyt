@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-04-reklam-metni-prompt",
+  "tarih": "2026-11-04",
+  "gun": "Çarşamba",
+  "sutun": "ai",
+  "anahtar": "METIN",
+  "muzik_tohum": 38,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "AI · Reklam metni", "baslik": "AI'a _5 satırlık_ brief ver, 10 metin al.",
+     "alt": "\"Bana reklam metni yaz\" yerine **ürün, fayda, kanıt, yasak ve format**.",
+     "zaman": [{"t": "Brief", "s": "5 satır", "renk": "ai"}, {"t": "Üretim", "s": "10 varyasyon", "renk": "seo"}, {"t": "Kontrol", "s": "Risk işareti", "renk": "ecom"}, {"t": "Test", "s": "Meta ve Google", "renk": "ads"}],
+     "kaynak": "Karakter sınırları: Meta ve Google Ads yardım sayfaları"},
+    {"tip": "kural", "num": "01", "kicker": "Brief", "baslik": "5 satır _yeter._",
+     "alt": "Model, verdiğin bilgiden fazlasını uydurmaya başlar. Sınırı sen çiz.",
+     "kod": ["<span class=\"k\">ÜRÜN</span> erkek keten gömlek, 279 TL", "<span class=\"k\">FAYDA</span> yazın terletmez, ütü istemez", "<span class=\"k\">KANIT</span> %100 keten, 4,6 puan / 120 yorum", "<span class=\"k\">YASAK</span> \"en ucuz\", \"garantili\", sahte aciliyet", "<span class=\"k\">FORMAT</span> Meta ilk 125 kr · Google başlık 30, açıklama 90"],
+     "prompt": "Yukarıdaki 5 satırlık brief'e göre 10 reklam metni yaz. Her metnin hangi açıyı kullandığını belirt. YASAK satırındaki ifadeleri kullanma, kullanman gerekirse işaretle.",
+     "kaynak": "Meta ana metinde ilk ~125 karakter görünür; Google RSA başlık 30, açıklama 90 karakter."},
+    {"tip": "matris", "num": "02", "kicker": "Açılar", "baslik": "Aynı ürün, _5 açı_",
+     "basliklar": ["Açı", "Örnek giriş", "Ne zaman"],
+     "satirlar": [[["ai", "Fayda"], "Yazın terletmeyen gömlek", "Genel kitle"], [["seo", "Kanıt"], "120 yorum, 4,6 puan", "Kararsız kitle"], [["ecom", "Sorun"], "Ütüyle uğraşma", "Yeniden hedefleme"], [["ads", "Kullanım"], "Ofisten akşam yemeğine", "Yeni kitle"], [["ink", "Karşılaştırma"], "Pamuk mu keten mi?", "Araştıran kitle"]],
+     "kaynak": "Örnek ürün üzerinden"},
+    {"tip": "ekran", "kicker": "Kontrol", "baslik": "Metinleri _risk_ için tara.",
+     "pencere": "Claude · reklam metni kontrolü", "istek": "Bu 10 metni yasak listesine göre kontrol et.",
+     "yanit": "**10 metinden 3'ünde risk var.**",
+     "tablo": {"basliklar": ["Metin", "Açı", "Risk"], "satirlar": [["M2", "Kanıt", "Yok"], ["M4", "Sorun", "\"Asla buruşmaz\""], ["M7", "Fayda", "Yok"], ["M9", "Karşılaştırma", "Rakip adı geçiyor"]], "vurgu_sutun": 2},
+     "evet": "Düzelt", "hayir": "Atla", "aksiyon": "Riskli metin yayına çıkmaz.", "kaynak": "Temsili kontrol"},
+    {"tip": "akis", "kicker": "Akış", "renk": "ai", "baslik": "Brief'ten _kazanana_",
+     "satirlar": [[{"ad": "Brief", "alt": "5 satır", "ikon": "belge", "renk": "ink"}, {"ad": "Prompt", "alt": "10 varyasyon", "ikon": "sohbet", "renk": "ai"}, {"ad": "Risk kontrolü", "alt": "Yasak liste", "ikon": "kalkan", "renk": "ecom"}],
+                   [{"ad": "Meta testi", "alt": "3 metin", "ikon": "hoparlor", "renk": "ads"}, {"ad": "Google testi", "alt": "Başlık + açıklama", "ikon": "arama", "renk": "seo"}],
+                   [{"ad": "Kazanan", "alt": "Sen seçersin", "ikon": "onay", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım iş akışı"},
+    {"tip": "oncesonra", "num": "03", "kicker": "Dil", "baslik": "Riskli ifadeyi _kanıtla_ değiştir.",
+     "once": {"dosya": "riskli_metin", "etiket": "Riskli", "basliklar": ["İfade", "Sorun"], "satirlar": [["En ucuz keten gömlek", "İspatı zor"], ["Asla buruşmaz", "Yanlış vaat"], ["Son 2 saat!", "Sahte aciliyet"]]},
+     "sonra": {"dosya": "guvenli_metin", "etiket": "Güvenli", "basliklar": ["İfade", "Dayanak"], "satirlar": [["279 TL keten gömlek", "Etiket fiyatı"], ["Az buruşan dokuma", "Ürün özelliği"], ["Kampanya 11 Kasım 23.59'da bitiyor", "Gerçek süre"]]},
+     "kaynak": "Ticari Reklam ve Haksız Ticari Uygulamalar Yönetmeliği"},
+    {"tip": "cta", "anahtar": "METIN", "vaat": "**5 satırlık reklam brief şablonunu** ve prompt'u DM'den göndereyim."}
+  ],
+  "aciklama": "AI'dan aldığın reklam metni zayıfsa sorun çoğu zaman modelde değil, brief'te.\n\n\"Bana reklam metni yaz\" dediğinde model ürünü, kanıtı ve sınırları tahmin ediyor. Tahmin ettiği yerde de abartıyor: en ucuz, asla buruşmaz, son 2 saat. Bunların hepsi reklam mevzuatında risk.\n\n5 satırlık bir brief bu boşluğu kapatıyor: ürün, fayda, kanıt, yasak ifadeler ve format. Format satırına Meta'da görünen ilk 125 karakteri, Google'da 30 karakterlik başlığı ve 90 karakterlik açıklamayı yazınca varyasyonlrı doğrudan reklam paneline taşıyabiliyorsun.\n\nİyi brief yazmak, aslında ürünü ne kadar tanıdığını gösteriyor. Model sadece bunu aynaya tutuyor.\n\nKaydırınca brief şablonunu, 5 açıyı ve risk kontrolünü göreceksin.\n\nYorumlara METIN yaz, reklam brief şablonunu ve prompt'u DM'den göndereyim.\n\n#reklam #yapayzeka #metaads #googleads #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "varyasyonlrı", "dogrusu": "varyasyonları", "paragraf": 3},
+  "dogrulama": ["Meta Business Yardım Merkezi (ana metin önerisi)", "Google Ads Yardım (duyarlı arama reklamı karakter sınırları)", "Ticari Reklam ve Haksız Ticari Uygulamalar Yönetmeliği"],
+  "senaryo": [
+    {"tts": "Yapay zekâdan aldığın reklam metni zayıfsa, sorun çoğu zaman brif'te.", "altyazi": "AI'dan aldığın reklam metni zayıfsa, sorun çoğu zaman brief'te."},
+    {"tts": "Beş satır yeter: ürün, fayda, kanıt, yasak ifadeler ve format.", "altyazi": "5 satır yeter: ürün, fayda, kanıt, yasak ifadeler ve format."},
+    {"tts": "Bir. Aynı ürünü beş açıdan yazdır: fayda, kanıt, sorun, kullanım ve karşılaştırma.", "altyazi": "1. Aynı ürünü 5 açıdan yazdır: fayda, kanıt, sorun, kullanım ve karşılaştırma."},
+    {"tts": "İki. Metinleri yasak listesine göre tara. Riskli metin yayına çıkmaz.", "altyazi": "2. Metinleri yasak listesine göre tara. Riskli metin yayına çıkmaz."},
+    {"tts": "Üç. Meta ve Google'da küçük bir test aç, kazananı sen seç.", "altyazi": "3. Meta ve Google'da küçük bir test aç, kazananı sen seç."},
+    {"tts": "En ucuz yerine fiyatı, asla buruşmaz yerine ürün özelliğini yaz.", "altyazi": "\"En ucuz\" yerine fiyatı, \"asla buruşmaz\" yerine ürün özelliğini yaz."},
+    {"tts": "Brif şablonunu istiyorsan yorumlara metin yaz. Di emden göndereyim.", "altyazi": "Brief şablonunu istiyorsan yorumlara METIN yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "5 Satırlık _Reklam Brief'i_", "kicker": "Şablon · AI · Reklam metni",
+    "giris": "Bu şablonu doldur, prompt'la birlikte modele ver. Çıkan metinleri yayından önce risk listesine göre kontrol et.",
+    "bolumler": [
+      {"ad": "Brief", "renk": "ai", "maddeler": [["ÜRÜN", "Ürün adı, tipi ve fiyatı. Tek satır."], ["FAYDA", "Müşterinin hayatında neyi değiştiriyor? En fazla 2 fayda."], ["KANIT", "Sayı, puan, malzeme, sertifika. Doğrulanabilir olsun."], ["YASAK", "Kullanılmayacak ifadeler: en ucuz, garantili, sahte aciliyet."], ["FORMAT", "Meta ilk 125 karakter; Google başlık 30, açıklama 90 karakter."]]},
+      {"ad": "Kontrol", "renk": "ecom", "maddeler": [["Yasak liste taraması", "Her metin YASAK satırına göre kontrol edilir."], ["İndirim ifadesi", "İndirim oranı son 10 günün en düşük fiyatına göre."], ["Rakip adı", "Karşılaştırmalı reklamda rakip adı ve iddia hukuki kontrolden geçer."]]},
+      {"ad": "Test", "renk": "ads", "maddeler": [["Küçük test", "Her platformda 3 metinle başla."], ["Karar ölçüsü", "Tıklama değil, dönüşüm başı maliyetle karar ver."]]}
+    ]
+  }
+}

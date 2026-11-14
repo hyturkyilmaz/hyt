@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-24-butce-dagilimi",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Reklam bütçesinin hepsini cumaya yığma. Üç faza böl.",
+   "altyazi": "Reklam bütçesinin hepsini cumaya yığma. 3 faza böl."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Isınma yüzde yirmi beş, zirve yüzde elli beş, kapanış yüzde yirmi.",
+   "altyazi": "Isınma %25, zirve %55, kapanış %20."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Bütçeyi kademeli artır. Günde en fazla yüzde yirmi ile otuz.",
+   "altyazi": "1. Bütçeyi kademeli artır. Günde en fazla %20-30."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Her sabah on dakika: dünün harcaması, gerçek CPA, karar.",
+   "altyazi": "2. Her sabah 10 dakika: dünün harcaması, gerçek CPA, karar."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "CPA hedefin bir virgül üç katını geçerse dur.",
+   "altyazi": "CPA hedefin 1,3 katını geçerse dur."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Her kanala bir rol ver: Meta talep yaratır, Google hazır talebi yakalar.",
+   "altyazi": "3. Her kanala bir rol ver: Meta talep yaratır, Google hazır talebi yakalar."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Bütçe tablosunu istiyorsan yorumlara bütçe yaz. Di emden göndereyim.",
+   "altyazi": "Bütçe tablosunu istiyorsan yorumlara BÜTÇE yaz. DM'den göndereyim."
+  }
+ ]
+}

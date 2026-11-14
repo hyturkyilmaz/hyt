@@ -1,0 +1,59 @@
+{
+  "id": "2026-11-15-haftalik-ozet",
+  "tarih": "2026-11-15",
+  "gun": "Pazar",
+  "sutun": "ads",
+  "anahtar": "ÖZET",
+  "muzik_tohum": 49,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Haftalık özet · Kasım 2", "baslik": "Bu hafta _4 gelişme_ ve 1 düzeltme.",
+     "alt": "Efsane Cuma'ya 12 gün var. **Bu hafta yapman gereken 4 iş.**",
+     "zaman": [{"t": "Meta", "s": "Pixel ayarı + şartlar ertelendi", "renk": "ads"}, {"t": "Google", "s": "AI Mode reklamları", "renk": "seo"}, {"t": "Bakanlık", "s": "Kasım denetimi", "renk": "ecom"}, {"t": "ChatGPT", "s": "Yeni teklif türleri", "renk": "ai"}],
+     "kaynak": "Kaynak: bu haftanın gönderileri (11-14 Kasım)"},
+    {"tip": "matris", "num": "01", "kicker": "Gelişme → aksiyon", "baslik": "Her gelişmeye _tek_ iş",
+     "basliklar": ["Gelişme", "Aksiyon (süre)"],
+     "satirlar": [[["ads", "Meta Pixel"], "Meta/gerçek oranını hesapla (20 dk)"], [["seo", "Google AI Mode"], "Uzun sorguları tara (15 dk)"], [["ecom", "Kasım denetimi"], "Kampanya metnini 4 kalemde kontrol et (30 dk)"], [["ai", "ChatGPT reklamı"], "Kategori uygunluğuna bak (10 dk)"]],
+     "kaynak": "Süreler tahmini"},
+    {"tip": "oncesonra", "num": "02", "kicker": "Düzeltme", "baslik": "Meta'nın yeni şartları _ertelendi._",
+     "once": {"dosya": "28_ekim_gonderisi", "etiket": "O gün bilinen", "basliklar": ["Konu", "Bilgi"], "satirlar": [["Yeni şartlar", "30 Ekim"], ["AI değişikliği", "Sorumluluk reklamverende"], ["Kaynak", "Basın özetleri"]]},
+     "sonra": {"dosya": "guncel_durum", "etiket": "Bugün bilinen", "basliklar": ["Konu", "Bilgi"], "satirlar": [["Yeni şartlar", "Ertelendi, danışma sürüyor"], ["Geçerli olan", "Mevcut şartlar"], ["Senin işin", "Ayar kontrolü yine geçerli"]]},
+     "kaynak": "Kaynak: PPC Land · Social Samosa, Ekim-Kasım 2026"},
+    {"tip": "grafik", "kicker": "Takvim", "renk": "ecom", "baslik": "Kampanyalara _kalan_ gün",
+     "barlar": [{"ad": "Efsane Cuma", "etiket": "12 gün", "deger": 12, "renk": "ads", "alt": "27 Kasım"}, {"ad": "Siber Pazartesi", "etiket": "15 gün", "deger": 15, "renk": "seo", "alt": "30 Kasım"}, {"ad": "Yılbaşı", "etiket": "46 gün", "deger": 46, "renk": "ecom", "alt": "Hediye kargo son günü daha erken"}],
+     "not": "Efsane haftası birçok markada 23 Kasım'da başlıyor.",
+     "kaynak": "15 Kasım 2026 itibarıyla"},
+    {"tip": "akis", "kicker": "Rutin", "renk": "ads", "baslik": "Pazar akşamı _30 dakika_",
+     "satirlar": [[{"ad": "Kaydedilenler", "alt": "Haftanın notları", "ikon": "veri", "renk": "ink"}, {"ad": "Filtre", "alt": "Bana dokunuyor mu?", "ikon": "arama", "renk": "seo"}, {"ad": "4 aksiyon", "alt": "Sahibi ve günü belli", "ikon": "onay", "renk": "ads"}],
+                   [{"ad": "Düzeltmeler", "alt": "Yanlış bilgi varsa", "ikon": "belge", "renk": "ecom"}, {"ad": "Takvim", "alt": "Gün ve saat", "ikon": "saat", "renk": "ai"}],
+                   [{"ad": "Pazartesi başla", "alt": "İlk iş sabah", "ikon": "kutu", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım haftalık rutin"},
+    {"tip": "kural", "num": "03", "kicker": "İlke", "baslik": "Yanlışı _açıkça_ düzelt.",
+     "alt": "Haber değişir. Değiştiğini söylemek güveni azaltmaz, artırır.",
+     "kod": ["<span class=\"c\"># düzeltme kuralı</span>", "<span class=\"k\">FARK ET</span> bilgi değişti mi?", "<span class=\"k\">YAZ</span> eski bilgi, yeni bilgi, kaynak", "<span class=\"k\">YERİ</span> eski gönderiye yorum + yeni gönderi", "<span class=\"g\">→</span> silme, güncelle"],
+     "prompt": "Geçen ay paylaştığım gönderilerin metinlerini ekte veriyorum. Hangi bilgilerin değişmiş olabileceğini listele ve her biri için kontrol etmem gereken resmi kaynağı yaz.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "cta", "anahtar": "ÖZET", "vaat": "**Haftalık gündem şablonunu** (düzeltme bölümüyle) DM'den göndereyim."}
+  ],
+  "aciklama": "Bu hafta 4 gelişme var ve bir de düzeltmem.\n\nMeta, Pixel'de cihaz üzerinde dönüşüm ölçümünü 12 Kasım'da varsayılan olarak açtı. Google AI Mode reklamlarını genişletti. Ticaret Bakanlığı Kasım indirimlerini her kanalda inceliyor. ChatGPT reklamlarında hedef CPC ve hedef CPA dönemi başladı.\n\nDüzeltme: 28 Ekim'de Meta'nın yeni ticari şartlarının 30 Ekim'de başlayacağını yazmıştım. Meta bu şartları önce 20 Kasım'a erteldi, ardından sektörle danışma süreci bitene kadar beklemeye aldı; şimdilik mevcut şartlar geçerli. Advantage+ ayarlarını kontrol etme önerisi ise aynen duruyor. Bilgi değiştiğinde bunu sessizce geçmek yerine açıkça yazmayı tercih ediyorum.\n\nGüven, hiç hata yapmamaktan değil, hatayı gördüğünde ne yaptığından doğuyor.\n\nKaydırınca 4 aksiyonu, düzeltmeyi ve kampanyalara kalan günleri göreceksin.\n\nYorumlara ÖZET yaz, haftalık gündem şablonunu DM'den göndereyim.\n\n#dijitalpazarlama #metaads #eticaret #yapayzeka",
+  "yazim_hatasi": {"kelime": "erteldi", "dogrusu": "erteledi", "paragraf": 3},
+  "dogrulama": ["PPC Land: Meta şartları 20 Kasım'a erteledi", "Social Samosa: Meta şartları süresiz erteledi", "Bu haftanın gönderilerinin kaynakları"],
+  "senaryo": [
+    {"tts": "Bu hafta dört gelişme var ve bir de düzeltmem.", "altyazi": "Bu hafta 4 gelişme var ve bir de düzeltmem."},
+    {"tts": "Meta Pixel, Google AI Mode, Kasım denetimi ve Çet Ci Pi Ti teklifleri.", "altyazi": "Meta Pixel, Google AI Mode, Kasım denetimi ve ChatGPT teklifleri."},
+    {"tts": "Düzeltme: Meta'nın yeni şartları ertelendi. Şimdilik mevcut şartlar geçerli.", "altyazi": "Düzeltme: Meta'nın yeni şartları ertelendi. Şimdilik mevcut şartlar geçerli."},
+    {"tts": "Efsane Cuma'ya on iki, Siber Pazartesi'ye on beş gün kaldı.", "altyazi": "Efsane Cuma'ya 12, Siber Pazartesi'ye 15 gün kaldı."},
+    {"tts": "Bir. Pazar akşamı otuz dakika ayır, dört aksiyon seç.", "altyazi": "1. Pazar akşamı 30 dakika ayır, 4 aksiyon seç."},
+    {"tts": "İki. Bilgi değiştiyse açıkça düzelt. Silme, güncelle.", "altyazi": "2. Bilgi değiştiyse açıkça düzelt. Silme, güncelle."},
+    {"tts": "Gündem şablonunu istiyorsan yorumlara özet yaz. Di emden göndereyim.", "altyazi": "Gündem şablonunu istiyorsan yorumlara ÖZET yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Haftalık Gündem _Şablonu v2_", "kicker": "Şablon · Pazarlama · Haftalık rutin",
+    "giris": "Haftada bir, 30 dakikada okuduklarını aksiyona çevir. Bu sürümde düzeltme bölümü de var.",
+    "bolumler": [
+      {"ad": "Topla", "renk": "ink", "maddeler": [["Kaydedilenler", "Haftanın gönderi, haber ve notları tek listede."], ["Tek cümle", "Her gelişme tek cümle: ne oldu?"], ["Kaynak", "Her satırda kaynak ve tarih."]]},
+      {"ad": "Süz ve düzelt", "renk": "seo", "maddeler": [["Etki sorusu", "Bana ya da müşterime bu hafta dokunuyor mu?"], ["Değişen bilgi", "Geçen haftalarda paylaştığın bir bilgi değişti mi?"], ["Düzeltme", "Eski gönderiye yorum, yeni gönderide açık not; silme yok."]]},
+      {"ad": "Planla", "renk": "ads", "maddeler": [["En fazla 4 aksiyon", "Sahibi ve günü yazılı."], ["Süre", "Her işe dakika cinsinden süre."], ["Kampanya takvimi", "Önümüzdeki 30 günün kampanya günleri."], ["Pazartesi ilk iş", "Listenin ilk maddesi sabah başlar."]]}
+    ]
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-28-kargo-iletisim",
+  "tarih": "2026-11-28",
+  "gun": "Cumartesi",
+  "sutun": "ecom",
+  "anahtar": "KARGO",
+  "muzik_tohum": 62,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Kargo iletişimi", "baslik": "Gecikmeyi müşteri _senden_ duysun.",
+     "alt": "Efsane Cuma'nın ertesi günü kargo gecikir. **Müşteri sormadan haber ver.**",
+     "zaman": [{"t": "Sipariş", "s": "Onay", "renk": "ink"}, {"t": "Kargo", "s": "Takip bağlantısı", "renk": "ecom"}, {"t": "Gecikme", "s": "Proaktif mesaj", "renk": "ads"}, {"t": "Teslim", "s": "Kısa teşekkür", "renk": "seo"}],
+     "kaynak": "Danışmanlıkta kullandığım kargo iletişimi"},
+    {"tip": "akis", "kicker": "Mesaj akışı", "renk": "ecom", "baslik": "Siparişten _teslime_ 4 mesaj",
+     "satirlar": [[{"ad": "1 · Onay", "alt": "Hemen", "ikon": "onay", "renk": "ink"}, {"ad": "2 · Kargoda", "alt": "Takip bağlantısı", "ikon": "kutu", "renk": "ecom"}, {"ad": "Gecikme var mı?", "alt": "Söz verilen tarih", "ikon": "saat", "renk": "seo"}],
+                   [{"ad": "3 · Gecikme", "alt": "Özür + yeni tarih", "ikon": "sohbet", "renk": "ads"}, {"ad": "Seçenek", "alt": "Bekle ya da iptal", "ikon": "kalkan", "renk": "ai"}],
+                   [{"ad": "4 · Teslim", "alt": "Kısa teşekkür", "ikon": "onay", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Sipariş bildirimleri işlemsel mesajdır; kampanya içeriği eklenmez."},
+    {"tip": "oncesonra", "num": "01", "kicker": "Gecikme mesajı", "baslik": "Aynı haber, _iki_ ton",
+     "once": {"dosya": "gec_ve_soguk", "etiket": "Müşteri sordu", "basliklar": ["Bölüm", "Metin"], "satirlar": [["Ne zaman", "3 gün sonra, müşteri sorunca"], ["Metin", "Yoğunluk nedeniyle gecikme olabilir"], ["Seçenek", "Yok"]]},
+     "sonra": {"dosya": "erken_ve_net", "etiket": "Biz söyledik", "basliklar": ["Bölüm", "Metin"], "satirlar": [["Ne zaman", "Gecikme belli olunca"], ["Metin", "Siparişin 2 gün gecikecek, üzgünüz"], ["Seçenek", "Yeni tarih 3 Aralık, istersen iptal"]]},
+     "kaynak": "Örnek metin"},
+    {"tip": "matris", "num": "02", "kicker": "Mesaj içeriği", "baslik": "Gecikme mesajında _4 şey_",
+     "basliklar": ["Unsur", "Örnek"],
+     "satirlar": [[["ecom", "Açık özür"], "Siparişin gecikecek, üzgünüz."], [["ads", "Neden"], "Kampanya yoğunluğu, kargo firmasında birikme."], [["seo", "Yeni tarih"], "En geç 3 Aralık'ta kapında."], [["ai", "Seçenek"], "İstersen ücretsiz iptal, tek tıkla."]],
+     "kaynak": "Örnek şablon"},
+    {"tip": "kural", "num": "03", "kicker": "Sınır", "baslik": "Kargo mesajına _reklam_ ekleme.",
+     "alt": "Sipariş bildirimi bilgilendirme içindir; kampanya eklenince ticari iletiye dönüşebilir.",
+     "kod": ["<span class=\"c\"># kargo mesajı kuralı</span>", "<span class=\"k\">EVET</span> sipariş durumu, tarih, takip", "<span class=\"k\">EVET</span> özür ve seçenek", "<span class=\"k\">HAYIR</span> \"şunu da al\" önerisi", "<span class=\"k\">HAYIR</span> indirim kodu"],
+     "prompt": "Gecikmesi kesinleşen siparişler için 3 cümlelik bir mesaj yaz: açık özür, kısa neden, yeni tarih ve ücretsiz iptal seçeneği. Kampanya ya da ürün önerisi ekleme.",
+     "kaynak": "Hukuki görüş değildir."},
+    {"tip": "ekran", "kicker": "Gecikme listesi", "baslik": "Kime _önce_ yazmalı?",
+     "pencere": "Claude · gecikme özeti", "istek": "Gecikmesi kesinleşen siparişleri grupla.",
+     "yanit": "**312 siparişte gecikme var.** Öncelik sırası hazır.",
+     "tablo": {"basliklar": ["Grup", "Sipariş", "Mesaj"], "satirlar": [["3+ gün gecikme", "48", "Bugün, telefon + mesaj"], ["1-2 gün gecikme", "264", "Bugün, mesaj"], ["Hediye notlu", "19", "Öncelikli"]], "vurgu_sutun": 2},
+     "evet": "Gönder", "hayir": "Bekle", "aksiyon": "Mesajda müşteri adı ve sipariş no yalnız sistemden.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "KARGO", "vaat": "**Kargo iletişimi 4 mesaj şablonunu** DM'den göndereyim."}
+  ],
+  "aciklama": "Efsane Cuma'nın ertesi günü kargo gecikir. Asıl soru, müşterinin bunu senden mi yoksa kendi takip ekranından mı öğreneceği.\n\nSiparişten teslime dört mesaj yeterli: onay, kargoya verildi bilgisi ve takip bağlantısı, gerekirse gecikme mesajı ve teslimde kısa bir teşekkür. Gecikme mesajında dört şey olsun: açık özür, kısa neden, yeni tarih ve ücretsiz iptal seçeneği. Gecikmyi belli olduğu anda bildirmek, müşterinin üç gün sonra sormasını beklemekten çok daha az şikâyet getiriyor.\n\nBir sınır var: kargo bildirimine kampanya ya da \"şunu da al\" önerisi ekleme. Sipariş bildirimi bilgilendirme içindir; reklam eklenince ticari elektronik iletiye dönüşebilir. Bu not hukuki görüş değildir.\n\nMüşteri gecikmeyi affeder, haber verilmemesini zor affeder.\n\nKaydırınca mesaj akışını, gecikme mesajı örneğini ve öncelik listesini göreceksin.\n\nYorumlara KARGO yaz, 4 mesaj şablonunu DM'den göndereyim.\n\n#eticaret #musterideneyimi #efsanecuma #lojistik",
+  "yazim_hatasi": {"kelime": "Gecikmyi", "dogrusu": "Gecikmeyi", "paragraf": 2},
+  "dogrulama": ["Ticari İletişim ve Ticari Elektronik İletiler Hakkında Yönetmelik (bilgilendirme ve ticari ileti ayrımı)", "Danışmanlık müşteri iletişimi notları"],
+  "senaryo": [
+    {"tts": "Efsane Cuma'nın ertesi günü kargo gecikir. Müşteri bunu senden duysun.", "altyazi": "Efsane Cuma'nın ertesi günü kargo gecikir. Müşteri bunu senden duysun."},
+    {"tts": "Dört mesaj: onay, kargoda, gerekirse gecikme ve teslimde teşekkür.", "altyazi": "4 mesaj: onay, kargoda, gerekirse gecikme ve teslimde teşekkür."},
+    {"tts": "Bir. Gecikme mesajında açık özür, kısa neden, yeni tarih ve iptal seçeneği olsun.", "altyazi": "1. Gecikme mesajında açık özür, kısa neden, yeni tarih ve iptal seçeneği olsun."},
+    {"tts": "İki. Gecikme belli olduğu anda yaz. Müşteri sormadan.", "altyazi": "2. Gecikme belli olduğu anda yaz. Müşteri sormadan."},
+    {"tts": "Üç. Kargo mesajına reklam ve indirim kodu ekleme.", "altyazi": "3. Kargo mesajına reklam ve indirim kodu ekleme."},
+    {"tts": "Önce en uzun gecikmeye ve hediye notlu siparişlere yaz.", "altyazi": "Önce en uzun gecikmeye ve hediye notlu siparişlere yaz."},
+    {"tts": "Mesaj şablonlarını istiyorsan yorumlara kargo yaz. Di emden göndereyim.", "altyazi": "Mesaj şablonlarını istiyorsan yorumlara KARGO yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Kargo İletişimi _4 Mesaj_", "kicker": "Şablon · E-ticaret · Müşteri deneyimi",
+    "giris": "Kampanya haftasında siparişten teslime dört bilgilendirme mesajı. Kampanya içeriği eklenmez. Hukuki görüş değildir.",
+    "bolumler": [
+      {"ad": "Mesajlar", "renk": "ecom", "maddeler": [["1 · Onay", "Siparişin alındı; tahmini kargo tarihi."], ["2 · Kargoda", "Kargo firması ve takip bağlantısı."], ["3 · Gecikme", "Özür, neden, yeni tarih, iptal seçeneği."], ["4 · Teslim", "Kısa teşekkür ve iade bilgisi bağlantısı."]]},
+      {"ad": "Öncelik", "renk": "ads", "maddeler": [["Uzun gecikme", "3 gün ve üzeri: mesaj + telefon."], ["Hediye siparişi", "Hediye notlu siparişler öncelikli."], ["Toplu gönderim", "Gecikme kesinleşince aynı gün."]]},
+      {"ad": "Kural", "renk": "seo", "maddeler": [["Reklam yok", "Bildirime indirim ve ürün önerisi eklenmez."], ["Kişisel veri", "Ad ve sipariş numarası yalnız sistemden, elle kopyalanmaz."], ["Ton", "Kısa, net, özür dileyen."]]}
+    ]
+  }
+}

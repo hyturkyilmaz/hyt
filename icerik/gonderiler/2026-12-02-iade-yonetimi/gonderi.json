@@ -1,0 +1,60 @@
+{
+  "id": "2026-12-02-iade-yonetimi",
+  "tarih": "2026-12-02",
+  "gun": "Çarşamba",
+  "sutun": "ecom",
+  "anahtar": "İADE",
+  "muzik_tohum": 66,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · İade dönemi", "baslik": "Kampanyanın _ikinci dalgası_: iadeler.",
+     "alt": "Efsane Cuma siparişlerinde cayma süresi işliyor. **İadeyi kolaylaştır, nedenini öğren.**",
+     "zaman": [{"t": "Teslim", "s": "Cayma süresi başlar", "renk": "ink"}, {"t": "14 gün", "s": "Cayma hakkı", "renk": "ecom"}, {"t": "14 gün", "s": "Bildirimden sonra geri ödeme", "renk": "ads"}, {"t": "Sen", "s": "İade nedenlerini biliyor musun?", "renk": "seo"}],
+     "kaynak": "Kaynak: Mesafeli Sözleşmeler Yönetmeliği. Hukuki görüş değildir."},
+    {"tip": "akis", "kicker": "Süreç", "renk": "ecom", "baslik": "İade talebinden _geri ödemeye_",
+     "satirlar": [[{"ad": "Talep", "alt": "Tek sayfa form", "ikon": "belge", "renk": "ink"}, {"ad": "Neden", "alt": "Zorunlu seçim", "ikon": "etiket", "renk": "seo"}, {"ad": "Kargo kodu", "alt": "Anında", "ikon": "kutu", "renk": "ecom"}],
+                   [{"ad": "Depo kontrolü", "alt": "Aynı gün", "ikon": "kalkan", "renk": "ads"}, {"ad": "Geri ödeme", "alt": "Yasal süre içinde", "ikon": "onay", "renk": "ai"}],
+                   [{"ad": "Analiz", "alt": "Haftalık neden raporu", "ikon": "grafik", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Örnek süreç"},
+    {"tip": "grafik", "kicker": "Örnek", "renk": "ecom", "baslik": "İade _nedenleri_",
+     "barlar": [{"ad": "Beden uymadı", "etiket": "%41", "deger": 41, "renk": "ecom"}, {"ad": "Görselden farklı", "etiket": "%23", "deger": 23, "renk": "ads"}, {"ad": "Vazgeçtim", "etiket": "%21", "deger": 21, "renk": "seo"}, {"ad": "Hasarlı", "etiket": "%15", "deger": 15, "renk": "ink"}],
+     "not": "Örnek değerler. İlk iki neden ürün sayfasıyla azaltılabilir.",
+     "kaynak": "Temsili veri"},
+    {"tip": "matris", "num": "01", "kicker": "Nedene göre", "baslik": "Her nedene _bir_ düzeltme",
+     "basliklar": ["Neden", "Düzeltme"],
+     "satirlar": [[["ecom", "Beden uymadı"], "Ölçü tablosu, kalıp notu, beden önerisi"], [["ads", "Görselden farklı"], "Gün ışığında fotoğraf, renk notu"], [["seo", "Vazgeçtim"], "Teslim süresi ve ürün açıklaması net"], [["ink", "Hasarlı"], "Paketleme ve kargo firması kontrolü"]],
+     "kaynak": "Örnek aksiyon listesi"},
+    {"tip": "kural", "num": "02", "kicker": "Kural", "baslik": "İadeyi _zorlaştırma._",
+     "alt": "Zor iade, bir sonraki siparişi kaybettirir; ayrıca yasal hakkı kısıtlayamazsın.",
+     "kod": ["<span class=\"c\"># iade kuralı</span>", "<span class=\"k\">FORM</span> tek sayfa, neden seçimi zorunlu", "<span class=\"k\">KARGO</span> kod anında, e-postayla", "<span class=\"k\">ÖDEME</span> yasal süre içinde, haber ver", "<span class=\"k\">YOK</span> gerekçe zorlaması, ek ücret sürprizi"],
+     "prompt": "Ekteki iade kayıtlarında (yalnızca ürün, neden ve açıklama sütunları) iade nedenlerini sınıflandır. Her sınıf için ürün sayfasında yapılacak tek bir düzeltme öner.",
+     "kaynak": "Hukuki görüş değildir."},
+    {"tip": "ekran", "kicker": "Haftalık rapor", "baslik": "Hangi ürün _en çok_ dönüyor?",
+     "pencere": "Claude · iade analizi", "istek": "İade kayıtlarını ürüne göre özetle.",
+     "yanit": "**İadelerin %38'i 3 üründe.**",
+     "tablo": {"basliklar": ["Ürün", "İade oranı", "Ana neden"], "satirlar": [["Keten gömlek", "%19", "Beden"], ["Kaşmir atkı", "%14", "Renk farkı"], ["Kupa seti", "%3", "Hasar"]], "vurgu_sutun": 1},
+     "evet": "Sayfayı düzelt", "hayir": "Sonra", "aksiyon": "Beden tablosunu bu hafta ekle.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "İADE", "vaat": "**İade nedeni analiz tablosunu** ve düzeltme listesini DM'den göndereyim."}
+  ],
+  "aciklama": "Kampanyanın ikinci dalgası şimdi geliyor: iadeler.\n\nEfsane Cuma siparişleri teslim edildikçe 14 günlük cayma süresi işliyor. Mesafeli Sözleşmeler Yönetmeliği'ne göre satıcı, cayma bildirimi kendisine ulaştıktan sonra 14 gün içinde ödemeyi iade etmek zorunda. İadeyi zorlaştırmak hem yasal hakkı kısıtlamaya yaklaşır hem de bir sonraki siparişi kaybettirir. Bu not hukuki görüş değildir.\n\nAsıl fırsat iade nedenlrini öğrenmekte. İade formunda neden seçimini zorunlu yap, kayıtları haftada bir sınıfla. Çoğu mağazada ilk iki neden aynı çıkar: beden uymadı ve görselden farklı. İkisi de ürün sayfasında ölçü tablosu, kalıp notu ve gün ışığında çekilmiş fotoğrafla azalır.\n\nİade bir kayıp gibi görünür ama aslında müşterinin sana yazdığı en dürüst geri bildirim.\n\nKaydırınca iade sürecini, örnek nedenleri ve her nedenin düzeltmesini göreceksin.\n\nYorumlara İADE yaz, iade nedeni analiz tablosunu DM'den göndereyim.\n\n#eticaret #musterideneyimi #iade #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "nedenlrini", "dogrusu": "nedenlerini", "paragraf": 3},
+  "dogrulama": ["Mesafeli Sözleşmeler Yönetmeliği (cayma hakkı ve geri ödeme süresi)", "Danışmanlık iade analizi notları"],
+  "senaryo": [
+    {"tts": "Kampanyanın ikinci dalgası şimdi geliyor: iadeler.", "altyazi": "Kampanyanın ikinci dalgası şimdi geliyor: iadeler."},
+    {"tts": "On dört günlük cayma süresi işliyor. Bildirimden sonra on dört gün içinde geri ödeme.", "altyazi": "14 günlük cayma süresi işliyor. Bildirimden sonra 14 gün içinde geri ödeme."},
+    {"tts": "Bir. İadeyi zorlaştırma. Tek sayfa form, anında kargo kodu.", "altyazi": "1. İadeyi zorlaştırma. Tek sayfa form, anında kargo kodu."},
+    {"tts": "İki. Neden seçimini zorunlu yap, haftada bir sınıfla.", "altyazi": "2. Neden seçimini zorunlu yap, haftada bir sınıfla."},
+    {"tts": "Örnek: iadelerin yüzde kırk biri beden, yüzde yirmi üçü görselden farklı.", "altyazi": "Örnek: iadelerin %41'i beden, %23'ü görselden farklı."},
+    {"tts": "Üç. Her nedene bir düzeltme: ölçü tablosu, gün ışığında fotoğraf. Bu hukuki görüş değildir.", "altyazi": "3. Her nedene bir düzeltme: ölçü tablosu, gün ışığında fotoğraf. Hukuki görüş değildir."},
+    {"tts": "Analiz tablosunu istiyorsan yorumlara iade yaz. Di emden göndereyim.", "altyazi": "Analiz tablosunu istiyorsan yorumlara İADE yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "İade _Nedeni Analizi_", "kicker": "Tablo · E-ticaret · İade",
+    "giris": "Kampanya sonrası iadeleri hızlı yönet ve nedenlerinden ürün sayfası düzeltmeleri çıkar. Hukuki görüş değildir.",
+    "bolumler": [
+      {"ad": "Süreç", "renk": "ecom", "maddeler": [["Tek sayfa form", "Sipariş seçimi ve zorunlu neden."], ["Kargo kodu", "Talep anında e-postayla."], ["Depo kontrolü", "Ürün geldiği gün."], ["Geri ödeme", "Cayma bildiriminden sonra yasal süre içinde, bilgilendirmeyle."]]},
+      {"ad": "Analiz", "renk": "ads", "maddeler": [["Haftalık sınıflama", "Beden, görsel, vazgeçme, hasar."], ["Ürün bazında oran", "En çok dönen 3 ürün."], ["Kişisel veri", "Analize yalnız ürün, neden ve açıklama girer."]]},
+      {"ad": "Düzeltme", "renk": "seo", "maddeler": [["Beden", "Ölçü tablosu ve kalıp notu."], ["Görsel", "Gün ışığında fotoğraf ve renk notu."], ["Hasar", "Paketleme ve kargo firması kontrolü."]]}
+    ]
+  }
+}

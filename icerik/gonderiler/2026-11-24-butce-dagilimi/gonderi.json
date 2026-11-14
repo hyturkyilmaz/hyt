@@ -1,0 +1,59 @@
+{
+  "id": "2026-11-24-butce-dagilimi",
+  "tarih": "2026-11-24",
+  "gun": "Salı",
+  "sutun": "ads",
+  "anahtar": "BÜTÇE",
+  "muzik_tohum": 58,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Reklam · Efsane hafta bütçesi", "baslik": "Bütçenin hepsini _cumaya_ yığma.",
+     "alt": "Kampanya bütçesini **3 faza** böl: ısınma, zirve, kapanış.",
+     "zaman": [{"t": "23-26 Kasım", "s": "Isınma %25", "renk": "seo"}, {"t": "27-30 Kasım", "s": "Zirve %55", "renk": "ads"}, {"t": "1-3 Aralık", "s": "Kapanış %20", "renk": "ecom"}, {"t": "Sen", "s": "Oranları yazdın mı?", "renk": "ai"}],
+     "kaynak": "Örnek dağılım; kendi verine göre uyarla."},
+    {"tip": "grafik", "kicker": "Dağılım", "renk": "ads", "baslik": "Bütçe _üç faza_ bölünür",
+     "barlar": [{"ad": "Isınma (23-26 Kasım)", "etiket": "%25", "deger": 25, "renk": "seo", "alt": "Kitle ve kreatif öğrenme"}, {"ad": "Zirve (27-30 Kasım)", "etiket": "%55", "deger": 55, "renk": "ads", "alt": "Satış günleri"}, {"ad": "Kapanış (1-3 Aralık)", "etiket": "%20", "deger": 20, "renk": "ecom", "alt": "Sepet ve ziyaretçi hatırlatma"}],
+     "not": "Örnek oranlar. Geçen yılın günlük satış dağılımına göre ayarla.",
+     "kaynak": "Temsili plan"},
+    {"tip": "kural", "num": "01", "kicker": "Artış", "baslik": "Bütçeyi _kademeli_ artır.",
+     "alt": "Bir gecede 3 katına çıkan bütçe, algoritmayı yeniden öğrenmeye itebilir.",
+     "kod": ["<span class=\"c\"># bütçe artış kuralı</span>", "<span class=\"k\">GÜNLÜK</span> en fazla %20-30 artış", "<span class=\"k\">ZİRVE</span> artışı 25 Kasım'da başlat", "<span class=\"k\">CPA</span> hedefin 1,3 katını geçerse dur", "<span class=\"g\">→</span> kazanan reklama ekle, yeni kampanya açma"],
+     "prompt": "Geçen yılın Kasım ayı günlük satış ve reklam harcaması tablosunu ekte veriyorum. Bu yıl için aynı toplam bütçeyle günlük bütçe planı öner; günlük artış %30'u geçmesin.",
+     "kaynak": "Oranlar sık kullanılan pratik; platform garantisi değil."},
+    {"tip": "akis", "kicker": "Günlük karar", "renk": "ads", "baslik": "Her sabah _10 dakika_",
+     "satirlar": [[{"ad": "Dünün verisi", "alt": "Harcama, sipariş", "ikon": "veri", "renk": "ink"}, {"ad": "Gerçek CPA", "alt": "Panel siparişiyle", "ikon": "grafik", "renk": "seo"}, {"ad": "Eşik", "alt": "Hedef × 1,3", "ikon": "kalkan", "renk": "ecom"}],
+                   [{"ad": "Artır", "alt": "Altındaysa %20", "ikon": "onay", "renk": "ads"}, {"ad": "Tut ya da kıs", "alt": "Üstündeyse", "ikon": "saat", "renk": "ai"}],
+                   [{"ad": "Not", "alt": "Karar ve neden", "ikon": "belge", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım günlük karar akışı"},
+    {"tip": "matris", "num": "02", "kicker": "Kanal", "baslik": "Kanal başına _rol_",
+     "basliklar": ["Kanal", "Rol", "Pay (örnek)"],
+     "satirlar": [[["ads", "Meta"], "Talep yaratma, yeniden hedefleme", "%45"], [["seo", "Google Arama ve Shopping"], "Hazır talebi yakalama", "%40"], [["ai", "Yeni kanal testi"], "ChatGPT ve benzeri", "En fazla %5"], [["ecom", "E-posta, DM"], "Mevcut müşteri", "Bütçe dışı"]],
+     "kaynak": "Örnek dağılım"},
+    {"tip": "oncesonra", "num": "03", "kicker": "Plan", "baslik": "Tek gün değil, _hafta_ planı",
+     "once": {"dosya": "tek_gun", "etiket": "Cuma yığılması", "basliklar": ["Gün", "Bütçe"], "satirlar": [["23-26 Kasım", "%5"], ["27 Kasım", "%80"], ["28 Kasım sonrası", "%15"]]},
+     "sonra": {"dosya": "uc_faz", "etiket": "Üç faz", "basliklar": ["Faz", "Bütçe"], "satirlar": [["Isınma", "%25"], ["Zirve", "%55"], ["Kapanış", "%20"]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "cta", "anahtar": "BÜTÇE", "vaat": "**Efsane hafta günlük bütçe planı tablosunu** DM'den göndereyim."}
+  ],
+  "aciklama": "Reklam bütçesinin hepsini cumaya yığma. Efsane hafta üç fazdan oluşuyor ve bütçe de öyle bölünmeli.\n\nIsınma fazında (23-26 Kasım) kitle ve kreatif öğreniliyor, zirve fazında (27-30 Kasım) satış toplanıyor, kapanış fazında (1-3 Aralık) sepetini bırakan ve siteyi gezen kişilere hatırlatma yapılıyor. Örnek dağılım %25, %55 ve %20. Kendi oranlarını geçen yılın günlük satış verisinden çıkar.\n\nBütçeyi bir gecede üç katına çıkarmak algoritmayı yeniden öğrenmeye itebilir. Günlük %20-30 aralığında kademeli artrmak ve gerçek CPA hedefin 1,3 katını geçince durmak daha güvenli. Her sabah 10 dakika: dünün harcaması, panelden gerçek sipariş, karar ve neden.\n\nKampanya haftasında en zor iş harcamak değil, ne zaman durulacağını bilmek.\n\nKaydırınca üç fazı, artış kuralını ve kanal dağılımını göreceksin.\n\nYorumlara BÜTÇE yaz, günlük bütçe planı tablosunu DM'den göndereyim.\n\n#metaads #googleads #performanspazarlama #efsanecuma",
+  "yazim_hatasi": {"kelime": "artrmak", "dogrusu": "artırmak", "paragraf": 3},
+  "dogrulama": ["Danışmanlık bütçe planlama notları", "Meta ve Google Ads yardım sayfaları (öğrenme dönemi)"],
+  "senaryo": [
+    {"tts": "Reklam bütçesinin hepsini cumaya yığma. Üç faza böl.", "altyazi": "Reklam bütçesinin hepsini cumaya yığma. 3 faza böl."},
+    {"tts": "Isınma yüzde yirmi beş, zirve yüzde elli beş, kapanış yüzde yirmi.", "altyazi": "Isınma %25, zirve %55, kapanış %20."},
+    {"tts": "Bir. Bütçeyi kademeli artır. Günde en fazla yüzde yirmi ile otuz.", "altyazi": "1. Bütçeyi kademeli artır. Günde en fazla %20-30."},
+    {"tts": "İki. Her sabah on dakika: dünün harcaması, gerçek CPA, karar.", "altyazi": "2. Her sabah 10 dakika: dünün harcaması, gerçek CPA, karar."},
+    {"tts": "CPA hedefin bir virgül üç katını geçerse dur.", "altyazi": "CPA hedefin 1,3 katını geçerse dur."},
+    {"tts": "Üç. Her kanala bir rol ver: Meta talep yaratır, Google hazır talebi yakalar.", "altyazi": "3. Her kanala bir rol ver: Meta talep yaratır, Google hazır talebi yakalar."},
+    {"tts": "Bütçe tablosunu istiyorsan yorumlara bütçe yaz. Di emden göndereyim.", "altyazi": "Bütçe tablosunu istiyorsan yorumlara BÜTÇE yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Efsane Hafta _Bütçe Planı_", "kicker": "Tablo · Reklam · Efsane hafta",
+    "giris": "Kampanya bütçesini üç faza böl ve günlük kararları tek kurala bağla. Oranlar örnektir; kendi verine göre uyarla.",
+    "bolumler": [
+      {"ad": "Fazlar", "renk": "ads", "maddeler": [["Isınma", "23-26 Kasım, bütçenin yaklaşık %25'i."], ["Zirve", "27-30 Kasım, yaklaşık %55."], ["Kapanış", "1-3 Aralık, yaklaşık %20, hatırlatma kitleleri."]]},
+      {"ad": "Kurallar", "renk": "seo", "maddeler": [["Kademeli artış", "Günlük en fazla %20-30."], ["Durma eşiği", "Gerçek CPA hedefin 1,3 katı."], ["Yeni kampanya yok", "Kazanan reklama bütçe ekle."], ["Gerçek sipariş", "Kararlar panel siparişine göre."]]},
+      {"ad": "Günlük", "renk": "ecom", "maddeler": [["Sabah 10 dakika", "Dünün harcaması ve siparişi."], ["Karar kaydı", "Ne değişti, neden."], ["Kanal rolü", "Meta talep, Google yakalama, yeni kanal en fazla %5."]]}
+    ]
+  }
+}

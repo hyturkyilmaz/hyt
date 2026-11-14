@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-15-haftalik-ozet",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Bu hafta dört gelişme var ve bir de düzeltmem.",
+   "altyazi": "Bu hafta 4 gelişme var ve bir de düzeltmem."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Meta Pixel, Google AI Mode, Kasım denetimi ve Çet Ci Pi Ti teklifleri.",
+   "altyazi": "Meta Pixel, Google AI Mode, Kasım denetimi ve ChatGPT teklifleri."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Düzeltme: Meta'nın yeni şartları ertelendi. Şimdilik mevcut şartlar geçerli.",
+   "altyazi": "Düzeltme: Meta'nın yeni şartları ertelendi. Şimdilik mevcut şartlar geçerli."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Efsane Cuma'ya on iki, Siber Pazartesi'ye on beş gün kaldı.",
+   "altyazi": "Efsane Cuma'ya 12, Siber Pazartesi'ye 15 gün kaldı."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Bir. Pazar akşamı otuz dakika ayır, dört aksiyon seç.",
+   "altyazi": "1. Pazar akşamı 30 dakika ayır, 4 aksiyon seç."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "İki. Bilgi değiştiyse açıkça düzelt. Silme, güncelle.",
+   "altyazi": "2. Bilgi değiştiyse açıkça düzelt. Silme, güncelle."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Gündem şablonunu istiyorsan yorumlara özet yaz. Di emden göndereyim.",
+   "altyazi": "Gündem şablonunu istiyorsan yorumlara ÖZET yaz. DM'den göndereyim."
+  }
+ ]
+}
