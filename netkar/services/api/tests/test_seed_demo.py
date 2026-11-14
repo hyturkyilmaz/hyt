@@ -8,6 +8,7 @@ Cevap kartı değerleri, aynı veriyi okuyan RAPOR API uçlarının yanıtlarıy
 from __future__ import annotations
 
 import io
+import ipaddress
 import re
 from collections.abc import Callable, Iterator
 from datetime import date, timedelta
@@ -705,10 +706,15 @@ async def test_super_or_bypassrls_role_is_refused_even_with_expected_name(
 async def test_local_mode_requires_loopback_or_private_server_address(settings: Settings) -> None:
     from app.tools.seed_demo import verify_server
 
-    engine = create_engine(settings.database_url)  # test kümesi unix soketi: adres yok, yerel sayılır
+    # Test kümesi yerelde unix soketiyle (adres yok), CI'da Docker ağında TCP ile (ör. 172.18.0.2) bağlanır.
+    # İkisi de yerel modda kabul edilir; beklenti ortama göre değil, adresin türüne göre kurulur (CI e90b203).
+    engine = create_engine(settings.database_url)
     try:
         identity = await verify_server(engine, "DATABASE_URL", "local", expected_role="netkar_app")
-        assert identity.address is None and identity.role == "netkar_app"
+        assert identity.role == "netkar_app"
+        if identity.address is not None:
+            address = ipaddress.ip_address(identity.address)
+            assert address.is_loopback or address.is_private, identity.address
     finally:
         await engine.dispose()
 
