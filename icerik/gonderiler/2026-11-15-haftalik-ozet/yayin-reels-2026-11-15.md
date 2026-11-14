@@ -6,20 +6,21 @@
 | Saat | 20:50 TRT (30 günlük plan) |
 | Anahtar kelime | ÖZET |
 | Yazım hatası | "erteldi" (doğrusu: erteledi) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 14 Kasım akşamı: Meta yeni şartları 20 Kasım'a erteledi, ardından süresiz beklemeye aldı; mevcut şartlar geçerli (PPC Land, Relevant Audience, Search Engine Journal). |
+| Düzeltme | 28 Ekim META gönderisi paylaşılmadığı için "28 Ekim'de yazmıştım" ifadesi "güncelleme" diliyle değiştirildi; ilk cümledeki eksik yüklem düzeltildi. Videodaki "1 düzeltme" yazısı aynı kaldı. |
 
 ## Açıklama
 
 ```
-Bu hafta 4 gelişme var ve bir de düzeltmem.
+Bu hafta 4 gelişme ve bir güncelleme var.
 
 Meta, Pixel'de cihaz üzerinde dönüşüm ölçümünü 12 Kasım'da varsayılan olarak açtı. Google AI Mode reklamlarını genişletti. Ticaret Bakanlığı Kasım indirimlerini her kanalda inceliyor. ChatGPT reklamlarında hedef CPC ve hedef CPA dönemi başladı.
 
-Düzeltme: 28 Ekim'de Meta'nın yeni ticari şartlarının 30 Ekim'de başlayacağını yazmıştım. Meta bu şartları önce 20 Kasım'a erteldi, ardından sektörle danışma süreci bitene kadar beklemeye aldı; şimdilik mevcut şartlar geçerli. Advantage+ ayarlarını kontrol etme önerisi ise aynen duruyor. Bilgi değiştiğinde bunu sessizce geçmek yerine açıkça yazmayı tercih ediyorum.
+Güncelleme: Ekim sonunda başlaması beklenen Meta'nın yeni ticari şartları ertelendi. Meta bu şartları önce 20 Kasım'a erteldi, ardından paydaşlarla görüşmeler bitene kadar beklemeye aldı; şimdilik mevcut şartlar geçerli. Advantage+ ayarlarını kontrol etme önerisi ise aynen duruyor. Bilgi değiştiğinde bunu sessizce geçmek yerine açıkça yazmayı tercih ediyorum.
 
-Güven, hiç hata yapmamaktan değil, hatayı gördüğünde ne yaptığından doğuyor.
+Güven, her şeyi bilmekten değil, bilgi değiştiğinde ne yaptığından doğuyor.
 
-Videoda 4 aksiyonu, düzeltmeyi ve kampanyalara kalan günleri görüyorsun.
+Videoda 4 aksiyonu, Meta güncellemesini ve kampanyalara kalan günleri görüyorsun.
 
 Yorumlara ÖZET yaz, haftalık gündem şablonunu DM'den göndereyim.
 

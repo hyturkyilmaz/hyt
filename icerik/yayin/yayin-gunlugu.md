@@ -17,7 +17,7 @@ Kaynaklar: 30 günlük plan `icerik/plan/30-gun-2026-11-11.md`, 17:50 kuşağı 
 | 9 | 14 Kas | Cmt | 17:50 | Ajanlar artık sepeti kendisi tamamlıyor. | SEPET | Dosya iletildi 10-11 Kas |
 | 10 | 14 Kas | Cmt | 21:20 | ChatGPT reklamında teklif değişti. | TEKLIF | Dosya iletildi 13 Kas |
 | 11 | 15 Kas | Paz | 17:50 | Ürün açıklamasını 3 dakikada yazdıran prompt. | PROMPT | Dosya iletildi 10-11 Kas |
-| 12 | 15 Kas | Paz | 20:50 | Bu hafta 4 gelişme ve 1 düzeltme. | ÖZET | Akşam önce iletilecek |
+| 12 | 15 Kas | Paz | 20:50 | Bu hafta 4 gelişme ve 1 düzeltme. | ÖZET | Dosya iletildi 14 Kas |
 | 13 | 16 Kas | Pzt | 17:50 | Google AI cevaplarında bağlantılar yukarı çıkıyor. | GOOGLE | Dosya iletildi 10-11 Kas |
 | 14 | 16 Kas | Pzt | 20:50 | Reklam satar, depo teslim eder. | STOK | Akşam önce iletilecek |
 | 15 | 17 Kas | Sal | 17:50 | Claude artık sen yokken de çalışıyor. | DUET | Dosya iletildi 10-11 Kas |
