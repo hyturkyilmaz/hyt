@@ -18,10 +18,13 @@ _REQUEST_ID = re.compile(r"^[0-9a-f]{32}$")
 
 
 def visible_text(response: httpx.Response) -> str:
-    """Yanıt gövdesini, rastgele ``request_id`` alanı çıkarılmış metin olarak döndürür.
+    """Yanıt gövdesini, rastgele ``request_id`` ve ``instance`` alanları çıkarılmış metin olarak döndürür.
 
     JSON nesnesi değilse gövde olduğu gibi döner. ``request_id`` varsa uuid4 hex
     biçiminde olmak zorundadır; aksi halde (alana veri yansıtılmışsa) hata verir.
+    ``instance`` istek yoludur ve rastgele hesap kimliğini (uuid) taşır: "...ab9183f1e306/..."
+    gibi bir yol "1e30" içerip testi düşürebilir (CI 09ac889). Alan çıkarılmadan önce istek
+    yolunun birebir aynısı olduğu doğrulanır; gövdeden yansıtma varsa yine yakalanır.
     """
     try:
         body = response.json()
@@ -32,4 +35,7 @@ def visible_text(response: httpx.Response) -> str:
     request_id = body.pop("request_id", None)
     if request_id is not None:
         assert isinstance(request_id, str) and _REQUEST_ID.match(request_id), request_id
+    instance = body.pop("instance", None)
+    if instance is not None:
+        assert instance == response.request.url.path, instance
     return json.dumps(body, ensure_ascii=False)

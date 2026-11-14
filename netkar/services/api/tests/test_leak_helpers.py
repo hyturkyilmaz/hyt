@@ -34,3 +34,20 @@ def test_reflection_inside_request_id_field_fails() -> None:
 def test_non_object_bodies_are_returned_as_is() -> None:
     assert visible_text(httpx.Response(200, json=[1, 2])) == "[1,2]"
     assert visible_text(httpx.Response(200, text="düz 1003")) == "düz 1003"
+
+
+def _resp_for(path: str, payload: object) -> httpx.Response:
+    return httpx.Response(422, json=payload, request=httpx.Request("PUT", f"http://test{path}"))
+
+
+def test_instance_path_is_excluded_but_must_equal_the_request_path() -> None:
+    path = "/v1/accounts/a396d971-2d9e-4edf-909f-ab9183f1e306/profit-settings/defaults"
+    r = _resp_for(path, {"type": "urn:x", "instance": path, "request_id": RID})
+    assert "1e30" in r.text  # yolda tesadüfi eşleşme var
+    assert "1e30" not in visible_text(r)
+
+
+def test_reflection_inside_instance_field_fails() -> None:
+    r = _resp_for("/v1/x", {"type": "urn:x", "instance": "/v1/x?desi=1e30"})
+    with pytest.raises(AssertionError):
+        visible_text(r)

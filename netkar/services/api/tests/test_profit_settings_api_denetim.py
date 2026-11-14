@@ -6,7 +6,6 @@ AD-03 migrasyon 0007 downgrade veri koruması. PoC'ler denetim raporu Ek A'dadı
 
 from __future__ import annotations
 
-import json
 import time
 import tracemalloc
 from collections.abc import Callable
@@ -24,6 +23,7 @@ import tests.test_report_perf as perf
 from app.api.v1 import profit_settings_schemas as schemas
 from app.services import profit_settings as ps
 from tests.conftest import Api
+from tests.leak_helpers import visible_text
 from tests.product_cost_helpers import Shop, fixed_today, make_shop_factory  # noqa: F401
 from tests.sync_helpers import make_seller
 from tests.test_profit_settings_api import confirmed, seed_head
@@ -193,10 +193,9 @@ def test_huge_json_numbers_are_validation_errors_not_500(
     response = raw(shop, method, suffix, body)
     assert response.status_code == 422, response.text
     assert {"field": field, "code": code} in response.json()["errors"], response.json()
-    # Girdi yansıtılmaz. Rastgele `request_id` (onaltılık) taramadan çıkarılır: "aa1e308e..." gibi bir kimlik
-    # "1e30" içerebilir ve kod doğruyken testi düşürür (CI ef9e6b2). Geri kalan gövdenin tamamı taranır.
-    reflected = {key: value for key, value in response.json().items() if key != "request_id"}
-    reflected_text = json.dumps(reflected, ensure_ascii=False)
+    # Girdi yansıtılmaz. Rastgele `request_id` ve hesap kimliği taşıyan `instance` yolu taramadan çıkarılır
+    # (CI ef9e6b2 ve 09ac889: kimlikler "1e30" içerebilir); ikisi de biçim/yol olarak ayrıca doğrulanır.
+    reflected_text = visible_text(response)
     assert HUGE_INT not in reflected_text and "1e30" not in reflected_text
     assert revision_in_db(admin_conn, shop) is None  # hiçbir şey yazılmadı
 
