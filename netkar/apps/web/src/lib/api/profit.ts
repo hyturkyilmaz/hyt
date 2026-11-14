@@ -1,0 +1,439 @@
+// Backend sözleşmesi: services/api/app/api/v1/profit.py ve profit_schemas.py.
+// Motor blokları KABLO adlarıyla (Türkçe) gelir; uç noktanın zarfı İngilizce snake_case'tir.
+// Para ve oran alanları kuruş hassasiyetli Decimal DİZGESİDİR ("12.50"); float'a çevrilmez.
+import { apiFetch } from '@/lib/api/client';
+
+export type Money = string;
+
+export type CertaintyLabel = 'kesin' | 'tahmini' | 'eksik' | 'iptal' | 'yok';
+export type MissingItemCode = 'urun_maliyeti' | 'kargo_gonderi' | 'platform_hizmet_bedeli';
+export type SourceCode =
+  | 'kesin'
+  | 'kesin_dagitim'
+  | 'tahmini'
+  | 'kullanici'
+  | 'eslesen'
+  | 'dagitim_tahmini'
+  | 'eksik'
+  | 'yok';
+export type LineStatus = 'estimated' | 'settled' | 'adjusted' | 'cancelled';
+export type LossReason = 'net_profit' | 'contribution_before_cost' | 'known_expenses';
+export type StatementBasis = 'estimated' | 'settled' | 'mixed' | 'none';
+
+export type RangeName = 'today' | '7d' | '30d';
+export type ProductSort = 'net_profit' | 'net_margin' | 'sales' | 'units';
+export type SortOrder = 'asc' | 'desc';
+export type ProductFilter = 'all' | 'loss' | 'missing_cost';
+export type OrderSort = 'date' | 'net_profit';
+export type OrderFilter = 'all' | 'loss' | 'awaiting_payout' | 'unexpected_deduction';
+
+export interface MarketplaceAccount {
+  id: string;
+  platform: string;
+  seller_id: string;
+  status: string;
+}
+
+export interface ReportPeriod {
+  start: string;
+  end: string;
+  days: number;
+}
+
+export interface MissingLineCounts {
+  urun_maliyeti: number;
+  kargo_gonderi: number;
+  platform_hizmet_bedeli: number;
+}
+
+export interface CertaintyLineCounts {
+  kesin: number;
+  tahmini: number;
+  eksik: number;
+}
+
+export interface FullLinesTotals {
+  satir_sayisi: number;
+  net_satis_kdv_haric: Money;
+  urun_maliyeti: Money;
+  komisyon: Money;
+  kargo_gonderi: Money;
+  kargo_iade: Money;
+  platform_hizmet_bedeli: Money;
+  ceza: Money;
+  reklam: Money;
+  degisken_giderler: Money;
+  toplam_gider: Money;
+  net_kar: Money;
+  net_kar_marji_yuzde: Money | null;
+}
+
+export interface PeriodTotals {
+  siparis_sayisi: number;
+  satir_sayisi: number;
+  net_satis_kdv_haric: Money;
+  donem_duzeyi_giderler_toplami: Money;
+  /** K39 Revizyon 1: kısmi dönemde null (bilinmeyen terim); null iken asla 0,00 gösterilmez. */
+  satir_net_kar_toplami?: Money | null;
+  donem_net_kar: Money | null;
+  /**
+   * K39 Revizyon 1: her dönemde sayı; eksik kalemler hariç bilinen giderlerle dönem kârı.
+   * Eski API yanıtında alan yoktur, bu yüzden isteğe bağlı tanımlıdır.
+   */
+  donem_eksik_giderler_haric_kar?: Money;
+  net_kar_kismi: boolean;
+  maliyet_eksik_satir_sayisi: number;
+  eksik_kalem_satir_sayilari: MissingLineCounts;
+  net_kar_marji_yuzde: Money | null;
+  tam_satirlar: FullLinesTotals;
+  kesinlik: CertaintyLabel;
+  kesinlik_satir_sayilari: CertaintyLineCounts;
+  uyarilar: string[];
+}
+
+export interface StatusCounts {
+  estimated: number;
+  settled: number;
+  adjusted: number;
+  cancelled: number;
+}
+
+/** Ayar sürümü (K44): her rapor yanıtında tamsayı; eski API'de yoktur. */
+export interface SettingsRevisioned {
+  settings_revision?: number;
+}
+
+export interface ProfitSummary extends SettingsRevisioned {
+  period: ReportPeriod;
+  totals: PeriodTotals;
+  status_counts: StatusCounts;
+  missing_cost_line_count: number;
+}
+
+export interface ProductProfitItem {
+  barcode: string;
+  title: string | null;
+  line_count: number;
+  quantity: number;
+  refunded_quantity: number;
+  net_sales_excl_vat: Money;
+  product_cost: Money | null;
+  total_expenses: Money | null;
+  net_profit: Money | null;
+  net_margin_percent: Money | null;
+  cost_missing: boolean;
+  certainty: CertaintyLabel;
+  missing_items: MissingItemCode[];
+  contribution_excl_missing: Money;
+  loss_reason: LossReason | null;
+  shipping_missing: boolean;
+}
+
+export interface ProductProfitList extends SettingsRevisioned {
+  period: ReportPeriod;
+  sort: string;
+  order: string;
+  filter: string;
+  total_count: number;
+  items: ProductProfitItem[];
+  next_cursor: string | null;
+}
+
+export interface ProductTotals {
+  barcode: string;
+  satir_sayisi: number;
+  adet: number;
+  adet_iade: number;
+  net_satis_kdv_haric: Money;
+  urun_maliyeti: Money | null;
+  komisyon: Money;
+  kargo_gonderi: Money;
+  kargo_iade: Money;
+  platform_hizmet_bedeli: Money;
+  ceza: Money;
+  degisken_giderler: Money;
+  /** Ürüne satırlar üzerinden dağıtılan reklam gideri (net kâra dahildir); eski API'de yoktur. */
+  reklam_satirlara_dagitilan?: Money;
+  /** Dönemde satışı olmayan ürüne yazılan reklam gideri; ürün net kârından düşülür (aggregate.py). Eski API'de yoktur. */
+  reklam_satissiz?: Money;
+  maliyet_haric_katki: Money;
+  eksik_giderler_haric_kar: Money;
+  net_kar: Money | null;
+  net_kar_marji_yuzde: Money | null;
+  maliyet_eksik: boolean;
+  eksik_kalem_satir_sayilari: MissingLineCounts;
+  kesinlik: CertaintyLabel;
+}
+
+export interface LineItems {
+  net_satis_kdv_haric: Money;
+  urun_maliyeti: Money | null;
+  komisyon: Money;
+  kargo_gonderi: Money;
+  kargo_iade: Money;
+  platform_hizmet_bedeli: Money;
+  ceza: Money;
+  reklam: Money;
+  degisken_giderler: Money;
+  toplam_gider: Money | null;
+  eksik_giderler_haric_kar: Money;
+  net_kar: Money | null;
+  net_kar_marji_yuzde: Money | null;
+}
+
+export interface LineSources {
+  satis: SourceCode;
+  komisyon: SourceCode;
+  urun_maliyeti: SourceCode;
+  kargo_gonderi: SourceCode;
+  kargo_iade: SourceCode;
+  platform_hizmet_bedeli: SourceCode;
+  ceza: SourceCode;
+  degisken_giderler: SourceCode;
+  reklam: SourceCode;
+}
+
+export interface LineComparison {
+  komisyon_tahmini: Money;
+  komisyon_kesin: Money;
+  kargo_gonderi_tahmini: Money | null;
+  kargo_gonderi_kesin: Money | null;
+  platform_hizmet_bedeli_tahmini: Money | null;
+  platform_hizmet_bedeli_kesin: Money | null;
+  kargo_tahmini_varsayilan_desi: boolean;
+  karsilastirilan_tahmini_toplam: Money;
+  karsilastirilan_kesin_toplam: Money;
+  fark: Money;
+  esik: Money;
+}
+
+export interface ProfitLine {
+  orderNumber: string;
+  shipmentPackageId: number;
+  lineId: number;
+  barcode: string;
+  durum: LineStatus;
+  adet: number;
+  adet_iade: number;
+  iade_kaydi_bekleyen_adet: number;
+  askidaki_urun_maliyeti: Money | null;
+  kesinlik: CertaintyLabel;
+  eksik_kalemler: MissingItemCode[];
+  kalemler: LineItems;
+  kaynaklar: LineSources;
+  karsilastirma: LineComparison | null;
+  uyarilar: string[];
+}
+
+export interface ComparisonSummary {
+  compared_line_count: number;
+  estimated_total: Money;
+  actual_total: Money;
+  difference: Money;
+}
+
+export interface ProductProfitDetail extends SettingsRevisioned {
+  period: ReportPeriod;
+  barcode: string;
+  title: string | null;
+  product: ProductTotals | null;
+  certainty: CertaintyLabel;
+  comparison: ComparisonSummary;
+  total_lines: number;
+  lines: ProfitLine[];
+  next_cursor: string | null;
+}
+
+/** Sipariş kartındaki ürün (OrderProductOut): katalogda yoksa `title` null. */
+export interface OrderProduct {
+  barcode: string;
+  title: string | null;
+}
+
+/**
+ * Sipariş kârlılık kartı (OrderListItemOut). Paralar KDV hariçtir, dönem düzeyi giderler dahil değildir.
+ * Tümüyle iptal siparişte `cancelled` true, tutar alanları null (0,00 gösterilmez). Müşteri verisi yoktur.
+ */
+export interface OrderListItem {
+  order_number: string;
+  ordered_on: string | null;
+  cancelled: boolean;
+  line_count: number;
+  cancelled_line_count: number;
+  products: OrderProduct[];
+  more_product_count: number;
+  net_sales_excl_vat: Money | null;
+  net_profit: Money | null;
+  /** Eksik giderler hariç kâr: yalnız etiketli gösterilir; iptalde null. */
+  known_expenses_profit: Money | null;
+  certainty: CertaintyLabel;
+  missing_items: MissingItemCode[];
+  cost_missing: boolean;
+  loss_reason: LossReason | null;
+  /** En az bir aktif satırın ekstresi henüz gelmemiş (ödeme durumu değildir). */
+  awaiting_payout: boolean;
+  unexpected_deduction: boolean;
+  status_counts: StatusCounts;
+}
+
+export interface OrderList extends SettingsRevisioned {
+  period: ReportPeriod;
+  sort: string;
+  order: string;
+  filter: string;
+  q: string | null;
+  total_count: number;
+  items: OrderListItem[];
+  next_cursor: string | null;
+}
+
+export interface OrderTotals {
+  line_count: number;
+  net_sales_excl_vat: Money;
+  total_expenses: Money | null;
+  net_profit: Money | null;
+  known_expenses_profit: Money;
+  cost_missing: boolean;
+  missing_items: MissingItemCode[];
+}
+
+/** Sipariş kırılımı (OrderDetailOut): satırlar ürün kırılımındaki satırlarla aynı biçimdedir. */
+export interface OrderDetail extends SettingsRevisioned {
+  period: ReportPeriod;
+  order_number: string;
+  ordered_on: string;
+  totals: OrderTotals;
+  status_counts: StatusCounts;
+  lines: ProfitLine[];
+}
+
+export interface AlertCount {
+  code: string;
+  count: number;
+  message: string;
+}
+
+/** BEKLENMEYEN_KESINTI kalem dökümü (AlertBreakdownItemOut). `difference` = kesin - tahmini; `compared` false ise toplama girmedi. */
+export interface AlertBreakdownItem {
+  item: 'commission' | 'outbound_shipping' | 'platform_service_fee';
+  estimated: Money | null;
+  actual: Money | null;
+  compared: boolean;
+  difference: Money | null;
+}
+
+/** `scope`: period (dönem geneli) ya da line (satır). Alan adları AlertOut şemasıyla aynıdır. */
+export interface AlertItem {
+  code: string;
+  scope: 'period' | 'line';
+  message: string;
+  order_number?: string | null;
+  package_id?: number | null;
+  line_id?: number | null;
+  barcode?: string | null;
+  net_profit?: Money | null;
+  known_expenses_profit?: Money | null;
+  difference?: Money | null;
+  threshold?: Money | null;
+  /** Yalnız BEKLENMEYEN_KESINTI; eski API'de yoktur. */
+  breakdown?: AlertBreakdownItem[] | null;
+  /** Yalnız BEKLENMEYEN_KESINTI: tahmini kargo varsayılan desiyle yapıldı; eski API'de yoktur. */
+  default_desi_used?: boolean | null;
+}
+
+/** Panelde beklenen ama motorun henüz üretmediği uyarı (UnavailableAlertOut). */
+export interface UnavailableAlert {
+  code: string;
+  reason: string;
+}
+
+export interface ProfitAlerts extends SettingsRevisioned {
+  period: ReportPeriod;
+  counts: AlertCount[];
+  total_count: number;
+  items: AlertItem[];
+  next_cursor: string | null;
+  not_yet_available: UnavailableAlert[];
+}
+
+function query(params: Record<string, string | number | null | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && value !== '') search.set(key, String(value));
+  }
+  const text = search.toString();
+  return text ? `?${text}` : '';
+}
+
+function base(accountId: string): string {
+  return `/marketplace-accounts/${encodeURIComponent(accountId)}/profit`;
+}
+
+export const profitApi = {
+  accounts: (signal?: AbortSignal) =>
+    apiFetch<MarketplaceAccount[]>('/marketplace-accounts', { signal }),
+
+  summary: (accountId: string, range: RangeName, signal?: AbortSignal) =>
+    apiFetch<ProfitSummary>(`${base(accountId)}/summary${query({ range })}`, { signal }),
+
+  /** Yalnız sayımlar için `limit=1` (özet kartı); liste için `alerts`. */
+  alertCounts: (accountId: string, range: RangeName, signal?: AbortSignal) =>
+    apiFetch<ProfitAlerts>(`${base(accountId)}/alerts${query({ range, limit: 1 })}`, { signal }),
+
+  /** Uyarı listesi: `code` ile tek koda süzülür; `counts` süzgeçten ve sayfalamadan bağımsız tüm dönemi sayar. */
+  alerts: (
+    accountId: string,
+    params: { range: RangeName; code?: string; cursor?: string | null; limit?: number },
+    signal?: AbortSignal,
+  ) => apiFetch<ProfitAlerts>(`${base(accountId)}/alerts${query(params)}`, { signal }),
+
+  products: (
+    accountId: string,
+    params: {
+      range: RangeName;
+      sort: ProductSort;
+      order: SortOrder;
+      filter: ProductFilter;
+      cursor?: string | null;
+      limit?: number;
+    },
+    signal?: AbortSignal,
+  ) => apiFetch<ProductProfitList>(`${base(accountId)}/products${query(params)}`, { signal }),
+
+  orders: (
+    accountId: string,
+    params: {
+      range: RangeName;
+      sort: OrderSort;
+      order: SortOrder;
+      filter: OrderFilter;
+      q?: string | null;
+      cursor?: string | null;
+      limit?: number;
+    },
+    signal?: AbortSignal,
+  ) => apiFetch<OrderList>(`${base(accountId)}/orders${query(params)}`, { signal }),
+
+  /** Dönem verilirse (listedeki start/end) ortak giderler listeyle aynı dağıtılır; sayılar birebir tutar. */
+  orderDetail: (
+    accountId: string,
+    orderNumber: string,
+    params: { start: string; end: string },
+    signal?: AbortSignal,
+  ) =>
+    apiFetch<OrderDetail>(
+      `${base(accountId)}/orders/${encodeURIComponent(orderNumber)}${query(params)}`,
+      { signal },
+    ),
+
+  productDetail: (
+    accountId: string,
+    barcode: string,
+    params: { range: RangeName; cursor?: string | null; limit?: number },
+    signal?: AbortSignal,
+  ) =>
+    apiFetch<ProductProfitDetail>(
+      `${base(accountId)}/products/${encodeURIComponent(barcode)}${query(params)}`,
+      { signal },
+    ),
+};

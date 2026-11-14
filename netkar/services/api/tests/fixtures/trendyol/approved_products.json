@@ -1,0 +1,120 @@
+{
+  "totalElements": 1,
+  "totalPages": 1,
+  "page": 0,
+  "size": 100,
+  "nextPageToken": "eyJzb3J0IjpbMTI3MTU4MTVdfQ==",
+  "content": [
+    {
+      "contentId": 12715815,
+      "productMainId": "12613876842A60",
+      "brand": {
+        "id": 315675,
+        "name": "SAHTEMARKA"
+      },
+      "category": {
+        "id": 91266,
+        "name": "Örnek Kategori"
+      },
+      "creationDate": 1760531038063,
+      "lastModifiedDate": 1760938781669,
+      "lastModifiedBy": "sahte.kullanici@example.invalid",
+      "title": "Açık Gri Tişört",
+      "description": "uzun açıklama",
+      "images": [
+        {
+          "url": "/mediacenter/1.jpg"
+        }
+      ],
+      "attributes": [
+        {
+          "attributeId": 47,
+          "attributeName": "Renk",
+          "attributeValue": "Black"
+        }
+      ],
+      "variants": [
+        {
+          "variantId": 70228905,
+          "supplierId": 99999999,
+          "barcode": "12613876842A60",
+          "commission": 7.83,
+          "attributes": [
+            {
+              "attributeId": 293,
+              "attributeName": "Beden",
+              "attributeValueId": 4602,
+              "attributeValue": "77 x 200 cm"
+            }
+          ],
+          "productUrl": "https://shop.example.invalid/abc/xyz-p-12715815",
+          "onSale": true,
+          "channels": [
+            "CORE",
+            "LUXE"
+          ],
+          "deliveryOption": {
+            "deliveryDuration": 0
+          },
+          "stock": {
+            "quantity": 5,
+            "lastModifiedDate": 1774948958844
+          },
+          "price": {
+            "salePrice": 222,
+            "listPrice": 249.9,
+            "priceSeenByCustomer": 169
+          },
+          "stockCode": "STK-stokum-1",
+          "origin": "AD",
+          "vatRate": 20,
+          "sellerCreatedDate": 1760534152000,
+          "sellerModifiedDate": 1761041127000,
+          "locked": false,
+          "archived": false,
+          "blacklisted": false
+        },
+        {
+          "variantId": 70229505,
+          "supplierId": 99999999,
+          "barcode": "12613876842A61",
+          "commission": 7.83,
+          "attributes": [
+            {
+              "attributeId": 293,
+              "attributeName": "Beden",
+              "attributeValueId": 4602,
+              "attributeValue": "77 x 200 cm"
+            }
+          ],
+          "productUrl": "https://shop.example.invalid/abc/xyz-p-12715815",
+          "onSale": true,
+          "channels": [
+            "CORE",
+            "LUXE"
+          ],
+          "deliveryOption": {
+            "deliveryDuration": 0
+          },
+          "stock": {
+            "quantity": 5,
+            "lastModifiedDate": 1774948958844
+          },
+          "price": {
+            "salePrice": 222,
+            "listPrice": 249.9,
+            "priceSeenByCustomer": 169
+          },
+          "stockCode": "STK-stokum-1",
+          "origin": "AD",
+          "vatRate": 20,
+          "sellerCreatedDate": 1760534152000,
+          "sellerModifiedDate": 1761041127000,
+          "locked": false,
+          "archived": false,
+          "blacklisted": false
+        }
+      ]
+    }
+  ]
+}

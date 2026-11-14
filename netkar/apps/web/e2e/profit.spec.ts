@@ -1,0 +1,1197 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Page, type Route } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+import {
+  ACCOUNT_ID,
+  SAMPLE_ALERT_COUNTS,
+  makeAccounts,
+  makeAlertItem,
+  makeAlerts,
+  makeDetail,
+  makeItem,
+  makeLine,
+  makeList,
+  makeOrderDetail,
+  makeOrderItem,
+  makeOrderList,
+  makePartialTotals,
+  makeSummary,
+  makeTotals,
+  makeUnconfiguredTotals,
+} from '../src/lib/profit/test-fixtures';
+import { makeCarriers, makeHistory, makeSettings } from '../src/lib/profit/settings-fixtures';
+import { signIn, waitForReady } from './helpers';
+
+// Rapor ekranları: tarayıcının /api/v1 istekleri Playwright route ile taklit edilir (sahte API yalnız
+// oturum için /v1/me yanıtlar). Ekran görüntüleri PW_SHOTS_DIR verilirse oraya yazılır.
+const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+const PROFIT = `/api/v1/marketplace-accounts/${ACCOUNT_ID}/profit`;
+const SETTINGS = `/api/v1/marketplace-accounts/${ACCOUNT_ID}/profit-settings`;
+
+interface Handlers {
+  summary?: (url: URL) => unknown;
+  alerts?: (url: URL) => { status?: number; body: unknown; delayMs?: number };
+  products?: (url: URL) => { status?: number; body: unknown };
+  detail?: (url: URL) => { status?: number; body: unknown };
+  orders?: (url: URL) => { status?: number; body: unknown; delayMs?: number };
+  orderDetail?: (url: URL) => { status?: number; body: unknown };
+}
+
+const requests: URL[] = [];
+
+async function fulfill(route: Route, status: number, body: unknown) {
+  await route.fulfill({
+    status,
+    contentType: status >= 400 ? 'application/problem+json' : 'application/json',
+    body: JSON.stringify(body),
+  });
+}
+
+async function mockApi(page: Page, handlers: Handlers) {
+  requests.length = 0;
+  await page.route('**/api/v1/**', async (route) => {
+    const url = new URL(route.request().url());
+    requests.push(url);
+    const path = url.pathname;
+    if (path === '/api/v1/marketplace-accounts') return fulfill(route, 200, makeAccounts());
+    // Ayarlar sayfası: kâr ayarları formunun okuma uçları
+    if (path === SETTINGS) return fulfill(route, 200, makeSettings());
+    if (path === `${SETTINGS}/carriers`) return fulfill(route, 200, makeCarriers());
+    if (path === `${SETTINGS}/history`) return fulfill(route, 200, makeHistory());
+    if (path === `${PROFIT}/summary`) {
+      return fulfill(route, 200, handlers.summary?.(url) ?? makeSummary());
+    }
+    if (path === `${PROFIT}/alerts`) {
+      const result = handlers.alerts?.(url) ?? { body: makeAlerts(SAMPLE_ALERT_COUNTS) };
+      if (result.delayMs) await new Promise((resolve) => setTimeout(resolve, result.delayMs));
+      return fulfill(route, result.status ?? 200, result.body);
+    }
+    if (path === `${PROFIT}/products`) {
+      // Özetin "zarar ettiren ürünler" bölümü de bu uca düşer; senaryo vermezse zarar listesi döner.
+      const result = handlers.products?.(url) ?? { body: makeList(ITEMS.slice(1, 4)) };
+      return fulfill(route, result.status ?? 200, result.body);
+    }
+    if (path === `${PROFIT}/orders` && handlers.orders) {
+      const result = handlers.orders(url);
+      if (result.delayMs) await new Promise((resolve) => setTimeout(resolve, result.delayMs));
+      return fulfill(route, result.status ?? 200, result.body);
+    }
+    if (path.startsWith(`${PROFIT}/orders/`) && handlers.orderDetail) {
+      const result = handlers.orderDetail(url);
+      return fulfill(route, result.status ?? 200, result.body);
+    }
+    if (path.startsWith(`${PROFIT}/products/`) && handlers.detail) {
+      const result = handlers.detail(url);
+      return fulfill(route, result.status ?? 200, result.body);
+    }
+    return fulfill(route, 404, {
+      type: 'urn:netkar:problem:not-found',
+      title: 'Bulunamadı',
+      status: 404,
+    });
+  });
+}
+
+// Mobilde kart, masaüstünde tablo görünür; ikisi de DOM'da olduğu için yalnız görünen eşleşme alınır.
+function visibleText(page: Page, text: string) {
+  return page.getByText(text).filter({ visible: true }).first();
+}
+
+function shotPath(name: string, project: string, scheme: string): string | undefined {
+  const dir = process.env.PW_SHOTS_DIR;
+  if (!dir) return undefined;
+  mkdirSync(dir, { recursive: true });
+  const device = project === 'mobil' ? 'mobil-390' : 'masaustu-1280';
+  return join(dir, `${name}-${device}${scheme === 'dark' ? '-koyu' : ''}.png`);
+}
+
+async function checkPage(page: Page, name: string, project: string, scheme: string) {
+  await waitForReady(page);
+  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.length} düğüm)`)).toEqual([]);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  const path = shotPath(name, project, scheme);
+  if (path) await page.screenshot({ path });
+}
+
+const ITEMS = [
+  makeItem({ barcode: 'BRK-0001', title: 'Örnek Ürün Çelik Termos 500 ml' }),
+  makeItem({
+    barcode: 'BRK-0002',
+    title: 'Silikon Kek Kalıbı Set',
+    net_profit: '-30.00',
+    net_margin_percent: '-8.0',
+    loss_reason: 'net_profit',
+    certainty: 'tahmini',
+  }),
+  makeItem({
+    barcode: 'BRK-0003',
+    title: 'Maliyeti Girilmemiş Bardak',
+    net_profit: null,
+    net_margin_percent: null,
+    loss_reason: 'contribution_before_cost',
+    cost_missing: true,
+    missing_items: ['urun_maliyeti'],
+    contribution_excl_missing: '-12.00',
+    certainty: 'eksik',
+  }),
+  makeItem({
+    barcode: 'BRK-0004',
+    title: 'Kargo Tarifesi Eksik Ürün',
+    net_profit: null,
+    net_margin_percent: null,
+    loss_reason: 'known_expenses',
+    shipping_missing: true,
+    missing_items: ['kargo_gonderi', 'platform_hizmet_bedeli'],
+    contribution_excl_missing: '-4.00',
+    certainty: 'eksik',
+  }),
+  makeItem({
+    barcode: 'BRK-0005',
+    title: 'Belirsiz Kâr Ürünü',
+    net_profit: null,
+    net_margin_percent: null,
+    missing_items: ['kargo_gonderi'],
+    contribution_excl_missing: '75.00',
+    shipping_missing: true,
+    certainty: 'eksik',
+  }),
+  // Y-3: aktif satırı olmayıp yalnız satışsız reklamı olan ürün (kesinlik yok, net kâr negatif)
+  makeItem({
+    barcode: 'BRK-0006',
+    title: 'Yalnız Reklamlı Ürün',
+    net_profit: '-25.00',
+    net_margin_percent: null,
+    loss_reason: 'net_profit',
+    certainty: 'yok',
+    contribution_excl_missing: '-25.00',
+  }),
+];
+
+for (const scheme of ['light', 'dark'] as const) {
+  test.describe(`rapor ekranları, ${scheme === 'light' ? 'açık' : 'koyu'} tema`, () => {
+    test.use({ colorScheme: scheme });
+
+    test.beforeEach(async ({ context }) => {
+      await signIn(context);
+    });
+
+    test('özet: başlık kartları, durum dağılımı, uyarılar; axe temiz', async ({
+      page,
+    }, testInfo) => {
+      await mockApi(page, {});
+      await page.goto('/panel?range=7d');
+      await expect(page.getByRole('heading', { level: 1, name: 'Özet' })).toBeVisible();
+      await expect(page.getByText('3.120,45', { exact: false }).first()).toBeVisible();
+      await expect(page.getByRole('heading', { level: 2, name: 'Dönem net kârı' })).toBeVisible();
+      await expect(page.getByText('Satır durumları')).toBeVisible();
+      await expect(page.getByText(/Zararına satış/)).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Kurulum uyarısı' })).toHaveCount(0);
+      await expect(page.getByText('Ayar sürümü 7')).toBeVisible();
+      // UX-08: uyarılar ekranı var; bağlantı dönemi taşır, sayı kartların toplamıdır
+      await expect(page.getByRole('link', { name: 'Tüm uyarılar (2 tür)' })).toHaveAttribute(
+        'href',
+        '/panel/uyarilar?range=7d',
+      );
+      // UX-03 ve UX-04: en büyük zarar üstte; net kârı null kesin zarar (-12) da listede, "en az" ile
+      const losses = page.getByRole('region', { name: 'Zarar ettiren ürünler' });
+      await expect(losses.getByRole('listitem').first()).toContainText('Silikon Kek Kalıbı Set');
+      await expect(losses.getByRole('listitem').nth(1)).toContainText('Maliyeti Girilmemiş Bardak');
+      await expect(losses.getByRole('listitem').nth(1)).toContainText('En az ₺12,00 zarar');
+      expect(
+        requests.some(
+          (u) => u.pathname.endsWith('/summary') && u.searchParams.get('range') === '7d',
+        ),
+      ).toBe(true);
+      await checkPage(page, 'rapor-ozet', testInfo.project.name, scheme);
+    });
+
+    test('özet: ayarsız hesapta (durum C) net kâr hesaplanamadı, 0,00 yok, bilinen kâr kırmızı, ayar çıkmazı yok', async ({
+      page,
+    }, testInfo) => {
+      await mockApi(page, { summary: () => makeSummary(makeUnconfiguredTotals()) });
+      await page.goto('/panel');
+      const heading = page.getByRole('heading', { level: 2, name: 'Dönem net kârı hesaplanamadı' });
+      await expect(heading).toBeVisible();
+      const card = heading.locator('xpath=ancestor::div[2]');
+      await expect(card).toContainText('12 satırda kargo, 12 satırda hizmet bedeli tahmini eksik.');
+      await expect(card).not.toContainText('0,00');
+      await expect(card).toContainText('Eksik giderler hariç dönem kârı');
+      await expect(card).toContainText('-₺17,35');
+      await expect(card.getByText('Bilinen giderlerle bile zarar')).toBeVisible();
+      // Gider ve marj kartları, eksiksiz satır bloğu çizilmez
+      await expect(page.getByRole('heading', { name: 'Toplam gider' })).toHaveCount(0);
+      await expect(page.getByRole('heading', { name: 'Net kâr marjı' })).toHaveCount(0);
+      // Ayar formu açık: fayda dilli başlık ve eksik kalem başına derin bağlantı
+      const banner = page.getByRole('region', { name: 'Kurulum uyarısı' });
+      await expect(banner).toContainText(
+        'Net kârı görmek için kargo tarifesini ve hizmet bedelini girin',
+      );
+      await expect(banner).toContainText('ayarlardan girilir');
+      await expect(banner).toContainText(
+        'Girene kadar bu rakamlar bilinen giderlerle hesaplanıyor',
+      );
+      await expect(banner).not.toContainText('çok yakında');
+      // Y-4: bilinen kâr bloğu uyarı kutusunun üstünde (mobilde de rakam önce görünür)
+      const knownBox = await card
+        .getByRole('heading', { name: 'Eksik giderler hariç dönem kârı' })
+        .boundingBox();
+      const bannerBox = await banner.boundingBox();
+      expect(knownBox!.y).toBeLessThan(bannerBox!.y);
+      await expect(banner.getByRole('link', { name: 'Kargo tarifesini gir' })).toHaveAttribute(
+        'href',
+        '/panel/ayarlar#kargo',
+      );
+      await expect(banner.getByRole('link', { name: 'Hizmet bedelini gir' })).toHaveAttribute(
+        'href',
+        '/panel/ayarlar#hizmet-bedeli',
+      );
+      await checkPage(page, 'rapor-ozet-ayarsiz', testInfo.project.name, scheme);
+    });
+
+    test('özet: kısmi dönem, eksiksiz satır var (durum B); bilinen kâr nötr; axe temiz', async ({
+      page,
+    }, testInfo) => {
+      await mockApi(page, { summary: () => makeSummary(makePartialTotals()) });
+      await page.goto('/panel');
+      const heading = page.getByRole('heading', { level: 2, name: 'Dönem net kârı hesaplanamadı' });
+      await expect(heading).toBeVisible();
+      const card = heading.locator('xpath=ancestor::div[2]');
+      await expect(card).toContainText('Eksik giderler hariç dönem kârı');
+      await expect(card).toContainText('(kargo hariç)');
+      await expect(card).toContainText('1.240,00');
+      await expect(card).toContainText('Kargo düşülünce bu rakam azalır.');
+      await expect(
+        card.getByRole('heading', { name: 'Eksiksiz satırların net kârı' }),
+      ).toBeVisible();
+      await expect(card).toContainText('20 eksiksiz satır, dönem giderleri hariç.');
+      await expect(
+        page.getByText('Eksiksiz satırların marjı, dönem giderleri hariç'),
+      ).toBeVisible();
+      await checkPage(page, 'rapor-ozet-kismi', testInfo.project.name, scheme);
+    });
+
+    test('ayarlar: gerçek hesap durumu ve kâr ayarları formu; axe temiz', async ({
+      page,
+    }, testInfo) => {
+      await mockApi(page, {});
+      await page.goto('/panel/ayarlar');
+      await expect(page.getByRole('heading', { level: 1, name: 'Ayarlar' })).toBeVisible();
+      await expect(page.getByText('Bağlı', { exact: true })).toBeVisible();
+      await expect(page.getByText('Bağlı değil')).toHaveCount(0);
+      await expect(page.getByText('Satıcı numarası:')).toBeVisible();
+      await expect(page.getByRole('heading', { level: 2, name: 'Kargo tarifesi' })).toBeVisible();
+      await expect(page.getByText(/çok yakında/)).toHaveCount(0);
+      await checkPage(page, 'panel-ayarlar-bagli', testInfo.project.name, scheme);
+    });
+
+    test('ürünler: liste, rozetler, mobilde kart ve masaüstünde tablo; axe temiz', async ({
+      page,
+    }, testInfo) => {
+      await mockApi(page, { products: () => ({ body: makeList(ITEMS) }) });
+      await page.goto('/panel/urunler');
+      await expect(page.getByRole('heading', { level: 1, name: 'Ürünler' })).toBeVisible();
+
+      if (testInfo.project.name === 'mobil') {
+        await expect(page.getByRole('list', { name: 'Ürün listesi' })).toBeVisible();
+        await expect(page.getByRole('table')).toBeHidden();
+      } else {
+        await expect(page.getByRole('table', { name: 'Ürün kârlılık tablosu' })).toBeVisible();
+        await expect(page.getByRole('list', { name: 'Ürün listesi' })).toBeHidden();
+      }
+      const visible = page.locator(
+        testInfo.project.name === 'mobil' ? 'ul[aria-label="Ürün listesi"]' : 'table',
+      );
+      await expect(visible.getByText('Zarar', { exact: true }).first()).toBeVisible();
+      await expect(visible.getByText('Maliyet girilmese de zarar')).toBeVisible();
+      await expect(visible.getByText('Bilinen giderlerle bile zarar')).toBeVisible();
+      await expect(visible.getByText('Belirsiz', { exact: true })).toBeVisible();
+      // UX-07 ve Y-5: kesin zarardaki ama net kârı null ürün kırmızı "En az ₺... zarar" ve "Net kâr hesaplanamadı" gösterir
+      await expect(visible.getByText('En az ₺4,00 zarar').first()).toBeVisible();
+      await expect(visible.getByText('Net kâr hesaplanamadı').first()).toBeVisible();
+      // Y-3: yalnız satışsız reklamı olan ürün zarardır, İptal değil
+      await expect(visible.getByText('Yalnız Reklamlı Ürün')).toBeVisible();
+      await expect(visible.getByText('İptal', { exact: true })).toHaveCount(0);
+      await expect(
+        visible.getByText('Kargo ve hizmet bedeli düşülünce bu rakam azalır.'),
+      ).toBeVisible();
+      // UX-10: tekrar eden "Kargo eksik" ve "Bilgi eksik" rozetleri yok
+      await expect(visible.getByText('Kargo eksik')).toHaveCount(0);
+      await expect(visible.getByText('Bilgi eksik')).toHaveCount(0);
+      await checkPage(page, 'rapor-urunler', testInfo.project.name, scheme);
+    });
+
+    test('ürün kırılımı: satır, kaynaklar, iade notu, karşılaştırma; axe temiz', async ({
+      page,
+    }, testInfo) => {
+      const lines = [
+        makeLine(),
+        makeLine({
+          orderNumber: '10002',
+          lineId: 9002,
+          durum: 'adjusted',
+          kesinlik: 'tahmini',
+          uyarilar: ['IADE_KAYDI_BEKLENIYOR'],
+          askidaki_urun_maliyeti: '120.00',
+          kalemler: { ...makeLine().kalemler, net_kar: '-80.00' },
+        }),
+        makeLine({
+          orderNumber: '10003',
+          lineId: 9003,
+          durum: 'estimated',
+          kesinlik: 'eksik',
+          eksik_kalemler: ['kargo_gonderi'],
+          kalemler: {
+            ...makeLine().kalemler,
+            kargo_gonderi: '0.00',
+            net_kar: null,
+            toplam_gider: null,
+            eksik_giderler_haric_kar: '84.17',
+          },
+          kaynaklar: {
+            ...makeLine().kaynaklar,
+            kargo_gonderi: 'eksik',
+            platform_hizmet_bedeli: 'tahmini',
+          },
+        }),
+        makeLine({
+          orderNumber: '10004',
+          lineId: 9004,
+          uyarilar: ['BEKLENMEYEN_KESINTI', 'KARGO_DESI_VARSAYILAN'],
+          karsilastirma: {
+            komisyon_tahmini: '37.50',
+            komisyon_kesin: '37.50',
+            kargo_gonderi_tahmini: '45.00',
+            kargo_gonderi_kesin: '120.00',
+            platform_hizmet_bedeli_tahmini: '8.33',
+            platform_hizmet_bedeli_kesin: '8.33',
+            kargo_tahmini_varsayilan_desi: true,
+            karsilastirilan_tahmini_toplam: '90.83',
+            karsilastirilan_kesin_toplam: '165.83',
+            fark: '75.00',
+            esik: '5.00',
+          },
+        }),
+      ];
+      await mockApi(page, { detail: () => ({ body: makeDetail(lines) }) });
+      await page.goto('/panel/urunler/BRK-0001?range=7d');
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Örnek Ürün Çelik Termos 500 ml' }),
+      ).toBeVisible();
+      await expect(page.getByRole('note')).toContainText('İade kaydı bekleniyor.');
+      await expect(
+        page.getByRole('region', { name: 'Tahmini ve kesin karşılaştırması' }),
+      ).toContainText('Siparişte desi yoksa varsayılan desi farkı olabilir.');
+      await checkPage(page, 'rapor-urun-kirilim', testInfo.project.name, scheme);
+    });
+
+    test('ürün kırılımı: kesin zarar, tüm gider satırları ve ayar sürümü; axe temiz', async ({
+      page,
+    }, testInfo) => {
+      const base = makeDetail([makeLine()]);
+      // Görünen satırlar bilinen kârla tutar: 1250 - 729,85 - 187,50 - 225 - 20 - 41,65 - 10 - 15 - 25 = -4,00
+      const product = {
+        ...base.product!,
+        urun_maliyeti: '729.85',
+        kargo_iade: '20.00',
+        ceza: '10.00',
+        degisken_giderler: '15.00',
+        reklam_satirlara_dagitilan: '25.00',
+        net_kar: null,
+        net_kar_marji_yuzde: null,
+        eksik_giderler_haric_kar: '-4.00',
+        eksik_kalem_satir_sayilari: {
+          urun_maliyeti: 0,
+          kargo_gonderi: 2,
+          platform_hizmet_bedeli: 2,
+        },
+        kesinlik: 'eksik' as const,
+      };
+      await mockApi(page, {
+        detail: () => ({ body: { ...base, product, certainty: 'eksik' as const } }),
+      });
+      await page.goto('/panel/urunler/BRK-0001');
+      const card = page
+        .getByRole('heading', { level: 2, name: 'Ürün net kârı' })
+        .locator('xpath=ancestor::div[2]');
+      await expect(card).toContainText('Kargo iadesi');
+      await expect(card.getByText('Reklam', { exact: true })).toBeVisible();
+      // Y-6: kısmen eksik kalem bilinen tutarı da gösterir
+      await expect(card).toContainText('₺225,00');
+      await expect(card).toContainText('+ 2 satırda eksik');
+      await expect(card).toContainText('Bilinen giderlerle bile zarar');
+      await expect(card).toContainText('-₺4,00');
+      await expect(page.getByText('Ayar sürümü 7')).toBeVisible();
+      await checkPage(page, 'rapor-urun-kirilim-zarar', testInfo.project.name, scheme);
+    });
+  });
+}
+
+test.describe('rapor ekranları, davranış', () => {
+  test.beforeEach(async ({ context }) => {
+    await signIn(context);
+  });
+
+  test('dönem seçici URL range parametresini değiştirir', async ({ page }) => {
+    await mockApi(page, {});
+    await page.goto('/panel');
+    await expect(page.getByText('Satır durumları')).toBeVisible();
+    await page
+      .getByRole('navigation', { name: 'Dönem' })
+      .getByRole('link', { name: '7 gün' })
+      .click();
+    await expect(page).toHaveURL(/\/panel\?range=7d$/);
+    await expect(
+      page.getByRole('navigation', { name: 'Dönem' }).getByRole('link', { name: '7 gün' }),
+    ).toHaveAttribute('aria-current', 'true');
+    await expect
+      .poll(() =>
+        requests.some(
+          (u) => u.pathname.endsWith('/summary') && u.searchParams.get('range') === '7d',
+        ),
+      )
+      .toBe(true);
+  });
+
+  test('ürünler: sıralama ve süzgeç URL de tutulur; satıra tıklayınca kırılım açılır', async ({
+    page,
+  }) => {
+    await mockApi(page, {
+      products: () => ({ body: makeList(ITEMS) }),
+      detail: () => ({ body: makeDetail([makeLine()]) }),
+    });
+    await page.goto('/panel/urunler?range=7d');
+    await expect(page.getByRole('heading', { level: 1, name: 'Ürünler' })).toBeVisible();
+
+    await page.getByLabel('Sırala').selectOption('sales');
+    await expect(page).toHaveURL(/range=7d&sort=sales/);
+    await page.getByLabel('Yön').selectOption('asc');
+    await expect(page).toHaveURL(/range=7d&sort=sales&order=asc/);
+    await page.getByRole('link', { name: 'Zarar edenler' }).click();
+    // Zarar süzgecinde varsayılan yön artan (en çok zarar önce); URL'de order yazılmaz (UX-04)
+    await expect(page).toHaveURL(/range=7d&sort=sales&filter=loss$/);
+    await expect
+      .poll(() =>
+        requests.some(
+          (u) =>
+            u.pathname.endsWith('/products') &&
+            u.searchParams.get('sort') === 'sales' &&
+            u.searchParams.get('order') === 'asc' &&
+            u.searchParams.get('filter') === 'loss',
+        ),
+      )
+      .toBe(true);
+
+    await page.getByRole('link', { name: 'Örnek Ürün Çelik Termos 500 ml' }).first().click();
+    await expect(page).toHaveURL(/\/panel\/urunler\/BRK-0001\?range=7d$/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Örnek Ürün Çelik Termos 500 ml' }),
+    ).toBeVisible();
+    await page.getByRole('link', { name: /Ürünlere dön/ }).click();
+    await expect(page).toHaveURL(/\/panel\/urunler\?range=7d$/);
+  });
+
+  test('ürünler: daha fazla yükle ve imleç hatasında baştan yükleme', async ({ page }) => {
+    let firstServed = 0;
+    await mockApi(page, {
+      products: (url) => {
+        const cursor = url.searchParams.get('cursor');
+        if (cursor === 'eski') {
+          return {
+            status: 422,
+            body: {
+              type: 'urn:netkar:problem:validation-error',
+              title: 'Doğrulama hatası',
+              status: 422,
+              errors: [{ field: 'cursor', code: 'cursor_invalid' }],
+            },
+          };
+        }
+        firstServed += 1;
+        return {
+          body: makeList(
+            [
+              makeItem({
+                barcode: 'S1',
+                title: firstServed === 1 ? 'Eski Liste Ürünü' : 'Yeni Liste Ürünü',
+              }),
+            ],
+            { next_cursor: firstServed === 1 ? 'eski' : null },
+          ),
+        };
+      },
+    });
+    await page.goto('/panel/urunler');
+    await expect(visibleText(page, 'Eski Liste Ürünü')).toBeVisible();
+    await page.getByRole('button', { name: 'Daha fazla yükle' }).click();
+    await expect(visibleText(page, 'Yeni Liste Ürünü')).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'baştan yüklendi' })).toBeVisible();
+    await expect(page.getByText('Eski Liste Ürünü')).toHaveCount(0);
+  });
+
+  test('hata durumunda ayrıntı yok, tekrar dene çalışır', async ({ page }) => {
+    let fail = true;
+    await mockApi(page, {
+      products: () =>
+        fail
+          ? { status: 503, body: { type: 'urn:netkar:problem:busy', title: 'Meşgul', status: 503 } }
+          : { body: makeList(ITEMS) },
+    });
+    await page.goto('/panel/urunler');
+    await expect(page.getByRole('alert').filter({ hasText: 'Rapor şu an yoğun' })).toBeVisible();
+    fail = false;
+    await page.getByRole('button', { name: 'Tekrar dene' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Ürünler' })).toBeVisible();
+    await expect(visibleText(page, 'Silikon Kek Kalıbı Set')).toBeVisible();
+  });
+
+  test('yükleniyor durumu duyurulur', async ({ page }) => {
+    await mockApi(page, {
+      products: () => ({ body: makeList(ITEMS) }),
+    });
+    await page.route('**/api/v1/marketplace-accounts', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await fulfill(route, 200, makeAccounts());
+    });
+    await page.goto('/panel/urunler');
+    await expect(page.getByRole('status').filter({ hasText: 'Yükleniyor' })).toBeVisible();
+    await expect(visibleText(page, 'Silikon Kek Kalıbı Set')).toBeVisible();
+  });
+
+  test('özet kısmi dönem: eksiksiz satırlar bloğu ve etiketli marj', async ({ page }) => {
+    const base = makeTotals();
+    await mockApi(page, {
+      summary: () =>
+        makeSummary(
+          makeTotals({
+            net_kar_kismi: true,
+            donem_net_kar: '-10.00',
+            net_kar_marji_yuzde: '-5.45',
+            eksik_kalem_satir_sayilari: {
+              urun_maliyeti: 0,
+              kargo_gonderi: 4,
+              platform_hizmet_bedeli: 0,
+            },
+            tam_satirlar: {
+              ...base.tam_satirlar,
+              satir_sayisi: 20,
+              net_kar: '800.00',
+              net_kar_marji_yuzde: '12.5',
+            },
+          }),
+        ),
+    });
+    await page.goto('/panel');
+    await expect(page.getByText('20 eksiksiz satır, dönem giderleri hariç.')).toBeVisible();
+    await expect(page.getByText('Eksiksiz satırların marjı, dönem giderleri hariç')).toBeVisible();
+    await expect(page.getByText('-5,5')).toHaveCount(0);
+    // Eski biçimde kısmi dönemde dolu gelen donem_net_kar asla gösterilmez
+    await expect(page.getByText('-₺10,00')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Kurulum uyarısı' })).toContainText(
+      'Net kârı görmek için kargo tarifesini girin',
+    );
+    // Y-7: eksiksiz satır bloğu etiketi
+    await expect(page.getByRole('heading', { name: 'Eksiksiz satırların net kârı' })).toBeVisible();
+  });
+
+  test('özet: zarar ettiren ürünler "Tümünü gör" zarar süzgecini en çok zarar önce açar', async ({
+    page,
+  }) => {
+    await mockApi(page, {
+      products: (url) => ({
+        body: makeList(url.searchParams.get('limit') === '3' ? ITEMS.slice(1, 4) : ITEMS, {
+          filter: url.searchParams.get('filter') ?? 'all',
+        }),
+      }),
+    });
+    await page.goto('/panel?range=7d');
+    const losses = page.getByRole('region', { name: 'Zarar ettiren ürünler' });
+    await expect(losses.getByRole('listitem').first()).toContainText('Silikon Kek Kalıbı Set');
+    await losses.getByRole('link', { name: /Tümünü gör/ }).click();
+    await expect(page).toHaveURL(/\/panel\/urunler\?range=7d&filter=loss$/);
+    await expect(page.getByRole('link', { name: 'Zarar edenler' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    await expect
+      .poll(() =>
+        requests.some(
+          (u) =>
+            u.pathname.endsWith('/products') &&
+            u.searchParams.get('filter') === 'loss' &&
+            u.searchParams.get('order') === 'asc' &&
+            u.searchParams.get('limit') === '50',
+        ),
+      )
+      .toBe(true);
+    // Y-1: AD-04 ile eksikli zararlar doğru sıralanır; "listenin sonunda" notu yok
+    await expect(page.getByText(/listenin sonunda/)).toHaveCount(0);
+  });
+});
+
+// Uyarılar ekranı (/alerts sahte yanıtlarla). Sabit tarih yok: dönem fixture'dan gelir.
+const MANY_CODES = [
+  { code: 'ZARAR', count: 3, message: 'sistem metni' },
+  { code: 'BEKLENMEYEN_KESINTI', count: 2, message: 'sistem metni' },
+  { code: 'MALIYET_EKSIK', count: 2, message: 'sistem metni' },
+  { code: 'KARGO_TARIFESI_EKSIK', count: 4, message: 'sistem metni' },
+  { code: 'HIZMET_BEDELI_TAHMINI_EKSIK', count: 4, message: 'sistem metni' },
+  { code: 'KARGO_DESI_VARSAYILAN', count: 1, message: 'sistem metni' },
+  { code: 'IADE_KAYDI_BEKLENIYOR', count: 1, message: 'sistem metni' },
+  { code: 'KARGO_EKSIK_SATIRLAR_VAR', count: 1, message: 'sistem metni' },
+];
+
+const NOT_YET = [
+  { code: 'REKLAM_KARI_YIYOR', reason: 'Reklam harcaması kayıtları henüz yok' },
+  { code: 'IADE_ORANI_ARTISI', reason: 'S6' },
+];
+
+for (const scheme of ['light', 'dark'] as const) {
+  test.describe(`uyarılar ekranı, ${scheme === 'light' ? 'açık' : 'koyu'} tema`, () => {
+    // Ekran görüntüleri iki kat yoğunlukla alınır (masaüstü projesi varsayılan olarak 1 kat)
+    test.use({ colorScheme: scheme, deviceScaleFactor: 2 });
+
+    test.beforeEach(async ({ context }) => {
+      await signIn(context);
+    });
+
+    test('çok kodlu durum: gruplar, kartlar, etkilenen siparişler; axe temiz', async ({
+      page,
+    }, testInfo) => {
+      await mockApi(page, {
+        alerts: (url) =>
+          url.searchParams.get('code') === 'BEKLENMEYEN_KESINTI'
+            ? {
+                body: makeAlerts(MANY_CODES, {
+                  items: [
+                    makeAlertItem(),
+                    makeAlertItem({
+                      order_number: '10009',
+                      line_id: 9009,
+                      difference: '12.40',
+                      default_desi_used: true,
+                      breakdown: [
+                        {
+                          item: 'commission',
+                          estimated: '10.00',
+                          actual: '10.40',
+                          compared: true,
+                          difference: '0.40',
+                        },
+                        {
+                          item: 'outbound_shipping',
+                          estimated: '20.00',
+                          actual: '32.00',
+                          compared: true,
+                          difference: '12.00',
+                        },
+                        {
+                          item: 'platform_service_fee',
+                          estimated: null,
+                          actual: '3.00',
+                          compared: false,
+                          difference: null,
+                        },
+                      ],
+                    }),
+                  ],
+                }),
+              }
+            : { body: makeAlerts(MANY_CODES, { not_yet_available: NOT_YET }) },
+      });
+      await page.goto('/panel/uyarilar?range=7d');
+      await expect(page.getByRole('heading', { level: 1, name: 'Uyarılar' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Para kaybettirenler' }),
+      ).toBeVisible();
+      const groupNames = await page
+        .getByRole('heading', { level: 2 })
+        .filter({ hasText: /Para kaybettirenler|Kurulum|Bilgi ve kontrol|Henüz hesaplanmayan/ })
+        .allTextContents();
+      expect(groupNames).toEqual([
+        'Para kaybettirenler',
+        'Kurulum',
+        'Bilgi ve kontrol',
+        'Henüz hesaplanmayan uyarılar',
+      ]);
+      const loss = page.getByRole('region', { name: 'Para kaybettirenler' });
+      // SU-06: eylem sipariş düzeyine gider ve cümle sayının satır olduğunu söyler
+      await expect(loss.getByRole('link', { name: 'Zarar eden siparişleri gör' })).toHaveAttribute(
+        'href',
+        '/panel/siparisler?range=7d&filter=loss',
+      );
+      await expect(loss).toContainText('Sayı satış satırı sayısıdır');
+      const setup = page.getByRole('region', { name: 'Kurulum' });
+      await expect(
+        setup.getByRole('link', { name: 'Hizmet bedelini gir' }).first(),
+      ).toHaveAttribute('href', '/panel/ayarlar#hizmet-bedeli');
+      // İade kaydı bilgi tonunda, eylemsiz; sistem metni değil katalog cümlesi
+      const info = page.getByRole('region', { name: 'Bilgi ve kontrol' });
+      await expect(info).toContainText('İade kaydı henüz gelmedi');
+      await expect(info).not.toContainText('sistem metni');
+      await expect(page.getByText('Reklam kârı yiyor')).toBeVisible();
+      await expect(page.getByText('Reklam harcaması kayıtları')).toHaveCount(0);
+
+      await loss.getByRole('button', { name: 'Etkilenen siparişleri göster' }).click();
+      const list = loss.getByRole('list', { name: 'Etkilenen siparişler' });
+      await expect(list).toContainText('10004');
+      await expect(list).toContainText('₺12,40');
+      // SU-05: kalem dökümü ve koşullu desi ipucu (kargo farkı baskın, varsayılan desi kullanıldı)
+      await expect(list.getByRole('table')).toHaveCount(1);
+      await expect(list).toContainText('Tahmini kargo varsayılan desiyle hesaplandı');
+      await expect(list.getByRole('link', { name: 'Ürün: BRK-0001' }).first()).toHaveAttribute(
+        'href',
+        '/panel/urunler/BRK-0001?range=7d',
+      );
+      await checkPage(page, 'panel-uyarilar-dolu', testInfo.project.name, scheme);
+    });
+
+    test('boş durum: uyarı yok; axe temiz', async ({ page }, testInfo) => {
+      await mockApi(page, {
+        alerts: () => ({ body: makeAlerts([], { not_yet_available: NOT_YET }) }),
+      });
+      await page.goto('/panel/uyarilar');
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Bu dönemde uyarı yok' }),
+      ).toBeVisible();
+      await expect(page.getByText('Ayar sürümü 7')).toBeVisible();
+      await checkPage(page, 'panel-uyarilar-bos', testInfo.project.name, scheme);
+    });
+
+    test('hata durumu: ayrıntı yok, Tekrar dene; axe temiz', async ({ page }, testInfo) => {
+      await mockApi(page, {
+        alerts: () => ({
+          status: 500,
+          body: { type: 'urn:netkar:problem:internal-error', title: 'Sunucu hatası', status: 500 },
+        }),
+      });
+      await page.goto('/panel/uyarilar');
+      const alert = page.getByRole('alert').filter({ hasText: 'Uyarılar yüklenemedi' });
+      await expect(alert).toBeVisible();
+      await expect(alert).not.toContainText('internal-error');
+      await expect(alert.getByRole('button', { name: 'Tekrar dene' })).toBeVisible();
+      await checkPage(page, 'panel-uyarilar-hata', testInfo.project.name, scheme);
+    });
+
+    test('bilinmeyen kod: genel kartta güvenle gösterilir; axe temiz', async ({
+      page,
+    }, testInfo) => {
+      await mockApi(page, {
+        alerts: () => ({
+          body: makeAlerts([
+            { code: 'ZARAR', count: 1, message: 'z' },
+            { code: 'YENI_UYARI', count: 7, message: '<img src=x onerror="window.__xss=1"> yeni' },
+          ]),
+        }),
+      });
+      await page.goto('/panel/uyarilar');
+      const other = page.getByRole('region', { name: 'Diğer uyarılar' });
+      await expect(
+        other.getByRole('heading', { level: 3, name: 'Tanınmayan uyarı' }),
+      ).toBeVisible();
+      await expect(other).toContainText('<img src=x onerror="window.__xss=1"> yeni');
+      await expect(other.locator('img')).toHaveCount(0);
+      expect(
+        await page.evaluate(() => (window as unknown as { __xss?: number }).__xss),
+      ).toBeUndefined();
+      await checkPage(page, 'panel-uyarilar-bilinmeyen', testInfo.project.name, scheme);
+    });
+
+    test('yükleniyor durumu: iskelet ve duyuru; axe temiz', async ({ page }, testInfo) => {
+      await mockApi(page, {
+        alerts: () => ({ body: makeAlerts(MANY_CODES), delayMs: 1500 }),
+      });
+      await page.goto('/panel/uyarilar');
+      await expect(page.getByRole('status').filter({ hasText: 'Yükleniyor' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1, name: 'Uyarılar' })).toBeVisible();
+      await checkPage(page, 'panel-uyarilar-yukleniyor', testInfo.project.name, scheme);
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Para kaybettirenler' }),
+      ).toBeVisible();
+    });
+  });
+}
+
+test.describe('uyarılar ekranı, davranış', () => {
+  test.beforeEach(async ({ context }) => {
+    await signIn(context);
+  });
+
+  test('dönem seçici range parametresiyle uyarıları yeniden ister', async ({ page }) => {
+    await mockApi(page, { alerts: () => ({ body: makeAlerts(MANY_CODES) }) });
+    await page.goto('/panel/uyarilar');
+    await expect(page.getByRole('heading', { level: 2, name: 'Kurulum' })).toBeVisible();
+    await page
+      .getByRole('navigation', { name: 'Dönem' })
+      .getByRole('link', { name: '7 gün' })
+      .click();
+    await expect(page).toHaveURL(/\/panel\/uyarilar\?range=7d$/);
+    await expect
+      .poll(() =>
+        requests.some(
+          (u) => u.pathname.endsWith('/alerts') && u.searchParams.get('range') === '7d',
+        ),
+      )
+      .toBe(true);
+  });
+
+  test('özetteki "Tüm uyarılar" bağlantısı uyarılar ekranını açar', async ({ page }) => {
+    await mockApi(page, { alerts: () => ({ body: makeAlerts(MANY_CODES) }) });
+    await page.goto('/panel?range=7d');
+    await page.getByRole('link', { name: /^Tüm uyarılar \(7 tür\)$/ }).click();
+    await expect(page).toHaveURL(/\/panel\/uyarilar\?range=7d$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Uyarılar' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Para kaybettirenler' }),
+    ).toBeVisible();
+  });
+});
+
+// Siparişler ekranı (/orders ve /orders/{no} sahte yanıtlarla). Sabit tarih yok: dönem fixture'dan gelir.
+const ORDER_ITEMS = [
+  makeOrderItem({
+    order_number: '10001',
+    products: [
+      { barcode: 'BRK-0001', title: 'Örnek Ürün Çelik Termos 500 ml' },
+      { barcode: 'BRK-0002', title: 'Silikon Kek Kalıbı Set' },
+    ],
+    more_product_count: 2,
+    line_count: 4,
+    net_sales_excl_vat: '1250.00',
+    net_profit: '210.50',
+    certainty: 'tahmini',
+    awaiting_payout: true,
+  }),
+  makeOrderItem({
+    order_number: '10002',
+    ordered_on: '2026-11-08',
+    net_profit: '-30.00',
+    known_expenses_profit: '-30.00',
+    loss_reason: 'net_profit',
+    certainty: 'tahmini',
+    unexpected_deduction: true,
+    products: [{ barcode: 'BRK-0002', title: 'Silikon Kek Kalıbı Set' }],
+  }),
+  // Null net kâr: eksik kalemlerle "Hesaplanamadı", bilinen kâr yalnız etiketli
+  makeOrderItem({
+    order_number: '10003',
+    ordered_on: '2026-11-07',
+    net_profit: null,
+    known_expenses_profit: '75.00',
+    missing_items: ['kargo_gonderi', 'platform_hizmet_bedeli'],
+    cost_missing: false,
+    certainty: 'eksik',
+    products: [{ barcode: 'BRK-0005', title: 'Belirsiz Kâr Ürünü' }],
+  }),
+  // Kesin zarar ama net kâr null: "En az ... zarar"
+  makeOrderItem({
+    order_number: '10004',
+    ordered_on: '2026-11-07',
+    net_profit: null,
+    known_expenses_profit: '-12.00',
+    loss_reason: 'known_expenses',
+    missing_items: ['kargo_gonderi'],
+    certainty: 'eksik',
+    products: [{ barcode: 'BRK-0004', title: 'Kargo Tarifesi Eksik Ürün' }],
+  }),
+  // Tümüyle iptal: rakam yok
+  makeOrderItem({
+    order_number: '10005',
+    ordered_on: '2026-11-06',
+    cancelled: true,
+    line_count: 0,
+    cancelled_line_count: 1,
+    net_sales_excl_vat: null,
+    net_profit: null,
+    known_expenses_profit: null,
+    certainty: 'iptal',
+    products: [{ barcode: 'BRK-0006', title: 'Yalnız Reklamlı Ürün' }],
+  }),
+];
+
+const ORDER_DETAIL_LINES = [
+  makeLine({ orderNumber: '10001', lineId: 9101, barcode: 'BRK-0001' }),
+  makeLine({
+    orderNumber: '10001',
+    lineId: 9102,
+    barcode: 'BRK-0002',
+    durum: 'estimated',
+    kesinlik: 'tahmini',
+  }),
+];
+
+const ordersOk = (items = ORDER_ITEMS) => ({ body: makeOrderList(items) });
+
+for (const scheme of ['light', 'dark'] as const) {
+  test.describe(`siparişler ekranı, ${scheme === 'light' ? 'açık' : 'koyu'} tema`, () => {
+    // Ekran görüntüleri iki kat yoğunlukla alınır (masaüstü projesi varsayılan olarak 1 kat)
+    test.use({ colorScheme: scheme, deviceScaleFactor: 2 });
+
+    test.beforeEach(async ({ context }) => {
+      await signIn(context);
+    });
+
+    test('dolu liste: kartlar, null net kâr, iptal, süzgeçler, kalem dökümü; axe temiz', async ({
+      page,
+    }, testInfo) => {
+      await mockApi(page, {
+        orders: () => ordersOk(),
+        orderDetail: () => ({ body: makeOrderDetail(ORDER_DETAIL_LINES) }),
+      });
+      await page.goto('/panel/siparisler?range=7d');
+      await expect(page.getByRole('heading', { level: 1, name: 'Siparişler' })).toBeVisible();
+      const list = page.getByRole('list', { name: 'Sipariş listesi' });
+      await expect(list.getByRole('heading', { level: 2 })).toHaveCount(5);
+      const card = (no: string) =>
+        list.getByRole('heading', { name: `Sipariş ${no}` }).locator('xpath=ancestor::div[2]');
+
+      await expect(card('10001')).toContainText('Örnek Ürün Çelik Termos 500 ml');
+      await expect(card('10001')).toContainText('2 ürün daha');
+      await expect(card('10001')).toContainText('Ekstresi gelmedi');
+      await expect(card('10002')).toContainText('Zarar');
+      await expect(card('10002')).toContainText('Beklenmeyen kesinti');
+      // Null net kâr: Hesaplanamadı, etiketli bilinen kâr
+      await expect(card('10003')).toContainText('Hesaplanamadı');
+      await expect(card('10003')).toContainText('Eksik: kargo, hizmet bedeli');
+      await expect(card('10003')).toContainText('Eksik giderler hariç kâr:');
+      // Kesin zarar ama net kâr null: kırmızı "En az"
+      await expect(card('10004')).toContainText('En az ₺12,00 zarar');
+      await expect(card('10004')).toContainText('Net kâr hesaplanamadı');
+      // İptal: rakam yok
+      await expect(card('10005')).toContainText('İptal');
+      await expect(card('10005')).not.toContainText('₺');
+      await expect(card('10005')).not.toContainText('0,00');
+      await expect(page.getByText('Ayar sürümü 7')).toBeVisible();
+
+      // Kalem dökümü: listedeki dönem start/end ile taşınır
+      await card('10001')
+        .getByRole('button', { name: /Kalem dökümünü göster/ })
+        .click();
+      await expect(
+        card('10001').getByRole('heading', { level: 3, name: 'Ürün BRK-0001' }),
+      ).toBeVisible();
+      await expect(card('10001').getByRole('table').first()).toBeVisible();
+      expect(
+        requests.some(
+          (u) =>
+            u.pathname.endsWith('/orders/10001') &&
+            u.searchParams.get('start') === '2026-10-12' &&
+            u.searchParams.get('end') === '2026-11-10' &&
+            !u.searchParams.has('range'),
+        ),
+      ).toBe(true);
+      await checkPage(page, 'panel-siparisler-dolu', testInfo.project.name, scheme);
+    });
+
+    test('boş durum: sipariş yok; axe temiz', async ({ page }, testInfo) => {
+      await mockApi(page, { orders: () => ordersOk([]) });
+      await page.goto('/panel/siparisler');
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Bu dönemde sipariş yok' }),
+      ).toBeVisible();
+      await checkPage(page, 'panel-siparisler-bos', testInfo.project.name, scheme);
+    });
+
+    test('hata durumu: ayrıntı yok, Tekrar dene; axe temiz', async ({ page }, testInfo) => {
+      await mockApi(page, {
+        orders: () => ({
+          status: 500,
+          body: { type: 'urn:netkar:problem:internal-error', title: 'Sunucu hatası', status: 500 },
+        }),
+      });
+      await page.goto('/panel/siparisler');
+      const alert = page.getByRole('alert').filter({ hasText: 'Siparişler yüklenemedi' });
+      await expect(alert).toBeVisible();
+      await expect(alert).not.toContainText('internal-error');
+      await expect(alert.getByRole('button', { name: 'Tekrar dene' })).toBeVisible();
+      await checkPage(page, 'panel-siparisler-hata', testInfo.project.name, scheme);
+    });
+
+    test('yükleniyor durumu: iskelet ve duyuru; axe temiz', async ({ page }, testInfo) => {
+      await mockApi(page, { orders: () => ({ ...ordersOk(), delayMs: 1500 }) });
+      await page.goto('/panel/siparisler');
+      await expect(page.getByRole('status').filter({ hasText: 'Yükleniyor' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1, name: 'Siparişler' })).toBeVisible();
+      await checkPage(page, 'panel-siparisler-yukleniyor', testInfo.project.name, scheme);
+      await expect(page.getByRole('list', { name: 'Sipariş listesi' })).toBeVisible();
+    });
+
+    test('zarar süzgeci: net kâr artan istenir; axe temiz', async ({ page }, testInfo) => {
+      await mockApi(page, {
+        orders: (url) =>
+          url.searchParams.get('filter') === 'loss'
+            ? { body: makeOrderList([ORDER_ITEMS[3]!, ORDER_ITEMS[1]!], { filter: 'loss' }) }
+            : ordersOk(),
+      });
+      await page.goto('/panel/siparisler?range=7d');
+      await page
+        .getByRole('navigation', { name: 'Sipariş süzgeci' })
+        .getByRole('link', { name: 'Zarar edenler' })
+        .click();
+      await expect(page).toHaveURL(/\/panel\/siparisler\?range=7d&filter=loss$/);
+      await expect(page.getByRole('heading', { level: 2, name: 'Sipariş 10004' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 2 })).toHaveCount(2);
+      expect(
+        requests.some(
+          (u) =>
+            u.pathname.endsWith('/orders') &&
+            u.searchParams.get('filter') === 'loss' &&
+            u.searchParams.get('sort') === 'net_profit' &&
+            u.searchParams.get('order') === 'asc',
+        ),
+      ).toBe(true);
+      await checkPage(page, 'panel-siparisler-zarar', testInfo.project.name, scheme);
+    });
+
+    test('arama: tam eşleşme q ile istenir; sonuç ve temizleme; axe temiz', async ({
+      page,
+    }, testInfo) => {
+      await mockApi(page, {
+        orders: (url) =>
+          url.searchParams.get('q') === '10002'
+            ? { body: makeOrderList([ORDER_ITEMS[1]!], { q: '10002' }) }
+            : ordersOk(),
+      });
+      await page.goto('/panel/siparisler');
+      await page.getByRole('searchbox', { name: 'Sipariş no' }).fill('10002');
+      await page.getByRole('button', { name: 'Ara' }).click();
+      await expect(page).toHaveURL(/\/panel\/siparisler\?range=30d&q=10002$/);
+      await expect(page.getByRole('heading', { level: 2, name: 'Sipariş 10002' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 2 })).toHaveCount(1);
+      await expect(page.getByText(/aranan:/)).toBeVisible();
+      expect(
+        requests.some((u) => u.pathname.endsWith('/orders') && u.searchParams.get('q') === '10002'),
+      ).toBe(true);
+      await checkPage(page, 'panel-siparisler-arama', testInfo.project.name, scheme);
+      await page.getByRole('button', { name: 'Aramayı temizle' }).click();
+      await expect(page).toHaveURL(/\/panel\/siparisler\?range=30d$/);
+      await expect(page.getByRole('heading', { level: 2 })).toHaveCount(5);
+    });
+  });
+}
+
+test.describe('siparişler ekranı, davranış', () => {
+  test.beforeEach(async ({ context }) => {
+    await signIn(context);
+  });
+
+  test('süzgeçler API süzgeç adlarıyla istenir; "Ekstresi gelmeyen" etiketi', async ({ page }) => {
+    await mockApi(page, { orders: () => ordersOk() });
+    await page.goto('/panel/siparisler');
+    const nav = page.getByRole('navigation', { name: 'Sipariş süzgeci' });
+    await expect(nav.getByRole('link', { name: 'Tümü' })).toHaveAttribute('aria-current', 'true');
+    await expect(page.getByText(/hakediş bekleyen/i)).toHaveCount(0);
+    for (const [label, filter] of [
+      ['Ekstresi gelmeyen', 'awaiting_payout'],
+      ['Beklenmeyen kesinti', 'unexpected_deduction'],
+    ] as const) {
+      await nav.getByRole('link', { name: label }).click();
+      await expect(page).toHaveURL((url) => url.searchParams.get('filter') === filter);
+      await expect
+        .poll(() =>
+          requests.some(
+            (u) =>
+              u.pathname.endsWith('/orders') &&
+              u.searchParams.get('filter') === filter &&
+              u.searchParams.get('sort') === 'date' &&
+              u.searchParams.get('order') === 'desc',
+          ),
+        )
+        .toBe(true);
+    }
+  });
+
+  test('geçersiz arama istek atmaz ve nedenini söyler', async ({ page }) => {
+    await mockApi(page, { orders: () => ordersOk() });
+    await page.goto('/panel/siparisler');
+    await expect(page.getByRole('list', { name: 'Sipariş listesi' })).toBeVisible();
+    const before = requests.filter((u) => u.pathname.endsWith('/orders')).length;
+    await page.getByRole('searchbox', { name: 'Sipariş no' }).fill('<b>x</b>');
+    await page.getByRole('button', { name: 'Ara' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'harf ya da rakamla' })).toBeVisible();
+    expect(requests.filter((u) => u.pathname.endsWith('/orders')).length).toBe(before);
+  });
+
+  test('imleçli sayfa: daha fazla yükle ikinci sayfayı imleçle ister', async ({ page }) => {
+    await mockApi(page, {
+      orders: (url) =>
+        url.searchParams.get('cursor') === 'sonraki'
+          ? { body: makeOrderList([ORDER_ITEMS[1]!], { total_count: 2 }) }
+          : { body: makeOrderList([ORDER_ITEMS[0]!], { total_count: 2, next_cursor: 'sonraki' }) },
+    });
+    await page.goto('/panel/siparisler');
+    await expect(page.getByRole('heading', { level: 2, name: 'Sipariş 10001' })).toBeVisible();
+    await page.getByRole('button', { name: 'Daha fazla yükle' }).click();
+    await expect(page.getByRole('heading', { level: 2, name: 'Sipariş 10002' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Sipariş 10001' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Daha fazla yükle' })).toHaveCount(0);
+    expect(
+      requests.some(
+        (u) => u.pathname.endsWith('/orders') && u.searchParams.get('cursor') === 'sonraki',
+      ),
+    ).toBe(true);
+  });
+
+  test('dönem seçici range ile yeniden ister ve imleci sıfırlar', async ({ page }) => {
+    await mockApi(page, {
+      orders: () => ({
+        body: makeOrderList([ORDER_ITEMS[0]!], { total_count: 2, next_cursor: 'sonraki' }),
+      }),
+    });
+    await page.goto('/panel/siparisler');
+    await expect(page.getByRole('heading', { level: 2, name: 'Sipariş 10001' })).toBeVisible();
+    await page
+      .getByRole('navigation', { name: 'Dönem' })
+      .getByRole('link', { name: '7 gün' })
+      .click();
+    await expect(page).toHaveURL(/\/panel\/siparisler\?range=7d$/);
+    await expect
+      .poll(() =>
+        requests.some(
+          (u) =>
+            u.pathname.endsWith('/orders') &&
+            u.searchParams.get('range') === '7d' &&
+            !u.searchParams.has('cursor'),
+        ),
+      )
+      .toBe(true);
+  });
+
+  test('kalem dökümü hatasında Tekrar dene çıkar, liste kalır', async ({ page }) => {
+    await mockApi(page, {
+      orders: () => ordersOk([ORDER_ITEMS[0]!]),
+      orderDetail: () => ({
+        status: 404,
+        body: { type: 'urn:netkar:problem:not-found', title: 'Bulunamadı', status: 404 },
+      }),
+    });
+    await page.goto('/panel/siparisler');
+    await page.getByRole('button', { name: /Kalem dökümünü göster/ }).click();
+    const alert = page.getByRole('alert').filter({ hasText: 'İstenen kayıt bulunamadı.' });
+    await expect(alert.getByRole('button', { name: 'Tekrar dene' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Sipariş 10001' })).toBeVisible();
+  });
+
+  test('uyarılardaki etkilenen sipariş, sipariş listesini arama ile açar', async ({ page }) => {
+    await mockApi(page, {
+      alerts: (url) =>
+        url.searchParams.get('code') === 'BEKLENMEYEN_KESINTI'
+          ? { body: makeAlerts(MANY_CODES, { items: [makeAlertItem()] }) }
+          : { body: makeAlerts(MANY_CODES) },
+      orders: (url) =>
+        url.searchParams.get('q') === '10004'
+          ? { body: makeOrderList([ORDER_ITEMS[3]!], { q: '10004' }) }
+          : ordersOk(),
+    });
+    await page.goto('/panel/uyarilar?range=7d');
+    await page.getByRole('button', { name: 'Etkilenen siparişleri göster' }).click();
+    await page.getByRole('link', { name: 'Siparişi gör: 10004' }).click();
+    await expect(page).toHaveURL(/\/panel\/siparisler\?range=7d&q=10004$/);
+    await expect(page.getByRole('heading', { level: 2, name: 'Sipariş 10004' })).toBeVisible();
+  });
+});
