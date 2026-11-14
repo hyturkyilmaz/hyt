@@ -18,6 +18,7 @@ import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -52,6 +53,11 @@ NOT_ENGINE_INPUT = {
     "service_fee_estimates",
     "variable_expenses",
 }
+
+
+def _head(alembic_cfg: Config) -> tuple[str | None]:
+    """Geçerli en son migrasyon sürümü; sabit "0014" yazmak yeni migrasyonda testi kırıyordu (0015)."""
+    return (ScriptDirectory.from_config(alembic_cfg).get_current_head(),)
 
 
 def revision(conn: psycopg.Connection[Any], account_id: UUID) -> int:
@@ -432,7 +438,7 @@ def test_migration_0012_downgrades_cleanly_and_upgrades_again(
     assert admin_conn.execute("SELECT count(*) FROM orders").fetchone() is not None
     command.upgrade(alembic_cfg, "head")
     assert present() == (True, 8, True)
-    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0014",)
+    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == _head(alembic_cfg)
 
 
 def test_migration_0013_downgrade_restores_the_0012_state_without_losing_data_and_upgrades_again(
@@ -491,10 +497,10 @@ def _owners(conn: psycopg.Connection[Any]) -> tuple[str, str]:
 
 
 def test_dk09_table_and_trigger_function_are_owned_by_netkar_owner_after_upgrade(
-    admin_conn: psycopg.Connection[Any],
+    alembic_cfg: Config, admin_conn: psycopg.Connection[Any]
 ) -> None:
     assert _owners(admin_conn) == ("netkar_owner", "netkar_owner")
-    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0014",)
+    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == _head(alembic_cfg)
 
 
 def test_dk09_migration_0014_aborts_with_a_clear_message_on_a_wrong_owner_and_downgrade_is_a_noop(
@@ -521,7 +527,7 @@ def test_dk09_migration_0014_aborts_with_a_clear_message_on_a_wrong_owner_and_do
         admin_conn.execute("ALTER TABLE report_data_revisions OWNER TO netkar_owner")
         admin_conn.execute("ALTER FUNCTION public.bump_report_data_revision() OWNER TO netkar_owner")
         command.upgrade(alembic_cfg, "head")
-    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0014",)
+    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == _head(alembic_cfg)
     assert _owners(admin_conn) == ("netkar_owner", "netkar_owner")
 
 
@@ -548,4 +554,4 @@ def test_dk12_migration_0013_stops_on_a_wrong_table_owner_before_touching_the_fu
         admin_conn.execute("ALTER TABLE report_data_revisions OWNER TO netkar_owner")
         admin_conn.execute("ALTER FUNCTION public.bump_report_data_revision() OWNER TO netkar_owner")
         command.upgrade(alembic_cfg, "head")
-    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0014",)
+    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == _head(alembic_cfg)

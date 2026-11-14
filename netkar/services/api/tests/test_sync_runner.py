@@ -388,6 +388,15 @@ async def test_inactive_accounts_are_not_synced(make_env: Any) -> None:
     assert unknown.status == "inactive"
 
 
+async def test_demo_accounts_are_never_run(make_env: Any, admin_conn: psycopg.Connection[Any]) -> None:
+    """is_demo hesap çalıştırıcıda `inactive` döner ve Trendyol'a hiç istek gitmez (sahte anahtar 401 almaz)."""
+    e = make_env(seller_id="7003")
+    admin_conn.execute("UPDATE marketplace_accounts SET is_demo = true WHERE id = %s", (e.seller.account_id,))
+    outcome = await e.runner.run(e.seller.account_id, "backfill")
+    assert outcome.status == "inactive" and e.api.calls == []
+    assert e.conn.execute("SELECT status FROM marketplace_accounts").fetchone() == ("active",)
+
+
 async def test_undecryptable_credentials_are_reported_without_any_call(make_env: Any) -> None:
     wrong = EnvelopeCipher(KeyRing({"baska": bytes(range(32))}, "baska"))
     e = make_env(envelope=envelope_for_tests())

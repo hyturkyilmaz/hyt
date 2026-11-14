@@ -259,6 +259,20 @@ async def test_runtime_lists_accounts_via_the_gate_and_closes_its_engine(
     await rt.aclose()  # ikinci kapatma zararsız
 
 
+async def test_demo_accounts_are_not_listed_by_the_scheduler_gate(
+    settings: Settings, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """Demo hesabı (is_demo) zamanlayıcının kapısında yoktur: sahte anahtarla Trendyol'a istek atılmaz."""
+    real = make_seller(admin_conn, seller_id="7001")
+    demo = make_seller(admin_conn, seller_id="7002")
+    admin_conn.execute("UPDATE marketplace_accounts SET is_demo = true WHERE id = %s", (demo.account_id,))
+    rt = WorkerRuntime(settings)
+    try:
+        assert [a.account_id for a in await rt.list_accounts()] == [real.account_id]
+    finally:
+        await rt.aclose()
+
+
 async def test_prune_task_and_heartbeat_run_with_the_worker_role(
     runtime: WorkerRuntime, admin_conn: psycopg.Connection[Any]
 ) -> None:

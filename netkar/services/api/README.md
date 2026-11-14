@@ -98,6 +98,39 @@ Oturum süreleri (boşta 12 saat, mutlak 30 gün), sıfırlama token ömrü (30 
 
 Durum değiştiren her istek `X-CSRF-Token` başlığı ve `__Host-nk_csrf` çerezini birlikte ister (önce `GET /v1/auth/csrf`). Hatalar `application/problem+json` (RFC 9457) biçimindedir.
 
+## Demo veri tohumu
+
+Kullanılabilirlik testi ve yerel demo için uydurma satıcı verisi ve moderatör "doğru cevap kartı" (kaynak: `docs/ux/kullanici_testi_plani_S4.md` §7.1). Üç demo kiracısı kurar: **Hesap A** (ayarsız, kısmi dönem; kargo tarifesi, hizmet bedeli ve varsayılan desi yok), **Hesap B veri seti X** ve **Y** (ayarlı; üç zarar rozeti, maliyeti eksik ürünler, çok ürünlü ve iadeli sipariş, ekstresi gelmeyen ve beklenmeyen kesintili siparişler, uyarı kartları).
+
+```bash
+# netkar/ dizininden (migrasyon yapılmış, infra/.env hazır)
+NETKAR_ENV=local make seed-demo
+NETKAR_ENV=local make seed-demo SEED_ARGS="--instance 2 --dataset x --as-of 2026-11-14"
+# ya da services/api içinde
+NETKAR_ENV=local uv run python -m app.tools.seed_demo --demo
+```
+
+Seçenekler: `--instance N` (1-99, her katılımcı için temiz Hesap A; G2 ve G3 ayarı değiştirir ve ayarlar silinemez), `--dataset x|y|all`, `--as-of YYYY-AA-GG` (verinin "bugünü"; varsayılan bugün, veri bundan en çok 27 gün geriye uzanır), `--a-variant positive|negative` (Hesap A bilinen kâr işareti), `--reset-passwords`, `--mark-non-prod` (aşağıda), `--write-card` (kartı varsayılan yola, `docs/ux/demo_cevap_karti.md`, yazar) ve `--card-path` (kartı o dosyaya yazar). **Kart yalnız `--write-card` ya da `--card-path` verilince yazılır**; verilmezse hiçbir dosya yazılmaz. Çıktı: giriş tablosu (parolalar yalnız ekrana, bir kez; kart yazımı başarısız olsa bile önce gösterilir).
+
+**Koruma (üretimde çalışmaz).** Betik şu koşulların HEPSİ sağlanmazsa hiçbir şey yazmadan çıkış kodu 3 ile reddeder. Bir bölümü yapılandırmadır, bir bölümü bağlandıktan sonra sunucuya sorularak denetlenir; hepsi ilk yazımdan ÖNCE yapılır.
+
+- Yapılandırma: `--demo` bayrağı; `NETKAR_ENV` açıkça `local`, `test` ya da `staging` (Makefile varsayılan atamaz); `ENVIRONMENT` `prod` değil; `TRENDYOL_ENVIRONMENT` `live` değil. Bağlantı dizeleri sürücünün (psycopg) yorumladığı gibi çözülür: sorguda `hostaddr`, `dbname`, `service`, `servicefile` varsa reddedilir; `host` URL'de sunucu yokken yalnız sorguda (unix soket dizini) verilebilir; boş sunucu (PGHOST'a düşer) ve çoklu sunucu reddedilir; `local` iken sunucu açıkça `localhost`, `127.0.0.1`, `::1`, `postgres`, `db` ya da bilinen yerel soket dizini (`/tmp`, `/var/run/postgresql`, `/run/postgresql`) olmalı, `/cloudsql/...` gibi uzak soketler yerel sayılmaz. Veritabanı adında `prod`, `canli` ya da `live` geçmez; `DATABASE_URL`, `WORKER_DATABASE_URL` (ve verilmişse `DATABASE_ADMIN_URL`) aynı sunucu, port ve veritabanına işaret eder.
+- Bağlandıktan sonra: sunucunun kendi bildirdiği `current_database()`, `inet_server_addr()` ve `inet_server_port()` aynı denetimlerden geçer (`local` iken adres loopback ya da özel ağ olmalı; app ve worker aynı sunucuya gitmeli). Roller doğrulanır: app bağlantısı `netkar_app`, worker bağlantısı `netkar_worker` olmalı ve ikisi de süper kullanıcı ya da BYPASSRLS olamaz.
+- Veritabanında saklanan "üretim değil" işareti: `deployment_marks` tablosunda `non_production = 'true'` satırı (migrasyon 0015). **İşaret yoksa betik durur.** İşareti yalnız süper kullanıcı ya da `netkar_owner` yazabilir (uygulama ve işçi rolleri yalnız okur); bir kez, açıkça: `DATABASE_ADMIN_URL=... NETKAR_ENV=staging make seed-demo SEED_ARGS="--mark-non-prod"`. Gerekçe (en basit güvenli tasarım): bağlantı dizesi ve ortam değişkenleri yanlış yönlendirilebilir, veritabanının kendisinde duran işaret yönlendirilemez; üretim veritabanına bu satırı yazan olmadığı sürece betik orada çalışmaz. `COMMENT ON DATABASE` yerine tablo seçildi çünkü uygulama rolü okuyabilir ve yetki ayrımı (okuma serbest, yazma yönetici) sütun ve tablo yetkileriyle zorlanır. İşaret, ayrıca demo bayrağının da kapısıdır (aşağıda).
+- Bu bir savunma katmanıdır; asıl sınır roller ve RLS'tir.
+
+**Demo hesabı senkron dışı.** Betik pazaryeri hesaplarını `marketplace_accounts.is_demo = true` ile işaretler. `sync_gate.syncable_accounts` ve sync_gate politikası `NOT is_demo` ister, bu yüzden senkron zamanlayıcı ve çalıştırıcı demo hesabı hiç görmez: staging'de worker açık olsa da sahte anahtarla Trendyol'a istek atılmaz ve hesap `invalid` olmaz. `netkar_app` bu sütunu doğrudan yazamaz (INSERT ve UPDATE sütun düzeyinde, `is_demo` hariç); bayrağı yalnız `public.mark_demo_account(uuid)` açar: SECURITY DEFINER, kiracı RLS'i altında yalnız çağıranın kendi hesabına dokunur ve `non_production` işareti yoksa hata verir.
+
+**Yetki yolları.** Süper kullanıcı kullanılmaz, RLS aşılmaz (yalnız `--mark-non-prod` işareti için `DATABASE_ADMIN_URL`, bir kez). Kiracı ve kullanıcı `auth_gate.register_account` ile (API kayıt yolu), pazaryeri hesabı, ürün maliyeti ve kâr ayarları `netkar_app` ile (API servisleri, kiracı bağlamı kurulu), ürün, sipariş, ekstre ve kargo faturası `netkar_worker` ile (senkron işçisinin yazma yolu, kiracı bağlamı kurulu) yazılır. Bu yüzden `DATABASE_URL` ve `WORKER_DATABASE_URL` birlikte gerekir.
+
+**Ön denetim.** Tüm hesaplar için salt okuma ön denetim yazımdan önce yapılır: demo e-postası kayıtlıysa kiracısının tohumla oluşturulduğu (seed denetim işareti) doğrulanır, değilse betik durur ve o kullanıcının parolasına ve verisine dokunmaz (`--reset-passwords` dahil); tohum sürümü uyuşmazlığı da burada reddedilir (parola sıfırlanıp hesap kilitli kalmaz).
+
+**KVKK ve sırlar.** Son müşteriye ait hiçbir alan yoktur (il bile yok); ürün, mağaza ve sipariş adları uydurmadır, e-postalar `example.com`. Pazaryeri anahtarları sahte yer tutucudur ve zarf şifreli saklanır (Trendyol'a doğrulama çağrısı YAPILMAZ). Parolalar depoda yoktur: yeni kullanıcı için çalışma anında rastgele üretilir ve bir kez yazılır; istenirse `NETKAR_DEMO_PASSWORD` kullanılır ve API'nin parola politikasından geçer (12-128 karakter, `PWNED_CHECK_ENABLED` açıksa sızmış parola denetimi; ekrana yazılmaz). Var olan kullanıcının parolası sorulmaz ve değişmez (`--reset-passwords` API'nin parola sıfırlama yoluyla yenisini üretir). Parolaları CI günlüklerinde saklanacak ortamda (staging dağıtım hattı) rastgele üretimle çalıştırmayın; `NETKAR_DEMO_PASSWORD` kullanın.
+
+**Idempotency.** Doğal anahtarlar sabittir (sipariş no, paket no, barkod, işlem no); yeniden çalıştırma kayıt çoğaltmaz, `--as-of` ile tarihleri kaydırır. Kâr ayarları yalnız yoksa yazılır (katılımcının düzenlemesi ezilmez). Betik silmez: tohum sürümü (`SEED_VERSION`, `app/tools/demo_data.py`) değişirse aynı veritabanında yeniden tohumlama reddedilir (temiz veritabanı ya da başka `--instance`). Tohum tablosu ve cevap kartı kodu: `app/tools/demo_data.py`, `app/tools/demo_card.py`; testler: `tests/test_seed_demo.py`.
+
+**Doğru cevap kartı.** Kartın hiçbir rakamı elle yazılmaz: tohumdan sonra gerçek kâr motoru ve rapor servisleri (`period_profit`, `profit_views`, kayıtlı ayarlar) çalıştırılır; testler kart değerlerini `/profit/summary`, `/products`, `/orders` ve `/alerts` yanıtlarıyla karşılaştırır. Kart tohum sürümünü, veri tarihini ve dönem aralığını yazar.
+
 ## Dizin yapısı
 
 ```

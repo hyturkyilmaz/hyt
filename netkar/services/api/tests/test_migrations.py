@@ -52,3 +52,38 @@ def test_totp_state_migration_0003_is_reversible_and_least_privileged(
     assert admin_conn.execute(
         "SELECT has_column_privilege('netkar_app', 'users', 'password_hash', 'SELECT')"
     ).fetchone() == (False,)
+
+
+def test_migration_0015_demo_flag_and_marks_are_reversible(
+    alembic_cfg: Config, admin_conn: psycopg.Connection
+) -> None:
+    def has_column() -> bool:
+        return (
+            admin_conn.execute(
+                "SELECT 1 FROM information_schema.columns WHERE table_name = 'marketplace_accounts' "
+                "AND column_name = 'is_demo'"
+            ).fetchone()
+            is not None
+        )
+
+    assert has_column()
+    command.downgrade(alembic_cfg, "0014")
+    assert not has_column()
+    assert admin_conn.execute("SELECT to_regclass('public.deployment_marks')").fetchone() == (None,)
+    assert admin_conn.execute("SELECT to_regprocedure('public.mark_demo_account(uuid)')").fetchone() == (
+        None,
+    )
+    # Eski durum: INSERT tablo düzeyinde geri gelir.
+    assert admin_conn.execute(
+        "SELECT has_table_privilege('netkar_app', 'marketplace_accounts', 'INSERT')"
+    ).fetchone() == (True,)
+    command.upgrade(alembic_cfg, "head")
+    assert has_column()
+    privileges = admin_conn.execute(
+        "SELECT has_column_privilege('netkar_app', 'marketplace_accounts', 'is_demo', 'INSERT'),"
+        " has_column_privilege('netkar_app', 'marketplace_accounts', 'is_demo', 'UPDATE'),"
+        " has_table_privilege('netkar_app', 'deployment_marks', 'INSERT'),"
+        " has_table_privilege('netkar_app', 'deployment_marks', 'SELECT'),"
+        " has_function_privilege('netkar_app', 'public.mark_demo_account(uuid)', 'EXECUTE')"
+    ).fetchone()
+    assert privileges == (False, False, False, True, True)

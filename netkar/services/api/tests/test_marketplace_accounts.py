@@ -586,4 +586,11 @@ def test_migration_0004_is_reversible(alembic_cfg: Config, admin_conn: psycopg.C
     ).fetchone()
     # UPDATE tablo düzeyinde yok: 0005 yalnız gerekli sütunlara sütun düzeyi UPDATE verir (D-05).
     # SELECT de tablo düzeyinde yok: 0006 şifreli sütunlar HARİÇ sütun düzeyi SELECT verir (netkar_worker okur).
-    assert privileges == (False, True, False, False)
+    # INSERT de tablo düzeyinde yok: 0015 `is_demo` hariç sütun düzeyi INSERT verir (demo bayrağını uygulama yazamaz).
+    assert privileges == (False, False, False, False)
+    columns = admin_conn.execute(
+        "SELECT has_column_privilege('netkar_app', 'marketplace_accounts', 'seller_id', 'INSERT'),"
+        " has_column_privilege('netkar_app', 'marketplace_accounts', 'is_demo', 'INSERT'),"
+        " has_column_privilege('netkar_app', 'marketplace_accounts', 'is_demo', 'UPDATE')"
+    ).fetchone()
+    assert columns == (True, False, False)

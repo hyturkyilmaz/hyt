@@ -7,7 +7,7 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 # infra/.env varsa ortama yükler (yerel çalıştırma için).
 LOAD_ENV := set -a; if [ -f $(CURDIR)/$(ENV_FILE) ]; then . $(CURDIR)/$(ENV_FILE); fi; set +a;
 
-.PHONY: help setup env lint test test-profit dev migrate worker db-up db-down web-lint web-test
+.PHONY: help setup env lint test test-profit dev migrate worker seed-demo db-up db-down web-lint web-test
 
 help:
 	@echo "setup  : Python bağımlılıklarını kurar (uv sync)"
@@ -17,6 +17,7 @@ help:
 	@echo "test-profit: kâr motoru testleri, app/profit satır ve dal kapsamı %100 (DB gerekmez)"
 	@echo "db-up  : compose ile yalnız PostgreSQL'i başlatır"
 	@echo "migrate: alembic upgrade head (DATABASE_MIGRATION_URL)"
+	@echo "seed-demo: uydurma demo veri + doğru cevap kartı (NETKAR_ENV=local|test|staging ve SEED_ARGS ile; üretimde reddeder)"
 	@echo "dev    : uvicorn (--reload)"
 	@echo "worker : procrastinate worker"
 	@echo "web-lint, web-test: apps/web için npm betikleri"
@@ -54,6 +55,14 @@ migrate:
 
 dev:
 	$(LOAD_ENV) cd $(API) && uv run uvicorn app.main:create_app --factory --reload --port 8000 --no-proxy-headers
+
+# Demo veri tohumu (docs/ux/kullanici_testi_plani_S4.md §7.1). NETKAR_ENV açıkça verilmeden çalışmaz
+# (koruma ayrıntısı: services/api/README.md "Demo veri tohumu"). Örnek:
+#   NETKAR_ENV=local make seed-demo
+#   NETKAR_ENV=local make seed-demo SEED_ARGS="--instance 2 --dataset x"
+seed-demo:
+	@test -n "$$NETKAR_ENV" || { echo "NETKAR_ENV (local, test ya da staging) verilmeli: NETKAR_ENV=local make seed-demo"; exit 3; }
+	$(LOAD_ENV) cd $(API) && uv run python -m app.tools.seed_demo --demo $(SEED_ARGS)
 
 worker:
 	$(LOAD_ENV) cd $(API) && uv run procrastinate --app=app.worker.app.app worker --concurrency 4
