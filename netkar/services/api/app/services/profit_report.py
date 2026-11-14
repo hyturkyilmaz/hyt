@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
@@ -86,14 +87,31 @@ async def period_profit(
     def _finished(done: asyncio.Future[ProfitResult]) -> None:
         if not done.cancelled():
             done.exception()  # sonuç/hata terk edilmişse "never retrieved" uyarısı çıkmasın
+        was_abandoned = slot.abandoned
         slot.release()
+        if was_abandoned:
+            log.warning(
+                "profit_engine_abandoned_finished pid=%d account=%s abandoned=%d",
+                os.getpid(),
+                account_id,
+                slot.gate_abandoned,
+            )
 
     task.add_done_callback(_finished)
     try:
         result = await asyncio.shield(task)
     except asyncio.CancelledError:
         if not task.done():
-            log.warning("profit_engine_abandoned account=%s", account_id)
+            # Yapılandırılmış alanlar (DK-10): terk edilmiş yuva sayısı süreç sınırına ulaşırsa bütün raporlar
+            # 503 olur; log'dan izlenir. Kiracı/ayrıntı yazılmaz, yalnız hesap kimliği ve sayaçlar.
+            abandoned = slot.mark_abandoned()
+            log.warning(
+                "profit_engine_abandoned pid=%d account=%s abandoned=%d process_slots=%d",
+                os.getpid(),
+                account_id,
+                abandoned,
+                slot.process_slots,
+            )
         raise
     return PeriodReport(start, end, result, feed.notes)
 

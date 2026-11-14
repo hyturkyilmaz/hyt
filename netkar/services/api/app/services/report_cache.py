@@ -20,7 +20,8 @@ uyarı görünümleri aynı dönem sonucundan seçildiği için sonuç şu anaht
 - Tek uçuş (single-flight): aynı anahtar için eşzamanlı istekler tek motor çalıştırması paylaşır (panel
   açılışında özet, ürünler ve uyarılar aynı anda gelir); sonuç saklanmasa bile bekleyenlere doğrudan verilir;
   bekleyenler kapı yuvası TUTMAZ ve en çok `wait_seconds` bekler (aşımda 503); hesaplayan da
-  `compute_timeout_seconds` ile sınırlıdır (aşımda iptal, yuva ve uçuş kaydı bırakılır, 503; OK-05).
+  `compute_timeout_seconds` ile sınırlıdır (aşımda iptal, uçuş kaydı silinir, 503; kapı yuvası motor iş
+  parçacığı gerçekten bitene dek tutulur, DK-01; OK-05).
 """
 
 from __future__ import annotations
@@ -214,10 +215,14 @@ class ReportCache:
     async def _run(self, compute: Callable[[], Awaitable[PeriodReport]]) -> PeriodReport:
         """Hesabı `compute_timeout_seconds` ile sınırlar (OK-05).
 
-        Süre aşılırsa hesap iptal edilir: `compute` içindeki kapı yuvası `async with` ile bırakılır ve
-        çağıran (`get_or_compute`) tek uçuş kaydını `finally` ile siler; istek 503 + `Retry-After` alır.
+        Süre aşılırsa hesap iptal edilir ve çağıran (`get_or_compute`) tek uçuş kaydını `finally` ile
+        siler; istek 503 + `Retry-After` alır. Kapı yuvası burada BIRAKILMAZ: motor iş parçacığı
+        Python'da öldürülemediğinden yuva `SlotHandle.defer()` ile iş parçacığının gerçek bitişine
+        devredilmiştir (DK-01, bkz. `profit_report.period_profit`); takılan motor yuvayı süreç yeniden
+        başlayana dek tutabilir (DK-10, runbook: docs/operasyon/runbook_rapor_motoru.md).
+
         Yalnız KENDİ zaman aşımımız çevrilir (`expired()`): hesabın içinden gelen başka `TimeoutError` olduğu
-        gibi yayılır. Motorun iş parçacığı iptalde bırakılır (`abandon_on_cancel`, bkz. `profit_report`).
+        gibi yayılır. Yalnız bekleme kesilir; motor iş parçacığı sürer (`asyncio.shield`).
         """
         if self.compute_timeout_seconds is None:
             return await compute()

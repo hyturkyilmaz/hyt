@@ -38,24 +38,50 @@ class SlotHandle:
     bitiş geri çağrısında, olay döngüsünde) yapılır. `release()` tekrarlanabilir (idempotent).
     """
 
-    __slots__ = ("_deferred", "_gate", "_released", "_tenant_id")
+    __slots__ = ("_abandoned", "_deferred", "_gate", "_released", "_tenant_id")
 
     def __init__(self, gate: ReportGate, tenant_id: UUID) -> None:
         self._gate = gate
         self._tenant_id = tenant_id
         self._deferred = False
         self._released = False
+        self._abandoned = False
 
     def defer(self) -> None:
         self._deferred = True
+
+    def mark_abandoned(self) -> int:
+        """İstek beklemeyi bıraktı ama motor iş parçacığı sürüyor (DK-10): terk edilmiş yuva sayısına eklenir.
+
+        Idempotent; bırakma (`release`) sayıyı düşürür. Dönüş: güncel terk edilmiş yuva sayısı.
+        """
+        if not self._abandoned and not self._released:
+            self._abandoned = True
+            self._gate._abandoned += 1
+        return self._gate._abandoned
 
     @property
     def deferred(self) -> bool:
         return self._deferred
 
+    @property
+    def process_slots(self) -> int:
+        return self._gate.process_slots
+
+    @property
+    def abandoned(self) -> bool:
+        return self._abandoned
+
+    @property
+    def gate_abandoned(self) -> int:
+        """Kapıdaki güncel terk edilmiş yuva sayısı (log alanı)."""
+        return self._gate.abandoned
+
     def release(self) -> None:
         if not self._released:
             self._released = True
+            if self._abandoned:
+                self._gate._abandoned -= 1
             self._gate._release(self._tenant_id)
 
 
@@ -77,11 +103,18 @@ class ReportGate:
         # Süreç doluluğundan 503 alan yuvasız kiracılar: kiracı -> son ret zamanı (YO-01 "gerçek bekleyen").
         self._starved: dict[UUID, float] = {}
         self._active = 0
+        self._abandoned = 0  # istek tarafından terk edilmiş ama iş parçacığı sürerken tutulan yuvalar (DK-10)
         self._per_tenant: dict[UUID, int] = {}
 
     @property
     def active(self) -> int:
         return self._active
+
+    @property
+    def abandoned(self) -> int:
+        """Terk edilmiş (isteği 503 almış) ama motoru hâlâ çalışan yuva sayısı; `process_slots`'a ulaşırsa
+        bütün raporlar 503 olur (runbook: docs/operasyon/runbook_rapor_motoru.md)."""
+        return self._abandoned
 
     @property
     def active_tenants(self) -> int:

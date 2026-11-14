@@ -151,8 +151,8 @@ class Settings(BaseSettings):
     # Hesaplayanın üst süre sınırı (OK-05): takılmış ya da çok yavaş bir hesap bu süreden sonra iptal edilir,
     # tek uçuş kaydı ve kapı yuvası bırakılır, istek 503 + Retry-After (`report-compute-timeout`) alır.
     # Bekleyenin süresinden (wait_seconds) UZUN, ters vekilin istek zaman aşımından KISA olmalıdır (istemci
-    # bağlantı kopmadan problem+json görsün). Aynı değer rapor işleminde `statement_timeout` olarak da kurulur
-    # (veritabanı tarafı sınırı; tek deyim bu süreyi aşamaz).
+    # bağlantı kopmadan problem+json görsün). Rapor işleminde `statement_timeout` bundan 5 sn KISA kurulur
+    # (`compute - 5 sn`, en az 1 sn; DK-05): veritabanı sınırı önce dolar, temiz 57014 yolu çalışır.
     profit_report_compute_timeout_seconds: float = Field(45.0, gt=0)
     # Ana havuz (istek oturumları): havuz tükenince en çok bu kadar beklenir, sonra 503 + Retry-After.
     # Varsayılan 30 sn kilitlenmeyi büyütüyordu (denetim S4 Y-01).

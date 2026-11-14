@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -94,6 +95,34 @@ def install_error_handlers(app: FastAPI) -> None:
             "Hizmet yoğun",
             "db-busy",
             "Şu an çok sayıda istek işleniyor. Kısa süre sonra tekrar deneyin.",
+            headers={"Retry-After": retry_after},
+        )
+
+    @app.exception_handler(DBAPIError)
+    async def _db_error(request: Request, exc: DBAPIError) -> JSONResponse:
+        # DK-11: önbellek isabeti yolunda `_report` sonrasında aynı işlemde çalışan sorgular (ürün başlıkları
+        # vb.) `statement_timeout` ile 57014 alabilir ve `_report` sarmalayıcısının dışında kalır. Yalnız bu
+        # sqlstate merkezi olarak 503'e çevrilir; SQL, parametre ve sürücü iletisi ne yanıta ne loga girer.
+        if getattr(exc.orig, "sqlstate", None) != "57014":
+            raise exc  # diğer veritabanı hataları eskisi gibi yayılır (düz 500, ayrıntı sızmaz)
+        log.error("db_statement_timeout path=%s", request.url.path)
+        retry_after = str(max(1, request.app.state.settings.profit_report_retry_after_seconds))
+        # DK-13: slug yola göre; /profit altı rapor zaman aşımı, diğer uçlar genel db-timeout.
+        if "profit" in request.url.path.split("/"):
+            return problem_response(
+                request,
+                503,
+                "Rapor hesaplanamadı",
+                "report-compute-timeout",
+                "Rapor belirlenen sürede hazırlanamadı. Kısa süre sonra tekrar deneyin.",
+                headers={"Retry-After": retry_after},
+            )
+        return problem_response(
+            request,
+            503,
+            "Veritabanı zaman aşımı",
+            "db-timeout",
+            "İşlem belirlenen sürede tamamlanamadı. Kısa süre sonra tekrar deneyin.",
             headers={"Retry-After": retry_after},
         )
 

@@ -432,7 +432,7 @@ def test_migration_0012_downgrades_cleanly_and_upgrades_again(
     assert admin_conn.execute("SELECT count(*) FROM orders").fetchone() is not None
     command.upgrade(alembic_cfg, "head")
     assert present() == (True, 8, True)
-    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0013",)
+    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0014",)
 
 
 def test_migration_0013_downgrade_restores_the_0012_state_without_losing_data_and_upgrades_again(
@@ -474,3 +474,78 @@ def test_migration_0013_downgrade_restores_the_0012_state_without_losing_data_an
     command.upgrade(alembic_cfg, "head")
     assert state() == (True, False, ["netkar_owner"], body_0013)
     assert revision(admin_conn, shop.account_id) == before + 1
+
+
+# ===================================================================== DK-09: sahiplik doğrulaması (0014)
+
+
+def _owners(conn: psycopg.Connection[Any]) -> tuple[str, str]:
+    table = conn.execute(
+        "SELECT tableowner FROM pg_tables WHERE schemaname = 'public' AND tablename = 'report_data_revisions'"
+    ).fetchone()
+    func = conn.execute(
+        "SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE proname = 'bump_report_data_revision'"
+    ).fetchone()
+    assert table is not None and func is not None
+    return table[0], func[0]
+
+
+def test_dk09_table_and_trigger_function_are_owned_by_netkar_owner_after_upgrade(
+    admin_conn: psycopg.Connection[Any],
+) -> None:
+    assert _owners(admin_conn) == ("netkar_owner", "netkar_owner")
+    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0014",)
+
+
+def test_dk09_migration_0014_aborts_with_a_clear_message_on_a_wrong_owner_and_downgrade_is_a_noop(
+    alembic_cfg: Config, admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    superuser = database.admin_url.username
+    assert superuser and superuser != "netkar_owner"
+    try:
+        command.downgrade(alembic_cfg, "0013")  # 0014 geri alma: no-op, sahiplik aynı kalır
+        assert _owners(admin_conn) == ("netkar_owner", "netkar_owner")
+        # 0012'nin süper kullanıcıyla çalıştırılması benzetimi: tablo sahibi süper kullanıcı olur.
+        admin_conn.execute(f'ALTER TABLE report_data_revisions OWNER TO "{superuser}"')
+        with pytest.raises(Exception, match="Sahiplik hatasi") as caught:
+            command.upgrade(alembic_cfg, "head")
+        assert "ALTER TABLE public.report_data_revisions OWNER TO netkar_owner" in str(caught.value)
+        assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0013",)
+        # Yanlış işlev sahibi de yakalanır (tablo düzeltilmiş olsa bile).
+        admin_conn.execute("ALTER TABLE report_data_revisions OWNER TO netkar_owner")
+        admin_conn.execute(f'ALTER FUNCTION public.bump_report_data_revision() OWNER TO "{superuser}"')
+        with pytest.raises(Exception, match="Sahiplik hatasi"):
+            command.upgrade(alembic_cfg, "head")
+    finally:
+        # Ara bir iddia düşse de paylaşılan test veritabanı sahipliği ve head sürümüyle geri döner (DK-14).
+        admin_conn.execute("ALTER TABLE report_data_revisions OWNER TO netkar_owner")
+        admin_conn.execute("ALTER FUNCTION public.bump_report_data_revision() OWNER TO netkar_owner")
+        command.upgrade(alembic_cfg, "head")
+    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0014",)
+    assert _owners(admin_conn) == ("netkar_owner", "netkar_owner")
+
+
+def test_dk12_migration_0013_stops_on_a_wrong_table_owner_before_touching_the_function_owner(
+    alembic_cfg: Config, admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    superuser = database.admin_url.username
+    assert superuser and superuser != "netkar_owner"
+    try:
+        command.downgrade(alembic_cfg, "0012")
+        # 0012'nin süper kullanıcıyla çalıştırılması: tablo ve işlev süper kullanıcınındır.
+        admin_conn.execute(f'ALTER TABLE report_data_revisions OWNER TO "{superuser}"')
+        admin_conn.execute(f'ALTER FUNCTION public.bump_report_data_revision() OWNER TO "{superuser}"')
+        with pytest.raises(Exception, match="Sahiplik hatasi"):
+            command.upgrade(alembic_cfg, "0013")
+        assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0012",)
+        assert _owners(admin_conn) == (superuser, superuser)  # işlev sahibi değişmedi
+        has_column = admin_conn.execute(
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_name = 'report_data_revisions' AND column_name = 'last_xact'"
+        ).fetchone()
+        assert has_column == (0,)  # şema değişmedi
+    finally:
+        admin_conn.execute("ALTER TABLE report_data_revisions OWNER TO netkar_owner")
+        admin_conn.execute("ALTER FUNCTION public.bump_report_data_revision() OWNER TO netkar_owner")
+        command.upgrade(alembic_cfg, "head")
+    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0014",)

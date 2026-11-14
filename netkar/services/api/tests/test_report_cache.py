@@ -1191,3 +1191,71 @@ def test_dk04_statement_timeout_in_the_settings_read_becomes_the_same_503(
     resp = call(shop, "summary")
     assert resp.status_code == 503 and resp.json()["type"].endswith("report-compute-timeout")
     assert int(resp.headers["Retry-After"]) >= 1
+
+
+async def test_dk10_gate_counts_abandoned_slots_and_release_decrements_idempotently() -> None:
+    gate = ReportGate(process_slots=2, tenant_slots=2, retry_after_seconds=2)
+    tenant = uuid4()
+    assert gate.abandoned == 0
+    async with gate.slot(tenant) as handle:
+        handle.defer()
+    assert handle.mark_abandoned() == 1 and handle.mark_abandoned() == 1  # idempotent
+    assert gate.abandoned == 1 and gate.active == 1
+    handle.release()
+    handle.release()
+    assert gate.abandoned == 0 and gate.active == 0
+    assert handle.mark_abandoned() == 0  # bırakılmış tutamak terk edilmiş sayılmaz
+    async with gate.slot(tenant) as normal:  # terk edilmeden biten yuva sayacı etkilemez
+        normal.defer()
+    normal.release()
+    assert gate.abandoned == 0
+
+
+def test_dk10_abandoned_engine_logs_structured_counts_and_the_count_returns_to_zero(
+    make_shop: Callable[..., Shop],
+    admin_conn: psycopg.Connection[Any],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    shop = make_shop(
+        "a@example.com", "Mağaza A", profit_report_compute_timeout_seconds=1.0,
+        profit_report_cache_wait_seconds=0.5, profit_report_process_concurrency=1,
+        profit_report_tenant_concurrency=1, **CACHE_ON,
+    )  # fmt: skip
+    seed_basic(admin_conn, shop)
+    engine = BlockedEngine()
+    monkeypatch.setattr(profit_report, "calculate_profit", engine)
+    gate: ReportGate = shop.api.client.app.state.report_gate  # type: ignore[attr-defined]
+    try:
+        assert call(shop, "summary").status_code == 503
+        assert gate.abandoned == 1 and gate.active == 1
+        # Uygulamanın JSON günlüğü stdout'a yazılır (caplog'a yayılmaz).
+        records = [ln for ln in capsys.readouterr().out.splitlines() if "profit_engine_abandoned " in ln]
+        assert len(records) == 1
+        assert "abandoned=1" in records[0] and "process_slots=1" in records[0]
+        assert str(shop.account_id) in records[0] and "Mağaza" not in records[0]  # kiracı verisi yok
+    finally:
+        engine.release.set()
+    assert _wait_for(lambda: gate.abandoned == 0 and gate.active == 0)
+    assert "profit_engine_abandoned_finished" in capsys.readouterr().out
+
+
+def test_dk11_statement_timeout_after_a_cache_hit_becomes_the_same_503_not_a_plain_500(
+    shop: Shop, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert call(shop, "products").status_code == 200  # önbellek ısınır
+    misses = cache_of(shop).misses
+
+    async def slow_titles(db: Any, *args: Any, **kwargs: Any) -> Any:
+        from sqlalchemy import text
+
+        await db.execute(text("SET LOCAL statement_timeout = 100"))
+        await db.execute(text("SELECT pg_sleep(5)"))
+        raise AssertionError("deyim sınırı çalışmadı")
+
+    monkeypatch.setattr(views, "product_titles", slow_titles)
+    resp = call(shop, "products")
+    assert cache_of(shop).misses == misses  # gerçekten önbellek isabeti: hata `_report` dışında
+    assert resp.status_code == 503 and resp.json()["type"].endswith("report-compute-timeout")
+    assert int(resp.headers["Retry-After"]) >= 1
+    assert "pg_sleep" not in resp.text and "statement" not in resp.text.lower()  # ayrıntı sızmaz
