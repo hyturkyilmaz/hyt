@@ -93,3 +93,52 @@ Kapsam: `seed_diff.patch` (seed_demo.py, demo_data.py, demo_card.py, migrasyon `
 Açık bulgular: Kritik 0, Yüksek 0, Orta 0, Düşük 2 (DT-13, DT-14), Bilgi 6 (DT-08, DT-09, DT-10, DT-12, DT-15, DT-16).
 
 Orta bulgular (DT-01, DT-02) kapandı; 0015 güvenlik açısından doğru kurulmuş (definer işlev sabitlenmiş, şema nitelikli, yetkiler dar, geri alma eski durumu birebir kuruyor) ve uygulama ya da işçi rolü üretimde işareti oluşturamaz, dolayısıyla gerçek bir hesabı senkrondan gizleyemez. Yerel ve staging kullanımı için **kabul edilebilir**. Kalan iki Düşük bulgu, işaretin insan hatasıyla üretime yazılması yolunu daraltır; DT-14 (3) maddesindeki üretim açılış denetimi düşük maliyetli ve önerilir, sonraki turda kapatılabilir.
+
+## DT-13..16 ve maliyet süzgeci denetimi
+
+Kapsam: `b16_diff.patch` (Makefile, README, `app/api/v1/product_costs.py`, `product_cost_schemas.py`, `app/services/product_costs.py`, `app/main.py`, `app/worker/app.py`, yeni `app/db/deployment_guard.py`, migrasyon `0016_instance_id_and_mark_demo_strict.py`, `app/tools/seed_demo.py`, testler: `test_deployment_guard.py`, `test_product_costs_missing.py`, `test_marketplace_accounts.py`, `test_migrations.py`, `test_seed_demo.py`). Yalnız okuma (2026-11-15); pytest ve tohum çalıştırılmadı.
+
+### Önceki bulguların durumu
+
+| ID | Durum | Gerekçe |
+|---|---|---|
+| DT-13 | Kapandı (artık not DT-17) | `parse_target` URL'de port varken sorguda `port`'u reddediyor (`seed_demo.py:163-164`), yani ayrıştırılan port sürücünün kullandığıyla aynı. Sunucu kimliği artık `(veritabanı, adres, port, instance_id)`; `instance_id` 0016'da `gen_random_uuid()` ile yazılıyor ve yoksa tohum duruyor. Uygulama, işçi ve yönetici bağlantıları `check_same_server` ile karşılaştırılıyor. |
+| DT-14 | Kapandı (artık not DT-18) | İşaret ayrı `mark-non-prod` alt komutunda; tohum çalıştırması işaret yazmıyor (`--mark-non-prod` bayrağı kaldırıldı). Alt komut önce sunucunun kendi bildirdiği kimliği basıyor ve `--confirm VERITABANI@INSTANCE_ID` birebir eşleşmeden hiçbir şey yazmıyor. Onay, işaretin yazıldığı yönetici bağlantısının kimliğine (`check_same_server`) bağlı; yönetici rolü süper kullanıcı ya da `netkar_owner` değilse reddediliyor (değilse zaten `INSERT` yetkisi de yok). `local` yalnız `localhost`, `127.0.0.1`, `::1` ve loopback adresi kabul ediyor (`postgres`, `db` adları kaldırıldı; IPv4 eşlemeli IPv6 açılıyor); `test`/`staging` loopback ya da özel ağ istiyor, genel adres reddediliyor. API (lifespan) ve işçi (`build_app`) `ENVIRONMENT=prod` iken işaret varsa açılmıyor. |
+| DT-15 | Kapandı | 0016'da `mark_demo_account` `IF NOT FOUND` ile `42704` veriyor; tohum ayrıca `SELECT is_demo` ile doğruluyor (`seed_demo.py:539-542`). |
+| DT-16 | Kapandı | `test_app_role_column_insert_grants_match_the_orm_model` ORM sütunlarıyla `netkar_app` INSERT yetkisini iki yönlü karşılaştırıyor; bilerek yasak sütun kümesi `{is_demo}`. |
+| DT-08, DT-09, DT-10, DT-12 | Açık (Bilgi) | Bu turda ele alınmadı. DT-09'a ek olarak make yolu artık `MARK_ARGS` ile onay değerini de taşıyabilir; onay sunucuya bağlı olduğundan bu bir zayıflık değil. |
+
+### deployment_guard incelemesi
+
+- Okuyan rol: API `DATABASE_URL` motoruyla (`netkar_app`), işçi `worker_libpq_url` ile (`netkar_worker`) okuyor; ikisinde de 0015'ten `SELECT ON deployment_marks` var.
+- Hata anlamı: işaret `true` ise `NonProductionMarkError`; `UndefinedTable` (42P01) dışındaki her `DBAPIError`/`psycopg.Error` (bağlantı yok, yetki yok) açılışı durduruyor; API'de diğer istisnalar da yukarı çıkıyor ve motor kapatılıyor. Yani hata durumunda açılmama (fail-closed) sağlanıyor.
+- "Tablo yoksa atla": 0015 öncesi şemada işaret var olamaz; staging dökümü üretime geri yüklenirse tablo da işaretle birlikte gelir. Bu yüzden atlama, belgelenen amacı (döküm ya da yanlış sunucuda işaretleme) zayıflatmıyor. Küçük not: sorgu şema niteliksiz (`deployment_marks`), DT-18.
+- Üretim dışı ortamlar: `environment != "prod"` iken hiçbir sorgu atılmıyor, bağlantı kurulmuyor; testler `ENVIRONMENT=test` ile çalıştığı için normal kümede devreye girmiyor, prod yolu `test_deployment_guard.py` ile ayrıca sınanıyor (işaretli, işaretsiz, tablo yok, okuma hatası; API ve işçi).
+- İşçi denetimi `app.worker.app` modülü yüklenirken (`app = build_app()`) çalışıyor; API bu modülü içe aktarmıyor (doğrulandı), yani API sürecine senkron bağlantı eklenmiyor.
+
+### Migrasyon 0016 incelemesi
+
+- `instance_id` satırı migrasyon rolüyle yazılıyor; 0015 yetkileri değişmiyor (uygulama ve işçi yalnız okur).
+- `mark_demo_account` `CREATE OR REPLACE` ile değişiyor: sahip (`netkar_owner`), `SECURITY DEFINER`, sabitlenmiş `search_path` ve `EXECUTE` yetkileri (yalnız `netkar_app`) korunuyor; gövde yalnız `IF NOT FOUND` kuyruğuyla farklı.
+- Geri alma: işlev 0015 gövdesine birebir dönüyor; `instance_id` satırı siliniyor. Not: 0016 öncesinde elle yazılmış bir `instance_id` satırı varsa (upgrade `ON CONFLICT DO NOTHING` ile korur) geri alma onu da siler; pratikte önemsiz. Test geri almayı sınıyor.
+
+### Maliyet süzgeci (`missing=true`, `total_missing`) incelemesi
+
+- Kiracı ve hesap kapsamı: sayfa ve sayım sorguları `Product.tenant_id == tenant_id AND Product.marketplace_account_id == account_id` ile süzülüyor; `EXISTS` alt sorgusu `ProductCost.tenant_id` parametresi ve `Product`'a korelasyonla sınırlı; uç önce `_require_account` çalıştırıyor ve oturum RLS bağlamında. `total_missing` yalnız çağıranın kendi hesabının sayısı; başka kiracı ya da hesap hakkında bilgi sızdırmıyor (izolasyon ve RLS testleri var).
+- Kural tutarlılığı: süzgeç, listedeki LATERAL ile aynı `valid_from <= bugün (İstanbul)` kuralını kullanıyor; yalnız gelecek tarihli kaydı olan ürün "eksik" sayılıyor.
+- İmleç: süzgeç `WHERE` içinde, `LIMIT` ve barkod keyset'inden önce; süzgeç kümeyi yalnız daraltır, sıralama aynı kalır. Sayfalar arasında maliyet girilirse ürün sonraki sayfalardan düşer ama atlama ya da yineleme olmaz (test var).
+- Maliyet: sayım her istekte (her sayfa ve her arama tuşunda) tüm hesap ürünleri üzerinde anti-join çalıştırıyor; `uq_product_costs_account_barcode_from` dizinini kullanıyor ve test sıralı tarama olmadığını doğruluyor. Büyük katalogda istek başına ek maliyet (DT-19).
+
+### Yeni bulgular
+
+| ID | Önem | Dosya:satır | Senaryo | Düzeltme |
+|---|---|---|---|---|
+| DT-17 | Bilgi | `migrations/versions/0016_instance_id_and_mark_demo_strict.py` (UPGRADE_SQL); `services/api/app/tools/seed_demo.py:210-226` | `instance_id` veritabanı içeriğidir; `pg_dump`/geri yükleme ya da fiziksel kopya onu taşır. Üretimden kopyalanmış bir staging veritabanı üretimle AYNI `instance_id`'ye sahip olur. TCP'de adres ve port yine ayırt eder; ancak iki sunucuya da unix soketiyle (biri yönlendirilmiş) bağlanılan uç durumda `server_key` eşit çıkar ve `--confirm` değeri iki sunucu için aynı olur. Kasıtlı kurulum gerektirir; ayrıca işaret üretime yazılsa bile DT-14 kapsamındaki açılış denetimi üretimi durdurur. | `mark-non-prod` işareti yazarken aynı işlemde `instance_id`'yi yenilesin (`UPDATE deployment_marks SET value = gen_random_uuid()::text WHERE key = 'instance_id'`); böylece kopyalar işaretlendikleri anda ayrışır. README'de "kopyalanan veritabanı kimliğini de kopyalar" notu düşün. |
+| DT-18 | Bilgi | `services/api/app/db/deployment_guard.py` (`_SQL`, `assert_not_marked_non_production`); `services/api/app/main.py` (lifespan) | (a) Sorgu şema niteliksiz; `netkar_app`/`netkar_worker` `search_path`'i değiştirilirse (ör. `options=-c search_path=...`) `UndefinedTable` alınır ve denetim sessizce atlanır. Bunu yapabilen zaten bağlantı dizesini denetler, yani sınır aşımı değil. (b) Asenkron API denetiminde bağlantı zaman aşımı yok (işçide `connect_timeout=10` var); erişilemeyen (paketleri düşüren) bir veritabanında API açılışı TCP zaman aşımına kadar asılı kalabilir. (c) Davranış değişikliği: üretimde veritabanı açılış anında yoksa API artık başlamaz ve yeniden başlatma döngüsüne girer (bilinçli fail-closed; dağıtım/devretme runbook'una yazılmalı). | Sorguyu `public.deployment_marks` olarak niteleyin (tohumdaki sorgular dahil). API denetimini `asyncio.timeout(...)` ile sınırlayın ya da `connect_args={"connect_timeout": ...}` verin. Runbook'a "prod açılışı veritabanı erişimi ister" notu ekleyin. |
+| DT-19 | Bilgi | `services/api/app/api/v1/product_costs.py` (`list_products`), `services/api/app/services/product_costs.py` (`count_missing`) | `total_missing` her istekte, `q`/`after`'dan bağımsız olarak tüm hesap üzerinde yeniden sayılıyor; sayfa ve sayım ayrı ifadeler (READ COMMITTED), aralarında yazım olursa birkaç birimlik tutarsızlık görülebilir. Güvenlik etkisi yok; büyük katalogda ve hızlı aramada gereksiz yük. | Sayımı yalnız ilk sayfada (`after is None`) hesaplayın ya da ayrı, önbelleklenebilir bir uca taşıyın; istemci sonraki sayfalarda önceki değeri kullansın. |
+
+### Karar (DT-13..16 turu)
+
+Açık bulgular: Kritik 0, Yüksek 0, Orta 0, Düşük 0, Bilgi 7 (DT-08, DT-09, DT-10, DT-12, DT-17, DT-18, DT-19).
+
+DT-13, DT-14, DT-15 ve DT-16 kapandı. Açılış denetimi doğru rollerle ve hata durumunda açılmama ilkesiyle çalışıyor, üretim dışında sorgu atmıyor; "tablo yoksa atla" belgelenen tehdit için güvenli. `mark-non-prod` onayı atlanamıyor ve yalnız yönetici rolüyle yazabiliyor. Maliyet süzgeci kiracı ve hesap kapsamlı, imleçle uyumlu ve bilgi sızdırmıyor. Demo tohumu ve maliyet süzgeci için **kabul edilebilir**; kalan Bilgi notları sonraki bakım turunda ele alınabilir.
