@@ -45,7 +45,11 @@ async def assert_not_marked_non_production(engine: AsyncEngine, environment: str
     try:
         # Bağlantı ve sorgu birlikte sınırlanır; erişilemeyen veritabanında açılış asılmaz.
         async with asyncio.timeout(CHECK_TIMEOUT_SECONDS), engine.connect() as conn:
-            await conn.execute(text(f"SET LOCAL statement_timeout = '{CHECK_TIMEOUT_SECONDS}s'"))
+            # Değer bağlı parametreyle verilir (profit.py ile aynı desen); SQL'e metin birleştirilmez.
+            await conn.execute(
+                text("SELECT set_config('statement_timeout', :v, true)"),
+                {"v": f"{CHECK_TIMEOUT_SECONDS}s"},
+            )
             value = (await conn.execute(text(_SQL))).scalar_one_or_none()
             await conn.rollback()
     except TimeoutError as exc:
