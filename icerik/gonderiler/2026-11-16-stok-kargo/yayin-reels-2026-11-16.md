@@ -6,7 +6,7 @@
 | Saat | 20:50 TRT (30 günlük plan) |
 | Anahtar kelime | STOK |
 | Yazım hatası | "yaramıyr" (doğrusu: yaramıyor) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 15 Kasım akşamı: haber içermiyor; Efsane Cuma 27 Kasım, 16 Kasım'dan 11 gün sonra (doğru). Metinde istem dışı hata yok. |
 
 ## Açıklama
 
