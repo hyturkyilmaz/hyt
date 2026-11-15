@@ -142,3 +142,36 @@ Kapsam: `b16_diff.patch` (Makefile, README, `app/api/v1/product_costs.py`, `prod
 Açık bulgular: Kritik 0, Yüksek 0, Orta 0, Düşük 0, Bilgi 7 (DT-08, DT-09, DT-10, DT-12, DT-17, DT-18, DT-19).
 
 DT-13, DT-14, DT-15 ve DT-16 kapandı. Açılış denetimi doğru rollerle ve hata durumunda açılmama ilkesiyle çalışıyor, üretim dışında sorgu atmıyor; "tablo yoksa atla" belgelenen tehdit için güvenli. `mark-non-prod` onayı atlanamıyor ve yalnız yönetici rolüyle yazabiliyor. Maliyet süzgeci kiracı ve hesap kapsamlı, imleçle uyumlu ve bilgi sızdırmıyor. Demo tohumu ve maliyet süzgeci için **kabul edilebilir**; kalan Bilgi notları sonraki bakım turunda ele alınabilir.
+
+## Staging ortamı ve DT-17/18/19 denetimi
+
+Kapsam: `stg_diff.patch` (`app/core/config.py`, `app/db/deployment_guard.py`, `app/main.py`, `app/tools/seed_demo.py`, README, `test_config_environment.py`, `test_deployment_guard.py`, `test_http_hardening.py`, `test_seed_demo.py`). Yalnız okuma; pytest çalıştırılmadı.
+
+### Ortam karşılaştırmaları
+
+- Kod tabanında `settings.environment` yalnız dört yerde okunuyor: KEK halkası zorunluluğu ve güvensiz varsayılan reddi (`config.py`), OpenAPI (`main.py`), açılış kilidi (`deployment_guard.py`, yalnız `prod`). Tohumun `check_guard`'ı `ENVIRONMENT=prod`'u reddetmeye devam ediyor. Staging'i "dev" gibi ele alan başka bir dal yok.
+- Prod kuralları değişmemiş (file/memory e-posta ve DEBUG reddi, KEK zorunluluğu, OpenAPI kapalı). Staging daha önce `dev`/`test` değeriyle çalışmak zorundaydı; şimdi OpenAPI kapalı, DEBUG yasak, KEK zorunlu (geliştirme KEK'ine düşmez), Trendyol `live` yasak. Yani hiçbir korumada zayıflama yok, staging sıkılaştı.
+- Çerezler (`secure=True`, `httponly`, `samesite`), güvenlik başlıkları (HSTS, `middleware.py` sabit sözlüğü) ve hız sınırları ortamdan bağımsız; staging'de prod ile aynı. `PWNED_CHECK_ENABLED` varsayılan kapalı ve hiçbir ortamda zorunlu değil (bu turdan önce de böyleydi; DT-22 içinde not).
+
+### Önceki bulguların durumu
+
+| ID | Durum | Gerekçe |
+|---|---|---|
+| DT-17 | Kapandı | `mark-non-prod` işareti `INSERT ... ON CONFLICT DO NOTHING RETURNING key` ile yazıyor; satır YENİ yazıldıysa aynı işlemde (`engine.begin()`) `instance_id` `gen_random_uuid()` ile yenileniyor. Eşzamanlı iki çalıştırmada ikincisi birincil anahtar çakışmasında birincinin bitmesini bekler ve `DO NOTHING` alır, yani kimlik iki kez değişmez. Yenileme kimlik denetimi (`check_same_server`) geçtikten sonra yapılıyor ve yeni değer ekrana basılıyor. Kalan küçük durum: zaten işaretli bir staging'in kopyası (staging'den staging'e) aynı kimliği taşır; üretimle ayrışma amacını etkilemiyor. |
+| DT-18 | Kapandı | Sorgular `public.deployment_marks` olarak nitelendi (açılış denetimi ve tohum). API denetimi `asyncio.timeout(10)` ile bağlantı ve sorguyu birlikte sınırlıyor, ayrıca `SET LOCAL statement_timeout` (sabit değer, enjeksiyon yok; SQLAlchemy otomatik işlem başlattığı için `LOCAL` geçerli). `TimeoutError` `NonProductionMarkError`'a çevriliyor; lifespan istisnada motoru kapatıyor; yani hata durumunda açılmama korunuyor. Prod açılışının veritabanı istemesi README'de çalışma notu olarak yazılmış. İşçi tarafındaki küçük asimetri DT-22'de. |
+| DT-19 | Kabul edilen risk (Bilgi, açık) | Kod değişmedi, README'de belgelendi. Güvenlik etkisi yok. |
+| DT-08, DT-09, DT-10, DT-12 | Açık (Bilgi) | Bu turda ele alınmadı. |
+
+### Yeni bulgular
+
+| ID | Önem | Dosya:satır | Senaryo | Düzeltme |
+|---|---|---|---|---|
+| DT-20 | Düşük | `services/api/app/core/email.py:44-55` (`FileEmailSender`), `app/core/config.py` (`email_dev_outbox_path = "var/outbox.jsonl"`, staging dalı), `app/api/v1/auth.py:395` | Staging artık bilinçli olarak `EMAIL_BACKEND=file` ile çalışıyor. Dosya göreli yolda (`var/outbox.jsonl`, sürecin çalışma dizini), varsayılan umask izinleriyle (çoğunlukla 0644) açılıyor, döndürme ve saklama süresi yok. İçinde alıcı e-postası ve ham sıfırlama bağlantısı (`/reset-password?token=...`) var. İnternete açık staging'de kapsayıcıya ya da birime okuma erişimi olan herkes (yedek, günlük toplayıcı, paylaşılan birim) jeton süresi içinde staging hesaplarını ele geçirebilir. Pilot katılımcıların gerçek e-postayla kayıt olması durumunda adresler süresiz düz metin dosyada kalır (KVKK saklama ilkesi). | Dosyayı `os.open(path, O_WRONLY \| O_CREAT \| O_APPEND, 0o600)` ile açın; staging'de mutlak ve paylaşılmayan bir yol zorunlu kılın; boyut/süre ile döndürün ve eski kayıtları silin. Daha iyisi: staging için kimlik doğrulamalı bir yakalayıcı SMTP (ör. Mailpit) arka ucu. README'ye "outbox gizli veridir" notu ekleyin. |
+| DT-21 | Düşük | `services/api/app/db/deployment_guard.py:41-45`, `:61-63` | Açılış kilidi yalnız `prod`'da ve yalnız tek yönde çalışıyor. Ters yanlış yapılandırma yakalanmıyor: `ENVIRONMENT=staging` olan bir API/işçi işaretsiz (örneğin üretim) veritabanına bağlanırsa sorunsuz açılır. Bu durumda üretim kullanıcılarının sıfırlama bağlantıları staging'deki düz metin outbox'a (DT-20) yazılır ve staging işçisi üretim hesaplarını Trendyol stage uç noktasıyla senkronlamaya çalışır. İşaret altyapısı zaten var, denetimi eklemenin maliyeti düşük. | `ENVIRONMENT=staging` iken açılışta `public.deployment_marks.non_production = 'true'` satırını ZORUNLU kılın (aynı işlev, ters koşul, aynı zaman aşımı ve hata durumunda açılmama ilkesi). Tablo yoksa staging'de de açılmasın. |
+| DT-22 | Bilgi | `services/api/app/db/deployment_guard.py:61-72` | İşçi denetiminde `connect_timeout=10` var ama sorgu zaman aşımı yok. Örneğin bir migrasyon `deployment_marks` üzerinde kilit tutarken prod işçi açılışı süresiz bekleyebilir (API tarafında `statement_timeout` var). Ayrıca `PWNED_CHECK_ENABLED` sertleşmiş ortamlarda zorunlu değil (önceden de böyleydi). | `psycopg.connect(..., options="-c statement_timeout=10000")` verin. `HARDENED_ENVIRONMENTS` için `PWNED_CHECK_ENABLED=true` zorunluluğunu (ya da en az bir uyarıyı) değerlendirin. |
+
+### Karar (staging turu)
+
+Açık bulgular: Kritik 0, Yüksek 0, Orta 0, Düşük 2 (DT-20, DT-21), Bilgi 6 (DT-08, DT-09, DT-10, DT-12, DT-19, DT-22).
+
+`staging` değerinin eklenmesi hiçbir prod korumasını zayıflatmadı; staging önceki "dev/test" çalışmasına göre sıkılaştı. DT-17 ve DT-18 kapandı. Staging'i pilot kullanıcılara açmadan önce DT-20 (outbox izinleri ve saklama) ve DT-21 (staging'de işaret zorunluluğu) giderilmeli; ikisi de küçük değişikliklerdir. Bu koşulla **kabul edilebilir**.
