@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from app.api.v1.product_costs import COST_IMPORT_PATH_PATTERN
 from app.api.v1.router import api_router
 from app.core.clientip import ClientIpResolver
-from app.core.config import Settings, get_settings
+from app.core.config import HARDENED_ENVIRONMENTS, Settings, get_settings
 from app.core.crypto import FieldCipher
 from app.core.email import EmailSender, FileEmailSender, InMemoryOutbox
 from app.core.envelope import EnvelopeCipher
@@ -122,7 +122,7 @@ def create_app(
         debug=settings.debug,
         docs_url=None,
         redoc_url=None,
-        openapi_url=None if settings.environment == "prod" else "/v1/openapi.json",
+        openapi_url=None if settings.environment in HARDENED_ENVIRONMENTS else "/v1/openapi.json",
     )
     app.state.settings = settings
     app.state.client_ip_resolver = ClientIpResolver(settings.trusted_proxy_cidrs, settings.trusted_proxy_hops)

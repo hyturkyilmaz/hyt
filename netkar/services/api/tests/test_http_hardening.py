@@ -92,3 +92,9 @@ def test_docs_ui_disabled_and_openapi_hidden_in_prod(make_api: Callable[..., Api
     assert dev.get("/v1/openapi.json").status_code == 200
     prod = make_api(environment="prod")
     assert prod.get("/v1/openapi.json").status_code == 404
+
+
+def test_openapi_hidden_in_staging_like_prod(make_api: Callable[..., Api]) -> None:
+    staging = make_api(environment="staging")
+    assert staging.get("/v1/openapi.json").status_code == 404
+    assert staging.get("/docs").status_code == 404

@@ -19,6 +19,10 @@ from app.integrations.trendyol.identity import validate_integrator_name
 
 IPNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
 
+# Sertleşen ortamlar: OpenAPI kapalı, DEBUG yasak, KEK halkası zorunlu. Çerezler zaten her ortamda
+# Secure/HttpOnly (app/core/cookies.py), yani staging de yalnız HTTPS ile çalışır.
+HARDENED_ENVIRONMENTS = frozenset({"staging", "prod"})
+
 
 class Settings(BaseSettings):
     """Ortam değişkenlerinden okunan ayarlar (önek yok, büyük küçük harf duyarsız)."""
@@ -27,7 +31,9 @@ class Settings(BaseSettings):
 
     # Ürün adı tek yerden okunur; marka değişirse yalnız bu ayar değişir.
     product_name: str = "NetKâr"
-    environment: Literal["dev", "test", "prod"] = "dev"
+    # staging: prod gibi sertleşir (OpenAPI kapalı, DEBUG yasak, KEK halkası zorunlu, Trendyol live yasak),
+    # ama dosya e-posta arka ucuna ve demo tohumuna izin verir. Açılış kilidi (deployment_guard) yalnız prod.
+    environment: Literal["dev", "test", "staging", "prod"] = "dev"
     log_level: str = "INFO"
     # Yalnız geliştirme içindir; ENVIRONMENT=prod iken açık olması açılışı engeller.
     debug: bool = False
@@ -211,8 +217,10 @@ class Settings(BaseSettings):
     def _validate_kek_ring(self) -> Settings:
         """KEK halkası geçerli olmalı; prod'da açıkça verilmeli. İleti anahtar değerini yazmaz."""
         if self.data_keks is None and self.data_kek_active is None:
-            if self.environment == "prod":
-                raise ValueError("ENVIRONMENT=prod iken DATA_KEKS ve DATA_KEK_ACTIVE zorunludur")
+            if self.environment in HARDENED_ENVIRONMENTS:
+                raise ValueError(
+                    f"ENVIRONMENT={self.environment} iken DATA_KEKS ve DATA_KEK_ACTIVE zorunludur"
+                )
             return self
         if self.data_keks is None or self.data_kek_active is None:
             raise ValueError("DATA_KEKS ve DATA_KEK_ACTIVE birlikte verilmeli")
@@ -245,15 +253,28 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _reject_unsafe_production(self) -> Settings:
-        """Üretimde güvensiz varsayılanlar açılışı durdurur (denetim D-08)."""
+        """Üretimde ve staging'de güvensiz varsayılanlar açılışı durdurur (denetim D-08).
+
+        prod: file/memory e-posta arka ucu yasak (gerçek arka uç yazılana dek prod açılmaz), DEBUG yasak.
+        staging: DEBUG yasak; `memory` yasak (süreç ölünce ve api/işçi arasında kaybolur, pilot oturumda
+        sıfırlama bağlantısı görülemez); `file` serbest (dışarıya e-posta gitmez, bilinçli güvenlik);
+        TRENDYOL_ENVIRONMENT=live ile birlikte açılmaz (staging gerçek mağaza anahtarı taşımaz).
+        """
+        problems: list[str] = []
         if self.environment == "prod":
-            problems: list[str] = []
             if self.email_backend in {"file", "memory"}:
                 problems.append("ENVIRONMENT=prod iken EMAIL_BACKEND=file/memory kullanılamaz")
             if self.debug:
                 problems.append("ENVIRONMENT=prod iken DEBUG açık olamaz")
-            if problems:
-                raise ValueError("; ".join(problems))
+        elif self.environment == "staging":
+            if self.email_backend == "memory":
+                problems.append("ENVIRONMENT=staging iken EMAIL_BACKEND=memory kullanılamaz (file kullanın)")
+            if self.debug:
+                problems.append("ENVIRONMENT=staging iken DEBUG açık olamaz")
+            if self.trendyol_environment == "live":
+                problems.append("ENVIRONMENT=staging iken TRENDYOL_ENVIRONMENT=live kullanılamaz")
+        if problems:
+            raise ValueError("; ".join(problems))
         return self
 
     @field_validator("database_url", "database_migration_url", "worker_database_url")

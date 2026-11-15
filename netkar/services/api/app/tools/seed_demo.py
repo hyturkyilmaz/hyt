@@ -234,7 +234,7 @@ _IDENTITY_SQL = text(
     "SELECT current_database(), host(inet_server_addr()), inet_server_port(), current_user, session_user, "
     "(SELECT rolsuper FROM pg_roles WHERE rolname = current_user), "
     "(SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user), "
-    "(SELECT value FROM deployment_marks WHERE key = 'instance_id')"
+    "(SELECT value FROM public.deployment_marks WHERE key = 'instance_id')"
 )
 
 
@@ -290,7 +290,9 @@ async def require_non_production_mark(engine: AsyncEngine) -> None:
     """Veritabanında saklanan "üretim değil" işareti (`deployment_marks.non_production`) yoksa durur."""
     async with engine.connect() as conn:
         value = (
-            await conn.execute(text("SELECT value FROM deployment_marks WHERE key = :k"), {"k": NON_PROD_KEY})
+            await conn.execute(
+                text("SELECT value FROM public.deployment_marks WHERE key = :k"), {"k": NON_PROD_KEY}
+            )
         ).scalar_one_or_none()
         await conn.rollback()
     if value != "true":
@@ -301,8 +303,12 @@ async def require_non_production_mark(engine: AsyncEngine) -> None:
         )
 
 
-async def mark_non_production(admin_url: str, expected: ServerIdentity, env: str) -> None:
-    """İşareti yazar (süper kullanıcı ya da netkar_owner ile). Başka sunucuya yazmaz (instance_id karşılaştırılır)."""
+async def mark_non_production(admin_url: str, expected: ServerIdentity, env: str) -> str | None:
+    """İşareti yazar (süper kullanıcı ya da netkar_owner ile). Başka sunucuya yazmaz (instance_id karşılaştırılır).
+
+    İşaret bu çağrıda YENİ yazıldıysa `instance_id` de yenilenir ve yeni değer döner (DT-17); işaret zaten
+    varsa hiçbir şey değişmez ve `None` döner (tekrar çalıştırma kimliği oynatmaz).
+    """
     url = admin_url.replace("postgresql://", "postgresql+psycopg://", 1)
     engine = create_engine(url, pool_size=1, max_overflow=0)
     try:
@@ -320,12 +326,28 @@ async def mark_non_production(admin_url: str, expected: ServerIdentity, env: str
             ).scalar_one()
             if not privileged:
                 raise DemoGuardError(f"{ADMIN_URL_ENV} süper kullanıcı ya da netkar_owner olmalı")
-            await conn.execute(
-                text(
-                    "INSERT INTO deployment_marks (key, value) VALUES (:k, 'true') ON CONFLICT (key) DO NOTHING"
-                ),
-                {"k": NON_PROD_KEY},
-            )
+            inserted = (
+                await conn.execute(
+                    text(
+                        "INSERT INTO public.deployment_marks (key, value) VALUES (:k, 'true') "
+                        "ON CONFLICT (key) DO NOTHING RETURNING key"
+                    ),
+                    {"k": NON_PROD_KEY},
+                )
+            ).first()
+            if inserted is None:
+                return None
+            # DT-17: instance_id kimliği veritabanı içeriğidir ve dökümle kopyalanır. İşaret yazılırken yenilenir;
+            # üretimden kopyalanmış bir staging kendi kimliğini bu adımda alır (yalnız işaretlenen kopya değişir).
+            return (
+                await conn.execute(
+                    text(
+                        "UPDATE public.deployment_marks SET value = gen_random_uuid()::text "
+                        "WHERE key = :k RETURNING value"
+                    ),
+                    {"k": INSTANCE_ID_KEY},
+                )
+            ).scalar_one_or_none()
     finally:
         await engine.dispose()
 
@@ -377,8 +399,14 @@ async def mark_non_prod_command(
         )
     if confirm != expected:
         raise DemoGuardError(f"--confirm değeri bu sunucunun kimliğiyle eşleşmiyor (beklenen: {expected})")
-    await mark_non_production(admin_url, app_id, env_name)
+    new_instance = await mark_non_production(admin_url, app_id, env_name)
     print(f"Üretim dışı işareti yazıldı: {app_id.database}", file=out)
+    if new_instance is not None:
+        print(
+            f"Sunucu kimliği yenilendi (kopya üretimden ayrışsın): instance_id={new_instance}. "
+            "Sonraki komutlarda --confirm değeri bu kimlikle verilir.",
+            file=out,
+        )
     return app_id
 
 

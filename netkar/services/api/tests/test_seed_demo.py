@@ -895,9 +895,23 @@ async def test_mark_non_prod_prints_identity_and_requires_explicit_confirmation(
         )
     assert _mark_row(admin_conn) is None
     # Doğru onay: yazılır; ikinci çalıştırma zararsızdır; ardından tohum çalışır.
-    await mark_non_prod_command(settings, owner_env, confirm=expected, out=io.StringIO())
+    out = io.StringIO()
+    await mark_non_prod_command(settings, owner_env, confirm=expected, out=out)
     assert _mark_row(admin_conn) == ("true",)
-    await mark_non_prod_command(settings, owner_env, confirm=expected, out=io.StringIO())
+    # DT-17: işaret yazılırken instance_id yenilenir (kopya üretimden ayrışır) ve yeni kimlik yazdırılır.
+    renewed = admin_conn.execute("SELECT value FROM deployment_marks WHERE key = 'instance_id'").fetchone()
+    assert renewed is not None and renewed[0] != instance[0]
+    assert f"instance_id={renewed[0]}" in out.getvalue()
+    # Eski onay artık geçmez; yeni kimlikle ikinci çalıştırma zararsızdır ve kimliği OYNATMAZ.
+    with pytest.raises(DemoGuardError, match="eşleşmiyor"):
+        await mark_non_prod_command(settings, owner_env, confirm=expected, out=io.StringIO())
+    again = io.StringIO()
+    await mark_non_prod_command(settings, owner_env, confirm=f"{database.name}@{renewed[0]}", out=again)
+    assert (
+        admin_conn.execute("SELECT value FROM deployment_marks WHERE key = 'instance_id'").fetchone()
+        == renewed
+    )
+    assert "yenilendi" not in again.getvalue()
     result = await seed(settings, SeedOptions(as_of=AS_OF), demo_flag=True, environ=ENV)
     assert len(result.accounts) == 3
 
