@@ -7,19 +7,23 @@ Kullanım (ayrıntı services/api/README.md, "Demo veri tohumu"):
 
     NETKAR_ENV=local make seed-demo                       # netkar/ dizininden
     NETKAR_ENV=local uv run python -m app.tools.seed_demo --demo [--instance 2] [--as-of 2026-11-14] [--write-card]
+    NETKAR_ENV=staging uv run python -m app.tools.seed_demo mark-non-prod [--confirm VERITABANI@INSTANCE_ID]
 
 KORUMA (üretimde çalışmaz). Yapılandırma: `--demo` bayrağı; NETKAR_ENV `local`, `test` ya da `staging`;
 ENVIRONMENT `prod` değil; TRENDYOL_ENVIRONMENT `live` değil; bağlantı dizeleri sürücünün okuduğu gibi çözülür
-(hedefi değiştiren sorgu anahtarları, boş sunucu ve uzak soketler reddedilir), adlarda prod/canli/live yok,
-ikisi aynı sunucu, port ve veritabanı. Bağlandıktan sonra, ilk yazımdan ÖNCE sunucuya sorulur: veritabanı adı,
-adres (local iken loopback ya da özel ağ), bağlanılan rol (app: netkar_app, worker: netkar_worker; süper
-kullanıcı ya da BYPASSRLS ise durur) ve veritabanında saklanan `deployment_marks.non_production` işareti
-(yoksa durur; `--mark-non-prod` ile süper kullanıcı ya da netkar_owner bağlantısı olan DATABASE_ADMIN_URL
-üzerinden bir kez yazılır). Demo pazaryeri hesapları `is_demo` ile işaretlenir ve senkron zamanlayıcı ile
-çalıştırıcıdan dışlanır.
+(hedefi değiştiren sorgu anahtarları, boş sunucu, çoklu sunucu ve URL ile sorguda birlikte verilen sunucu ya da
+port reddedilir, uzak soketler yerel sayılmaz), adlarda prod/canli/live yok, hepsi aynı sunucu, port ve
+veritabanı. Bağlandıktan sonra, ilk yazımdan ÖNCE sunucuya sorulur: veritabanı adı, sunucu adresi (local iken
+YALNIZ loopback; test ve staging iken loopback ya da özel ağ; unix soketinde adres yoktur), sunucu kimliği
+(`deployment_marks.instance_id`, migrasyon 0016: uygulama, işçi ve yönetici bağlantılarında aynı olmalı; unix
+soketinde adres ve port yokken yönlendirmeyi yakalayan değer budur), bağlanılan rol (app: netkar_app, worker:
+netkar_worker; süper kullanıcı ya da BYPASSRLS ise durur) ve veritabanında saklanan
+`deployment_marks.non_production` işareti (yoksa durur). İşaret tohumdan AYRI, bilinçli bir adımdır:
+`mark-non-prod` alt komutu (tohum çalıştırması işaret YAZMAZ). Demo pazaryeri hesapları `is_demo` ile işaretlenir
+(çağrıdan sonra doğrulanır) ve senkron zamanlayıcı ile çalıştırıcıdan dışlanır.
 
-Yetki yolları: Betik süper kullanıcı KULLANMAZ ve RLS'yi aşmaz (yalnız `--mark-non-prod` işareti için bir kez
-DATABASE_ADMIN_URL kullanılır). Kiracı ve kullanıcı `auth_gate.register_account`
+Yetki yolları: Tohum süper kullanıcı KULLANMAZ ve RLS'yi aşmaz (yalnız `mark-non-prod` alt komutu işaret için bir
+kez DATABASE_ADMIN_URL kullanır). Kiracı ve kullanıcı `auth_gate.register_account`
 ile (API'nin kayıt yolu), pazaryeri hesabı, ürün maliyeti ve kâr ayarları `netkar_app` rolüyle (API'nin
 servisleri, kiracı bağlamı kurulu), Trendyol verisi (ürün, sipariş, ekstre, kargo faturası) `netkar_worker`
 rolüyle (senkron işçisinin yazma yolu, kiracı bağlamı kurulu) yazılır. Yani her yazma, uygulamanın kendi rolü
@@ -54,6 +58,7 @@ from pydantic import SecretStr, ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.clock import today_istanbul
@@ -96,12 +101,15 @@ AUDIT_ACTION = "demo_seed.applied"
 ALLOWED_ENVS = frozenset({"local", "test", "staging"})
 # Veritabanı adında bu sözcüklerden biri (sözcük sınırı gözetmeden) geçerse reddedilir.
 PRODUCTION_NAME = re.compile(r"(prod|canli|canlı|live)", re.IGNORECASE)
-LOCAL_NAMES = frozenset({"localhost", "127.0.0.1", "::1", "postgres", "db"})
+# local iken sunucu adı loopback olmalı: "postgres" ya da "db" gibi Docker ağı adları özel adrese çözülür ve
+# sunucu tarafı loopback denetimine takılırdı (DT-14); Docker ağı için NETKAR_ENV=test ya da staging kullanılır.
+LOCAL_NAMES = frozenset({"localhost", "127.0.0.1", "::1"})
 # Bilinen yerel unix soket dizinleri (örn. /cloudsql/... ya da başka bir bağlama noktası uzak sayılır).
 LOCAL_SOCKET_DIRS = ("/tmp", "/var/run/postgresql", "/run/postgresql")  # noqa: S108 (soket dizini, geçici dosya değil)
 # Bağlantı hedefini URL'nin dışından değiştirebilen sorgu anahtarları: koruma bunları ASLA kabul etmez.
 FORBIDDEN_QUERY_KEYS = frozenset({"hostaddr", "dbname", "service", "servicefile"})
 NON_PROD_KEY = "non_production"
+INSTANCE_ID_KEY = "instance_id"
 ADMIN_URL_ENV = "DATABASE_ADMIN_URL"
 SEED_AUDIT_ACTIONS = ("demo_seed.tenant_created", "demo_seed.account_created", AUDIT_ACTION)
 PASSWORD_ENV = "NETKAR_DEMO_PASSWORD"  # noqa: S105  (ortam değişkeninin ADI, değer değil)
@@ -135,7 +143,9 @@ def parse_target(label: str, url: str) -> Target:
 
     psycopg URL sorgusundaki anahtarları URL alanlarının üstüne yazar; bu yüzden hedefi değiştiren anahtarlar
     (`hostaddr`, `dbname`, `service`, `servicefile`) reddedilir, `host` yalnız URL'de sunucu YOKKEN sorguda
-    verilebilir (unix soket dizini) ve boş sunucu (PGHOST'a düşer) kabul edilmez.
+    verilebilir (unix soket dizini), `port` yalnız URL'de port YOKKEN sorguda verilebilir (psycopg sorgudaki
+    değeri URL'dekinin üstüne yazar; ikisi birlikte belirsiz hedeftir, DT-13) ve boş sunucu (PGHOST'a düşer)
+    kabul edilmez.
     """
     parsed = make_url(url)
     query = {k: v for k, v in parsed.query.items()}
@@ -150,6 +160,8 @@ def parse_target(label: str, url: str) -> Target:
         raise DemoGuardError(f"{label} açık bir sunucu içermiyor (boş sunucu PGHOST ortam değişkenine düşer)")
     if "," in host:
         raise DemoGuardError(f"{label} birden çok sunucu içeremez")
+    if "port" in query and parsed.port is not None:
+        raise DemoGuardError(f"{label} hem URL'de hem sorguda port veriyor (belirsiz hedef)")
     raw_port = parsed.port if parsed.port is not None else query.get("port")
     try:
         port = None if raw_port is None else int(str(raw_port))
@@ -204,13 +216,49 @@ class ServerIdentity:
     address: str | None  # None: unix soketi
     port: int | None
     role: str
+    instance_id: (
+        str  # deployment_marks.instance_id: sunucuya özgü, migrasyonda bir kez yazılan rastgele kimlik
+    )
+
+    @property
+    def server_key(self) -> tuple[str, str | None, int | None, str]:
+        """Bağlantılar arası karşılaştırma anahtarı (rol hariç: app, worker ve admin farklı rollerle bağlanır)."""
+        return (self.database, self.address, self.port, self.instance_id)
+
+    def describe(self) -> str:
+        where = "unix soketi" if self.address is None else f"{self.address}:{self.port}"
+        return f"veritabanı={self.database} sunucu={where} instance_id={self.instance_id}"
 
 
 _IDENTITY_SQL = text(
     "SELECT current_database(), host(inet_server_addr()), inet_server_port(), current_user, session_user, "
     "(SELECT rolsuper FROM pg_roles WHERE rolname = current_user), "
-    "(SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user)"
+    "(SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user), "
+    "(SELECT value FROM deployment_marks WHERE key = 'instance_id')"
 )
+
+
+def check_server_address(label: str, env: str, address: str | None) -> None:
+    """Sunucunun bildirdiği adres ortama uygun mu (DT-14). Unix soketinde (adres yok) yerel dizin denetimi
+    `parse_target` içinde yapıldı. local: YALNIZ loopback. test ve staging: loopback ya da özel ağ.
+    """
+    if address is None:
+        return
+    ip = ipaddress.ip_address(address)
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    if env == "local" and not ip.is_loopback:
+        raise DemoGuardError(
+            f"NETKAR_ENV=local iken {label} sunucu adresi loopback olmalı (özel ağ için NETKAR_ENV=test ya da staging)"
+        )
+    if not (ip.is_loopback or ip.is_private):
+        raise DemoGuardError(f"NETKAR_ENV={env} iken {label} sunucu adresi loopback ya da özel ağ olmalı")
+
+
+def check_same_server(first: ServerIdentity, second: ServerIdentity, message: str) -> None:
+    """İki bağlantı aynı sunucuya (veritabanı, adres, port ve instance_id) gitmiyorsa durur (DT-13)."""
+    if first.server_key != second.server_key:
+        raise DemoGuardError(message)
 
 
 async def verify_server(
@@ -220,19 +268,22 @@ async def verify_server(
     async with engine.connect() as conn:
         row = (await conn.execute(_IDENTITY_SQL)).one()
         await conn.rollback()
-    database, address, port, role, session_role, is_super, bypass = row
+    database, address, port, role, session_role, is_super, bypass, instance_id = row
     if PRODUCTION_NAME.search(str(database)):
         raise DemoGuardError(f"{label}: sunucudaki veritabanı adı üretim adına benziyor")
-    if env == "local" and address is not None:
-        ip = ipaddress.ip_address(address)
-        if not (ip.is_loopback or ip.is_private):
-            raise DemoGuardError(f"NETKAR_ENV=local iken {label} sunucu adresi yerel ya da özel ağ olmalı")
+    check_server_address(label, env, address)
+    if not instance_id:
+        raise DemoGuardError(
+            f"{label}: sunucu kimliği (deployment_marks.instance_id) yok; migrasyon 0016 uygulanmamış"
+        )
     if expected_role is not None:
         if role != expected_role or session_role != expected_role:
             raise DemoGuardError(f"{label} {expected_role} rolüyle bağlanmalı (bağlanılan rol farklı)")
         if is_super or bypass:
             raise DemoGuardError(f"{label} rolü süper kullanıcı ya da BYPASSRLS olamaz")
-    return ServerIdentity(str(database), address, None if port is None else int(port), str(role))
+    return ServerIdentity(
+        str(database), address, None if port is None else int(port), str(role), str(instance_id)
+    )
 
 
 async def require_non_production_mark(engine: AsyncEngine) -> None:
@@ -244,25 +295,21 @@ async def require_non_production_mark(engine: AsyncEngine) -> None:
         await conn.rollback()
     if value != "true":
         raise DemoGuardError(
-            "Bu veritabanında üretim dışı işareti yok (deployment_marks.non_production). Süper kullanıcı ya da "
-            f"migrasyon sahibi bağlantısını {ADMIN_URL_ENV} ile verip --mark-non-prod ekleyerek bir kez işaretleyin"
+            "Bu veritabanında üretim dışı işareti yok (deployment_marks.non_production). Üretim dışı olduğundan "
+            f"eminseniz süper kullanıcı ya da migrasyon sahibi bağlantısını {ADMIN_URL_ENV} ile verip "
+            "`mark-non-prod` alt komutunu çalıştırın"
         )
 
 
 async def mark_non_production(admin_url: str, expected: ServerIdentity, env: str) -> None:
-    """İşareti yazar (süper kullanıcı ya da netkar_owner ile, açıkça istenirse). Başka sunucuya yazmaz."""
+    """İşareti yazar (süper kullanıcı ya da netkar_owner ile). Başka sunucuya yazmaz (instance_id karşılaştırılır)."""
     url = admin_url.replace("postgresql://", "postgresql+psycopg://", 1)
     engine = create_engine(url, pool_size=1, max_overflow=0)
     try:
         found = await verify_server(engine, ADMIN_URL_ENV, env, expected_role=None)
-        if (found.database, found.address, found.port) != (
-            expected.database,
-            expected.address,
-            expected.port,
-        ):
-            raise DemoGuardError(
-                f"{ADMIN_URL_ENV} uygulamanın bağlandığı sunucudan farklı bir sunucuya gidiyor"
-            )
+        check_same_server(
+            found, expected, f"{ADMIN_URL_ENV} uygulamanın bağlandığı sunucudan farklı bir sunucuya gidiyor"
+        )
         async with engine.begin() as conn:
             privileged = (
                 await conn.execute(
@@ -281,6 +328,58 @@ async def mark_non_production(admin_url: str, expected: ServerIdentity, env: str
             )
     finally:
         await engine.dispose()
+
+
+def confirmation_for(identity: ServerIdentity) -> str:
+    """`mark-non-prod --confirm` değeri: sunucunun KENDİ bildirdiği veritabanı adı ve instance_id."""
+    return f"{identity.database}@{identity.instance_id}"
+
+
+async def mark_non_prod_command(
+    settings: Settings, environ: Mapping[str, str], *, confirm: str | None, out: Any
+) -> ServerIdentity:
+    """`mark-non-prod` alt komutu: sunucu kimliğini yazar, açık onay (`--confirm`) olmadan HİÇBİR ŞEY yazmaz.
+
+    Yapılandırma koruması ve sunucu doğrulaması tohumla aynıdır (app ve worker kimliği; yönetici bağlantısı da
+    aynı sunucuda olmalı). Onay değeri, sunucunun bildirdiği `veritabanı@instance_id` ile birebir eşleşmelidir;
+    böylece işaret yalnız operatörün ekrandaki kimliği gördüğü sunucuya yazılır.
+    """
+    env = dict(environ)
+    check_guard(demo_flag=True, environ=env, settings=settings)
+    admin_url = env.get(ADMIN_URL_ENV, "")
+    if not admin_url:
+        raise DemoGuardError(f"mark-non-prod için {ADMIN_URL_ENV} gerekir")
+    assert settings.worker_database_url is not None  # check_guard doğruladı
+    env_name = env.get("NETKAR_ENV", "").strip().lower()
+    app_engine = create_engine(settings.database_url, pool_size=1, max_overflow=0)
+    worker_engine = create_engine(settings.worker_database_url, pool_size=1, max_overflow=0)
+    try:
+        app_id = await verify_server(app_engine, "DATABASE_URL", env_name, expected_role="netkar_app")
+        worker_id = await verify_server(
+            worker_engine, "WORKER_DATABASE_URL", env_name, expected_role="netkar_worker"
+        )
+        check_same_server(
+            app_id, worker_id, "DATABASE_URL ve WORKER_DATABASE_URL sunucusu farklı sunuculara gidiyor"
+        )
+    finally:
+        await app_engine.dispose()
+        await worker_engine.dispose()
+    expected = confirmation_for(app_id)
+    print(f"Sunucu kimliği: {app_id.describe()}", file=out)
+    print(
+        f"İşaret yazılacak: deployment_marks.{NON_PROD_KEY} = true (geri alınmaz, kasıtlı silinmelidir)",
+        file=out,
+    )
+    print(f"Onay değeri (--confirm): {expected}", file=out)
+    if confirm is None:
+        raise DemoGuardError(
+            f"Onay gerekli: bu sunucunun üretim dışı olduğundan eminseniz --confirm {expected}"
+        )
+    if confirm != expected:
+        raise DemoGuardError(f"--confirm değeri bu sunucunun kimliğiyle eşleşmiyor (beklenen: {expected})")
+    await mark_non_production(admin_url, app_id, env_name)
+    print(f"Üretim dışı işareti yazıldı: {app_id.database}", file=out)
+    return app_id
 
 
 @dataclass(slots=True)
@@ -305,7 +404,6 @@ class SeedOptions:
     datasets: tuple[DatasetKey, ...] = ("x", "y")
     a_variant: Literal["positive", "negative"] = "positive"
     reset_passwords: bool = False
-    mark_non_prod: bool = False
 
 
 @dataclass(slots=True)
@@ -428,7 +526,20 @@ async def _reset_password(
 
 async def _mark_demo(db: AsyncSession, account_id: UUID) -> None:
     """Hesabı senkron dışı bırakır (DT-02): yalnız veritabanında üretim dışı işareti varsa çalışan dar işlev."""
-    await db.execute(text("SELECT public.mark_demo_account(:id)"), {"id": account_id})
+    try:
+        await db.execute(text("SELECT public.mark_demo_account(:id)"), {"id": account_id})
+    except DBAPIError as exc:
+        # 42704: işlev hiçbir satır güncelleyemedi (DT-15); 42501: üretim dışı işareti yok.
+        if getattr(exc.orig, "sqlstate", None) in ("42704", "42501"):
+            raise DemoGuardError(
+                f"demo hesabı senkron dışı bırakılamadı (hesap {account_id}): işlev reddetti"
+            ) from None
+        raise
+    flagged = (
+        await db.execute(text("SELECT is_demo FROM marketplace_accounts WHERE id = :id"), {"id": account_id})
+    ).scalar_one_or_none()
+    if flagged is not True:
+        raise DemoGuardError(f"demo hesabı {account_id} is_demo ile işaretlenemedi; senkrondan dışlanmadı")
 
 
 async def _ensure_account(
@@ -851,7 +962,8 @@ async def seed(
 ) -> SeedResult:
     """Koruma denetimini geçerse demo kiracılarını, hesaplarını ve verilerini idempotent olarak yazar.
 
-    Sıra: yapılandırma koruması, bağlan, sunucu ve rol doğrulaması, "üretim dışı" işareti, SONRA tüm hesaplar
+    Sıra: yapılandırma koruması, bağlan, sunucu (adres, instance_id) ve rol doğrulaması, "üretim dışı" işareti
+    (tohum işareti YAZMAZ; `mark-non-prod` alt komutu yazar), SONRA tüm hesaplar
     için salt okuma ön denetim (yabancı e-posta, tohum sürümü, parola politikası), ancak ondan sonra ilk yazım.
     """
     env = os.environ if environ is None else environ
@@ -875,17 +987,9 @@ async def seed(
         worker_id = await verify_server(
             worker_engine, "WORKER_DATABASE_URL", env_name, expected_role="netkar_worker"
         )
-        if (app_id.database, app_id.address, app_id.port) != (
-            worker_id.database,
-            worker_id.address,
-            worker_id.port,
-        ):
-            raise DemoGuardError("DATABASE_URL ve WORKER_DATABASE_URL sunucusu farklı sunuculara gidiyor")
-        if options.mark_non_prod:
-            admin_url = env.get(ADMIN_URL_ENV, "")
-            if not admin_url:
-                raise DemoGuardError(f"--mark-non-prod için {ADMIN_URL_ENV} gerekir")
-            await mark_non_production(admin_url, app_id, env_name)
+        check_same_server(
+            app_id, worker_id, "DATABASE_URL ve WORKER_DATABASE_URL sunucusu farklı sunuculara gidiyor"
+        )
         await require_non_production_mark(app_engine)
         plan = plan_accounts(options)
         # Ön denetim (salt okuma): bir hesap reddedilirse hiçbir şey yazılmamış olur.
@@ -963,10 +1067,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--card-path", type=Path, default=None, help="Kartı bu dosyaya yazar (kendiliğinden --write-card)."
     )
+    return parser
+
+
+def build_mark_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m app.tools.seed_demo mark-non-prod",
+        description=(
+            "Veritabanına 'üretim değil' işaretini yazar (provisioning adımı; tohumdan ayrıdır). "
+            f"{ADMIN_URL_ENV} süper kullanıcı ya da netkar_owner olmalı."
+        ),
+    )
     parser.add_argument(
-        "--mark-non-prod",
-        action="store_true",
-        help=f"Veritabanına 'üretim değil' işaretini yazar ({ADMIN_URL_ENV}: süper kullanıcı ya da netkar_owner).",
+        "--confirm",
+        default=None,
+        metavar="VERITABANI@INSTANCE_ID",
+        help="Açık onay: komutun ilk çalıştırmada yazdığı sunucu kimliği. Verilmezse kimlik yazılır, işaret yazılmaz.",
     )
     return parser
 
@@ -998,7 +1114,6 @@ async def _run(args: argparse.Namespace, environ: Mapping[str, str], out: Any) -
         datasets=datasets,
         a_variant=args.a_variant,
         reset_passwords=args.reset_passwords,
-        mark_non_prod=args.mark_non_prod,
     )
     try:
         result = await seed(settings, options, demo_flag=args.demo, environ=environ)
@@ -1022,9 +1137,28 @@ async def _run(args: argparse.Namespace, environ: Mapping[str, str], out: Any) -
     return common.EXIT_OK
 
 
+async def _run_mark(args: argparse.Namespace, environ: Mapping[str, str], out: Any) -> int:
+    try:
+        settings = Settings()
+    except ValidationError as exc:
+        print(f"Yapılandırma hatası: {len(exc.errors())} alan geçersiz (ayrıntı yazılmaz)", file=sys.stderr)
+        return common.EXIT_CONFIG
+    try:
+        await mark_non_prod_command(settings, environ, confirm=args.confirm, out=out)
+    except DemoGuardError as exc:
+        print(f"Reddedildi: {exc}", file=sys.stderr)
+        return common.EXIT_CONFIG
+    return common.EXIT_OK
+
+
 def main(argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = None, out: Any = None) -> int:
-    args = build_parser().parse_args(argv)
-    return asyncio.run(_run(args, os.environ if environ is None else environ, out or sys.stdout))
+    args_list = list(sys.argv[1:] if argv is None else argv)
+    env = os.environ if environ is None else environ
+    if args_list and args_list[0] == "mark-non-prod":
+        mark_args = build_mark_parser().parse_args(args_list[1:])
+        return asyncio.run(_run_mark(mark_args, env, out or sys.stdout))
+    args = build_parser().parse_args(args_list)
+    return asyncio.run(_run(args, env, out or sys.stdout))
 
 
 if __name__ == "__main__":

@@ -594,3 +594,43 @@ def test_migration_0004_is_reversible(alembic_cfg: Config, admin_conn: psycopg.C
         " has_column_privilege('netkar_app', 'marketplace_accounts', 'is_demo', 'UPDATE')"
     ).fetchone()
     assert columns == (True, False, False)
+
+
+# `netkar_app` INSERT yetkisi sütun düzeyinde (0015, DT-16): bilerek HARİÇ tutulan sütunlar. `is_demo` yalnız
+# `public.mark_demo_account` ile açılır; ORM modelinde de yoktur.
+INSERT_DENIED_BY_DESIGN = frozenset({"is_demo"})
+
+
+def test_app_role_column_insert_grants_match_the_orm_model(admin_conn: psycopg.Connection) -> None:
+    """DT-16: ORM modeline eklenen her sütun için `GRANT INSERT (sütun)` verilmelidir.
+
+    Tablo düzeyinde INSERT yoktur; unutulan bir sütun üretimde hesap ekleme yolunu `permission denied` ile
+    kırar. Bu test o durumda CI'da düşer: yeni sütun için migrasyona `GRANT INSERT (yeni_sutun) ON
+    marketplace_accounts TO netkar_app` ekleyin (ya da bilerek yasaksa INSERT_DENIED_BY_DESIGN'a yazın).
+    """
+    orm_columns = {column.name for column in MarketplaceAccount.__table__.columns}
+    db_columns = {
+        row[0]
+        for row in admin_conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'marketplace_accounts'"
+        )
+    }
+    granted = {
+        column
+        for column in db_columns
+        if admin_conn.execute(
+            "SELECT has_column_privilege('netkar_app', 'public.marketplace_accounts', %s, 'INSERT')",
+            (column,),
+        ).fetchone()
+        == (True,)
+    }
+    assert orm_columns <= db_columns, (
+        f"modelde olup tabloda olmayan sütun: {sorted(orm_columns - db_columns)}"
+    )
+    missing = orm_columns - granted
+    assert not missing, f"netkar_app için INSERT yetkisi eksik (GRANT INSERT ekleyin): {sorted(missing)}"
+    # Ters yön: modelde olmayan sütunda yazma yetkisi sessizce açık kalmamalı.
+    assert granted == orm_columns, f"modelde olmayan sütunda INSERT yetkisi: {sorted(granted - orm_columns)}"
+    # Bilerek yasak sütunlar: tabloda var, yetki yok, modelde yok.
+    assert db_columns - granted == INSERT_DENIED_BY_DESIGN

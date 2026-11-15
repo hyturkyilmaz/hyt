@@ -21,6 +21,7 @@ from app.core.middleware import CsrfMiddleware, RequestContextMiddleware, Securi
 from app.core.pwned import HibpPwnedChecker, NullPwnedChecker, PwnedPasswordChecker
 from app.core.ratelimit import RateLimiter
 from app.core.security import PasswordWorker
+from app.db.deployment_guard import assert_not_marked_non_production
 from app.db.session import create_engine, create_rate_limit_engine, create_sessionmaker
 from app.services.import_gate import ImportGate
 from app.services.marketplace_accounts import TrendyolClientFactory, default_client_factory
@@ -69,6 +70,12 @@ def create_app(
             max_overflow=settings.db_max_overflow,
             pool_timeout=settings.db_pool_timeout_seconds,
         )
+        try:
+            # Üretimde "üretim dışı" işaretli veritabanıyla açılmaz (DT-14); prod değilse sorgu atılmaz.
+            await assert_not_marked_non_production(engine, settings.environment)
+        except BaseException:
+            await engine.dispose()
+            raise
         app.state.engine = engine
         app.state.sessionmaker = create_sessionmaker(engine)
         # Hız sınırı sayacı oturum havuzundan AYRI havuz kullanır (denetim S4 Y-01, kilitlenme).

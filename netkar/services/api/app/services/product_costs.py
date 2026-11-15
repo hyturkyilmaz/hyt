@@ -17,7 +17,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, literal_column, select, true
+from sqlalchemy import Select, exists, func, literal_column, select, true
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -157,8 +157,21 @@ def _view(valid_from: date | None, cost: Decimal | None, vat: Decimal | None) ->
     return CostView(valid_from, rnd(cost), vat)
 
 
-async def list_products(
-    db: AsyncSession,
+def _has_current_cost(tenant_id: UUID, today: date) -> Any:
+    """Ürünün bugün geçerli maliyet kaydı var mı (EXISTS). `list_products` içindeki LATERAL ile AYNI kural:
+    `valid_from <= bugün`. Kaydın bitiş tarihi yoktur; yeni kayıt eskiyi geçersiz kılar, yani süresi dolmuş
+    kayıt ayrıca bulunmaz: bugün ya da öncesi tarihli en az bir kayıt varsa maliyet vardır, yalnız gelecek
+    tarihli kayıt varsa YOKTUR. Indeks: uq_product_costs_account_barcode_from (hesap, barkod, geçerlilik).
+    """
+    return exists().where(
+        ProductCost.tenant_id == tenant_id,
+        ProductCost.marketplace_account_id == Product.marketplace_account_id,
+        ProductCost.barcode == Product.barcode,
+        ProductCost.valid_from <= today,
+    )
+
+
+def products_page_stmt(
     tenant_id: UUID,
     account_id: UUID,
     today: date,
@@ -166,8 +179,9 @@ async def list_products(
     search: str | None,
     after: str | None,
     limit: int,
-) -> tuple[list[ProductListItem], str | None]:
-    """Barkoda göre sıralı sayfa (keyset: `after` = önceki sayfanın son barkodu) ve bugün geçerli maliyet."""
+    missing_only: bool = False,
+) -> Select[Any]:
+    """Sayfa sorgusu (keyset, barkoda göre). `missing_only`: yalnız bugün geçerli maliyeti olmayanlar."""
     current = (
         select(ProductCost.valid_from, ProductCost.unit_cost_excl_vat, ProductCost.vat_rate)
         .where(
@@ -194,6 +208,9 @@ async def list_products(
         .order_by(Product.barcode)
         .limit(limit + 1)
     )
+    if missing_only:
+        # Süzgeç sayfalamadan ÖNCE uygulanır (WHERE + LIMIT): sayfalar dolu gelir, imleç aynı sıradır.
+        stmt = stmt.where(~_has_current_cost(tenant_id, today))
     if search:
         # LIKE joker karakterleri kaçırılır (autoescape); değer parametre olarak bağlanır.
         stmt = stmt.where(
@@ -202,6 +219,41 @@ async def list_products(
         )
     if after is not None:
         stmt = stmt.where(Product.barcode > after)
+    return stmt
+
+
+def missing_count_stmt(tenant_id: UUID, account_id: UUID, today: date) -> Select[Any]:
+    return (
+        select(func.count())
+        .select_from(Product)
+        .where(
+            Product.tenant_id == tenant_id,
+            Product.marketplace_account_id == account_id,
+            ~_has_current_cost(tenant_id, today),
+        )
+    )
+
+
+async def count_missing(db: AsyncSession, tenant_id: UUID, account_id: UUID, today: date) -> int:
+    """Hesapta bugün geçerli maliyeti olmayan ürün sayısı (arama, imleç ve `missing` süzgecinden bağımsız)."""
+    return int((await db.execute(missing_count_stmt(tenant_id, account_id, today))).scalar_one())
+
+
+async def list_products(
+    db: AsyncSession,
+    tenant_id: UUID,
+    account_id: UUID,
+    today: date,
+    *,
+    search: str | None,
+    after: str | None,
+    limit: int,
+    missing_only: bool = False,
+) -> tuple[list[ProductListItem], str | None]:
+    """Barkoda göre sıralı sayfa (keyset: `after` = önceki sayfanın son barkodu) ve bugün geçerli maliyet."""
+    stmt = products_page_stmt(
+        tenant_id, account_id, today, search=search, after=after, limit=limit, missing_only=missing_only
+    )
     rows = (await db.execute(stmt)).all()
     page = rows[:limit]
     items = [ProductListItem(r[0], r[1], r[2], _view(r[3], r[4], r[5])) for r in page]

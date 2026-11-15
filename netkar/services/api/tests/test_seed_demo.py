@@ -15,6 +15,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import psycopg
 import pytest
@@ -656,6 +657,30 @@ def test_guard_refuses_ambiguous_empty_and_remote_socket_hosts(settings: Setting
     guard(urls("postgresql+psycopg://u:p@127.0.0.1:5432/netkar_demo"), environ={"NETKAR_ENV": "local"})
 
 
+def test_parse_target_rejects_port_in_both_url_and_query_like_the_driver_would_override() -> None:
+    """DT-13: psycopg sorgudaki `port`'u URL'dekinin üstüne yazar; ikisi birlikte belirsiz hedeftir."""
+    from app.tools.seed_demo import parse_target
+
+    with pytest.raises(DemoGuardError, match="hem URL'de hem sorguda port"):
+        parse_target("DATABASE_URL", "postgresql+psycopg://u:p@:5432/netkar?host=/tmp&port=6543")
+    with pytest.raises(DemoGuardError, match="hem URL'de hem sorguda port"):
+        parse_target("DATABASE_URL", "postgresql+psycopg://u:p@localhost:5432/netkar?port=5432")
+    # Tek kaynaktan gelen port aynen okunur (sürücünün gördüğü değer).
+    assert parse_target("L", "postgresql+psycopg://u:p@/netkar?host=/tmp&port=6543").port == 6543
+    assert parse_target("L", "postgresql+psycopg://u:p@localhost:5432/netkar").port == 5432
+    assert parse_target("L", "postgresql+psycopg://u:p@localhost/netkar").port is None
+
+
+def test_guard_refuses_docker_network_host_names_in_local_mode(settings: Settings) -> None:
+    """DT-14: local yalnız loopback. `postgres` ve `db` Docker ağı adlarıdır (özel adrese çözülür)."""
+    for name in ("postgres", "db"):
+        url = f"postgresql+psycopg://u:p@{name}:5432/netkar_demo"
+        remote = settings.model_copy(update={"database_url": url, "worker_database_url": url})
+        with pytest.raises(DemoGuardError, match="yerel"):
+            guard(remote, environ={"NETKAR_ENV": "local"})
+        guard(remote, environ={"NETKAR_ENV": "test"})
+
+
 async def test_server_side_checks_refuse_wrong_roles_before_any_write(
     settings: Settings, database: DatabaseInfo, admin_conn: psycopg.Connection[Any]
 ) -> None:
@@ -703,74 +728,225 @@ async def test_super_or_bypassrls_role_is_refused_even_with_expected_name(
         admin_conn.execute("ALTER ROLE netkar_app NOBYPASSRLS")
 
 
-async def test_local_mode_requires_loopback_or_private_server_address(settings: Settings) -> None:
+@pytest.mark.parametrize(
+    ("address", "local_ok", "other_ok"),
+    [
+        (None, True, True),  # unix soketi: adres yok (yerel dizin denetimi parse_target'ta)
+        ("127.0.0.1", True, True),
+        ("::1", True, True),
+        ("::ffff:127.0.0.1", True, True),
+        ("172.18.0.2", False, True),  # CI: Docker özel ağı
+        ("10.0.0.5", False, True),
+        ("192.168.1.10", False, True),
+        ("fd00::5", False, True),
+        ("8.8.8.8", False, False),  # genel adres: hiçbir ortamda
+        ("2606:4700:4700::1111", False, False),
+    ],
+)
+def test_server_address_policy_per_environment(address: str | None, local_ok: bool, other_ok: bool) -> None:
+    """DT-14: local YALNIZ loopback; özel ağ yalnız test ve staging'de; genel adres hiçbirinde."""
+    from app.tools.seed_demo import check_server_address
+
+    def verdict(env: str) -> bool:
+        try:
+            check_server_address("DATABASE_URL", env, address)
+        except DemoGuardError:
+            return False
+        return True
+
+    assert verdict("local") is local_ok
+    assert verdict("test") is other_ok and verdict("staging") is other_ok
+
+
+async def test_local_mode_requires_loopback_server_address(settings: Settings) -> None:
+    """Gerçek sunucu: yerelde unix soketi (adres yok), CI'da Docker ağında TCP (ör. 172.18.0.2).
+
+    `local` yalnız loopback ya da soket kabul eder; sunucu özel ağ adresinden bildiriyorsa REDDEDER ve aynı
+    bağlantı `test` ile kabul edilir. Beklenti ortama göre değil, sunucunun bildirdiği adrese göre kurulur.
+    """
     from app.tools.seed_demo import verify_server
 
-    # Test kümesi yerelde unix soketiyle (adres yok), CI'da Docker ağında TCP ile (ör. 172.18.0.2) bağlanır.
-    # İkisi de yerel modda kabul edilir; beklenti ortama göre değil, adresin türüne göre kurulur (CI e90b203).
     engine = create_engine(settings.database_url)
     try:
-        identity = await verify_server(engine, "DATABASE_URL", "local", expected_role="netkar_app")
-        assert identity.role == "netkar_app"
-        if identity.address is not None:
-            address = ipaddress.ip_address(identity.address)
-            assert address.is_loopback or address.is_private, identity.address
+        identity = await verify_server(engine, "DATABASE_URL", "test", expected_role="netkar_app")
+        assert identity.role == "netkar_app" and identity.instance_id
+        loopback = identity.address is None or ipaddress.ip_address(identity.address).is_loopback
+        if loopback:
+            assert (
+                await verify_server(engine, "DATABASE_URL", "local", expected_role="netkar_app")
+            ) == identity
+        else:
+            with pytest.raises(DemoGuardError, match="loopback"):
+                await verify_server(engine, "DATABASE_URL", "local", expected_role="netkar_app")
     finally:
         await engine.dispose()
+
+
+async def test_instance_id_is_the_same_on_app_worker_and_admin_connections(
+    settings: Settings, database: DatabaseInfo, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """DT-13: sunucu kimliği veritabanındaki `instance_id`; üç bağlantıda da aynı (soket adresi olmasa bile)."""
+    from app.tools.seed_demo import verify_server
+
+    stored = admin_conn.execute("SELECT value FROM deployment_marks WHERE key = 'instance_id'").fetchone()
+    assert stored is not None and re.fullmatch(r"[0-9a-f-]{36}", stored[0])
+    found = []
+    for url, role in (
+        (settings.database_url, "netkar_app"),
+        (settings.worker_database_url or "", "netkar_worker"),
+        (database.admin_url.render_as_string(hide_password=False), None),
+    ):
+        engine = create_engine(url)
+        try:
+            found.append(await verify_server(engine, "URL", "test", expected_role=role))
+        finally:
+            await engine.dispose()
+    assert {i.instance_id for i in found} == {stored[0]}
+    assert len({i.server_key for i in found}) == 1
+
+
+def test_server_identity_mismatch_is_refused_even_without_address_and_port() -> None:
+    """DT-13: unix soketinde adres ve port NULL; aynı adlı ama başka sunucudaki veritabanı instance_id ile ayrılır."""
+    from app.tools.seed_demo import ServerIdentity, check_same_server
+
+    mine = ServerIdentity("netkar", None, None, "netkar_app", "11111111-1111-1111-1111-111111111111")
+    redirected = ServerIdentity("netkar", None, None, "netkar_worker", "22222222-2222-2222-2222-222222222222")
+    with pytest.raises(DemoGuardError, match="farklı"):
+        check_same_server(mine, redirected, "farklı sunucu")
+    check_same_server(mine, ServerIdentity("netkar", None, None, "netkar_worker", mine.instance_id), "x")
+
+
+async def test_missing_instance_id_is_refused(
+    settings: Settings, admin_conn: psycopg.Connection[Any]
+) -> None:
+    saved = admin_conn.execute("SELECT value FROM deployment_marks WHERE key = 'instance_id'").fetchone()
+    assert saved is not None
+    admin_conn.execute("DELETE FROM deployment_marks WHERE key = 'instance_id'")
+    try:
+        with pytest.raises(DemoGuardError, match="instance_id"):
+            await seed(settings, SeedOptions(as_of=AS_OF), demo_flag=True, environ=ENV)
+        assert counts(admin_conn) == dict.fromkeys(TABLES, 0)
+    finally:
+        admin_conn.execute(
+            "INSERT INTO deployment_marks (key, value) VALUES ('instance_id', %s)", (saved[0],)
+        )
 
 
 # ------------------------------------------------------------ "üretim değil" işareti (DT-01 c)
 
 
-async def test_unmarked_database_is_refused_and_mark_requires_admin(
-    settings: Settings, database: DatabaseInfo, admin_conn: psycopg.Connection[Any]
-) -> None:
+def _dsn(url: Any) -> str:
+    return str(url.set(drivername="postgresql").render_as_string(hide_password=False))
+
+
+def _mark_row(conn: psycopg.Connection[Any]) -> tuple[Any, ...] | None:
+    return conn.execute("SELECT value FROM deployment_marks WHERE key = 'non_production'").fetchone()
+
+
+@pytest.fixture
+def unmarked(admin_conn: psycopg.Connection[Any]) -> Iterator[None]:
     admin_conn.execute("DELETE FROM deployment_marks WHERE key = 'non_production'")
-    try:
-        with pytest.raises(DemoGuardError, match="üretim dışı işareti yok"):
-            await seed(settings, SeedOptions(as_of=AS_OF), demo_flag=True, environ=ENV)
-        assert counts(admin_conn) == dict.fromkeys(TABLES, 0)
-        with pytest.raises(DemoGuardError, match="DATABASE_ADMIN_URL"):
-            await seed(settings, SeedOptions(as_of=AS_OF, mark_non_prod=True), demo_flag=True, environ=ENV)
-        app_dsn = database.app_dsn()  # uygulama rolü işaret yazamaz
-        with pytest.raises(DemoGuardError, match="süper kullanıcı ya da netkar_owner"):
-            await seed(
-                settings,
-                SeedOptions(as_of=AS_OF, mark_non_prod=True),
-                demo_flag=True,
-                environ={**ENV, "DATABASE_ADMIN_URL": app_dsn},
-            )
-        assert counts(admin_conn) == dict.fromkeys(TABLES, 0)
-        result = await seed(
-            settings,
-            SeedOptions(as_of=AS_OF, mark_non_prod=True),
-            demo_flag=True,
-            environ={
-                **ENV,
-                "DATABASE_ADMIN_URL": database.owner_url.set(drivername="postgresql").render_as_string(
-                    hide_password=False
-                ),
-            },
-        )
-        assert len(result.accounts) == 3
-        assert admin_conn.execute(
-            "SELECT value FROM deployment_marks WHERE key = 'non_production'"
-        ).fetchone() == ("true",)
-    finally:
-        admin_conn.execute(
-            "INSERT INTO deployment_marks (key, value) VALUES ('non_production', 'true') ON CONFLICT DO NOTHING"
-        )
+    yield
+    admin_conn.execute(
+        "INSERT INTO deployment_marks (key, value) VALUES ('non_production', 'true') ON CONFLICT DO NOTHING"
+    )
 
 
-async def test_admin_url_must_point_to_the_same_server(settings: Settings, database: DatabaseInfo) -> None:
+async def test_unmarked_database_is_refused_and_seed_never_writes_the_mark(
+    settings: Settings, database: DatabaseInfo, admin_conn: psycopg.Connection[Any], unmarked: None
+) -> None:
+    """DT-14: işaret yoksa tohum durur; yönetici bağlantısı verilse bile TOHUM işareti yazmaz."""
+    owner = _dsn(database.owner_url)
+    for env in (ENV, {**ENV, "DATABASE_ADMIN_URL": owner}):
+        with pytest.raises(DemoGuardError, match="mark-non-prod"):
+            await seed(settings, SeedOptions(as_of=AS_OF), demo_flag=True, environ=env)
+    assert counts(admin_conn) == dict.fromkeys(TABLES, 0) and _mark_row(admin_conn) is None
+    # `--mark-non-prod` tohumdan kaldırıldı.
+    with pytest.raises(SystemExit):
+        seed_demo.main(["--demo", "--mark-non-prod"], ENV, io.StringIO())
+
+
+async def test_mark_non_prod_prints_identity_and_requires_explicit_confirmation(
+    settings: Settings, database: DatabaseInfo, admin_conn: psycopg.Connection[Any], unmarked: None
+) -> None:
+    from app.tools.seed_demo import mark_non_prod_command
+
+    owner_env = {**ENV, "DATABASE_ADMIN_URL": _dsn(database.owner_url)}
+    out = io.StringIO()
+    instance = admin_conn.execute("SELECT value FROM deployment_marks WHERE key = 'instance_id'").fetchone()
+    assert instance is not None
+    expected = f"{database.name}@{instance[0]}"
+
+    # Onay yok: kimlik yazılır ve onay istenir, işaret YAZILMAZ.
+    with pytest.raises(DemoGuardError, match="--confirm"):
+        await mark_non_prod_command(settings, owner_env, confirm=None, out=out)
+    assert expected in out.getvalue() and instance[0] in out.getvalue() and _mark_row(admin_conn) is None
+    # Yanlış onay (başka veritabanı ya da başka sunucu kimliği): yazılmaz.
+    for wrong in (f"{database.name}@{uuid4()}", f"baska@{instance[0]}", database.name, ""):
+        with pytest.raises(DemoGuardError, match="eşleşmiyor"):
+            await mark_non_prod_command(settings, owner_env, confirm=wrong, out=io.StringIO())
+    assert _mark_row(admin_conn) is None
+    # Yönetici bağlantısı olmadan, uygulama rolüyle ve süper kullanıcı olmayan rolle yazılmaz.
+    with pytest.raises(DemoGuardError, match="DATABASE_ADMIN_URL gerekir"):
+        await mark_non_prod_command(settings, ENV, confirm=expected, out=io.StringIO())
+    with pytest.raises(DemoGuardError, match="süper kullanıcı ya da netkar_owner"):
+        await mark_non_prod_command(
+            settings, {**ENV, "DATABASE_ADMIN_URL": database.app_dsn()}, confirm=expected, out=io.StringIO()
+        )
+    assert _mark_row(admin_conn) is None
+    # Doğru onay: yazılır; ikinci çalıştırma zararsızdır; ardından tohum çalışır.
+    await mark_non_prod_command(settings, owner_env, confirm=expected, out=io.StringIO())
+    assert _mark_row(admin_conn) == ("true",)
+    await mark_non_prod_command(settings, owner_env, confirm=expected, out=io.StringIO())
+    result = await seed(settings, SeedOptions(as_of=AS_OF), demo_flag=True, environ=ENV)
+    assert len(result.accounts) == 3
+
+
+def test_mark_non_prod_cli_subcommand(
+    cli_env: None,
+    database: DatabaseInfo,
+    admin_conn: psycopg.Connection[Any],
+    capsys: pytest.CaptureFixture[str],
+    unmarked: None,
+) -> None:
+    env = {**ENV, "DATABASE_ADMIN_URL": _dsn(database.owner_url)}
+    out = io.StringIO()
+    assert seed_demo.main(["mark-non-prod"], env, out) == 3  # onay yok
+    assert "--confirm" in capsys.readouterr().err and _mark_row(admin_conn) is None
+    instance = admin_conn.execute("SELECT value FROM deployment_marks WHERE key = 'instance_id'").fetchone()
+    assert instance is not None
+    flag = f"{database.name}@{instance[0]}"
+    assert flag in out.getvalue()
+    assert seed_demo.main(["mark-non-prod", "--confirm", flag], env, io.StringIO()) == 0
+    assert _mark_row(admin_conn) == ("true",)
+    # NETKAR_ENV yoksa alt komut da reddeder.
+    assert seed_demo.main(["mark-non-prod", "--confirm", flag], {}, io.StringIO()) == 3
+
+
+async def test_admin_url_must_point_to_the_same_server(
+    settings: Settings, database: DatabaseInfo, unmarked: None
+) -> None:
+    from app.tools.seed_demo import mark_non_prod_command
+
     other = with_db(database.admin_dsn(), "postgres")
     with pytest.raises(DemoGuardError, match="aynı sunucu, port ve veritabanına"):
-        await seed(
-            settings,
-            SeedOptions(as_of=AS_OF, mark_non_prod=True),
-            demo_flag=True,
-            environ={**ENV, "DATABASE_ADMIN_URL": other},
+        await mark_non_prod_command(
+            settings, {**ENV, "DATABASE_ADMIN_URL": other}, confirm="x@y", out=io.StringIO()
         )
+
+
+async def test_admin_connection_with_another_instance_id_is_refused(
+    settings: Settings, database: DatabaseInfo, admin_conn: psycopg.Connection[Any], unmarked: None
+) -> None:
+    """DT-13: yönetici bağlantısı aynı adlı ama başka sunucudaki veritabanına gitse, instance_id farkıyla durur."""
+    from app.tools.seed_demo import ServerIdentity, mark_non_production
+
+    real = admin_conn.execute("SELECT value FROM deployment_marks WHERE key = 'instance_id'").fetchone()
+    assert real is not None
+    fake = ServerIdentity(database.name, None, None, "netkar_app", str(uuid4()))
+    with pytest.raises(DemoGuardError, match="farklı bir sunucuya"):
+        await mark_non_production(_dsn(database.owner_url), fake, "test")
+    assert _mark_row(admin_conn) is None
 
 
 # ------------------------------------------------------- demo hesabı senkron dışı (DT-02)
@@ -825,13 +1001,70 @@ def test_app_role_cannot_write_is_demo_or_marks(
             admin_conn.execute("INSERT INTO deployment_marks (key, value) VALUES ('non_production', 'true')")
         admin_conn.execute("UPDATE marketplace_accounts SET is_demo = false WHERE id = %s", (bx.account_id,))
         ctx(a.tenant_id)
-        conn.execute(
-            "SELECT public.mark_demo_account(%s)", (bx.account_id,)
-        )  # başka kiracının hesabı: RLS, etkisiz
-        conn.commit()
+        with pytest.raises(
+            psycopg.errors.UndefinedObject
+        ):  # başka kiracının hesabı: RLS, sıfır satır, HATA (DT-15)
+            conn.execute("SELECT public.mark_demo_account(%s)", (bx.account_id,))
+        conn.rollback()
     assert admin_conn.execute(
         "SELECT is_demo FROM marketplace_accounts WHERE id = %s", (bx.account_id,)
     ).fetchone() == (False,)
+
+
+def test_mark_demo_account_raises_when_no_row_is_updated(
+    seeded: SeedResult, database: DatabaseInfo, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """DT-15: kiracı bağlamı yok, hesap yok ya da başka kiracıda ise işlev sessiz dönmez, 42704 verir."""
+    a, bx = by_key(seeded, "a"), by_key(seeded, "bx")
+    admin_conn.execute("UPDATE marketplace_accounts SET is_demo = false")
+    with psycopg.connect(database.app_dsn(), autocommit=False) as conn:
+        for tenant, account in (
+            (None, a.account_id),  # bağlam yok
+            (a.tenant_id, uuid4()),  # hesap yok
+            (a.tenant_id, bx.account_id),  # başka kiracının hesabı
+        ):
+            if tenant is not None:
+                conn.execute("SELECT set_config('app.tenant_id', %s, true)", (str(tenant),))
+            with pytest.raises(psycopg.errors.UndefinedObject, match="isaretlenemedi"):
+                conn.execute("SELECT public.mark_demo_account(%s)", (account,))
+            conn.rollback()
+        conn.execute("SELECT set_config('app.tenant_id', %s, true)", (str(a.tenant_id),))
+        conn.execute("SELECT public.mark_demo_account(%s)", (a.account_id,))  # kendi hesabı: başarılı
+        conn.commit()
+    assert admin_conn.execute(
+        "SELECT is_demo FROM marketplace_accounts WHERE id = %s", (a.account_id,)
+    ).fetchone() == (True,)
+
+
+class _FlagNeverSet:
+    """`mark_demo_account` çağrısı hata vermese de bayrak açılmıyormuş gibi davranan sahte oturum."""
+
+    async def execute(self, statement: Any, params: Any = None) -> Any:
+        class _Result:
+            def scalar_one_or_none(self) -> Any:
+                return False
+
+        return _Result()
+
+
+async def test_seed_verifies_is_demo_after_the_function_call() -> None:
+    """DT-15: çağrıdan sonra `is_demo` doğrulanır; açılmadıysa tohum durur (hesap senkrona açık kalmaz)."""
+    with pytest.raises(DemoGuardError, match="is_demo ile işaretlenemedi"):
+        await seed_demo._mark_demo(_FlagNeverSet(), uuid4())  # type: ignore[arg-type]
+
+
+async def test_seed_turns_function_refusal_into_a_guard_error(
+    settings: Settings, admin_conn: psycopg.Connection[Any]
+) -> None:
+    from app.tools.seed_demo import _mark_demo
+
+    engine = create_engine(settings.database_url)
+    try:
+        async with create_sessionmaker(engine)() as db:
+            with pytest.raises(DemoGuardError, match="senkron dışı bırakılamadı"):
+                await _mark_demo(db, uuid4())  # bağlam yok: 42704
+    finally:
+        await engine.dispose()
 
 
 # ----------------------------------------------- yazımdan önce reddet: yabancı e-posta, sürüm, parola

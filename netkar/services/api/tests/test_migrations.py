@@ -87,3 +87,40 @@ def test_migration_0015_demo_flag_and_marks_are_reversible(
         " has_function_privilege('netkar_app', 'public.mark_demo_account(uuid)', 'EXECUTE')"
     ).fetchone()
     assert privileges == (False, False, False, True, True)
+
+
+def test_migration_0016_instance_id_and_strict_mark_function_are_reversible(
+    alembic_cfg: Config, admin_conn: psycopg.Connection
+) -> None:
+    def instance_id() -> str | None:
+        row = admin_conn.execute("SELECT value FROM deployment_marks WHERE key = 'instance_id'").fetchone()
+        return None if row is None else str(row[0])
+
+    def function_raises_when_nothing_updated() -> bool:
+        source = admin_conn.execute(
+            "SELECT prosrc FROM pg_proc WHERE oid = 'public.mark_demo_account(uuid)'::regprocedure"
+        ).fetchone()
+        assert source is not None
+        return "IF NOT FOUND" in source[0]
+
+    first = instance_id()
+    assert first is not None and len(first) == 36 and function_raises_when_nothing_updated()
+    command.downgrade(alembic_cfg, "0015")
+    assert instance_id() is None and not function_raises_when_nothing_updated()
+    command.upgrade(alembic_cfg, "head")
+    second = instance_id()
+    assert second is not None and len(second) == 36 and function_raises_when_nothing_updated()
+    # Sahip ve yetkiler `CREATE OR REPLACE` ile korunur: uygulama çalıştırabilir, PUBLIC çalıştıramaz.
+    row = admin_conn.execute(
+        "SELECT pg_get_userbyid(proowner), has_function_privilege('netkar_app', oid, 'EXECUTE'), "
+        "has_function_privilege('public', oid, 'EXECUTE') "
+        "FROM pg_proc WHERE oid = 'public.mark_demo_account(uuid)'::regprocedure"
+    ).fetchone()
+    assert row == ("netkar_owner", True, False)
+    # Uygulama ve işçi instance_id'yi okur ama yazamaz.
+    assert admin_conn.execute(
+        "SELECT has_table_privilege('netkar_app', 'deployment_marks', 'SELECT'),"
+        " has_table_privilege('netkar_worker', 'deployment_marks', 'SELECT'),"
+        " has_table_privilege('netkar_app', 'deployment_marks', 'INSERT'),"
+        " has_table_privilege('netkar_worker', 'deployment_marks', 'UPDATE')"
+    ).fetchone() == (True, True, False, False)

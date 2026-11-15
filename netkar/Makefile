@@ -7,7 +7,7 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 # infra/.env varsa ortama yükler (yerel çalıştırma için).
 LOAD_ENV := set -a; if [ -f $(CURDIR)/$(ENV_FILE) ]; then . $(CURDIR)/$(ENV_FILE); fi; set +a;
 
-.PHONY: help setup env lint test test-profit dev migrate worker seed-demo db-up db-down web-lint web-test
+.PHONY: help setup env lint test test-profit dev migrate worker seed-demo mark-non-prod db-up db-down web-lint web-test
 
 help:
 	@echo "setup  : Python bağımlılıklarını kurar (uv sync)"
@@ -18,6 +18,7 @@ help:
 	@echo "db-up  : compose ile yalnız PostgreSQL'i başlatır"
 	@echo "migrate: alembic upgrade head (DATABASE_MIGRATION_URL)"
 	@echo "seed-demo: uydurma demo veri + doğru cevap kartı (NETKAR_ENV=local|test|staging ve SEED_ARGS ile; üretimde reddeder)"
+	@echo "mark-non-prod: veritabanına 'üretim değil' işareti (ayrı provisioning adımı; DATABASE_ADMIN_URL, NETKAR_ENV ve MARK_ARGS=\"--confirm db@instance_id\" ile)"
 	@echo "dev    : uvicorn (--reload)"
 	@echo "worker : procrastinate worker"
 	@echo "web-lint, web-test: apps/web için npm betikleri"
@@ -63,6 +64,12 @@ dev:
 seed-demo:
 	@test -n "$$NETKAR_ENV" || { echo "NETKAR_ENV (local, test ya da staging) verilmeli: NETKAR_ENV=local make seed-demo"; exit 3; }
 	$(LOAD_ENV) cd $(API) && uv run python -m app.tools.seed_demo --demo $(SEED_ARGS)
+
+# "Üretim değil" işareti tohumdan AYRI, bilinçli adımdır (denetim DT-14). Önce MARK_ARGS olmadan çalıştırın:
+# sunucu kimliğini basar, hiçbir şey yazmaz. Sonra: make mark-non-prod MARK_ARGS="--confirm VERITABANI@INSTANCE_ID"
+mark-non-prod:
+	@test -n "$$NETKAR_ENV" || { echo "NETKAR_ENV (local, test ya da staging) verilmeli"; exit 3; }
+	$(LOAD_ENV) cd $(API) && uv run python -m app.tools.seed_demo mark-non-prod $(MARK_ARGS)
 
 worker:
 	$(LOAD_ENV) cd $(API) && uv run procrastinate --app=app.worker.app.app worker --concurrency 4

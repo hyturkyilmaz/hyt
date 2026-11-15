@@ -101,6 +101,9 @@ class ProductItemOut(BaseModel):
 class ProductListOut(BaseModel):
     items: list[ProductItemOut]
     next_cursor: str | None
+    # Hesabın tüm ürünleri içinde bugün geçerli maliyeti olmayanların sayısı (q, after, missing'den bağımsız).
+    # Geriye uyumlu ek alan: eski istemciler yok sayar.
+    total_missing: int
 
 
 class CostHistoryOut(BaseModel):

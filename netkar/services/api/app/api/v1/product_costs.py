@@ -92,12 +92,20 @@ async def list_products(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     after: Annotated[str | None, Query(max_length=200)] = None,
     q: Annotated[str | None, Query(min_length=1, max_length=100)] = None,
+    missing: Annotated[bool, Query()] = False,
 ) -> ProductListOut:
-    """Hesabın ürünleri (barkoda göre) ve bugün geçerli maliyet; `after` önceki sayfanın `next_cursor`'ıdır."""
+    """Hesabın ürünleri (barkoda göre) ve bugün geçerli maliyet; `after` önceki sayfanın `next_cursor`'ıdır.
+
+    `missing=true`: yalnız bugün (İstanbul günü) geçerli maliyeti olmayan ürünler; süzgeç sayfalamadan önce
+    uygulanır, imleç aynıdır. `total_missing` her yanıtta hesabın TÜM ürünleri için maliyeti eksik sayısıdır
+    (`q`, `after` ve `missing` değerinden bağımsız).
+    """
     await _require_account(db, ctx, account_id)
+    today = today_istanbul()
     items, next_cursor = await costs.list_products(
-        db, ctx.tenant_id, account_id, today_istanbul(), search=q, after=after, limit=limit
+        db, ctx.tenant_id, account_id, today, search=q, after=after, limit=limit, missing_only=missing
     )
+    total_missing = await costs.count_missing(db, ctx.tenant_id, account_id, today)
     return ProductListOut(
         items=[
             ProductItemOut(
@@ -110,6 +118,7 @@ async def list_products(
             for item in items
         ],
         next_cursor=next_cursor,
+        total_missing=total_missing,
     )
 
 
