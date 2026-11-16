@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 import json
+import os
+import time
 import uuid
 from pathlib import Path
 
@@ -16,7 +18,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.core.crypto import DecryptionError, FieldCipher, derive_key, hmac_hex
-from app.core.email import EmailMessage, FileEmailSender, InMemoryOutbox
+from app.core.email import EmailMessage, FileEmailSender, InMemoryOutbox, OutboxSecurityError
 from app.core.pwned import HibpPwnedChecker, NullPwnedChecker
 from app.core.security import (
     burn_password_verification,
@@ -112,6 +114,199 @@ async def test_in_memory_outbox_and_file_sender(tmp_path: Path) -> None:
     await sender.send(EmailMessage("a@example.com", "konu", "gövde token=xyz"))
     line = json.loads(path.read_text(encoding="utf-8").strip())
     assert line == {"to": "a@example.com", "subject": "konu", "body": "gövde token=xyz"}
+
+
+def _mode(path: Path) -> int:
+    return path.stat().st_mode & 0o777
+
+
+def _prepare_loose(directory: Path) -> Path:
+    path = directory / "outbox.jsonl"
+    path.write_text("", encoding="utf-8")
+    path.chmod(0o644)
+    directory.chmod(0o755)
+    return path
+
+
+def _rotated_files(directory: Path) -> list[Path]:
+    return sorted(directory.glob("outbox.jsonl.*"))
+
+
+async def test_file_sender_creates_private_file_and_directory(tmp_path: Path) -> None:
+    """DT-20: dosya 0600, yeni dizin 0700 (umask gevşek olsa da)."""
+    old = os.umask(0o000)
+    try:
+        path = tmp_path / "yeni" / "ic" / "derin" / "outbox.jsonl"
+        await FileEmailSender(str(path)).send(EmailMessage("a@example.com", "k", "g"))
+    finally:
+        os.umask(old)
+    assert _mode(path) == 0o600
+    # L-1: oluşturulan HER dizin 0700 (ara dizinler dahil); var olan tmp_path'e dokunulmaz.
+    for directory in (path.parent, path.parent.parent, tmp_path / "yeni"):
+        assert _mode(directory) == 0o700
+    assert tmp_path / "yeni" == path.parent.parent.parent
+
+
+def _symlink_to_target(tmp_path: Path) -> tuple[Path, Path]:
+    target = tmp_path / "hedef.txt"
+    target.write_text("dokunma", encoding="utf-8")
+    target.chmod(0o644)
+    path = tmp_path / "outbox.jsonl"
+    path.symlink_to(target)
+    return path, target
+
+
+def test_file_sender_refuses_symlink_at_active_path_at_construction(tmp_path: Path) -> None:
+    """L-2: etkin yoldaki simgesel bağ izlenmez; hedefin içeriği ve izni değişmez."""
+    path, target = _symlink_to_target(tmp_path)
+    with pytest.raises(OutboxSecurityError, match="simgesel bağ"):
+        FileEmailSender(str(path))
+    assert target.read_text("utf-8") == "dokunma" and _mode(target) == 0o644
+
+
+async def test_file_sender_refuses_symlink_created_after_construction(tmp_path: Path) -> None:
+    sender = FileEmailSender(str(tmp_path / "outbox.jsonl"))
+    _, target = _symlink_to_target(tmp_path)
+    with pytest.raises(OutboxSecurityError, match="simgesel bağ"):
+        await sender.send(EmailMessage("a@example.com", "k", "g"))
+    assert target.read_text("utf-8") == "dokunma" and _mode(target) == 0o644
+
+
+async def test_file_sender_refuses_hardlinked_active_file(tmp_path: Path) -> None:
+    target = tmp_path / "baska.txt"
+    target.write_text("dokunma", encoding="utf-8")
+    target.chmod(0o644)
+    path = tmp_path / "outbox.jsonl"
+    os.link(target, path)
+    with pytest.raises(OutboxSecurityError, match="güvenli değil"):
+        FileEmailSender(str(path))
+    (tmp_path / "ok").mkdir()
+    sender = FileEmailSender(str(tmp_path / "ok" / "o.jsonl"))
+    os.link(target, tmp_path / "ok" / "o.jsonl")
+    with pytest.raises(OutboxSecurityError, match="güvenli değil"):
+        await sender.send(EmailMessage("a@example.com", "k", "g"))
+    assert target.read_text("utf-8") == "dokunma" and _mode(target) == 0o644
+
+
+def test_file_sender_refuses_non_regular_active_path(tmp_path: Path) -> None:
+    (tmp_path / "outbox.jsonl").mkdir()
+    with pytest.raises(OSError):  # dizin yazmaya açılamaz
+        FileEmailSender(str(tmp_path / "outbox.jsonl"))
+
+
+@pytest.mark.parametrize("mode", [0o770, 0o707, 0o777, 0o722])
+def test_file_sender_hardened_refuses_group_or_other_writable_parent(tmp_path: Path, mode: int) -> None:
+    parent = tmp_path / "paylasilan"
+    parent.mkdir()
+    parent.chmod(mode)
+    with pytest.raises(OutboxSecurityError, match="yazılabilir"):
+        FileEmailSender(str(parent / "outbox.jsonl"), hardened=True)
+    FileEmailSender(str(parent / "outbox.jsonl"))  # sertleşmemiş ortamda serbest
+
+
+def test_file_sender_hardened_accepts_private_or_missing_parent(tmp_path: Path) -> None:
+    ok = tmp_path / "ozel"
+    ok.mkdir()
+    ok.chmod(0o750)
+    FileEmailSender(str(ok / "outbox.jsonl"), hardened=True)
+    FileEmailSender(str(tmp_path / "yok" / "outbox.jsonl"), hardened=True)
+
+
+def test_file_sender_constructor_tightens_existing_active_file(tmp_path: Path) -> None:
+    path = _prepare_loose(tmp_path)
+    FileEmailSender(str(path))
+    assert _mode(path) == 0o600
+
+
+def test_rotated_name_match_is_exact_and_ascii(tmp_path: Path) -> None:
+    """I-3: sonuna eklenmiş ya da Unicode rakamlı adlar bu arka ucun dosyası sayılmaz, silinmez."""
+    path = tmp_path / "outbox.jsonl"
+    old = time.time() - 40 * 86400
+    names = [
+        "outbox.jsonl.20260101T000000Z-0001.bak",
+        "outbox.jsonl.20260101T000000Z-0001\n",
+        "outbox.jsonl.\u0662\u0660260101T000000Z-0001",
+    ]
+    for name in names:
+        (tmp_path / name).write_text("x", encoding="utf-8")
+        os.utime(tmp_path / name, (old, old))
+    FileEmailSender(str(path), retention_days=7)
+    assert all((tmp_path / name).exists() for name in names)
+
+
+async def test_file_sender_tightens_existing_file_but_keeps_existing_directory(tmp_path: Path) -> None:
+    path = _prepare_loose(tmp_path)
+    await FileEmailSender(str(path)).send(EmailMessage("a@example.com", "k", "g"))
+    assert _mode(path) == 0o600
+    assert _mode(tmp_path) == 0o755  # var olan dizinin izni değiştirilmez
+
+
+async def test_file_sender_rotates_by_size_and_keeps_rotated_files_private(tmp_path: Path) -> None:
+    path = tmp_path / "outbox.jsonl"
+    sender = FileEmailSender(str(path), max_bytes=200, max_files=10)
+    for i in range(6):
+        await sender.send(EmailMessage("a@example.com", f"k{i}", "x" * 80))
+    rotated = _rotated_files(tmp_path)
+    assert rotated and all(p.name.startswith("outbox.jsonl.") for p in rotated)
+    assert all(_mode(p) == 0o600 for p in rotated)
+    assert path.stat().st_size < 400  # etkin dosya sınırlı kalır
+    lines = [
+        json.loads(line)["subject"] for p in [*rotated, path] for line in p.read_text("utf-8").splitlines()
+    ]
+    assert sorted(lines) == [f"k{i}" for i in range(6)]  # döndürme kayıt kaybetmez (sınır içinde)
+
+
+async def test_file_sender_prunes_rotated_files_by_count_oldest_first(tmp_path: Path) -> None:
+    path = tmp_path / "outbox.jsonl"
+    sender = FileEmailSender(str(path), max_bytes=100, max_files=2, retention_days=365)
+    for i in range(8):
+        await sender.send(EmailMessage("a@example.com", f"k{i}", "y" * 90))
+    rotated = _rotated_files(tmp_path)
+    assert len(rotated) == 2
+    subjects = {json.loads(line)["subject"] for p in rotated for line in p.read_text("utf-8").splitlines()}
+    assert "k0" not in subjects  # en eski kayıtlar silindi
+
+
+async def test_file_sender_prunes_rotated_files_by_age_only_its_own(tmp_path: Path) -> None:
+    """Yalnız bu arka ucun döndürdüğü kalıptaki düz dosyalar silinir; başkası ve etkin dosya kalır."""
+    path = tmp_path / "outbox.jsonl"
+    old = time.time() - 30 * 86400
+    own_old = tmp_path / "outbox.jsonl.20260101T000000Z-0001"
+    own_new = tmp_path / "outbox.jsonl.20261115T000000Z-0001"
+    foreign = tmp_path / "outbox.jsonl.yedek"  # kalıba uymaz
+    other = tmp_path / "baska.log"
+    link_target = tmp_path / "hedef.txt"
+    link = tmp_path / "outbox.jsonl.20260101T000000Z-0002"  # kalıba uyan ama simgesel bağ
+    for f in (own_old, own_new, foreign, other, link_target):
+        f.write_text("x", encoding="utf-8")
+    link.symlink_to(link_target)
+    for f in (own_old, foreign, other, link_target):
+        os.utime(f, (old, old))
+    path.write_text("etkin\n", encoding="utf-8")
+    os.utime(path, (old, old))
+    sender = FileEmailSender(str(path), retention_days=7)  # kurucu da temizler
+    assert not own_old.exists()
+    assert own_new.exists() and foreign.exists() and other.exists() and link_target.exists()
+    assert link.is_symlink() and path.exists()
+    await sender.send(EmailMessage("a@example.com", "k", "g"))  # gönderim de temizler, hata vermez
+    assert path.read_text("utf-8").startswith("etkin")
+
+
+async def test_file_sender_prune_failure_does_not_break_send(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = tmp_path / "outbox.jsonl"
+    sender = FileEmailSender(str(path))
+
+    def boom(self: Path, **_: object) -> None:
+        raise PermissionError("silinemez")
+
+    (tmp_path / "outbox.jsonl.20200101T000000Z-0001").write_text("x", encoding="utf-8")
+    os.utime(tmp_path / "outbox.jsonl.20200101T000000Z-0001", (1, 1))
+    monkeypatch.setattr(Path, "unlink", boom)
+    with caplog.at_level("WARNING"):
+        await sender.send(EmailMessage("a@example.com", "k", "g"))
+    assert path.exists() and "temizliği yapılamadı" in caplog.text
 
 
 async def test_file_sender_does_not_log_body_or_token(

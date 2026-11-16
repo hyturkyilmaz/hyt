@@ -1,10 +1,10 @@
-"""Üretimde "üretim dışı" işaretli veritabanıyla API ve işçi açılışı reddedilir (demo tohumu denetimi DT-14)."""
+"""Açılış kilidi: prod işaretli, staging işaretsiz veritabanıyla API ve işçi açılmaz (DT-14, DT-21)."""
 
 from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import Any
 
 import psycopg
@@ -20,21 +20,6 @@ from app.db.deployment_guard import (
     assert_not_marked_non_production_sync,
 )
 from app.db.session import create_engine
-
-
-@pytest.fixture
-def marked(admin_conn: psycopg.Connection[Any]) -> Iterator[None]:
-    admin_conn.execute(
-        "INSERT INTO deployment_marks (key, value) VALUES ('non_production', 'true') ON CONFLICT DO NOTHING"
-    )
-    yield
-    admin_conn.execute("DELETE FROM deployment_marks WHERE key = 'non_production'")
-
-
-@pytest.fixture
-def unmarked(admin_conn: psycopg.Connection[Any]) -> Iterator[None]:
-    admin_conn.execute("DELETE FROM deployment_marks WHERE key = 'non_production'")
-    yield
 
 
 def _unreachable(url: str) -> str:
@@ -132,15 +117,113 @@ def test_worker_prod_check_fails_closed_when_database_cannot_be_read(settings: S
     assert_not_marked_non_production_sync(bad, "dev")  # prod değilse hiç bağlanmaz
 
 
-def test_staging_is_never_refused_by_the_mark(
+def staging(settings: Settings) -> Settings:
+    return settings.model_copy(update={"environment": "staging"})
+
+
+def test_staging_starts_when_marked(
     make_app: Callable[..., FastAPI], settings: Settings, worker_env: None, marked: None
 ) -> None:
-    """Staging işaret taşımak ZORUNDA: açılış kilidi yalnız prod'u reddeder (DT-14, staging planı C4/C5)."""
+    """DT-21: staging işaret taşımak ZORUNDA; işaretliyse API ve işçi açılır."""
     from app.worker.app import build_app
 
     start(make_app(environment="staging"))
-    build_app(settings.model_copy(update={"environment": "staging"}))
+    build_app(staging(settings))
     assert_not_marked_non_production_sync(settings.worker_libpq_url, "staging")
+
+
+def test_api_refuses_to_start_in_staging_when_database_is_not_marked(
+    make_app: Callable[..., FastAPI], unmarked: None
+) -> None:
+    with pytest.raises(NonProductionMarkError, match="üretim dışı işareti yok") as exc:
+        start(make_app(environment="staging"))
+    assert "mark-non-prod" in str(exc.value)  # operatöre yapılacak komut söylenir
+
+
+def test_worker_refuses_to_start_in_staging_when_database_is_not_marked(
+    settings: Settings, worker_env: None, unmarked: None
+) -> None:
+    from app.worker.app import build_app
+
+    with pytest.raises(NonProductionMarkError, match="mark-non-prod"):
+        build_app(staging(settings))
+    with pytest.raises(NonProductionMarkError, match="üretim dışı işareti yok"):
+        assert_not_marked_non_production_sync(settings.worker_libpq_url, "staging")
+
+
+@pytest.mark.parametrize("value", ["false", "yes", ""])
+def test_staging_requires_the_exact_true_value(
+    admin_conn: psycopg.Connection[Any], settings: Settings, value: str
+) -> None:
+    """Yalnız tam 'true' işaret sayılır; başka değer işaretsizdir (fail-closed)."""
+    admin_conn.execute("DELETE FROM deployment_marks WHERE key = 'non_production'")
+    admin_conn.execute("INSERT INTO deployment_marks (key, value) VALUES ('non_production', %s)", (value,))
+    try:
+        with pytest.raises(NonProductionMarkError, match="üretim dışı işareti yok"):
+            assert_not_marked_non_production_sync(settings.worker_libpq_url, "staging")
+    finally:
+        admin_conn.execute("DELETE FROM deployment_marks WHERE key = 'non_production'")
+
+
+@pytest.mark.parametrize("value", ["false", "yes"])
+async def test_staging_async_requires_the_exact_true_value(
+    settings: Settings, admin_conn: psycopg.Connection[Any], value: str
+) -> None:
+    from tests.conftest import _set_mark
+
+    engine = create_engine(settings.database_url)
+    gen = _set_mark(admin_conn, value)
+    next(gen)
+    try:
+        with pytest.raises(NonProductionMarkError, match="üretim dışı işareti yok"):
+            await assert_not_marked_non_production(engine, "staging")
+    finally:
+        list(gen)
+        await engine.dispose()
+
+
+async def test_staging_check_fails_closed_when_table_is_missing_or_unreadable(
+    settings: Settings, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """DT-21: tablo yoksa staging açılmaz (prod'dan farkı); bağlantı yoksa 'okunamadı' ile açılmaz."""
+    engine = create_engine(settings.database_url)
+    bad = create_engine(_unreachable(settings.database_url))
+    admin_conn.execute("ALTER TABLE deployment_marks RENAME TO deployment_marks_gizli")
+    try:
+        with pytest.raises(NonProductionMarkError, match="üretim dışı işareti yok"):
+            await assert_not_marked_non_production(engine, "staging")
+        with pytest.raises(NonProductionMarkError, match="üretim dışı işareti yok"):
+            assert_not_marked_non_production_sync(settings.worker_libpq_url, "staging")
+        await assert_not_marked_non_production(engine, "prod")  # prod: tablo yok, işaret de olamaz
+        assert_not_marked_non_production_sync(settings.worker_libpq_url, "prod")
+    finally:
+        admin_conn.execute("ALTER TABLE deployment_marks_gizli RENAME TO deployment_marks")
+        await engine.dispose()
+    try:
+        with pytest.raises(NonProductionMarkError, match=r"ENVIRONMENT=staging iken .*okunamadı"):
+            await assert_not_marked_non_production(bad, "staging")
+        with pytest.raises(NonProductionMarkError, match=r"ENVIRONMENT=staging iken .*okunamadı"):
+            assert_not_marked_non_production_sync(_unreachable(settings.worker_libpq_url), "staging")
+    finally:
+        await bad.dispose()
+
+
+async def test_staging_check_times_out_and_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.db import deployment_guard
+
+    monkeypatch.setattr(deployment_guard, "CHECK_TIMEOUT_SECONDS", 0.2)
+    hanging: Any = _HangingEngine()
+    with pytest.raises(NonProductionMarkError, match=r"ENVIRONMENT=staging iken .*okunamadı"):
+        await assert_not_marked_non_production(hanging, "staging")
+
+
+@pytest.mark.parametrize("environment", ["dev", "test"])
+def test_dev_and_test_never_query_even_when_unmarked(
+    make_app: Callable[..., FastAPI], settings: Settings, environment: str, unmarked: None
+) -> None:
+    """dev/test davranışı değişmedi: işaret yokluğu açılışı engellemez, bağlantı bile kurulmaz."""
+    start(make_app(environment=environment))
+    assert_not_marked_non_production_sync(_unreachable(settings.worker_libpq_url), environment)
 
 
 async def test_prod_check_is_schema_qualified_and_survives_search_path_change(

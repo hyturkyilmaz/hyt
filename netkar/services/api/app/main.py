@@ -71,7 +71,7 @@ def create_app(
             pool_timeout=settings.db_pool_timeout_seconds,
         )
         try:
-            # Üretimde "üretim dışı" işaretli veritabanıyla açılmaz (DT-14); prod değilse sorgu atılmaz.
+            # prod işaretli, staging işaretsiz veritabanıyla açılmaz (DT-14, DT-21); dev/test'te sorgu yok.
             await assert_not_marked_non_production(engine, settings.environment)
         except BaseException:
             await engine.dispose()
@@ -133,7 +133,13 @@ def create_app(
         email_sender = (
             InMemoryOutbox()
             if settings.email_backend == "memory"
-            else FileEmailSender(settings.email_dev_outbox_path)
+            else FileEmailSender(
+                settings.email_dev_outbox_path,
+                max_bytes=settings.email_outbox_max_bytes,
+                max_files=settings.email_outbox_max_files,
+                retention_days=settings.email_outbox_retention_days,
+                hardened=settings.environment in HARDENED_ENVIRONMENTS,
+            )
         )
     app.state.email_sender = email_sender
     if pwned_checker is None:

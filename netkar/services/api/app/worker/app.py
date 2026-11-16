@@ -22,7 +22,7 @@ def build_app(settings: Settings | None = None, runtime: WorkerRuntime | None = 
     settings = settings or get_settings()
     # Worker logları da JSON + maskeleme filtresinden geçer (kişisel veri ve sır log'a girmez).
     configure_logging(settings.log_level)
-    # Üretimde "üretim dışı" işaretli veritabanıyla açılmaz (DT-14); prod değilse bağlantı kurulmaz.
+    # prod işaretli, staging işaretsiz veritabanıyla açılmaz (DT-14, DT-21); dev/test'te bağlantı kurulmaz.
     assert_not_marked_non_production_sync(settings.worker_libpq_url, settings.environment)
     worker_app = procrastinate.App(
         connector=procrastinate.PsycopgConnector(conninfo=settings.worker_libpq_url),

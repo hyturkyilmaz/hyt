@@ -7,6 +7,7 @@ import binascii
 import ipaddress
 import os
 from functools import lru_cache
+from pathlib import PurePath
 from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -32,7 +33,8 @@ class Settings(BaseSettings):
     # Ürün adı tek yerden okunur; marka değişirse yalnız bu ayar değişir.
     product_name: str = "NetKâr"
     # staging: prod gibi sertleşir (OpenAPI kapalı, DEBUG yasak, KEK halkası zorunlu, Trendyol live yasak),
-    # ama dosya e-posta arka ucuna ve demo tohumuna izin verir. Açılış kilidi (deployment_guard) yalnız prod.
+    # ama dosya e-posta arka ucuna ve demo tohumuna izin verir. Açılış kilidi (deployment_guard) iki yönlüdür:
+    # prod işaretliyse, staging işaretsizse açılmaz.
     environment: Literal["dev", "test", "staging", "prod"] = "dev"
     log_level: str = "INFO"
     # Yalnız geliştirme içindir; ENVIRONMENT=prod iken açık olması açılışı engeller.
@@ -69,7 +71,13 @@ class Settings(BaseSettings):
     trusted_proxy_hops: int = Field(0, ge=0, le=10)
 
     email_backend: Literal["file", "memory"] = "file"
+    # staging'de mutlak yol zorunludur (DT-20). Dosya gizli veridir (0600); saklama sınırlıdır:
+    # etkin dosya max_bytes'ı aşınca döndürülür; döndürülmüş dosyalar max_files'ı aşınca ya da
+    # retention_days günden eskiyse silinir.
     email_dev_outbox_path: str = "var/outbox.jsonl"
+    email_outbox_max_bytes: int = Field(256 * 1024, ge=1024)
+    email_outbox_max_files: int = Field(5, ge=1, le=50)
+    email_outbox_retention_days: int = Field(7, ge=1, le=30)
 
     # Oturum süreleri (saniye)
     session_idle_seconds: int = 12 * 3600
@@ -273,6 +281,15 @@ class Settings(BaseSettings):
                 problems.append("ENVIRONMENT=staging iken DEBUG açık olamaz")
             if self.trendyol_environment == "live":
                 problems.append("ENVIRONMENT=staging iken TRENDYOL_ENVIRONMENT=live kullanılamaz")
+        # DT-20: sertleşen ortamda outbox yolu mutlak ve ".." içermeyen olmalı (çalışma dizinine bağlı, göreli
+        # yol yanlışlıkla paylaşılan bir dizine yazabilir). Yalnız file arka ucu dosya yazar.
+        if self.environment in HARDENED_ENVIRONMENTS and self.email_backend == "file":
+            outbox = PurePath(self.email_dev_outbox_path)
+            if not outbox.is_absolute() or ".." in outbox.parts:
+                problems.append(
+                    f"ENVIRONMENT={self.environment} iken EMAIL_DEV_OUTBOX_PATH "
+                    "mutlak yol olmalı (.. içermeden)"
+                )
         if problems:
             raise ValueError("; ".join(problems))
         return self

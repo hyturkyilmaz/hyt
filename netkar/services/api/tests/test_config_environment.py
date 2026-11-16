@@ -48,9 +48,44 @@ def test_dev_and_test_stay_permissive(environment: str) -> None:
     assert make(environment=environment).key_ring is not None  # KEK verilmeden türetilmiş geliştirme KEK'i
 
 
+OUTBOX = "/var/lib/netkar/outbox/outbox.jsonl"
+
+
 def test_staging_accepts_file_email_with_explicit_keks() -> None:
-    settings = make(environment="staging", email_backend="file", **kek())
+    settings = make(environment="staging", email_backend="file", email_dev_outbox_path=OUTBOX, **kek())
     assert settings.environment == "staging" and settings.trendyol_environment == "stage"
+
+
+@pytest.mark.parametrize("path", ["var/outbox.jsonl", "./outbox.jsonl", "/var/lib/../outbox.jsonl", ""])
+def test_staging_rejects_relative_or_traversing_outbox_path(path: str) -> None:
+    """DT-20: göreli yol (varsayılan dahil) sürecin çalışma dizinine bağlıdır; mutlak yol zorunlu."""
+    with pytest.raises(ValidationError, match="EMAIL_DEV_OUTBOX_PATH"):
+        make(environment="staging", email_dev_outbox_path=path, **kek())
+    with pytest.raises(ValidationError, match="EMAIL_DEV_OUTBOX_PATH"):
+        make(environment="staging", **kek())  # varsayılan yol göreli
+
+
+def test_outbox_path_is_not_checked_when_backend_is_not_file_or_env_not_hardened() -> None:
+    # memory ayrı kuralla reddedilir; yol iletisi eklenmez.
+    with pytest.raises(ValidationError) as exc:
+        make(environment="staging", email_backend="memory", **kek())
+    assert "EMAIL_DEV_OUTBOX_PATH" not in str(exc.value)
+    for environment in ("dev", "test"):  # geliştirmede göreli yol serbest
+        assert (
+            make(environment=environment, email_dev_outbox_path="var/outbox.jsonl").environment == environment
+        )
+
+
+def test_outbox_retention_settings_are_bounded_below() -> None:
+    for field in ("email_outbox_max_bytes", "email_outbox_max_files", "email_outbox_retention_days"):
+        with pytest.raises(ValidationError):
+            make(**{field: 0})
+    s = make()
+    assert (s.email_outbox_max_bytes, s.email_outbox_max_files, s.email_outbox_retention_days) == (
+        256 * 1024,
+        5,
+        7,
+    )
 
 
 def test_staging_requires_the_kek_ring() -> None:
@@ -64,13 +99,15 @@ def test_staging_requires_the_kek_ring() -> None:
     ("overrides", "needle"),
     [
         ({"debug": True}, "ENVIRONMENT=staging iken DEBUG"),
+        ({"email_dev_outbox_path": "gorece/outbox.jsonl"}, "EMAIL_DEV_OUTBOX_PATH"),
         ({"email_backend": "memory"}, "EMAIL_BACKEND=memory"),
         ({"trendyol_environment": "live"}, "TRENDYOL_ENVIRONMENT=live"),
     ],
 )
 def test_staging_rejects_unsafe_settings(overrides: dict[str, Any], needle: str) -> None:
+    base: dict[str, Any] = {"email_dev_outbox_path": OUTBOX, **kek()}
     with pytest.raises(ValidationError, match=needle):
-        make(environment="staging", **kek(), **overrides)
+        make(environment="staging", **{**base, **overrides})
 
 
 def test_staging_reports_every_problem_at_once() -> None:

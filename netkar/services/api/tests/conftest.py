@@ -163,6 +163,33 @@ def admin_conn(database: DatabaseInfo) -> Iterator[psycopg.Connection[Any]]:
         yield conn
 
 
+def _set_mark(conn: psycopg.Connection[Any], value: str | None) -> Iterator[None]:
+    """İşaret satırını ayarlar (None: siler); testten sonra ÖNCEKİ durumu geri koyar (var olan işaret silinmez)."""
+    row = conn.execute("SELECT value FROM deployment_marks WHERE key = 'non_production'").fetchone()
+    before = None if row is None else row[0]
+    conn.execute("DELETE FROM deployment_marks WHERE key = 'non_production'")
+    if value is not None:
+        conn.execute("INSERT INTO deployment_marks (key, value) VALUES ('non_production', %s)", (value,))
+    try:
+        yield
+    finally:
+        conn.execute("DELETE FROM deployment_marks WHERE key = 'non_production'")
+        if before is not None:
+            conn.execute("INSERT INTO deployment_marks (key, value) VALUES ('non_production', %s)", (before,))
+
+
+@pytest.fixture
+def marked(admin_conn: psycopg.Connection[Any]) -> Iterator[None]:
+    """Veritabanı 'üretim dışı' işaretli (non_production = 'true')."""
+    yield from _set_mark(admin_conn, "true")
+
+
+@pytest.fixture
+def unmarked(admin_conn: psycopg.Connection[Any]) -> Iterator[None]:
+    """Veritabanında işaret satırı yok."""
+    yield from _set_mark(admin_conn, None)
+
+
 @pytest.fixture(autouse=True)
 def _clean_tables(database: DatabaseInfo) -> None:
     """Her testten önce tabloları boşaltır (yalnız test veritabanında, superuser ile)."""

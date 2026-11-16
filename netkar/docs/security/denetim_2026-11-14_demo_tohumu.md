@@ -175,3 +175,26 @@ Kapsam: `stg_diff.patch` (`app/core/config.py`, `app/db/deployment_guard.py`, `a
 Açık bulgular: Kritik 0, Yüksek 0, Orta 0, Düşük 2 (DT-20, DT-21), Bilgi 6 (DT-08, DT-09, DT-10, DT-12, DT-19, DT-22).
 
 `staging` değerinin eklenmesi hiçbir prod korumasını zayıflatmadı; staging önceki "dev/test" çalışmasına göre sıkılaştı. DT-17 ve DT-18 kapandı. Staging'i pilot kullanıcılara açmadan önce DT-20 (outbox izinleri ve saklama) ve DT-21 (staging'de işaret zorunluluğu) giderilmeli; ikisi de küçük değişikliklerdir. Bu koşulla **kabul edilebilir**.
+
+### DT-20/DT-21 kapanış (düzeltildi, inceleme bekliyor)
+
+Durum: bağımsız inceleme tamamlandı (aşağıdaki "İnceleme sonucu"); ilk uygulama için bkz. maddeler.
+
+- DT-21: `ENVIRONMENT=staging` iken API (lifespan) ve işçi, `public.deployment_marks.non_production = 'true'` satırı yoksa başlamaz; tablo yokluğu, `true` dışı değer, bağlantı/yetki hatası ve 10 sn zaman aşımı da açılmayı durdurur (fail-closed). Hata iletisi `mark-non-prod` komutunu söyler. Prod kuralı (işaret varsa açılmaz) ve dev/test (sorgu yok) değişmedi. Bağlı parametre kullanımı korunur. Dosya: `app/db/deployment_guard.py`.
+- DT-20: `FileEmailSender` dosyayı `os.open(..., 0o600)` ile açar (var olan dosyanın izni de 0600'e çekilir), eksik dizinlerin her biri 0700 ile oluşturulur (var olan dizinlerin izni değişmez); sertleşen ortamda `EMAIL_DEV_OUTBOX_PATH` mutlak ve `..` içermeyen olmak zorunda (yapılandırma hatası). Saklama: etkin dosya 256 KiB'ı aşınca döndürülür; döndürülmüş dosyalar 5 adetten fazlaysa ya da 7 günden eskiyse silinir (ayarlanabilir). Silme yalnız yapılandırılan dizinde, adı arka ucun kalıbına uyan düz dosyalarla sınırlıdır. Kimlik doğrulamalı yakalayıcı SMTP (Mailpit) önerisi uygulanmadı; sonraki iş olarak açık. README'ye "outbox gizli veridir" notu eklendi.
+- İncelemede bakılacaklar: etkin dosyadaki kayıtların yaşı yalnız boyutla sınırlıdır (düşük trafikte etkin dosya 7 günden eski kayıt tutabilir; en çok `EMAIL_OUTBOX_MAX_BYTES`); `EMAIL_BACKEND=file` pilot sırasında kayıtlı gerçek e-postaları barındırırsa KVKK saklama süresi için `EMAIL_OUTBOX_RETENTION_DAYS` değeri ayrıca değerlendirilmeli. DT-22 (işçi sorgu zaman aşımı) bu turda ele alınmadı.
+
+#### İnceleme sonucu ve 1. düzeltme turu
+
+Bağımsız inceleme (opus): **Merge: evet; DT-21 kapatılabilir, DT-20 kapatılabilir.** İnceleme iki Düşük ve birkaç Bilgi bulgusu çıkardı; Düşükler bu turda düzeltildi.
+
+| ID | Önem | Durum | Not |
+|---|---|---|---|
+| DT-23 (L-1) | Düşük | Düzeltildi (bu tur) | `Path.mkdir(parents=True, mode=0o700)` yalnız son dizine 0700 veriyordu; ara dizinler umask'a göre açık kalırdı. Eksik dizinler artık üstten aşağı tek tek `os.mkdir(p, 0o700)` ile oluşturulur. Test: gevşek umask altında oluşturulan her dizin 0700. |
+| DT-24 (L-2) | Düşük | Düzeltildi (bu tur) | Etkin dosya `O_NOFOLLOW` olmadan açılıyor ve `fchmod` hedefe uygulanabiliyordu. Artık `O_NOFOLLOW \| O_CLOEXEC` ile açılır, `fstat` ile düz dosya, `st_uid == euid`, `st_nlink == 1` doğrulanır (aksi `OutboxSecurityError`, iletide yol ya da kişisel veri yok); `chmod` kontrollerden sonra. Sertleşen ortamda üst dizin grup/diğer yazılabilir ise kurucu hata verir. Testler: simgesel bağ (kurucuda ve sonradan) ve sabit bağ reddedilir, hedef dokunulmaz; yazılabilir üst dizin reddedilir. |
+| L-3 | Düşük | Kabul edilen artık risk | Etkin dosyadaki kayıt yaşı yalnız boyutla sınırlı (en çok `EMAIL_OUTBOX_MAX_BYTES`). |
+| I-1 | Bilgi | Düzeltildi | `EMAIL_OUTBOX_RETENTION_DAYS` en çok 30, `EMAIL_OUTBOX_MAX_FILES` en çok 50. |
+| I-2 | Bilgi | Açık | Döndürme `rename` yarışı: bugün tek süreç; çok süreçli dağıtımda yeniden değerlendirilmeli. |
+| I-3..I-7 | Bilgi | Düzeltildi | Döndürülmüş ad eşleşmesi `fullmatch` + ASCII rakam; kurucu var olan etkin dosyayı 0600'e çeker; işçi bağlantısına `statement_timeout` (aynı 10 sn sabiti); "yalnız prod" diyen yorumlar güncellendi; `marked`/`unmarked` fixture'ları conftest'e taşındı ve önceki işareti geri koyar (var olan işaret silinmez), eşzamansız tam değer testi eklendi. |
+
+DT-20 ve DT-21 için kapatma kararı koordinatöre aittir.
