@@ -22,7 +22,9 @@ jobs:
   api:
     name: api (ruff, mypy, pytest)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # pytest takımı paylaşılan koşucuda 14-20 dk sürüyor (16 Kas: bir koşu 20 dk sınırında kesildi);
+    # security işiyle aynı 30 dk sınırı.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: netkar/services/api
