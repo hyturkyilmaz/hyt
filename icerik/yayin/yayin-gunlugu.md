@@ -21,7 +21,7 @@ Kaynaklar: 30 günlük plan `icerik/plan/30-gun-2026-11-11.md`, 17:50 kuşağı 
 | 13 | 16 Kas | Pzt | 17:50 | Google AI cevaplarında bağlantılar yukarı çıkıyor. | GOOGLE | Dosya iletildi 10-11 Kas |
 | 14 | 16 Kas | Pzt | 20:50 | Reklam satar, depo teslim eder. | STOK | Dosya iletildi 15 Kas |
 | 15 | 17 Kas | Sal | 17:50 | Claude artık sen yokken de çalışıyor. | DUET | Dosya iletildi 10-11 Kas |
-| 16 | 17 Kas | Sal | 20:50 | Olumsuz yorumu silemezsin. Cevaplayabilirsin. | YORUM | Akşam önce iletilecek |
+| 16 | 17 Kas | Sal | 20:50 | Olumsuz yorumu silemezsin. Cevaplayabilirsin. | YORUM | Dosya iletildi 16 Kas |
 | 17 | 18 Kas | Çar | 17:50 | Kasım indiriminde 10 gün kuralı. | FIYAT | Dosya iletildi 10-11 Kas |
 | 18 | 18 Kas | Çar | 20:50 | Kampanya mesajlarını bugün yaz. | EPOSTA | Akşam önce iletilecek |
 | 19 | 19 Kas | Per | 08:50 | Kampanya haftasında DM'ler sana yetişmez. | MESAJ | Akşam önce iletilecek |

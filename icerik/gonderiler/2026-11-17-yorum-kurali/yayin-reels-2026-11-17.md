@@ -6,7 +6,7 @@
 | Saat | 20:50 TRT (30 günlük plan) |
 | Anahtar kelime | YORUM |
 | Yazım hatası | "cevaplamk" (doğrusu: cevaplamak) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 16 Kasım akşamı: 1 Temmuz 2026 tarihli Resmî Gazete değişikliği, 1 Ağustos'ta yürürlükte (yalnız satın alan yorum yapar, olumsuz yorum yalnız bu gerekçeyle silinemez, en az 1 yıl yayında, objektif sıralama). Metinde istem dışı hata yok. |
 
 ## Açıklama
 
