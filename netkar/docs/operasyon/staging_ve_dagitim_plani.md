@@ -80,9 +80,9 @@ Kural: her dış katman, içindekinden uzun bekler. Böylece API'nin kendi probl
 
 | Katman | Sınır | Nereden | Durum |
 |---|---|---|---|
-| PostgreSQL `statement_timeout` (rapor işlemi) | 40 sn (hesap sınırı - 5 sn) | `app/core/config.py` yorumu (DK-05) | Var |
-| Tek uçuşta bekleyen (`PROFIT_REPORT_CACHE_WAIT_SECONDS`) | 25 sn | `config.py` | Var |
-| Rapor hesabı (`PROFIT_REPORT_COMPUTE_TIMEOUT_SECONDS`) | 45 sn | `config.py` | Var |
+| PostgreSQL `statement_timeout` (rapor işlemi) | 40 sn (kalan bütçe - 5 sn, en az 1 sn) | `app/core/config.py` yorumu (DK-05) | Var |
+| Tek uçuşta bekleyen (`PROFIT_REPORT_CACHE_WAIT_SECONDS`) | 25 sn (toplam bütçenin parçası) | `config.py` | Var |
+| Rapor hesabı (`PROFIT_REPORT_COMPUTE_TIMEOUT_SECONDS`) | 45 sn, bekleme + hesap TOPLAM bütçesi (bekleme sonrası hesap kalan süreyle sınırlı, 1 sn altı 503) | `config.py`, `report_cache.py` | Var |
 | Next.js rewrite vekili (`experimental.proxyTimeout`) | **55 sn** | `apps/web/next.config.ts` | **Yok**, bugün varsayılan 30 sn (C3) |
 | Caddy `reverse_proxy` yanıt sınırı | **60 sn** | `infra/prod/Caddyfile` | **Yok** (C2) |
 | Cloudflare köken yanıt sınırı | yaklaşık 100 sn | Cloudflare belgeleri (emin değilim) | Değiştirilmez |

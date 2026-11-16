@@ -30,6 +30,7 @@ import asyncio
 import time
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import date
 from typing import NamedTuple
@@ -41,6 +42,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ProblemError
 from app.models import ReportDataRevision
 from app.services.profit_report import PeriodReport
+
+# Bir hesabı başlatmanın anlamlı olabilmesi için kalan bütçenin alt sınırı (sn): altında hesap başlatılmaz.
+MIN_COMPUTE_SECONDS = 1.0
+
+# Hesaplayanın o an kullanabileceği kalan süre bütçesi (sn); `get_or_compute` hesap başlamadan hemen önce
+# kurar. Hesap geri çağrısı (`compute`) `statement_timeout` değerini bundan türetir. None = sınırsız.
+_compute_budget: ContextVar[float | None] = ContextVar("report_compute_budget", default=None)
+
+
+def compute_budget_seconds() -> float | None:
+    """Çalışan hesabın kalan süre bütçesi (sn); sınırsızsa None (profit.py `_bound_statements` kullanır)."""
+    return _compute_budget.get()
+
 
 # Veri sürümü: hesabın motor girdisine yazan her işlemde artan tek sayaç (migrasyon 0012).
 DataVersion = int
@@ -109,6 +123,7 @@ class ReportCache:
         compute_timeout_seconds: float | None = None,
         retry_after_seconds: int = 2,
         clock: Callable[[], float] = time.monotonic,
+        budget_clock: Callable[[], float] | None = None,
     ) -> None:
         self.ttl_seconds = ttl_seconds
         self.max_entries = max_entries
@@ -124,6 +139,8 @@ class ReportCache:
         self.compute_timeout_seconds = compute_timeout_seconds
         self.retry_after = str(max(1, retry_after_seconds))
         self._clock = clock
+        # İstek başına toplam süre bütçesi saati; None = olay döngüsü saati (yalnız testler sahte saat verir).
+        self._budget_clock = budget_clock
         self._entries: OrderedDict[ReportKey, _Entry] = OrderedDict()
         # Tek uçuş: sonuç `Future` ile paylaşılır; None = hesaplayan başarısız oldu (hata paylaşılmaz).
         self._inflight: dict[ReportKey, asyncio.Future[PeriodReport | None]] = {}
@@ -212,8 +229,22 @@ class ReportCache:
         self._entries.clear()
         self._weight = 0
 
-    async def _run(self, compute: Callable[[], Awaitable[PeriodReport]]) -> PeriodReport:
-        """Hesabı `compute_timeout_seconds` ile sınırlar (OK-05).
+    def _timeout_problem(self) -> ProblemError:
+        return ProblemError(
+            503,
+            "Rapor hesaplanamadı",
+            "report-compute-timeout",
+            "Rapor belirlenen sürede hazırlanamadı. Kısa süre sonra tekrar deneyin.",
+            headers={"Retry-After": self.retry_after},
+        )
+
+    async def _run(
+        self, compute: Callable[[], Awaitable[PeriodReport]], budget: float | None = None
+    ) -> PeriodReport:
+        """Hesabı `budget` (varsayılan `compute_timeout_seconds`) ile sınırlar (OK-05).
+
+        `budget` istek başına toplam bütçeden kalan süredir (bekleme sonrası hesap, P2): bekleme + hesap
+        toplamı `compute_timeout_seconds` değerini aşmaz.
 
         Süre aşılırsa hesap iptal edilir ve çağıran (`get_or_compute`) tek uçuş kaydını `finally` ile
         siler; istek 503 + `Retry-After` alır. Kapı yuvası burada BIRAKILMAZ: motor iş parçacığı
@@ -226,19 +257,19 @@ class ReportCache:
         """
         if self.compute_timeout_seconds is None:
             return await compute()
+        limit = self.compute_timeout_seconds
+        if budget is not None:
+            limit = min(limit, budget)
+        token = _compute_budget.set(limit)
         try:
-            async with asyncio.timeout(self.compute_timeout_seconds) as scope:
+            async with asyncio.timeout(limit) as scope:
                 return await compute()
         except TimeoutError:
             if not scope.expired():
                 raise
-            raise ProblemError(
-                503,
-                "Rapor hesaplanamadı",
-                "report-compute-timeout",
-                "Rapor belirlenen sürede hazırlanamadı. Kısa süre sonra tekrar deneyin.",
-                headers={"Retry-After": self.retry_after},
-            ) from None
+            raise self._timeout_problem() from None
+        finally:
+            _compute_budget.reset(token)
 
     async def get_or_compute(
         self,
@@ -267,7 +298,11 @@ class ReportCache:
             return await self._run(compute), False
         released = False
         loop = asyncio.get_running_loop()
-        deadline = loop.time() + self.wait_seconds  # gerçek olay döngüsü saati (TTL saati sahte olabilir)
+        now = self._budget_clock or loop.time  # gerçek olay döngüsü saati (TTL saati sahte olabilir)
+        started = now()
+        deadline = started + self.wait_seconds
+        # Toplam bütçe (bekleme + hesap) = `compute_timeout_seconds`; ters vekil sınırının altında kalır (P2).
+        budget_end = None if self.compute_timeout_seconds is None else started + self.compute_timeout_seconds
         while True:
             cached = self.get(key)
             if cached is not None:
@@ -279,7 +314,7 @@ class ReportCache:
             if not released:
                 await release()
                 released = True
-            remaining = deadline - loop.time()
+            remaining = deadline - now()
             if remaining > 0:
                 # `wait` (wait_for değil): zaman aşımı ya da bekleyenin iptali ortak Future'ı iptal etmez.
                 await asyncio.wait({pending}, timeout=remaining)
@@ -296,12 +331,17 @@ class ReportCache:
                 self.hits += 1
                 return shared, True
             # hesaplayan başarısız oldu: döngü başına dön (önbellek, yeni hesaplayan ya da kendi hesabım)
+        left = None if budget_end is None else budget_end - now()
+        if released and left is not None and left < MIN_COMPUTE_SECONDS:
+            # Bekleme bütçeyi tüketti: hesap başlatılmaz (uçuş kaydı açılmaz, kapı yuvası alınmaz), 503.
+            # Alt sınır yalnız beklemiş istek içindir; beklemeyen istek tam bütçeyi kullanır.
+            raise self._timeout_problem()
         self.misses += 1
         flight: asyncio.Future[PeriodReport | None] = loop.create_future()
         self._inflight[key] = flight
         report: PeriodReport | None = None
         try:
-            report = await self._run(compute)
+            report = await self._run(compute, left)
             self.put(key, report)
             return report, False
         finally:

@@ -1259,3 +1259,151 @@ def test_dk11_statement_timeout_after_a_cache_hit_becomes_the_same_503_not_a_pla
     assert resp.status_code == 503 and resp.json()["type"].endswith("report-compute-timeout")
     assert int(resp.headers["Retry-After"]) >= 1
     assert "pg_sleep" not in resp.text and "statement" not in resp.text.lower()  # ayrıntı sızmaz
+
+
+# ------------------------------------------------ P2: bekleme sonrası hesap toplam bütçeyle sınırlı
+
+
+async def _leader_fails_after(cache: ReportCache, key: ReportKey, fake: FakeClock, spent: float) -> Any:
+    """Lideri `spent` sn (sahte saat) sonra başarısız eder; bekleyen o sırada beklemededir."""
+    started, go = asyncio.Event(), asyncio.Event()
+
+    async def failing() -> Any:
+        started.set()
+        await go.wait()
+        fake.now += spent
+        raise RuntimeError("lider düştü")
+
+    leader = asyncio.create_task(cache.get_or_compute(key, failing, _noop))
+    await started.wait()
+    return leader, go
+
+
+async def test_p2_waiter_recompute_after_failed_leader_is_bounded_by_the_remaining_budget() -> None:
+    from app.services.report_cache import compute_budget_seconds
+
+    fake = FakeClock()
+    cache = make_cache(wait_seconds=25.0, compute_timeout_seconds=45.0, budget_clock=fake)
+    key = key_of(uuid4())
+    leader, go = await _leader_fails_after(cache, key, fake, 20.0)
+    seen: list[float | None] = []
+    timeouts: list[float] = []
+
+    async def mine() -> Any:
+        seen.append(compute_budget_seconds())
+        return report_of(1)
+
+    real_timeout = asyncio.timeout
+
+    def spy(delay: float | None) -> Any:
+        timeouts.append(delay if delay is not None else -1.0)
+        return real_timeout(delay)
+
+    waiter = asyncio.create_task(cache.get_or_compute(key, mine, _noop))
+    await asyncio.sleep(0.01)
+    asyncio.timeout = spy  # type: ignore[assignment]
+    try:
+        go.set()
+        with pytest.raises(RuntimeError):
+            await leader
+        report, shared = await waiter
+    finally:
+        asyncio.timeout = real_timeout  # type: ignore[assignment]
+    assert shared is False and report is not None
+    # Geçen 20 sn: kalan bütçe 25 sn (45 - 20); yeni 45 sn DEĞİL. Toplam 20 + 25 = 45 sn bütçeyi aşmaz.
+    assert seen == [25.0] and timeouts == [25.0]
+    assert seen[0] is not None and 20.0 + seen[0] <= (cache.compute_timeout_seconds or 0.0)
+
+
+async def test_p2_remaining_budget_below_the_floor_returns_503_without_starting_compute_or_flight() -> None:
+    from app.core.errors import ProblemError
+
+    fake = FakeClock()
+    cache = make_cache(wait_seconds=25.0, compute_timeout_seconds=45.0, budget_clock=fake)
+    key = key_of(uuid4())
+    leader, go = await _leader_fails_after(cache, key, fake, 44.5)  # kalan 0,5 sn < 1 sn alt sınır
+    calls: list[int] = []
+
+    async def mine() -> Any:
+        calls.append(1)
+        return report_of(1)
+
+    waiter = asyncio.create_task(cache.get_or_compute(key, mine, _noop))
+    await asyncio.sleep(0.01)
+    go.set()
+    with pytest.raises(RuntimeError):
+        await leader
+    with pytest.raises(ProblemError) as caught:
+        await waiter
+    assert caught.value.status == 503 and caught.value.slug == "report-compute-timeout"
+    assert int(caught.value.headers["Retry-After"]) >= 1
+    assert calls == [] and cache._inflight == {} and cache.misses == 1  # yalnız liderin ıskası sayıldı
+
+
+async def test_p2_remaining_budget_exactly_at_the_floor_still_computes_with_that_budget() -> None:
+    from app.services.report_cache import compute_budget_seconds
+
+    fake = FakeClock()
+    cache = make_cache(wait_seconds=25.0, compute_timeout_seconds=45.0, budget_clock=fake)
+    key = key_of(uuid4())
+    leader, go = await _leader_fails_after(cache, key, fake, 44.0)  # kalan tam 1 sn
+    seen: list[float | None] = []
+
+    async def mine() -> Any:
+        seen.append(compute_budget_seconds())
+        return report_of(1)
+
+    waiter = asyncio.create_task(cache.get_or_compute(key, mine, _noop))
+    await asyncio.sleep(0.01)
+    go.set()
+    with pytest.raises(RuntimeError):
+        await leader
+    _, shared = await waiter
+    assert shared is False and seen == [1.0]
+
+
+async def test_p2_normal_paths_keep_the_full_budget_and_the_budget_is_not_leaked() -> None:
+    from app.services.report_cache import compute_budget_seconds
+
+    cache = make_cache(wait_seconds=25.0, compute_timeout_seconds=45.0)
+    seen: list[float | None] = []
+
+    async def mine() -> Any:
+        seen.append(compute_budget_seconds())
+        return report_of(1)
+
+    key = key_of(uuid4())
+    _, first_shared = await cache.get_or_compute(key, mine, _noop)
+    _, second_shared = await cache.get_or_compute(key, mine, _noop)  # isabet: hesap yok
+    assert (first_shared, second_shared) == (False, True)
+    assert seen[0] is not None and 44.9 < seen[0] <= 45.0  # bekleme yok: tam bütçe
+    assert len(seen) == 1 and compute_budget_seconds() is None  # bağlam sızmadı
+    unbounded = make_cache()  # compute_timeout_seconds None: sınırsız, bütçe yok
+    seen.clear()
+    await unbounded.get_or_compute(key_of(uuid4()), mine, _noop)
+    assert seen == [None]
+
+
+async def test_p2_statement_timeout_follows_the_remaining_budget_minus_margin_with_a_one_second_floor() -> (
+    None
+):
+    from app.api.v1.profit import _bound_statements
+    from app.services import report_cache
+
+    class FakeDb:
+        def __init__(self) -> None:
+            self.values: list[str] = []
+
+        async def execute(self, _stmt: Any, params: dict[str, str]) -> None:
+            self.values.append(params["v"])
+
+    cache = make_cache(compute_timeout_seconds=45.0)
+    db = FakeDb()
+    await _bound_statements(db, cache)  # type: ignore[arg-type]  # bütçe bağlamı yok: 45 - 5 = 40 sn
+    for budget in (25.0, 3.0, 1.0):  # kalan - 5 sn, en az 1 sn
+        token = report_cache._compute_budget.set(budget)
+        try:
+            await _bound_statements(db, cache)  # type: ignore[arg-type]
+        finally:
+            report_cache._compute_budget.reset(token)
+    assert db.values == ["40000", "20000", "1000", "1000"]

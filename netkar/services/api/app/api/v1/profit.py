@@ -69,7 +69,7 @@ from app.services.auth import AuthContext
 from app.services.profit_feed import period_bounds
 from app.services.profit_report import PeriodReport, period_profit
 from app.services.profit_settings import LoadedSettings, completeness_of, load_profit_settings
-from app.services.report_cache import ReportCache, ReportKey, report_data_version
+from app.services.report_cache import ReportCache, ReportKey, compute_budget_seconds, report_data_version
 from app.services.report_gate import ReportGate
 
 router = APIRouter(prefix="/marketplace-accounts/{account_id}/profit", tags=["profit"])
@@ -259,7 +259,10 @@ async def _bound_statements(db: AsyncSession, cache: ReportCache) -> None:
     """
     if cache.compute_timeout_seconds is None:
         return
-    millis = math.ceil(max(1.0, cache.compute_timeout_seconds - _STATEMENT_MARGIN) * 1000)
+    # Kalan bütçe (bekleme sonrası hesapta toplam bütçeden artan süre) varsa ondan türetilir (P2).
+    budget = compute_budget_seconds()
+    total = cache.compute_timeout_seconds if budget is None else min(cache.compute_timeout_seconds, budget)
+    millis = math.ceil(max(1.0, total - _STATEMENT_MARGIN) * 1000)
     await db.execute(text("SELECT set_config('statement_timeout', :v, true)"), {"v": str(millis)})
 
 

@@ -23,12 +23,11 @@ const securityHeaders = [
 // Next.js rewrite vekili 55 sn, Caddy yanıt sınırı 60 sn. Vekilin varsayılanı 30 sn'dir (next@15.5.29:
 // `proxyTimeout || 30000`); varsayılan kalırsa 30 sn'den uzun rapor web katmanında kopar ve API'nin 503
 // report-compute-timeout (problem+json) yanıtı kullanıcıya ulaşmaz.
-// Bekleme (25 sn) ve hesap (45 sn) ayrı sayaçlardır ve art arda gelebilir: bekleyen istek, hesaplayan
-// başarısız olunca (services/api report_cache.get_or_compute döngüsü) kendi hesabını yeni bir 45 sn
-// sınırıyla başlatır. Bu nadir yolda süre en çok yaklaşık 25 + 45 = 70 sn (artı istek öncesi işler) olur;
-// 55 sn'yi aşarsa vekil keser (problem+json yerine 5xx görülür). Normal hesap yolu yaklaşık 45 sn artı istek öncesi işlerdir
-// (bağlantı havuzu beklemesi en çok 5 sn, ayar ve veri sürümü sorguları); bunlar iki sayacın dışındadır.
-// Kalıcı çözüm API tarafındadır (bekleme sonrası hesap süresi kalan toplam bütçeyle sınırlanmalı).
+// Bekleme (25 sn) ve hesap TEK toplam bütçeyi paylaşır (services/api report_cache.get_or_compute): bekleyen
+// istek, hesaplayan başarısız olunca kendi hesabını yalnız KALAN bütçeyle (45 sn - geçen süre) başlatır;
+// kalan 1 sn'nin altındaysa hesap başlamadan 503 report-compute-timeout döner. PostgreSQL statement_timeout da
+// kalan süreden türetilir (kalan - 5 sn, en az 1 sn). Böylece en kötü yol yaklaşık 45 sn artı istek öncesi
+// işlerdir (bağlantı havuzu beklemesi en çok 5 sn, ayar ve veri sürümü sorguları) ve 55 sn vekilin altında kalır.
 // Vekil Caddy'nin 60 sn sınırından kısa kalmalıdır: bu değeri yükseltmeyin (guard testi: next.config.test.ts).
 export const PROXY_TIMEOUT_MS = 55_000;
 
