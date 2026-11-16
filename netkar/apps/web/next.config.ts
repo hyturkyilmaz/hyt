@@ -25,8 +25,8 @@ const securityHeaders = [
 // report-compute-timeout (problem+json) yanıtı kullanıcıya ulaşmaz.
 // Bekleme (25 sn) ve hesap (45 sn) ayrı sayaçlardır ve art arda gelebilir: bekleyen istek, hesaplayan
 // başarısız olunca (services/api report_cache.get_or_compute döngüsü) kendi hesabını yeni bir 45 sn
-// sınırıyla başlatır. Bu nadir yolda süre en az 25 + 45 = 70 sn olur ve vekil 55 sn'de keser
-// (problem+json yerine 5xx görülür). Normal hesap yolu yaklaşık 45 sn artı istek öncesi işlerdir
+// sınırıyla başlatır. Bu nadir yolda süre en çok yaklaşık 25 + 45 = 70 sn (artı istek öncesi işler) olur;
+// 55 sn'yi aşarsa vekil keser (problem+json yerine 5xx görülür). Normal hesap yolu yaklaşık 45 sn artı istek öncesi işlerdir
 // (bağlantı havuzu beklemesi en çok 5 sn, ayar ve veri sürümü sorguları); bunlar iki sayacın dışındadır.
 // Kalıcı çözüm API tarafındadır (bekleme sonrası hesap süresi kalan toplam bütçeyle sınırlanmalı).
 // Vekil Caddy'nin 60 sn sınırından kısa kalmalıdır: bu değeri yükseltmeyin (guard testi: next.config.test.ts).

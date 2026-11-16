@@ -284,7 +284,11 @@ function ProductCosts({
             {list.hasMore ? ', devamı var' : ''}.
           </p>
           {totalMissing !== null && totalMissing > 0 ? (
-            <p className="text-sm text-muted-foreground" aria-live="polite" data-testid="total-missing">
+            <p
+              className="text-sm text-muted-foreground"
+              aria-live="polite"
+              data-testid="total-missing"
+            >
               Toplam <span className="num">{totalMissing}</span> ürünün maliyeti eksik.
             </p>
           ) : null}
