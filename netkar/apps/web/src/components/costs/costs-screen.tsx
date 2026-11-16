@@ -3,7 +3,7 @@
 import { CheckCircle2, Package, Search, Store } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useMemo, useState, type FormEvent } from 'react';
 
 import { CostFormDialog, productLabel } from '@/components/costs/cost-form-dialog';
 import { CostImportPanel } from '@/components/costs/cost-import-panel';
@@ -24,23 +24,11 @@ import {
   type ProductCostItem,
 } from '@/lib/api/product-costs';
 import { costSince, costSummary, describeCostLoadError } from '@/lib/profit/cost-present';
-import {
-  costsHref,
-  parseCostQuery,
-  visibleProducts,
-  type CostQuery,
-} from '@/lib/profit/cost-query';
+import { costsHref, parseCostQuery, type CostQuery } from '@/lib/profit/cost-query';
 import { formatLongDate, todayIstanbul } from '@/lib/profit/settings-input';
 import { useReportAccount } from '@/lib/profit/use-account';
 import { usePagedList } from '@/lib/profit/use-paged-list';
 import { useWriteAccess } from '@/lib/profit/use-viewer';
-
-/** Süzgeç açıkken görünen satır bu sayının altındaysa sonraki sayfalar kendiliğinden yüklenir (en çok bu kadar) */
-const AUTO_FILL_TARGET = 10;
-// ME-01: API'de "maliyeti eksik" süzgeci yok (kalıcı çözüm sunucuda `missing=true` parametresi, backend işi). Geçici
-// çözümde otomatik yükleme sorgu başına en çok bu kadar sayfa; sonrası açık "Daha fazla tara" düğmesiyle. Süzgeç
-// değişince SIFIRLANMAZ: birkaç tıklamayla tüm katalog çekilemez.
-const AUTO_FILL_MAX_PAGES = 5;
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'Tüm ürünler' },
@@ -200,14 +188,20 @@ function ProductCosts({
 }) {
   // Her çizimde hesaplanır (ucuz): gece yarısını geçen oturumda form ve satır kuralı eski günü kullanmaz (ME-11)
   const today = todayIstanbul();
-  const listKey = `${accountId}|${query.q}|${reloadKey}`;
+  const listKey = `${accountId}|${query.q}|${query.missingOnly}|${reloadKey}`;
   const list = usePagedList({
     enabled: true,
     resetKey: listKey,
     fetchPage: (cursor, signal) =>
       productCostsApi.products(
         accountId,
-        { q: query.q || undefined, cursor, limit: PRODUCTS_PAGE_SIZE },
+        {
+          q: query.q || undefined,
+          cursor,
+          limit: PRODUCTS_PAGE_SIZE,
+          // "Maliyeti eksik" süzgeci sunucuda (missing=true): sayfalama süzülmüş liste üzerinden işler
+          missing: query.missingOnly,
+        },
         signal,
       ),
     getItems: (page) => page.items,
@@ -221,48 +215,20 @@ function ProductCosts({
   const [editing, setEditing] = useState<ProductCostItem | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  // Süzgeç satırı taban listeye göre uygulanır: kaydedilen satır oturum boyunca yerinde kalır (hızlı giriş).
+  // Sunucu süzgeci uygular; kaydedilen satır oturum boyunca yerinde kalır (hızlı giriş).
   const rows = useMemo(
-    () =>
-      visibleProducts(list.items, query.missingOnly).map((item) => overrides[item.barcode] ?? item),
-    [list.items, query.missingOnly, overrides],
+    () => list.items.map((item) => overrides[item.barcode] ?? item),
+    [list.items, overrides],
   );
 
-  // API'de "maliyeti eksik" süzgeci yok: süzgeç açıkken az satır görünüyorsa sonraki sayfalar yüklenir.
-  const autoPages = useRef({ key: '', count: 0 });
-  const { hasMore, loadingMore, moreError, loadMore, status } = list;
-  // Yüklenen toplam ürün sayısı da bağımlılık: hızlı yanıtta loadingMore görünür toggle olmayabilir
-  const loadedCount = list.items.length;
-  useEffect(() => {
-    const state = autoPages.current;
-    if (state.key !== listKey) {
-      state.key = listKey;
-      state.count = 0;
-    }
-    if (
-      status !== 'ready' ||
-      !query.missingOnly ||
-      !hasMore ||
-      loadingMore ||
-      moreError ||
-      rows.length >= AUTO_FILL_TARGET ||
-      state.count >= AUTO_FILL_MAX_PAGES
-    ) {
-      return;
-    }
-    state.count += 1;
-    loadMore();
-  }, [
-    status,
-    query.missingOnly,
-    hasMore,
-    loadingMore,
-    moreError,
-    rows.length,
-    loadedCount,
-    loadMore,
-    listKey,
-  ]);
+  // `total_missing` ilk sayfa yanıtındaki hesap geneli sayıdır; bu oturumda maliyeti girilen eksik ürünler düşülür.
+  const totalMissing = useMemo(() => {
+    if (!list.first) return null;
+    const fixed = list.items.filter(
+      (item) => item.cost_missing && overrides[item.barcode]?.cost_missing === false,
+    ).length;
+    return Math.max(0, list.first.total_missing - fixed);
+  }, [list.first, list.items, overrides]);
 
   const onSaved = useCallback(
     (item: ProductCostItem, result: CostUpsertResult) => {
@@ -317,18 +283,16 @@ function ProductCosts({
             {query.missingOnly ? ' (maliyeti eksik)' : ''}
             {list.hasMore ? ', devamı var' : ''}.
           </p>
-          {query.missingOnly && list.hasMore ? (
-            <p className="text-sm text-muted-foreground">
-              Süzgeç yalnız taranan ürünlere uygulanır:{' '}
-              <span className="num">{list.items.length}</span> ürün tarandı, devamı var. Hepsini
-              görmek için &quot;Daha fazla tara&quot; düğmesini kullanın.
+          {totalMissing !== null && totalMissing > 0 ? (
+            <p className="text-sm text-muted-foreground" data-testid="total-missing">
+              Toplam <span className="num">{totalMissing}</span> ürünün maliyeti eksik.
             </p>
           ) : null}
           {rows.length === 0 ? (
             <EmptyState
               Icon={Package}
               title={emptyTitle(query)}
-              description={emptyDescription(query, list.hasMore)}
+              description={emptyDescription(query)}
             />
           ) : (
             <ul
@@ -356,13 +320,7 @@ function ProductCosts({
           {list.hasMore ? (
             <div className="flex justify-center">
               <Button variant="secondary" onClick={list.loadMore} disabled={list.loadingMore}>
-                {list.loadingMore
-                  ? query.missingOnly
-                    ? 'Taranıyor'
-                    : 'Yükleniyor'
-                  : query.missingOnly
-                    ? 'Daha fazla tara'
-                    : 'Daha fazla yükle'}
+                {list.loadingMore ? 'Yükleniyor' : 'Daha fazla yükle'}
               </Button>
             </div>
           ) : null}
@@ -394,13 +352,9 @@ function emptyTitle(query: CostQuery): string {
   return 'Henüz ürün yok';
 }
 
-function emptyDescription(query: CostQuery, hasMore: boolean): string {
+function emptyDescription(query: CostQuery): string {
   if (query.q) return 'Barkod ya da ürün adını kontrol edip yeniden arayın.';
-  if (query.missingOnly) {
-    return hasMore
-      ? 'Yüklenen ürünlerin hepsinin maliyeti girilmiş. Daha fazla ürün yükleyerek bakabilirsiniz.'
-      : 'Tüm ürünlerin maliyeti girilmiş.';
-  }
+  if (query.missingOnly) return 'Tüm ürünlerin maliyeti girilmiş.';
   return 'Ürünler mağazanızdan senkronlanınca burada listelenir.';
 }
 

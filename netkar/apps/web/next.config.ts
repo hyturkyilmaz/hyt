@@ -18,9 +18,27 @@ const securityHeaders = [
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 
+// Rapor zaman aşımı zinciri (içten dışa): PostgreSQL statement_timeout 40 sn, API rapor hesap sınırı 45 sn
+// (PROFIT_REPORT_COMPUTE_TIMEOUT_SECONDS), tek uçuş bekleme sınırı 25 sn (PROFIT_REPORT_CACHE_WAIT_SECONDS),
+// Next.js rewrite vekili 55 sn, Caddy yanıt sınırı 60 sn. Vekilin varsayılanı 30 sn'dir (next@15.5.29:
+// `proxyTimeout || 30000`); varsayılan kalırsa 30 sn'den uzun rapor web katmanında kopar ve API'nin 503
+// report-compute-timeout (problem+json) yanıtı kullanıcıya ulaşmaz.
+// Bekleme (25 sn) ve hesap (45 sn) ayrı sayaçlardır, TOPLANMAZ ama art arda gelebilir: bekleyen istek,
+// hesaplayan başarısız olunca (services/api report_cache.get_or_compute döngüsü) kendi hesabını yeni bir
+// 45 sn sınırıyla başlatır. Gerçek en kötü durum 25 + 45 = 70 sn'dir ve vekil 55 sn'de keser; bu nadir yol
+// vekil sınırını aşar (problem+json yerine 5xx görülür). Normal yollar (yalnız bekleme ya da yalnız hesap)
+// 45 sn altında kalır. Kalıcı çözüm API tarafındadır (bekleme sonrası hesap süresi kalan süreyle sınırlanmalı).
+// Vekil Caddy'nin 60 sn sınırından kısa kalmalıdır: bu değeri yükseltmeyin (guard testi: next.config.test.ts).
+export const PROXY_TIMEOUT_MS = 55_000;
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  // Docker imajı için .next/standalone çıktısı (apps/web/Dockerfile): yalnız gerekli node_modules izlenir.
+  output: 'standalone',
+  experimental: {
+    proxyTimeout: PROXY_TIMEOUT_MS,
+  },
   async rewrites() {
     // Backend yolları /v1/... biçimindedir (services/api: api_router prefix="/v1"; "/api" öneki yok).
     // Tarayıcı aynı kökende /api/v1/... çağırır; vekil önekteki "/api" kısmını atar.

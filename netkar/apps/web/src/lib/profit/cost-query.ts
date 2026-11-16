@@ -21,11 +21,3 @@ export function costsHref(query: Partial<CostQuery> = {}): string {
   const text = search.toString();
   return text ? `${COSTS_PATH}?${text}` : COSTS_PATH;
 }
-
-/** Süzgeç yalnız yüklenen sayfalara uygulanır (API'de maliyet eksik süzgeci yok): görünür satırlar */
-export function visibleProducts<T extends { cost_missing: boolean }>(
-  items: readonly T[],
-  missingOnly: boolean,
-): T[] {
-  return missingOnly ? items.filter((item) => item.cost_missing) : [...items];
-}

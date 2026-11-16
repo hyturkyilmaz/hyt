@@ -38,8 +38,9 @@ export function makeMissingProduct(over: Partial<ProductCostItem> = {}): Product
 export function makeProductList(
   items: ProductCostItem[],
   nextCursor: string | null = null,
+  totalMissing: number = items.filter((item) => item.cost_missing).length,
 ): ProductCostList {
-  return { items, next_cursor: nextCursor };
+  return { items, next_cursor: nextCursor, total_missing: totalMissing };
 }
 
 export function makeHistory(barcode: string, items: CostOut[] = [makeCost()]): CostHistory {

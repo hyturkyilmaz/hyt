@@ -24,6 +24,8 @@ export interface ProductCostItem {
 export interface ProductCostList {
   items: ProductCostItem[];
   next_cursor: string | null;
+  /** Hesabın TÜM ürünleri içinde bugün geçerli maliyeti olmayanların sayısı (q, after ve missing'den bağımsız) */
+  total_missing: number;
 }
 
 export interface CostHistory {
@@ -110,12 +112,14 @@ function filenameFrom(disposition: string | null): string {
 export const productCostsApi = {
   products: (
     accountId: string,
-    params: { q?: string; cursor?: string | null; limit?: number },
+    params: { q?: string; cursor?: string | null; limit?: number; missing?: boolean },
     signal?: AbortSignal,
   ) => {
     const search = new URLSearchParams();
     if (params.q) search.set('q', params.q);
     if (params.cursor) search.set('after', params.cursor);
+    // Sunucu süzgeci: yalnız bugün geçerli maliyeti olmayan ürünler (sayfalamadan önce uygulanır)
+    if (params.missing) search.set('missing', 'true');
     search.set('limit', String(params.limit ?? PRODUCTS_PAGE_SIZE));
     return apiFetch<ProductCostList>(`${base(accountId)}/products?${search.toString()}`, {
       signal,

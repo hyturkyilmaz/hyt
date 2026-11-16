@@ -612,11 +612,15 @@ export function handleCostRequest(req, res, url, session) {
     }
     const after = url.searchParams.get('after');
     const q = (url.searchParams.get('q') ?? '').toLowerCase();
+    const missingOnly = url.searchParams.get('missing') === 'true';
     let items = [...state.products].sort((a, b) => (a.barcode < b.barcode ? -1 : 1));
+    // Sunucu sözleşmesi: total_missing hesabın TÜM ürünleri içindir (q, after ve missing'den bağımsız)
+    const totalMissing = items.filter((p) => currentCost(state, p.barcode, today) === null).length;
     if (q)
       items = items.filter(
         (p) => p.barcode.toLowerCase().includes(q) || (p.title ?? '').toLowerCase().includes(q),
       );
+    if (missingOnly) items = items.filter((p) => currentCost(state, p.barcode, today) === null);
     if (after !== null) items = items.filter((p) => p.barcode > after);
     const page = items.slice(0, limit);
     json(res, 200, {
@@ -625,6 +629,7 @@ export function handleCostRequest(req, res, url, session) {
         return { ...p, current_cost: cost ? costOut(cost) : null, cost_missing: cost === null };
       }),
       next_cursor: items.length > limit ? page[page.length - 1].barcode : null,
+      total_missing: totalMissing,
     });
     return true;
   }

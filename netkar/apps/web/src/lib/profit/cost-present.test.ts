@@ -13,7 +13,7 @@ import {
   parseImportReport,
   reportHeadline,
 } from '@/lib/profit/cost-present';
-import { costsHref, parseCostQuery, visibleProducts } from '@/lib/profit/cost-query';
+import { costsHref, parseCostQuery } from '@/lib/profit/cost-query';
 import { makeCost, makeImportReport } from '@/lib/profit/cost-fixtures';
 
 const apiError = (
@@ -165,15 +165,6 @@ describe('maliyet ekranı adresi', () => {
     expect(q.missingOnly).toBe(true);
     expect(q.q).toHaveLength(100);
     expect(parseCostQuery(new URLSearchParams('filtre=baska')).missingOnly).toBe(false);
-  });
-
-  it('süzgeç yalnız maliyeti eksik satırları bırakır', () => {
-    const items = [
-      { cost_missing: true, id: 1 },
-      { cost_missing: false, id: 2 },
-    ];
-    expect(visibleProducts(items, true).map((i) => i.id)).toEqual([1]);
-    expect(visibleProducts(items, false)).toHaveLength(2);
   });
 });
 

@@ -86,13 +86,15 @@ describe('Ürün maliyetleri listesi', () => {
     expect(await screen.findByText('<b>Kalın</b> Bardak')).toBeInTheDocument();
   });
 
-  it('"Maliyeti eksik" süzgeci yalnız eksik ürünleri gösterir (uyarı bağlantısı filtre=eksik)', async () => {
+  it('"Maliyeti eksik" süzgeci sunucuya missing=true gönderir ve gelen satırları gösterir', async () => {
     navigation.search = 'filtre=eksik';
-    stubApi(accounts, me('owner'), products());
+    const { calls } = stubApi(accounts, me('owner'), products([makeMissingProduct()]));
     render(<CostsScreen />);
     const list = await screen.findByRole('list', { name: 'Ürün maliyetleri' });
     expect(within(list).getAllByRole('listitem')).toHaveLength(1);
     expect(list).toHaveTextContent('Cam Matara');
+    const call = calls.find((c) => c.path === `${base}/products`);
+    expect(call?.query.get('missing')).toBe('true');
     expect(screen.getByRole('link', { name: 'Maliyeti eksik' })).toHaveAttribute(
       'aria-current',
       'true',
@@ -103,17 +105,61 @@ describe('Ürün maliyetleri listesi', () => {
     );
   });
 
-  it('süzgeç açıkken az satır varsa sonraki sayfayı kendiliğinden yükler', async () => {
+  it('süzgeç kapalıyken missing parametresi gönderilmez', async () => {
+    const { calls } = stubApi(accounts, me('owner'), products());
+    render(<CostsScreen />);
+    await screen.findByRole('list', { name: 'Ürün maliyetleri' });
+    const call = calls.find((c) => c.path === `${base}/products`);
+    expect(call?.query.has('missing')).toBe(false);
+  });
+
+  it('süzgeçte sonraki sayfa da missing=true ile istenir; istemci tarama yapmaz', async () => {
     navigation.search = 'filtre=eksik';
     const { calls } = stubApi(accounts, me('owner'), (c) => {
       if (c.path !== `${base}/products`) return undefined;
-      return c.query.get('after') === 'BRK-0001'
+      return c.query.get('after') === 'BRK-0002'
         ? { body: makeProductList([makeMissingProduct({ barcode: 'BRK-0009', title: 'Sürahi' })]) }
-        : { body: makeProductList([makeProduct()], 'BRK-0001') };
+        : { body: makeProductList([makeMissingProduct()], 'BRK-0002') };
     });
+    const user = userEvent.setup();
     render(<CostsScreen />);
+    await user.click(await screen.findByRole('button', { name: 'Daha fazla yükle' }));
     expect(await screen.findByText('Sürahi')).toBeInTheDocument();
-    expect(calls.filter((c) => c.path === `${base}/products`)).toHaveLength(2);
+    const pages = calls.filter((c) => c.path === `${base}/products`);
+    expect(pages).toHaveLength(2);
+    expect(pages.every((c) => c.query.get('missing') === 'true')).toBe(true);
+  });
+
+  it('total_missing yanıttan gösterilir (listede görünen satır sayısından bağımsız)', async () => {
+    stubApi(accounts, me('owner'), (c) =>
+      c.path === `${base}/products`
+        ? { body: makeProductList([makeProduct()], 'BRK-0001', 37) }
+        : undefined,
+    );
+    render(<CostsScreen />);
+    expect(await screen.findByTestId('total-missing')).toHaveTextContent(
+      'Toplam 37 ürünün maliyeti eksik.',
+    );
+  });
+
+  it('total_missing 0 ise sayı satırı gösterilmez', async () => {
+    stubApi(accounts, me('owner'), products([makeProduct()]));
+    render(<CostsScreen />);
+    await screen.findByRole('list', { name: 'Ürün maliyetleri' });
+    expect(screen.queryByTestId('total-missing')).not.toBeInTheDocument();
+  });
+
+  it('kayıt sonrası eksik sayısı bir azalır', async () => {
+    stubApi(accounts, me('owner'), products(), history('BRK-0002', []), (c) =>
+      c.method === 'PUT' && c.path === `${base}/products/BRK-0002/costs`
+        ? { body: makeUpsertResult({ cost: makeCost({ valid_from: addDays(TODAY, -92) }) }) }
+        : undefined,
+    );
+    const { user, dialog } = await openMissingDialog();
+    expect(screen.getByTestId('total-missing')).toHaveTextContent('Toplam 1 ürünün');
+    await user.type(within(dialog).getByLabelText(/Birim maliyet/), '54,5');
+    await user.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+    await waitFor(() => expect(screen.queryByTestId('total-missing')).not.toBeInTheDocument());
   });
 
   it('arama formu q adresini günceller', async () => {
@@ -413,34 +459,6 @@ describe('düzeltme kipi ve rol/barkod güvenliği', () => {
     ).toBeVisible();
     expect(screen.queryByRole('button', { name: /Maliyet gir/ })).not.toBeInTheDocument();
     expect(calls.some((c) => c.path.includes('/costs'))).toBe(false);
-  });
-});
-
-describe('istemci süzgeci tarama sınırı (ME-01)', () => {
-  it('otomatik yükleme en çok 5 ek sayfa; sonra "Daha fazla tara" düğmesi ve taranan sayı', async () => {
-    navigation.search = 'filtre=eksik';
-    let page = 0;
-    const { calls } = stubApi(accounts, me('owner'), (c) => {
-      if (c.path !== `${base}/products`) return undefined;
-      page += 1;
-      return {
-        body: makeProductList(
-          [makeProduct({ barcode: `P-${page}`, title: `Ürün ${page}` })],
-          `P-${page}`,
-        ),
-      };
-    });
-    const user = userEvent.setup();
-    render(<CostsScreen />);
-    await screen.findByRole('button', { name: 'Daha fazla tara' });
-    await waitFor(() => expect(calls.filter((c) => c.path === `${base}/products`)).toHaveLength(6));
-    expect(screen.getByText(/6/, { selector: '.num' })).toBeInTheDocument();
-    expect(screen.getByText(/ürün tarandı, devamı var/)).toBeVisible();
-    // Sınır doldu: kendiliğinden yeni istek yok
-    await new Promise((r) => setTimeout(r, 100));
-    expect(calls.filter((c) => c.path === `${base}/products`)).toHaveLength(6);
-    await user.click(screen.getByRole('button', { name: 'Daha fazla tara' }));
-    await waitFor(() => expect(calls.filter((c) => c.path === `${base}/products`)).toHaveLength(7));
   });
 });
 

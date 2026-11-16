@@ -79,6 +79,8 @@ test.describe('ürün maliyetleri', () => {
     const list = page.getByRole('list', { name: 'Ürün maliyetleri' });
     // Tohum veride 6 ürünün 3'ünün maliyeti yok (BRK-0002, BRK-0005, BRK-0006)
     await expect(list.getByRole('listitem')).toHaveCount(3);
+    // Süzgeç sunucuda (missing=true); toplam eksik sayısı yanıttaki total_missing değeridir
+    await expect(page.getByTestId('total-missing')).toContainText('Toplam 3 ürünün maliyeti eksik');
     await expect(list).not.toContainText('Çelik Termos');
     await expect(page.getByRole('link', { name: 'Maliyeti eksik' })).toHaveAttribute(
       'aria-current',
