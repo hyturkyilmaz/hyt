@@ -107,6 +107,9 @@ services:
   web:
     build:
       context: ../apps/web
+      # Rewrite hedefi derleme anında gömülür (apps/web/Dockerfile); çalışma anı değeri yetmez.
+      args:
+        API_BASE_URL: http://api:8000
     restart: unless-stopped
     environment:
       API_BASE_URL: http://api:8000
