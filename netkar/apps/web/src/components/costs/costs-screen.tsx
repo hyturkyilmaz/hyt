@@ -3,7 +3,7 @@
 import { CheckCircle2, Package, Search, Store } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { CostFormDialog, productLabel } from '@/components/costs/cost-form-dialog';
 import { CostImportPanel } from '@/components/costs/cost-import-panel';
@@ -214,6 +214,15 @@ function ProductCosts({
   const overrides = useMemo(() => (saved.key === listKey ? saved.items : {}), [saved, listKey]);
   const [editing, setEditing] = useState<ProductCostItem | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // Kayıt iletisi zamanlayıcısı: bileşen kaldırılınca ya da yeni kayıtta temizlenir (kaldırılmış
+  // bileşende durum güncellemesi ve test ortamı kapandıktan sonra çalışan zamanlayıcı olmasın).
+  const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (messageTimer.current !== null) clearTimeout(messageTimer.current);
+    },
+    [],
+  );
 
   // Sunucu süzgeci uygular; kaydedilen satır oturum boyunca yerinde kalır (hızlı giriş).
   const rows = useMemo(
@@ -242,7 +251,11 @@ function ProductCosts({
       // Aynı iletinin art arda gelmesi de duyurulsun: bölge önce boşalır, sonra yazılır (ME-06)
       const text = savedMessage(overrides[item.barcode] ?? item, result, today);
       setMessage(null);
-      setTimeout(() => setMessage(text), 80);
+      if (messageTimer.current !== null) clearTimeout(messageTimer.current);
+      messageTimer.current = setTimeout(() => {
+        messageTimer.current = null;
+        setMessage(text);
+      }, 80);
       setEditing(null);
     },
     [listKey, overrides, today],
