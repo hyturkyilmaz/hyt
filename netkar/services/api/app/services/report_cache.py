@@ -43,8 +43,13 @@ from app.core.errors import ProblemError
 from app.models import ReportDataRevision
 from app.services.profit_report import PeriodReport
 
+# Deyim sınırı (statement_timeout), hesabın kalan süresinden bu kadar sn kısa kurulur (DK-05): veritabanı
+# sınırı asyncio sınırından önce dolar, temiz 57014 yolu çalışır (profit.py `_bound_statements`).
+STATEMENT_MARGIN_SECONDS = 5.0
 # Bir hesabı başlatmanın anlamlı olabilmesi için kalan bütçenin alt sınırı (sn): altında hesap başlatılmaz.
-MIN_COMPUTE_SECONDS = 1.0
+# Pay + 1 sn: kalan süre bundan kısaysa deyim sınırı 1 sn tabanına düşer ve asyncio sınırı ondan önce
+# dolabilir (DK-05 yolu yeniden açılır); böyle bir hesap kapı yuvasını boşuna tutar (DK-10).
+MIN_COMPUTE_SECONDS = STATEMENT_MARGIN_SECONDS + 1.0
 
 # Hesaplayanın o an kullanabileceği kalan süre bütçesi (sn); `get_or_compute` hesap başlamadan hemen önce
 # kurar. Hesap geri çağrısı (`compute`) `statement_timeout` değerini bundan türetir. None = sınırsız.

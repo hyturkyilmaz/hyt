@@ -69,7 +69,13 @@ from app.services.auth import AuthContext
 from app.services.profit_feed import period_bounds
 from app.services.profit_report import PeriodReport, period_profit
 from app.services.profit_settings import LoadedSettings, completeness_of, load_profit_settings
-from app.services.report_cache import ReportCache, ReportKey, compute_budget_seconds, report_data_version
+from app.services.report_cache import (
+    STATEMENT_MARGIN_SECONDS,
+    ReportCache,
+    ReportKey,
+    compute_budget_seconds,
+    report_data_version,
+)
 from app.services.report_gate import ReportGate
 
 router = APIRouter(prefix="/marketplace-accounts/{account_id}/profit", tags=["profit"])
@@ -77,8 +83,8 @@ log = logging.getLogger(__name__)
 
 # PostgreSQL "query_canceled" (statement_timeout aşımı).
 _QUERY_CANCELED = "57014"
-# Deyim sınırı, hesap üst süresinden bu kadar sn kısa kurulur (DK-05).
-_STATEMENT_MARGIN = 5.0
+# Deyim sınırı, hesap üst süresinden bu kadar sn kısa kurulur (DK-05); tek kaynak report_cache.
+_STATEMENT_MARGIN = STATEMENT_MARGIN_SECONDS
 
 _MINUTE = 60
 _DATE_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"

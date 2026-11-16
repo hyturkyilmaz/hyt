@@ -16,6 +16,8 @@ tutulur (süreçte en çok N motor sınırı bozulmasın diye). Takılı (hiç b
 başlayana dek tutar: `PROFIT_REPORT_TENANT_CONCURRENCY` kadar takılı motor o kiracıyı kalıcı 429'a,
 `PROFIT_REPORT_PROCESS_CONCURRENCY` kadar takılı motor bütün raporları kalıcı 503'e sokar.
 
+Not (P2, 16 Kas 2026): aynı `503 report-compute-timeout` yanıtı, tek uçuşta beklemiş bir istek için kalan toplam bütçe 6 sn'nin altına düştüğünde hesap HİÇ başlamadan da döner. Bu durumda motor çalışmadığı için pid'li motor log satırı yazılmaz ve kapı yuvası alınmaz; log satırı olmayan bu 503'ler takılmış motor belirtisi değildir, liderin uzun sürüp düştüğünü gösterir.
+
 ## Nasıl tespit edilir
 
 Uygulama günlüğünde (WARNING) yapılandırılmış anahtarlar:

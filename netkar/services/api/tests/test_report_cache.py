@@ -1321,7 +1321,9 @@ async def test_p2_remaining_budget_below_the_floor_returns_503_without_starting_
     fake = FakeClock()
     cache = make_cache(wait_seconds=25.0, compute_timeout_seconds=45.0, budget_clock=fake)
     key = key_of(uuid4())
-    leader, go = await _leader_fails_after(cache, key, fake, 44.5)  # kalan 0,5 sn < 1 sn alt sınır
+    leader, go = await _leader_fails_after(
+        cache, key, fake, 39.5
+    )  # kalan 5,5 sn < 6 sn alt sınır (pay 5 + 1)
     calls: list[int] = []
 
     async def mine() -> Any:
@@ -1346,7 +1348,7 @@ async def test_p2_remaining_budget_exactly_at_the_floor_still_computes_with_that
     fake = FakeClock()
     cache = make_cache(wait_seconds=25.0, compute_timeout_seconds=45.0, budget_clock=fake)
     key = key_of(uuid4())
-    leader, go = await _leader_fails_after(cache, key, fake, 44.0)  # kalan tam 1 sn
+    leader, go = await _leader_fails_after(cache, key, fake, 39.0)  # kalan tam 6 sn (alt sınır)
     seen: list[float | None] = []
 
     async def mine() -> Any:
@@ -1359,7 +1361,7 @@ async def test_p2_remaining_budget_exactly_at_the_floor_still_computes_with_that
     with pytest.raises(RuntimeError):
         await leader
     _, shared = await waiter
-    assert shared is False and seen == [1.0]
+    assert shared is False and seen == [6.0]
 
 
 async def test_p2_normal_paths_keep_the_full_budget_and_the_budget_is_not_leaked() -> None:

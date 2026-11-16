@@ -25,9 +25,11 @@ const securityHeaders = [
 // report-compute-timeout (problem+json) yanıtı kullanıcıya ulaşmaz.
 // Bekleme (25 sn) ve hesap TEK toplam bütçeyi paylaşır (services/api report_cache.get_or_compute): bekleyen
 // istek, hesaplayan başarısız olunca kendi hesabını yalnız KALAN bütçeyle (45 sn - geçen süre) başlatır;
-// kalan 1 sn'nin altındaysa hesap başlamadan 503 report-compute-timeout döner. PostgreSQL statement_timeout da
-// kalan süreden türetilir (kalan - 5 sn, en az 1 sn). Böylece en kötü yol yaklaşık 45 sn artı istek öncesi
-// işlerdir (bağlantı havuzu beklemesi en çok 5 sn, ayar ve veri sürümü sorguları) ve 55 sn vekilin altında kalır.
+// kalan 6 sn'nin altındaysa hesap başlamadan 503 report-compute-timeout döner. PostgreSQL statement_timeout da
+// kalan süreden türetilir (kalan - 5 sn, en az 1 sn). Tipik yolda süre yaklaşık 45 sn artı istek öncesi işlerdir
+// (bağlantı havuzu beklemesi en çok 5 sn) ve 55 sn vekilin altında kalır. İstisnalar bütçe dışındadır: ayar ve
+// veri sürümü sorgularını yalnız statement_timeout sınırlar; veritabanı aşamasında asyncio iptali (DK-05)
+// yaklaşık 10 sn ekleyebilir. Bu nadir yollarda vekil kesebilir (5xx).
 // Vekil Caddy'nin 60 sn sınırından kısa kalmalıdır: bu değeri yükseltmeyin (guard testi: next.config.test.ts).
 export const PROXY_TIMEOUT_MS = 55_000;
 
