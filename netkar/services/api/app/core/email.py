@@ -122,8 +122,16 @@ class FileEmailSender:
                 os.mkdir(directory, _DIR_MODE)
             except FileExistsError:
                 continue
-            # umask daraltabilir ama genişletemez; yine de açıkça 0700'e sabitlenir.
-            os.chmod(directory, _DIR_MODE)
+            # umask daraltabilir ama genişletemez; yine de açıkça 0700'e sabitlenir. Dizin
+            # O_NOFOLLOW ile açılır: mkdir ile chmod arasında simgesel bağa çevrilirse hedefi
+            # değiştirilmez, açılış hata verir.
+            dir_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+            try:
+                # Semgrep insecure-file-permissions yanlış alarm: 0o700 yalnız sahibe izin
+                # verir; dizine girmek için sahip çalıştırma biti gereklidir.
+                os.fchmod(dir_fd, _DIR_MODE)  # nosemgrep
+            finally:
+                os.close(dir_fd)
 
     def _open_active(self, *, create: bool) -> int:
         """Etkin dosyayı açar; simgesel bağ, düz olmayan dosya, başka sahip ya da çok bağ varsa reddeder."""
