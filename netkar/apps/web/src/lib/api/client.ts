@@ -267,6 +267,9 @@ export function describeApiError(error: unknown, fallback: string): string {
     if (error.status === 429) {
       return 'Çok fazla deneme yaptınız. Birkaç dakika sonra tekrar deneyin.';
     }
+    if (error.code === 'email-not-verified') {
+      return 'Bu işlem için e-posta adresinizi doğrulamanız gerekir. Sayfanın üstündeki uyarıdan doğrulama e-postasını yeniden isteyebilirsiniz.';
+    }
     if (error.status === 403) {
       return 'İstek doğrulanamadı. Sayfayı yenileyip tekrar deneyin.';
     }

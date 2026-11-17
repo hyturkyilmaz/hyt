@@ -43,6 +43,10 @@ def _ip_rate_rules(settings: Settings) -> dict[str, IpRule]:
         "/v1/auth/password-reset/confirm": IpRule(
             "reset-confirm", settings.rate_limit_reset_ip * 2, _WINDOW_HOURLY
         ),
+        "/v1/auth/email/verify": IpRule("verify", settings.rate_limit_verify_confirm_ip, _WINDOW_HOURLY),
+        "/v1/auth/email/resend": IpRule(
+            "verify-resend", settings.rate_limit_verify_resend_ip, _WINDOW_HOURLY
+        ),
         "/v1/auth/totp/verify": IpRule("totp", settings.rate_limit_totp_ip, _WINDOW_LOGIN),
         # Trendyol'a doğrulama çağrısı yaptığı için IP başına da sınırlanır.
         "/v1/marketplace-accounts": IpRule("mpconnect", settings.rate_limit_marketplace_ip, _WINDOW_HOURLY),

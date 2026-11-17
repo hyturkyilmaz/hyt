@@ -124,3 +124,54 @@ def test_migration_0016_instance_id_and_strict_mark_function_are_reversible(
         " has_table_privilege('netkar_app', 'deployment_marks', 'INSERT'),"
         " has_table_privilege('netkar_worker', 'deployment_marks', 'UPDATE')"
     ).fetchone() == (True, True, False, False)
+
+
+def test_migration_0017_email_verification_is_reversible_and_least_privileged(
+    alembic_cfg: Config, admin_conn: psycopg.Connection
+) -> None:
+    def result_columns() -> list[str]:
+        row = admin_conn.execute(
+            "SELECT p.proargnames, p.proargmodes FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+            "WHERE n.nspname = 'auth_gate' AND p.proname = 'consume_password_reset'"
+        ).fetchone()
+        assert row is not None
+        names, modes = row
+        return [n for n, m in zip(names, modes, strict=True) if m == "t"]
+
+    def functions() -> set[str]:
+        rows = admin_conn.execute(
+            "SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+            "WHERE n.nspname = 'auth_gate'"
+        )
+        return {r[0] for r in rows}
+
+    new_functions = {"create_email_verification", "consume_email_verification"}
+    assert new_functions <= functions()
+    assert result_columns() == ["reset_user_id", "reset_tenant_id", "reset_claimed_unverified"]
+    assert admin_conn.execute("SELECT to_regclass('public.email_verification_tokens')").fetchone() != (None,)
+    # Uygulama rolü token tablosuna erişemez; RLS zorlu
+    assert admin_conn.execute(
+        "SELECT has_table_privilege('netkar_app', 'email_verification_tokens', 'SELECT'),"
+        " has_table_privilege('netkar_app', 'email_verification_tokens', 'INSERT'),"
+        " (SELECT relforcerowsecurity FROM pg_class WHERE relname = 'email_verification_tokens')"
+    ).fetchone() == (False, False, True)
+
+    command.downgrade(alembic_cfg, "0016")
+    assert not (new_functions & functions())
+    assert admin_conn.execute("SELECT to_regclass('public.email_verification_tokens')").fetchone() == (None,)
+    # Eski gövde geri geldi (iki sütun) ve uygulama rolü hâlâ çalıştırabilir
+    assert result_columns() == ["reset_user_id", "reset_tenant_id"]
+    assert admin_conn.execute(
+        "SELECT has_function_privilege('netkar_app', 'auth_gate.consume_password_reset(text, text)', 'EXECUTE')"
+    ).fetchone() == (True,)
+    # email_verified_at sütunu 0001'den gelir; geri alma onu silmez
+    assert (
+        admin_conn.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'email_verified_at'"
+        ).fetchone()
+        is not None
+    )
+
+    command.upgrade(alembic_cfg, "head")
+    assert new_functions <= functions()
+    assert result_columns() == ["reset_user_id", "reset_tenant_id", "reset_claimed_unverified"]

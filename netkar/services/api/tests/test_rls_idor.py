@@ -192,6 +192,9 @@ def test_app_role_is_least_privileged(two_tenants: tuple[Tenant, Tenant], databa
         "SELECT password_hash FROM users",
         "SELECT * FROM users",
         "SELECT * FROM password_reset_tokens",
+        "SELECT * FROM email_verification_tokens",
+        "INSERT INTO email_verification_tokens (token_hash, user_id, expires_at) VALUES ('x', gen_random_uuid(), now())",
+        "UPDATE users SET email_verified_at = now()",
         "INSERT INTO users (email, password_hash) VALUES ('x@example.com', 'h')",
         "UPDATE users SET password_hash = 'h'",
         "UPDATE users SET email = 'y@example.com'",
@@ -242,6 +245,8 @@ def test_auth_gate_functions_are_security_definer_with_fixed_search_path(
         "register_account",
         "create_password_reset",
         "consume_password_reset",
+        "create_email_verification",
+        "consume_email_verification",
     }
     for name, secdef, owner, config in rows:
         assert secdef and owner == "netkar_auth", name

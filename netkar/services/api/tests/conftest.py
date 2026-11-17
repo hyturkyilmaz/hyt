@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import os
 import pwd
+import re
 import secrets
 import shutil
 import socket
@@ -242,8 +243,9 @@ def fake_pwned() -> FakePwned:
 class Api:
     """TestClient sarmalayıcısı: CSRF çerezini ve başlığını otomatik yönetir."""
 
-    def __init__(self, client: TestClient) -> None:
+    def __init__(self, client: TestClient, outbox: InMemoryOutbox | None = None) -> None:
         self.client = client
+        self.outbox = outbox
 
     def csrf(self) -> str:
         return str(self.client.get("/v1/auth/csrf").json()["csrf_token"])
@@ -276,8 +278,27 @@ class Api:
     def login(self, email: str, password: str = GOOD_PASSWORD) -> Any:
         return self.post("/v1/auth/login", {"email": email, "password": password})
 
-    def signup_and_login(self, email: str, tenant: str = "Test Mağaza") -> None:
+    def verification_token(self, email: str) -> str:
+        """Gelen kutusundaki EN SON doğrulama bağlantısının token'ı (e-posta akışı gerçek yoldan okunur)."""
+        assert self.outbox is not None, "Api bir gelen kutusuyla kurulmadı"
+        for message in reversed(self.outbox.to(email)):
+            match = re.search(r"/e-posta-dogrula\?token=([A-Za-z0-9_\-]+)", message.body)
+            if match:
+                return match.group(1)
+        raise AssertionError(f"{email} için doğrulama bağlantısı yok")
+
+    def verify_email(self, email: str) -> Any:
+        """Doğrulama bağlantısındaki token'ı gerçek uç noktaya gönderir."""
+        return self.post("/v1/auth/email/verify", {"token": self.verification_token(email)})
+
+    def signup_and_login(self, email: str, tenant: str = "Test Mağaza", verified: bool = True) -> None:
+        """Kayıt + giriş. Varsayılan: e-posta gerçek akıştan doğrulanır (yazma uçları doğrulanmış hesap ister).
+
+        `verified=False`: doğrulanmamış hesap (kısıt testleri için).
+        """
         assert self.register(email, tenant=tenant).status_code == 202
+        if verified:
+            assert self.verify_email(email).status_code == 204
         assert self.login(email).status_code == 200
 
 
@@ -319,7 +340,7 @@ def make_app(
 
 
 @pytest.fixture
-def make_api(make_app: Callable[..., FastAPI]) -> Iterator[Callable[..., Api]]:
+def make_api(make_app: Callable[..., FastAPI], outbox: InMemoryOutbox) -> Iterator[Callable[..., Api]]:
     clients: list[TestClient] = []
 
     def _make(peer: str = "testclient", **overrides: Any) -> Api:
@@ -327,7 +348,7 @@ def make_api(make_app: Callable[..., FastAPI]) -> Iterator[Callable[..., Api]]:
         client = TestClient(make_app(**overrides), base_url="https://testserver", client=(peer, 50000))
         client.__enter__()
         clients.append(client)
-        return Api(client)
+        return Api(client, outbox)
 
     yield _make
     for c in clients:

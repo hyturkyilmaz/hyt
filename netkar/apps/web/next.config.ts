@@ -47,8 +47,9 @@ const nextConfig: NextConfig = {
     return [{ source: '/api/v1/:path*', destination: `${apiBaseUrl}/v1/:path*` }];
   },
   async redirects() {
-    // Backend e-postalarındaki bağlantılar İngilizce yollar kullanır (WEB_BASE_URL + /login,
-    // /forgot-password, /reset-password?token=...). Web yolları Türkçedir; sorgu dizesi korunur.
+    // Backend e-postaları artık doğrudan Türkçe yolları kullanır (/giris, /sifre-sifirla?token=...,
+    // /e-posta-dogrula?token=...). Bu yönlendirmeler, daha önce gönderilmiş İngilizce yollu e-postalardaki
+    // bağlantıların çalışmaya devam etmesi içindir; sorgu dizesi (token) korunur.
     return [
       { source: '/login', destination: '/giris', permanent: false },
       { source: '/forgot-password', destination: '/sifre-sifirla', permanent: false },

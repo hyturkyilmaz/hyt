@@ -181,7 +181,7 @@ def test_logout_revokes_in_db_and_is_idempotent(api: Api, admin_conn: psycopg.Co
     assert revoked == [(True,)]
     assert api.post("/v1/auth/logout").status_code == 204  # oturumsuz çağrı da 204
     actions = [r[0] for r in admin_conn.execute("SELECT action FROM audit_log ORDER BY id")]
-    assert actions == ["tenant.created", "auth.login", "auth.logout"]
+    assert actions == ["tenant.created", "auth.email_verified", "auth.login", "auth.logout"]
 
 
 def test_forged_session_cookie_is_rejected(api: Api) -> None:
@@ -219,6 +219,6 @@ def test_admin_endpoints_list_own_data(api: Api) -> None:
     sessions = api.get("/v1/tenant/sessions").json()
     assert len(sessions) == 1 and sessions[0]["current"] is True
     assert "token" not in str(sessions)
-    audit = api.get("/v1/tenant/audit?limit=2").json()
-    assert [a["action"] for a in audit] == ["auth.login", "tenant.created"]
+    audit = api.get("/v1/tenant/audit?limit=3").json()
+    assert [a["action"] for a in audit] == ["auth.login", "auth.email_verified", "tenant.created"]
     assert api.get("/v1/tenant/audit?limit=0").status_code == 422

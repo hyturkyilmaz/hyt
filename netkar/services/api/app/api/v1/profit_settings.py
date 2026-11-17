@@ -68,7 +68,8 @@ from app.services.auth import AuthContext
 
 router = APIRouter(prefix="/marketplace-accounts/{account_id}/profit-settings", tags=["profit-settings"])
 
-AdminDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN))]
+# Yazma uçları: e-postası doğrulanmamış hesap 403 email-not-verified alır (denetim O-06).
+AdminDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN, verified=True))]
 AnyRoleDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN, Role.VIEWER))]
 ExpectedRevisionQuery = Annotated[
     int | None, Query(ge=0, le=2**62, description="Beklenen ayar sürümü (409 için).")

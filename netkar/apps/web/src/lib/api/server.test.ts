@@ -10,6 +10,7 @@ const ME = {
   email: 'ad@ornek.com',
   role: 'owner',
   totp_enabled: false,
+  email_verified: true,
   tenant: {
     id: '3f1b2c1e-0000-4000-8000-000000000002',
     name: 'Örnek Mağaza',

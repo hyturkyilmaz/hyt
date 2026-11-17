@@ -29,6 +29,8 @@ export interface MeResponse {
   email: string;
   role: string;
   totp_enabled: boolean;
+  /** E-posta doğrulandı mı; false iken mağaza bağlama ve veri yazma uçları 403 email-not-verified döner. */
+  email_verified: boolean;
   tenant: TenantInfo;
 }
 
@@ -61,6 +63,13 @@ export const authApi = {
 
   requestPasswordReset: (body: { email: string }) =>
     apiFetch<AcceptedResult>('/auth/password-reset/request', { method: 'POST', body }),
+
+  /** E-postadaki bağlantıdaki token (20-200 karakter) ile doğrular; oturum gerekmez. Başarıda 204. */
+  verifyEmail: (body: { token: string }) =>
+    apiFetch<void>('/auth/email/verify', { method: 'POST', body }),
+
+  /** Oturumdaki kullanıcıya doğrulama bağlantısını yeniden gönderir (202; saatlik sınır, 429). */
+  resendEmailVerification: () => apiFetch<AcceptedResult>('/auth/email/resend', { method: 'POST' }),
 
   /** Backend alan adı `new_password` (token 20-200 karakter). Başarıda 204. */
   confirmPasswordReset: (body: { token: string; new_password: string }) =>

@@ -83,6 +83,8 @@ class Settings(BaseSettings):
     session_idle_seconds: int = 12 * 3600
     session_absolute_seconds: int = 30 * 24 * 3600
     reset_token_ttl_minutes: int = 30
+    # E-posta doğrulama bağlantısı ömrü (saat): tek kullanımlık, yalnız özeti saklanır.
+    email_verification_ttl_hours: int = Field(24, ge=1, le=72)
     pending_totp_ttl_seconds: int = 300
     trial_days: int = 14
 
@@ -92,6 +94,10 @@ class Settings(BaseSettings):
     rate_limit_register_ip: int = Field(10, ge=1)
     rate_limit_reset_ip: int = Field(10, ge=1)
     rate_limit_reset_email: int = Field(3, ge=1)
+    # E-posta doğrulama: yeniden gönderme (kullanıcı ve IP başına saatlik), token deneme (IP başına saatlik).
+    rate_limit_verify_resend_user: int = Field(3, ge=1)
+    rate_limit_verify_resend_ip: int = Field(10, ge=1)
+    rate_limit_verify_confirm_ip: int = Field(20, ge=1)
     rate_limit_totp_user: int = Field(10, ge=1)
     rate_limit_totp_ip: int = Field(30, ge=1)
 

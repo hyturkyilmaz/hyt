@@ -45,7 +45,8 @@ logger = logging.getLogger("netkar.marketplace")
 
 router = APIRouter(prefix="/marketplace-accounts", tags=["marketplace-accounts"])
 
-AdminDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN))]
+# Yazma uçları: e-postası doğrulanmamış hesap 403 email-not-verified alır (denetim O-06).
+AdminDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN, verified=True))]
 AnyRoleDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN, Role.VIEWER))]
 
 _HOURLY = 60 * 60

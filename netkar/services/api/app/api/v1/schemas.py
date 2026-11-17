@@ -59,6 +59,10 @@ class PasswordResetConfirm(_Strict):
     new_password: NewPassword
 
 
+class EmailVerifyRequest(_Strict):
+    token: Annotated[str, StringConstraints(min_length=20, max_length=200)]
+
+
 class CsrfResponse(BaseModel):
     csrf_token: str
 
@@ -82,6 +86,8 @@ class MeResponse(BaseModel):
     email: str
     role: str
     totp_enabled: bool
+    # E-posta doğrulandı mı (doğrulanana dek mağaza bağlama ve veri yazma kapalıdır).
+    email_verified: bool
     tenant: TenantOut
 
 

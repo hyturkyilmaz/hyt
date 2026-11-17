@@ -894,7 +894,7 @@ def _extra_client(shop: Shop, email: str, tenant: str, seller: str, conn: psycop
     from tests.product_cost_helpers import add_account
 
     client = TestClient(shop.api.client.app, base_url="https://testserver", client=("testclient", 50001))
-    api = Api(client)
+    api = Api(client, shop.api.outbox)
     api.signup_and_login(email, tenant=tenant)
     me = api.get("/v1/me").json()
     tenant_id, user_id = UUID(me["tenant"]["id"]), UUID(me["user_id"])

@@ -24,6 +24,7 @@ async def _me(ctx: AuthDep, db: DbDep) -> MeResponse:
         email=user.email,
         role=ctx.role.value,
         totp_enabled=user.totp_enabled,
+        email_verified=user.email_verified_at is not None,
         tenant=TenantOut(
             id=tenant.id,
             name=tenant.name,

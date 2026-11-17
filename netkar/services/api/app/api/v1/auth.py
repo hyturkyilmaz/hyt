@@ -18,10 +18,12 @@ from app.api.deps import (
     PwnedDep,
     RateLimiterDep,
     SettingsDep,
+    VerifiedAuthDep,
     ip_hash_for,
 )
 from app.api.v1.schemas import (
     CsrfResponse,
+    EmailVerifyRequest,
     LoginRequest,
     PasswordResetConfirm,
     PasswordResetRequest,
@@ -60,6 +62,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 _WINDOW_LOGIN = 15 * 60
 _WINDOW_HOURLY = 60 * 60
+
+
+def _web_link(settings: Settings, path: str, token: str | None = None) -> str:
+    """Web uygulamasındaki gerçek (Türkçe) yola bağlantı; token'lı biçim sayfanın beklediği `?token=` olur."""
+    base = f"{settings.web_base_url}{path}"
+    return f"{base}?token={token}" if token else base
 
 
 def _digest(settings: Settings, purpose: str, value: str) -> str:
@@ -120,7 +128,7 @@ async def register(
             body=(
                 f"Bu e-posta adresiyle {settings.product_name} üzerinde kayıt olunmak istendi, "
                 "ancak adres zaten kayıtlı. Siz değilseniz bu iletiyi yok sayabilirsiniz. "
-                f"Parolanızı unuttuysanız {settings.web_base_url}/forgot-password adresini kullanın."
+                f"Parolanızı unuttuysanız {_web_link(settings, '/sifre-sifirla')} adresini kullanın."
             ),
         )
     else:
@@ -134,11 +142,23 @@ async def register(
             target=f"tenant:{tenant_id}",
             ip_hash=ip_hash_for(request, settings),
         )
+        # Doğrulama bağlantısı hesapla aynı işlemde üretilir; ham token yalnız e-postada bulunur.
+        verify_token = await auth_service.create_email_verification(
+            db, user_id, settings.email_verification_ttl_hours * 60
+        )
         await db.commit()
         message = EmailMessage(
             to=body.email,
-            subject=f"{settings.product_name}: hesabınız oluşturuldu",
-            body=f"{settings.product_name} hesabınız hazır. {settings.web_base_url}/login adresinden giriş yapabilirsiniz.",
+            subject=f"{settings.product_name}: e-posta adresinizi doğrulayın",
+            body=(
+                f"{settings.product_name} hesabınız oluşturuldu. E-posta adresinizi "
+                f"{settings.email_verification_ttl_hours} saat içinde şu bağlantıyla doğrulayın: "
+                f"{_web_link(settings, '/e-posta-dogrula', verify_token)}\n"
+                "Doğrulanana dek mağaza bağlama ve veri girişi kapalıdır. "
+                f"Giriş: {_web_link(settings, '/giris')}\n"
+                "Bu hesabı siz oluşturmadıysanız bağlantıya tıklamayın; parolanızı "
+                f"{_web_link(settings, '/sifre-sifirla')} adresinden sıfırlayarak hesabı devralabilirsiniz."
+            ),
         )
     background.add_task(sender.send, message)
     return StatusResponse(status="accepted")
@@ -324,9 +344,13 @@ def _decrypt_secret(cipher: FieldCipher, user: User | None) -> str | None:
 
 @router.post("/totp/setup", response_model=TotpSetupResponse)
 async def totp_setup(
-    request: Request, ctx: AuthDep, db: DbDep, settings: SettingsDep, cipher: CipherDep
+    request: Request, ctx: VerifiedAuthDep, db: DbDep, settings: SettingsDep, cipher: CipherDep
 ) -> TotpSetupResponse:
-    """Yeni TOTP sırrı üretir (şifreli saklanır, henüz etkin değil)."""
+    """Yeni TOTP sırrı üretir (şifreli saklanır, henüz etkin değil).
+
+    E-postası doğrulanmamış hesap TOTP kuramaz: önceden kayıt olan saldırganın ikinci faktörü gerçek
+    sahibini kilitleyemesin (denetim O-06).
+    """
     user = (await db.execute(select(User).where(User.id == ctx.user_id))).scalar_one()
     if user.totp_enabled:
         raise ProblemError(409, "Çakışma", "totp-already-enabled", "TOTP zaten etkin.")
@@ -349,7 +373,12 @@ async def totp_setup(
 
 @router.post("/totp/enable", status_code=204)
 async def totp_enable(
-    body: TotpCodeRequest, request: Request, ctx: AuthDep, db: DbDep, settings: SettingsDep, cipher: CipherDep
+    body: TotpCodeRequest,
+    request: Request,
+    ctx: VerifiedAuthDep,
+    db: DbDep,
+    settings: SettingsDep,
+    cipher: CipherDep,
 ) -> Response:
     """Kullanıcının ürettiği kodu doğrulayıp TOTP'yi etkinleştirir."""
     user = (await db.execute(select(User).where(User.id == ctx.user_id))).scalar_one()
@@ -392,7 +421,7 @@ async def password_reset_request(
     await db.commit()
     if created is not None:
         _, token = created
-        link = f"{settings.web_base_url}/reset-password?token={token}"
+        link = _web_link(settings, "/sifre-sifirla", token)
         background.add_task(
             sender.send,
             EmailMessage(
@@ -418,6 +447,9 @@ async def password_reset_confirm(
 ) -> Response:
     """Token tek kullanımlık ve süreli; başarıda tüm oturumlar iptal edilir.
 
+    Doğrulanmış hesapta TOTP etkin kalır ve girişte istenir (e-posta ele geçirilse bile ikinci faktör
+    korunur). Doğrulanmamış hesapta sıfırlama e-postayı doğrular ve TOTP'yi temizler (denetim O-06).
+
     IP sınırı gövde ayrıştırılmadan önce `IpRateLimitMiddleware` içinde uygulanır.
     """
     if await pwned.is_pwned(body.new_password):
@@ -430,11 +462,109 @@ async def password_reset_confirm(
         raise ProblemError(
             400, "Geçersiz bağlantı", "invalid-reset-token", "Bağlantı geçersiz veya süresi dolmuş."
         )
+    user_id, tenant_id = result.user_id, result.tenant_id
+    if tenant_id is not None:
+        await set_rls_context(db, tenant_id, user_id)
+        ip_hash = ip_hash_for(request, settings)
+        await record_audit(
+            db,
+            tenant_id,
+            "auth.password_reset",
+            user_id=user_id,
+            ip_hash=ip_hash,
+            meta={"claimed_unverified": result.claimed_unverified},
+        )
+        if result.claimed_unverified:
+            # Sıfırlama e-posta sahipliğini kanıtladı: hesap doğrulandı, olası saldırgan TOTP'si temizlendi.
+            await record_audit(
+                db,
+                tenant_id,
+                "auth.email_verified",
+                user_id=user_id,
+                ip_hash=ip_hash,
+                meta={"via": "password_reset", "totp_cleared": True},
+            )
+    await db.commit()
+    return Response(status_code=204)
+
+
+@router.post("/email/verify", status_code=204)
+async def email_verify(
+    body: EmailVerifyRequest, request: Request, db: DbDep, settings: SettingsDep
+) -> Response:
+    """E-posta doğrulama bağlantısındaki token'ı tüketir (tek kullanımlık, süreli).
+
+    Oturum gerekmez: token e-posta kutusuna erişimi kanıtlar. IP sınırı gövde ayrıştırılmadan önce
+    `IpRateLimitMiddleware` içinde uygulanır.
+    """
+    result = await auth_service.consume_email_verification(db, body.token)
+    if result is None:
+        await db.rollback()
+        raise ProblemError(
+            400,
+            "Geçersiz bağlantı",
+            "invalid-verification-token",
+            "Doğrulama bağlantısı geçersiz, kullanılmış veya süresi dolmuş.",
+        )
     user_id, tenant_id = result
     if tenant_id is not None:
         await set_rls_context(db, tenant_id, user_id)
         await record_audit(
-            db, tenant_id, "auth.password_reset", user_id=user_id, ip_hash=ip_hash_for(request, settings)
+            db,
+            tenant_id,
+            "auth.email_verified",
+            user_id=user_id,
+            ip_hash=ip_hash_for(request, settings),
+            meta={"via": "link"},
         )
     await db.commit()
     return Response(status_code=204)
+
+
+@router.post("/email/resend", status_code=202, response_model=StatusResponse)
+async def email_resend(
+    request: Request,
+    ctx: AuthDep,
+    db: DbDep,
+    settings: SettingsDep,
+    limiter: RateLimiterDep,
+    sender: EmailSenderDep,
+    background: BackgroundTasks,
+) -> StatusResponse:
+    """Oturumdaki kullanıcıya doğrulama bağlantısını yeniden gönderir (kullanıcı başına saatlik sınır).
+
+    Alıcı her zaman oturumdaki hesabın kendi adresidir (istekten adres alınmaz). Önceki bağlantı geçersiz olur.
+    """
+    await limiter.hit(
+        f"verify-resend:user:{_digest(settings, 'rl-user', str(ctx.user_id))}",
+        settings.rate_limit_verify_resend_user,
+        _WINDOW_HOURLY,
+    )
+    email = (await db.execute(select(User.email).where(User.id == ctx.user_id))).scalar_one()
+    token = await auth_service.create_email_verification(
+        db, ctx.user_id, settings.email_verification_ttl_hours * 60
+    )
+    if token is None:
+        await db.rollback()
+        raise ProblemError(409, "Çakışma", "email-already-verified", "E-posta adresiniz zaten doğrulanmış.")
+    await record_audit(
+        db,
+        ctx.tenant_id,
+        "auth.email_verification_sent",
+        user_id=ctx.user_id,
+        ip_hash=ip_hash_for(request, settings),
+    )
+    await db.commit()
+    background.add_task(
+        sender.send,
+        EmailMessage(
+            to=email,
+            subject=f"{settings.product_name}: e-posta doğrulama",
+            body=(
+                f"E-posta adresinizi {settings.email_verification_ttl_hours} saat içinde şu bağlantıyla "
+                f"doğrulayın: {_web_link(settings, '/e-posta-dogrula', token)}\n"
+                "Bu isteği siz yapmadıysanız yok sayın."
+            ),
+        ),
+    )
+    return StatusResponse(status="accepted")

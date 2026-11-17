@@ -219,6 +219,17 @@ describe('describeApiError', () => {
     expect(describeApiError(new ApiError({ status: 401 }), 'yedek')).toBe('yedek');
     expect(describeApiError(new Error('?'), 'yedek')).toBe('yedek');
   });
+
+  it('403 email-not-verified, CSRF hatasından ayrı ve doğrulamaya yönlendiren mesaj verir', () => {
+    const unverified = describeApiError(
+      new ApiError({ status: 403, code: 'email-not-verified' }),
+      'x',
+    );
+    expect(unverified).toContain('e-posta adresinizi doğrulamanız');
+    expect(describeApiError(new ApiError({ status: 403, code: 'csrf-failed' }), 'x')).toContain(
+      'İstek doğrulanamadı',
+    );
+  });
 });
 
 describe('apiFetch: dosya yükleme ve ek hata alanları', () => {

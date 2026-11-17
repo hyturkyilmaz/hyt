@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import or_, text, update
+from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -161,10 +161,24 @@ async def create_password_reset(db: AsyncSession, email: str, ttl_minutes: int) 
     return user_id, token
 
 
+@dataclass(frozen=True)
+class PasswordResetResult:
+    """Başarılı parola sıfırlamanın sonucu."""
+
+    user_id: UUID
+    tenant_id: UUID | None
+    # Hesap doğrulanmamıştı: sıfırlama e-postayı doğruladı ve TOTP'yi temizledi (denetim O-06).
+    claimed_unverified: bool
+
+
 async def consume_password_reset(
     db: AsyncSession, token: str, new_password_hash: str
-) -> tuple[UUID, UUID | None] | None:
-    """Token geçerliyse parolayı değiştirir ve oturumları iptal eder. Dönüş: (user_id, tenant_id)."""
+) -> PasswordResetResult | None:
+    """Token geçerliyse parolayı değiştirir ve tüm oturumları iptal eder.
+
+    Doğrulanmış hesapta TOTP korunur. Doğrulanmamış hesapta e-posta sahipliği kanıtlandığı için hesap
+    doğrulanır ve (olası saldırgan) TOTP temizlenir; karar auth_gate işlevinde, tek işlemde verilir.
+    """
     row = (
         (
             await db.execute(
@@ -177,7 +191,50 @@ async def consume_password_reset(
     )
     if row is None:
         return None
-    return row["reset_user_id"], row["reset_tenant_id"]
+    return PasswordResetResult(
+        user_id=row["reset_user_id"],
+        tenant_id=row["reset_tenant_id"],
+        claimed_unverified=bool(row["reset_claimed_unverified"]),
+    )
+
+
+async def create_email_verification(db: AsyncSession, user_id: UUID, ttl_minutes: int) -> str | None:
+    """Doğrulanmamış kullanıcı için tek kullanımlık token üretir (yalnız özeti saklanır).
+
+    Dönüş: ham token; kullanıcı zaten doğrulanmışsa (veya yoksa) None. Eski açık token'lar kapanır.
+    """
+    token = generate_token()
+    created = (
+        await db.execute(
+            text("SELECT auth_gate.create_email_verification(:u, :h, :t)"),
+            {"u": user_id, "h": hash_token(token), "t": ttl_minutes},
+        )
+    ).scalar_one()
+    return token if created else None
+
+
+async def consume_email_verification(db: AsyncSession, token: str) -> tuple[UUID, UUID | None] | None:
+    """Token geçerliyse e-postayı doğrulanmış işaretler. Dönüş: (user_id, tenant_id) veya None."""
+    row = (
+        (
+            await db.execute(
+                text("SELECT * FROM auth_gate.consume_email_verification(:h)"), {"h": hash_token(token)}
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        return None
+    return row["verified_user_id"], row["verified_tenant_id"]
+
+
+async def is_email_verified(db: AsyncSession, user_id: UUID) -> bool:
+    """Kullanıcının e-postası doğrulanmış mı. RLS bağlamında app.user_id ayarlı olmalı."""
+    verified_at = (
+        await db.execute(select(User.email_verified_at).where(User.id == user_id))
+    ).scalar_one_or_none()
+    return verified_at is not None
 
 
 async def consume_totp_step(db: AsyncSession, user_id: UUID, step: int) -> bool:

@@ -55,7 +55,8 @@ COST_IMPORT_PATH_PATTERN = (
 )
 TEMPLATE_MAX_ROWS = 10_000  # içe aktarma satır sınırıyla aynı: daha büyük şablon yüklenemezdi
 
-AdminDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN))]
+# Yazma uçları: e-postası doğrulanmamış hesap 403 email-not-verified alır (denetim O-06).
+AdminDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN, verified=True))]
 AnyRoleDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN, Role.VIEWER))]
 BarcodePath = Annotated[str, Path(min_length=1, max_length=200, pattern=f"^{costs.BARCODE_PATTERN}$")]
 

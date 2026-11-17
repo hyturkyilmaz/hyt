@@ -21,7 +21,13 @@ from app.core.ratelimit import RateLimiter
 from app.core.security import PasswordWorker
 from app.db.rls import set_rls_context
 from app.models import Role
-from app.services.auth import TOUCH_INTERVAL_SECONDS, AuthContext, lookup_session, touch_session
+from app.services.auth import (
+    TOUCH_INTERVAL_SECONDS,
+    AuthContext,
+    is_email_verified,
+    lookup_session,
+    touch_session,
+)
 from app.services.import_gate import ImportGate
 from app.services.marketplace_accounts import TrendyolClientFactory
 from app.services.report_cache import ReportCache
@@ -158,12 +164,38 @@ def _unauthorized() -> ProblemError:
     return ProblemError(401, "Kimlik doğrulama gerekli", "unauthorized")
 
 
-def require_role(*roles: Role) -> Callable[[AuthContext], Awaitable[AuthContext]]:
-    """Belirtilen rollerden birini şart koşan bağımlılık üretir."""
+def email_not_verified() -> ProblemError:
+    return ProblemError(
+        403,
+        "E-posta doğrulanmadı",
+        "email-not-verified",
+        "Bu işlem için e-posta adresinizi doğrulamanız gerekir. "
+        "Doğrulama bağlantısını yeniden isteyebilirsiniz.",
+    )
 
-    async def _check(ctx: AuthDep) -> AuthContext:
+
+async def get_verified_auth_context(ctx: AuthDep, db: DbDep) -> AuthContext:
+    """Oturum açık ve e-posta doğrulanmış olmalı (TOTP kurulumu gibi hesap güvenliği uçları)."""
+    if not await is_email_verified(db, ctx.user_id):
+        raise email_not_verified()
+    return ctx
+
+
+VerifiedAuthDep = Annotated[AuthContext, Depends(get_verified_auth_context)]
+
+
+def require_role(*roles: Role, verified: bool = False) -> Callable[..., Awaitable[AuthContext]]:
+    """Belirtilen rollerden birini şart koşan bağımlılık üretir.
+
+    `verified=True`: kullanıcının e-postası da doğrulanmış olmalıdır (yazma uçları; ön ele geçirme önlemi).
+    Okuma ve oturum kapama uçları bu koşulu taşımaz. Önce rol, sonra doğrulama denetlenir.
+    """
+
+    async def _check(ctx: AuthDep, db: DbDep) -> AuthContext:
         if ctx.role not in roles:
             raise ProblemError(403, "Erişim reddedildi", "forbidden")
+        if verified and not await is_email_verified(db, ctx.user_id):
+            raise email_not_verified()
         return ctx
 
     return _check

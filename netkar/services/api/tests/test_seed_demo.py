@@ -176,6 +176,10 @@ async def test_seed_is_idempotent_and_shifts_dates(
     assert first["tenants"] == 3 and first["marketplace_accounts"] == 3
     assert first["orders"] > 150 and first["product_costs"] > 40
     assert all(acc.password for acc in seeded.accounts)  # ilk çalıştırma: parolalar üretildi
+    # Demo kullanıcıları doğrulanmış açılır (yoksa yazma uçlarında 403 email-not-verified alırlar).
+    assert admin_conn.execute(
+        "SELECT count(*) FILTER (WHERE email_verified_at IS NULL) FROM users"
+    ).fetchone() == (0,)
 
     again = await seed(settings, SeedOptions(as_of=AS_OF), demo_flag=True, environ=ENV)
     assert counts(admin_conn) == first
