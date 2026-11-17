@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.v1.product_costs import COST_IMPORT_PATH_PATTERN
 from app.api.v1.router import api_router
@@ -24,11 +26,14 @@ from app.core.security import PasswordWorker
 from app.db.deployment_guard import assert_not_marked_non_production
 from app.db.session import create_engine, create_rate_limit_engine, create_sessionmaker
 from app.services.import_gate import ImportGate
+from app.services.legal import real_current_exists
 from app.services.marketplace_accounts import TrendyolClientFactory, default_client_factory
 from app.services.report_cache import ReportCache
 from app.services.report_gate import ReportGate
 from app.services.xlsx_stream import require_defusedxml
 from app.worker.queue import JobQueue, ProcrastinateJobQueue
+
+log = logging.getLogger(__name__)
 
 _WINDOW_LOGIN = 15 * 60
 _WINDOW_HOURLY = 60 * 60
@@ -51,6 +56,28 @@ def _ip_rate_rules(settings: Settings) -> dict[str, IpRule]:
         # Trendyol'a doğrulama çağrısı yaptığı için IP başına da sınırlanır.
         "/v1/marketplace-accounts": IpRule("mpconnect", settings.rate_limit_marketplace_ip, _WINDOW_HOURLY),
     }
+
+
+async def _warn_if_real_terms_without_gate(
+    sessionmaker: async_sessionmaker[AsyncSession], settings: Settings
+) -> None:
+    """Gerçek (taslak olmayan) güncel belge sürümü varken yeniden kabul kapısı kapalıysa uyarı yazar.
+
+    Yalnız günlük uyarısıdır, açılışı engellemez (sorgu hatası da yutulur: şema henüz yoksa vb.).
+    """
+    if settings.legal_reacceptance_enforced:
+        return
+    try:
+        async with sessionmaker() as session:
+            real = await real_current_exists(session)
+    except Exception:
+        log.debug("belge sürümü açılış denetimi yapılamadı", exc_info=True)
+        return
+    if real:
+        log.warning(
+            "Taslak olmayan güncel kullanım koşulları/aydınlatma sürümü var ama LEGAL_REACCEPTANCE_ENFORCED "
+            "kapalı: mevcut kullanıcılar yeni sürümü kabul etmeden yazabilir (karar: Hasan/avukat)"
+        )
 
 
 def create_app(
@@ -82,6 +109,7 @@ def create_app(
             raise
         app.state.engine = engine
         app.state.sessionmaker = create_sessionmaker(engine)
+        await _warn_if_real_terms_without_gate(app.state.sessionmaker, settings)
         # Hız sınırı sayacı oturum havuzundan AYRI havuz kullanır (denetim S4 Y-01, kilitlenme).
         limiter_engine = create_rate_limit_engine(
             settings.database_url,

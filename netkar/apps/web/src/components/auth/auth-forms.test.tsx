@@ -24,6 +24,26 @@ function mockFetch(status: number, body: unknown = {}) {
   return fn;
 }
 
+const CURRENT_DOCS = [
+  { doc_type: 'privacy_notice', version: 'taslak-2026-11', published_at: '2026-11-01T00:00:00Z' },
+  { doc_type: 'terms', version: 'taslak-2026-11', published_at: '2026-11-01T00:00:00Z' },
+];
+
+/** Kayıt formu: GET /legal/current sürümleri verir, POST /auth/register verilen durumu döner. */
+function mockRegisterApi(status: number, body: unknown = {}, current: unknown = CURRENT_DOCS) {
+  const fn = vi.fn(async (url: string) =>
+    url.endsWith('/legal/current')
+      ? new Response(JSON.stringify(current), { status: 200 })
+      : new Response(status === 204 ? null : JSON.stringify(body), { status }),
+  );
+  vi.stubGlobal('fetch', fn);
+  return fn;
+}
+
+function registerCalls(fn: ReturnType<typeof vi.fn>) {
+  return fn.mock.calls.filter(([url]) => String(url).endsWith('/auth/register'));
+}
+
 function lastRequest(fn: ReturnType<typeof vi.fn>) {
   const [url, init] = fn.mock.calls.at(-1) as unknown as [string, RequestInit];
   return { url, init, body: JSON.parse(String(init.body)) as Record<string, unknown> };
@@ -196,7 +216,7 @@ describe('LoginForm', () => {
 
 describe('RegisterForm', () => {
   it('kısa parola ve koşul onayı eksikliğini bildirir', async () => {
-    const fetchMock = mockFetch(200);
+    const fetchMock = mockRegisterApi(200);
     const user = userEvent.setup();
     render(<RegisterForm />);
     await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
@@ -211,11 +231,11 @@ describe('RegisterForm', () => {
     expect(
       screen.getByText('Devam etmek için aydınlatma metnini okuduğunuzu işaretleyin.'),
     ).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(registerCalls(fetchMock)).toHaveLength(0);
   });
 
   it('geçerli girdiyi API şemasıyla gönderir ve girişe yönlendirir', async () => {
-    const fetchMock = mockFetch(202, { status: 'accepted' });
+    const fetchMock = mockRegisterApi(202, { status: 'accepted' });
     const user = userEvent.setup();
     render(<RegisterForm />);
     await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
@@ -233,13 +253,15 @@ describe('RegisterForm', () => {
       email: 'ad@ornek.com',
       password: 'uzun bir parola cümlesi',
       tenant_name: 'Örnek Mağaza',
+      terms_version: 'taslak-2026-11',
+      privacy_notice_version: 'taslak-2026-11',
       accept_terms: true,
       acknowledge_privacy_notice: true,
     });
   });
 
   it('sızmış parola (422 weak-password) için anlaşılır mesaj gösterir', async () => {
-    mockFetch(422, { type: 'urn:netkar:problem:weak-password', status: 422 });
+    mockRegisterApi(422, { type: 'urn:netkar:problem:weak-password', status: 422 });
     const user = userEvent.setup();
     render(<RegisterForm />);
     await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
@@ -253,7 +275,7 @@ describe('RegisterForm', () => {
   });
 
   it('iki onay kutusu ayrı, zorunlu ve açıklamalıdır; biri eksikse istek gitmez', async () => {
-    const fetchMock = mockFetch(202, { status: 'accepted' });
+    const fetchMock = mockRegisterApi(202, { status: 'accepted' });
     const user = userEvent.setup();
     render(<RegisterForm />);
     const terms = screen.getByRole('checkbox', { name: /Kullanım koşullarını/ });
@@ -269,7 +291,9 @@ describe('RegisterForm', () => {
       'href',
       '/kvkk-aydinlatma-metni',
     );
-    expect(screen.getAllByText('(yeni sekmede açılır)')).toHaveLength(2);
+    expect(
+      await screen.findAllByText(/\(yeni sekmede açılır; sürüm taslak-2026-11\)/),
+    ).toHaveLength(2);
     // Aydınlatma açık rıza değildir: açıklama bunu söyler ve "kabul ediyorum" ifadesi kullanılmaz.
     expect(screen.getByText(/açık rıza yerine geçmez/)).toBeInTheDocument();
     expect(privacy.closest('div')).not.toHaveTextContent('kabul ediyorum');
@@ -283,11 +307,50 @@ describe('RegisterForm', () => {
       await screen.findByText('Devam etmek için aydınlatma metnini okuduğunuzu işaretleyin.'),
     ).toBeInTheDocument();
     expect(privacy).toHaveAccessibleDescription(/açık rıza yerine geçmez/);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(registerCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it('sürüm yarışı: 409 legal-version-stale kutuları sıfırlar, yeni sürümü alır ve yönlendirmez', async () => {
+    const fn = mockRegisterApi(409, {
+      type: 'urn:netkar:problem:legal-version-stale',
+      status: 409,
+    });
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
+    await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
+    await user.click(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ }));
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+
+    expect(await screen.findByText(/güncellendi. Güncel sürümleri okuyup/)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ })).not.toBeChecked();
+    expect(push).not.toHaveBeenCalled();
+    const currentCalls = fn.mock.calls.filter(([url]) => String(url).endsWith('/legal/current'));
+    expect(currentCalls.length).toBeGreaterThanOrEqual(2); // açılışta ve 409 sonrası yeniden
+  });
+
+  it('sürümler alınamazsa kayıt isteği gönderilmez ve neden söylenir', async () => {
+    const fn = mockRegisterApi(202, { status: 'accepted' }, { not: 'list' });
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    expect(await screen.findByText(/Belge sürümleri alınamadı/)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
+    await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
+    await user.click(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ }));
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+    await waitFor(() =>
+      expect(screen.getAllByText(/Belge sürümleri alınamadı/).length).toBeGreaterThan(0),
+    );
+    expect(fn.mock.calls.some(([url]) => String(url).endsWith('/auth/register'))).toBe(false);
   });
 
   it('beklenmeyen hatada genel mesaj gösterir', async () => {
-    mockFetch(400);
+    mockRegisterApi(400);
     const user = userEvent.setup();
     render(<RegisterForm />);
     await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');

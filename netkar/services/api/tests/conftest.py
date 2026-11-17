@@ -195,14 +195,15 @@ def unmarked(admin_conn: psycopg.Connection[Any]) -> Iterator[None]:
 def _clean_tables(database: DatabaseInfo) -> None:
     """Her testten önce tabloları boşaltır (yalnız test veritabanında, superuser ile)."""
     with psycopg.connect(database.admin_dsn(), autocommit=True) as conn:
+        # Belge/kabul tabloları TRUNCATE tetikleyicisiyle korunur (0022); CASCADE onlara da uzanır. Testlerde
+        # tetikleyici yalnız superuser'ın atlayabildiği replica rolüyle devre dışı bırakılır.
+        conn.execute("SET session_replication_role = replica")
         conn.execute(
             "TRUNCATE tenants, users, memberships, sessions, password_reset_tokens, "
             "audit_log, rate_limits, marketplace_accounts, report_data_revisions, procrastinate_jobs "
             "RESTART IDENTITY CASCADE"
         )
-        # Belge sürüm kaydı değişmezdir (tetikleyici); testlerin yayınladığı sürümler tetikleyici devre dışı
-        # bırakılarak (yalnız superuser, bu oturumda) temizlenir. Kabul kayıtları yukarıdaki CASCADE ile gitti.
-        conn.execute("SET session_replication_role = replica")
+        # Belge sürüm kaydı değişmezdir; testlerin yayınladığı sürümler aynı replica oturumunda temizlenir.
         conn.execute("DELETE FROM legal_documents WHERE version <> 'taslak-2026-11'")
         conn.execute("SET session_replication_role = DEFAULT")
 
@@ -284,9 +285,23 @@ class Api:
         tenant: str = "Test Mağaza",
         accept_terms: Any = True,
         acknowledge_privacy_notice: Any = True,
+        terms_version: Any = "current",
+        privacy_notice_version: Any = "current",
     ) -> Any:
-        """Kayıt isteği; onay kutuları varsayılan işaretli (`None`: alan hiç gönderilmez)."""
+        """Kayıt isteği; onay kutuları varsayılan işaretli, sürümler sunucudan alınır ("current").
+
+        `None`: alan hiç gönderilmez. Başka bir değer olduğu gibi gönderilir.
+        """
         body: dict[str, Any] = {"email": email, "password": password, "tenant_name": tenant}
+        if "current" in (terms_version, privacy_notice_version):
+            current = {d["doc_type"]: d["version"] for d in self.get("/v1/legal/current").json()}
+            terms_version = current["terms"] if terms_version == "current" else terms_version
+            if privacy_notice_version == "current":
+                privacy_notice_version = current["privacy_notice"]
+        if terms_version is not None:
+            body["terms_version"] = terms_version
+        if privacy_notice_version is not None:
+            body["privacy_notice_version"] = privacy_notice_version
         if accept_terms is not None:
             body["accept_terms"] = accept_terms
         if acknowledge_privacy_notice is not None:
@@ -412,3 +427,13 @@ def frozen_ratelimit_clock(monkeypatch: pytest.MonkeyPatch) -> float:
     """Sınırlayıcının saatini sabitler; yalnız app.core.ratelimit etkilenir."""
     monkeypatch.setattr(ratelimit_module, "time", SimpleNamespace(time=lambda: FROZEN_RATELIMIT_NOW))
     return FROZEN_RATELIMIT_NOW
+
+
+def legal_loss_flag(conn: psycopg.Connection[Any]) -> str:
+    """0022 downgrade korumasının beklediği tam değer (`accepted=N,published=M`) şu anki kayıtlardan."""
+    accepted = conn.execute("SELECT count(*) FROM user_legal_acceptances").fetchone()
+    published = conn.execute(
+        "SELECT count(*) FROM legal_documents WHERE version <> 'taslak-2026-11'"
+    ).fetchone()
+    assert accepted is not None and published is not None
+    return f"accepted={accepted[0]},published={published[0]}"

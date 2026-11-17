@@ -195,11 +195,14 @@ async def get_verified_auth_context(ctx: AuthDep, db: DbDep) -> AuthContext:
 VerifiedAuthDep = Annotated[AuthContext, Depends(get_verified_auth_context)]
 
 
-def require_role(*roles: Role, verified: bool = False) -> Callable[..., Awaitable[AuthContext]]:
+def require_role(
+    *roles: Role, verified: bool = False, legal_gate: bool = True
+) -> Callable[..., Awaitable[AuthContext]]:
     """Belirtilen rollerden birini şart koşan bağımlılık üretir.
 
     `verified=True`: kullanıcının e-postası da doğrulanmış olmalıdır (yazma uçları; ön ele geçirme önlemi);
-    `legal_reacceptance_enforced` açıksa güncel belge sürümleri de kabul edilmiş olmalıdır.
+    `legal_reacceptance_enforced` açıksa güncel belge sürümleri de kabul edilmiş olmalıdır; `legal_gate=False`
+    yalnız veri işlemeyi DURDURMA uçları içindir (mağaza bağlantısı iptali): bu hak kabule bağlanmaz.
     Okuma ve oturum kapama uçları bu koşulu taşımaz. Önce rol, sonra doğrulama denetlenir.
     """
 
@@ -211,7 +214,11 @@ def require_role(*roles: Role, verified: bool = False) -> Callable[..., Awaitabl
                 raise email_not_verified()
             # Yeniden kabul kapısı (varsayılan kapalı): yalnız tenant verisi YAZAN uçlarda; okuma, dışa
             # aktarma, hesap güvenliği (TOTP), çıkış ve kabul ucu açık kalır (veri/güvenlik rehin tutulmaz).
-            if settings.legal_reacceptance_enforced and await pending_documents(db, ctx.user_id):
+            if (
+                legal_gate
+                and settings.legal_reacceptance_enforced
+                and await pending_documents(db, ctx.user_id)
+            ):
                 raise terms_acceptance_required()
         return ctx
 

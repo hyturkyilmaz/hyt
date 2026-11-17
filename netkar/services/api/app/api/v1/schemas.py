@@ -55,6 +55,9 @@ class RegisterRequest(_Strict):
     # kabulüdür; aydınlatma "okudum" bilgisidir ve KVKK açık rızası DEĞİLDİR (pazarlama izni ayrı, burada yok).
     accept_terms: StrictTrue
     acknowledge_privacy_notice: StrictTrue
+    # Kullanıcının GÖRDÜĞÜ sürümler (GET /v1/legal/current); güncel değilse 409 legal-version-stale.
+    terms_version: Annotated[str, StringConstraints(min_length=1, max_length=64)]
+    privacy_notice_version: Annotated[str, StringConstraints(min_length=1, max_length=64)]
 
 
 class LoginRequest(_Strict):

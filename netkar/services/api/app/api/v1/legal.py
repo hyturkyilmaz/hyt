@@ -24,6 +24,18 @@ def status_of(pending: list[legal_service.LegalDocument], enforced: bool) -> Leg
     )
 
 
+@router.get("/current", response_model=list[LegalPendingOut])
+async def current(db: DbDep) -> list[LegalPendingOut]:
+    """Herkese açık: her türün güncel sürümü (tür, sürüm, yayın zamanı). Kişisel veri yoktur.
+
+    Kayıt formu bu sürümleri gösterir ve kayıt isteğiyle geri gönderir (kullanıcının gördüğü sürüm kabul edilir).
+    """
+    return [
+        LegalPendingOut(doc_type=d.doc_type, version=d.version, published_at=d.published_at)
+        for d in await legal_service.current_documents(db)
+    ]
+
+
 @router.post("/accept", response_model=LegalStatus)
 async def accept(body: LegalAcceptRequest, ctx: AuthDep, db: DbDep, settings: SettingsDep) -> LegalStatus:
     """Kullanıcının gördüğü belge sürümlerini kabul kaydına yazar; kalan bekleyenleri döner.
@@ -45,13 +57,13 @@ async def accept(body: LegalAcceptRequest, ctx: AuthDep, db: DbDep, settings: Se
             )
         chosen[ref.doc_type] = doc
     inserted = await legal_service.record_acceptance(db, ctx.user_id, list(chosen.values()))
-    if inserted:
+    if inserted:  # denetim kaydının hedefi yalnız bu istekte YENİ eklenen satırlardır
         await record_audit(
             db,
             ctx.tenant_id,
             "legal.accepted",
             user_id=ctx.user_id,
-            target=",".join(f"{d.doc_type}:{d.version}" for d in chosen.values()),
+            target=",".join(f"{d.doc_type}:{d.version}" for d in inserted),
         )
     await db.commit()
     # Commit işlem yerel GUC'leri sıfırlar; kalan bekleyenleri okumak için bağlam yeniden kurulur.

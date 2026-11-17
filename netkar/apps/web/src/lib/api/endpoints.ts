@@ -71,6 +71,9 @@ export const authApi = {
     email: string;
     password: string;
     tenant_name: string;
+    /** Kullanıcının gördüğü güncel sürümler (`legalApi.current`); güncel değilse 409 `legal-version-stale`. */
+    terms_version: string;
+    privacy_notice_version: string;
     /** Kullanım koşulları açık onayı (yalnız `true` kabul edilir; eksikse 422). */
     accept_terms: true;
     /** Aydınlatma metni "okudum" bilgisi (açık rıza değildir; yalnız `true` kabul edilir). */
@@ -121,6 +124,9 @@ export const authApi = {
 };
 
 export const legalApi = {
+  /** Herkese açık: her türün güncel sürümü (kişisel veri yok). Kayıt formu sürümü buradan alır. */
+  current: () => apiFetch<LegalPending[]>('/legal/current'),
+
   /**
    * Gördüğünüz güncel belge sürümlerini kabul eder. Sürüm güncel değilse 409 `legal-version-stale`
    * (sayfa yenilenip yeni sürüm okunmalı). Yanıt: kalan bekleyenler.

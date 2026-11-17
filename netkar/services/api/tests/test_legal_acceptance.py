@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,7 @@ from alembic.config import Config
 
 from app.tools import legal_documents as tool
 from app.tools.common import ToolConfigError
-from tests.conftest import GOOD_PASSWORD, Api, DatabaseInfo
+from tests.conftest import GOOD_PASSWORD, Api, DatabaseInfo, legal_loss_flag
 from tests.test_email_verification import _BLOCKED_ENDPOINTS, _TOTP_PATHS, _is_problem
 
 PLACEHOLDER = "taslak-2026-11"
@@ -38,6 +39,15 @@ def _acceptances(conn: psycopg.Connection[Any]) -> list[tuple[str, str]]:
         "SELECT d.doc_type, d.version FROM user_legal_acceptances a "
         "JOIN legal_documents d ON d.id = a.document_id ORDER BY d.doc_type, d.version"
     ).fetchall()
+
+
+def _truncate_acceptances(conn: psycopg.Connection[Any]) -> None:
+    """Kabul tablosunu boşaltır: TRUNCATE tetikleyicisini yalnız superuser'ın replica rolü atlar (test amaçlı)."""
+    conn.execute("SET session_replication_role = replica")
+    try:
+        conn.execute("TRUNCATE user_legal_acceptances")
+    finally:
+        conn.execute("SET session_replication_role = DEFAULT")
 
 
 def _pending(api: Api) -> list[dict[str, Any]]:
@@ -145,6 +155,14 @@ def test_records_are_immutable_for_every_role(
     ):
         with pytest.raises(psycopg.errors.CheckViolation):  # superuser için bile tetikleyici
             admin_conn.execute(sql)  # type: ignore[arg-type]
+    for sql in (
+        "TRUNCATE user_legal_acceptances",
+        "TRUNCATE legal_documents CASCADE",
+        "TRUNCATE users CASCADE",
+    ):
+        with pytest.raises(psycopg.errors.CheckViolation):  # 0022: TRUNCATE (CASCADE dahil) da engelli
+            admin_conn.execute(sql)  # type: ignore[arg-type]
+    assert len(_acceptances(admin_conn)) == 2
     user_id = admin_conn.execute("SELECT id FROM users").fetchone()
     assert user_id is not None
     with psycopg.connect(database.app_dsn(), autocommit=True) as app:
@@ -169,9 +187,14 @@ def test_privileges_and_force_rls(admin_conn: psycopg.Connection[Any]) -> None:
             " has_table_privilege('netkar_worker', %s, 'SELECT'), has_table_privilege('netkar_app', %s, 'SELECT')",
             (table, table, table, table),
         ).fetchone() == (False, False, False, True)
+    # 0022: tablo düzeyinde INSERT yok, yalnız (user_id, document_id) sütunlarında
     assert admin_conn.execute(
-        "SELECT has_table_privilege('netkar_app', 'user_legal_acceptances', 'INSERT')"
-    ).fetchone() == (True,)
+        "SELECT has_table_privilege('netkar_app', 'user_legal_acceptances', 'INSERT'),"
+        " has_column_privilege('netkar_app', 'user_legal_acceptances', 'user_id', 'INSERT'),"
+        " has_column_privilege('netkar_app', 'user_legal_acceptances', 'document_id', 'INSERT'),"
+        " has_column_privilege('netkar_app', 'user_legal_acceptances', 'accepted_at', 'INSERT'),"
+        " has_column_privilege('netkar_app', 'user_legal_acceptances', 'id', 'INSERT')"
+    ).fetchone() == (False, True, True, False, False)
 
 
 def test_acceptances_are_isolated_per_user_and_cannot_be_written_for_others(
@@ -284,7 +307,8 @@ def test_unverified_account_can_accept(api: Api, admin_conn: psycopg.Connection[
 
 
 # --- yeniden kabul kapısı ----------------------------------------------------------------------------------
-_TENANT_WRITES = [e for e in _BLOCKED_ENDPOINTS if e[1] not in _TOTP_PATHS]
+# Bağlantı iptali (revoke) veri işlemeyi durdurur: kapıdan muaftır (ayrı testte doğrulanır).
+_TENANT_WRITES = [e for e in _BLOCKED_ENDPOINTS if e[1] not in _TOTP_PATHS and not e[1].endswith("/revoke")]
 
 
 def test_gate_is_off_by_default_even_with_pending_documents(
@@ -342,7 +366,7 @@ def test_enforced_gate_blocks_legacy_user_with_no_acceptance(
     """0021 öncesi kullanıcı (hiç kabul kaydı yok): kapı açılınca iki belge de bekler."""
     api = make_api(legal_reacceptance_enforced=True)
     api.signup_and_login("eski-kullanici@example.com")
-    admin_conn.execute("TRUNCATE user_legal_acceptances")
+    _truncate_acceptances(admin_conn)
     assert {p["doc_type"] for p in _pending(api)} == {"terms", "privacy_notice"}
     base = f"/v1/marketplace-accounts/{uuid.uuid4()}/products/ABC123/costs"
     body = {"valid_from": "2026-01-01", "unit_cost_excl_vat": "10.00", "vat_rate": "20"}
@@ -369,10 +393,11 @@ def test_publish_tool_inserts_a_digest_only_row_and_refuses_duplicates(
     doc = tmp_path / "terms.md"
     doc.write_bytes("Örnek belge içeriği (test).\n".encode())
     env = {"DATABASE_ADMIN_URL": database.admin_dsn()}
-    args = ["publish", "--type", "terms", "--version", "2026-12-t", "--file", str(doc)]
+    args = ["publish", "--type", "terms", "--version", "2026-12-t", "--file", str(doc), "--yes"]
     assert tool.main(args, env) == 0
+    out = capsys.readouterr().out
     expected = hashlib.sha256(doc.read_bytes()).hexdigest()
-    assert expected in capsys.readouterr().out
+    assert expected in out and "LEGAL_REACCEPTANCE_ENFORCED" in out  # gerçek sürüm: kapı hatırlatması
     row = admin_conn.execute(
         "SELECT content_sha256 FROM legal_documents WHERE version = '2026-12-t'"
     ).fetchone()
@@ -388,8 +413,51 @@ def test_publish_tool_inserts_a_digest_only_row_and_refuses_duplicates(
         tool.publish_document(admin_conn, "marketing", "v1", b"x")  # type: ignore[arg-type]
 
 
+def _record(sink: list[str], value: str) -> str:
+    sink.append(value)
+    return "terms 2026-12-u"
+
+
+def test_publish_tool_dry_run_confirmation_and_published_at(
+    admin_conn: psycopg.Connection[Any],
+    database: DatabaseInfo,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    doc = tmp_path / "terms.md"
+    doc.write_bytes(b"icerik\n")
+    env = {"DATABASE_ADMIN_URL": database.admin_dsn()}
+    base = ["publish", "--type", "terms", "--version", "2026-12-u", "--file", str(doc)]
+
+    def count() -> int:
+        row = admin_conn.execute(
+            "SELECT count(*) FROM legal_documents WHERE version = '2026-12-u'"
+        ).fetchone()
+        assert row is not None
+        return int(row[0])
+
+    assert tool.main([*base, "--dry-run"], env, ask=lambda _: pytest.fail("dry-run onay sormaz")) == 0
+    assert "dry-run" in capsys.readouterr().out and count() == 0
+    assert tool.main(base, env, ask=lambda _: "terms yanlis") == 3  # onay eşleşmedi: eklenmez
+    assert count() == 0
+    prompts: list[str] = []
+    future = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    assert tool.main([*base, "--published-at", future], env, ask=lambda q: _record(prompts, q)) == 0
+    assert "terms 2026-12-u" in prompts[0] and count() == 1
+    row = admin_conn.execute(
+        "SELECT published_at > now() + interval '1 day' FROM legal_documents WHERE version = '2026-12-u'"
+    ).fetchone()
+    assert row == (True,)
+    capsys.readouterr()
+    past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    other = ["publish", "--type", "terms", "--version", "2026-12-v", "--file", str(doc), "--yes"]
+    assert tool.main([*other, "--published-at", past], env) == 3
+    assert "geçmişte" in capsys.readouterr().err
+    assert tool.main([*other, "--published-at", "yarin"], env) == 3
+
+
 # --- migrasyon ---------------------------------------------------------------------------------------------
-def test_migration_0021_downgrade_protects_evidence_and_is_reversible(
+def test_migration_downgrade_protects_evidence_with_exact_counts_and_refuses_prod(
     api: Api,
     alembic_cfg: Config,
     admin_conn: psycopg.Connection[Any],
@@ -400,18 +468,31 @@ def test_migration_0021_downgrade_protects_evidence_and_is_reversible(
             r[0] for r in admin_conn.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
         }
 
-    assert api.register("kanit@example.com").status_code == 202
-    monkeypatch.delenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", raising=False)
-    try:
-        with pytest.raises(RuntimeError, match="DURDURULDU"):
+    def blocked(match: str) -> None:
+        with pytest.raises(RuntimeError, match=match):
             command.downgrade(alembic_cfg, "0020")
         # koruma işlemi geri aldı: tablolar, kayıtlar ve FORCE RLS yerinde
         assert {"legal_documents", "user_legal_acceptances"} <= tables()
         assert len(_acceptances(admin_conn)) == 2
         assert admin_conn.execute(
-            "SELECT relforcerowsecurity FROM pg_class WHERE relname = 'user_legal_acceptances'"
-        ).fetchone() == (True,)
-        monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", "1")
+            "SELECT relforcerowsecurity FROM pg_class WHERE relname IN "
+            "('user_legal_acceptances', 'legal_documents')"
+        ).fetchall() == [(True,), (True,)]
+
+    assert api.register("kanit@example.com").status_code == 202
+    flag = legal_loss_flag(admin_conn)
+    assert flag == "accepted=2,published=0"
+    monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", "unset")  # test bitince özgün değer geri gelir
+    monkeypatch.delenv("NETKAR_ALLOW_LEGAL_DATA_LOSS")
+    try:
+        blocked("DURDURULDU")  # bayrak yok
+        for wrong in ("1", "accepted=1,published=0", "accepted=2,published=1", "accepted=2"):
+            monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", wrong)
+            blocked(flag)  # ileti beklenen tam değeri söyler
+        monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", flag)
+        monkeypatch.setenv("ENVIRONMENT", "prod")
+        blocked("ENVIRONMENT=prod")  # doğru bayrak bile prod'da yetmez
+        monkeypatch.setenv("ENVIRONMENT", "test")
         command.downgrade(alembic_cfg, "0020")
         assert not ({"legal_documents", "user_legal_acceptances"} & tables())
         assert {"mfa_recovery_codes", "users"} <= tables()  # 0020 ve öncesi etkilenmedi
@@ -428,13 +509,186 @@ def test_migration_0021_downgrade_protects_evidence_and_is_reversible(
         command.upgrade(alembic_cfg, "head")
 
 
-def test_migration_0021_downgrade_without_evidence_needs_no_flag(
+def test_migration_downgrade_without_evidence_needs_no_flag_but_prod_always_refuses(
     alembic_cfg: Config, admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", raising=False)
+    monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", "unset")
+    monkeypatch.delenv("NETKAR_ALLOW_LEGAL_DATA_LOSS")
     try:
+        monkeypatch.setenv("ENVIRONMENT", "prod")
+        with pytest.raises(RuntimeError, match="ENVIRONMENT=prod"):
+            command.downgrade(alembic_cfg, "0020")  # kayıt olmasa da prod'da reddedilir
+        monkeypatch.setenv("ENVIRONMENT", "test")
         command.downgrade(alembic_cfg, "0020")  # yalnız yer tutucu sürümler var, kabul kaydı yok
         command.upgrade(alembic_cfg, "head")
         assert admin_conn.execute("SELECT count(*) FROM legal_documents").fetchone() == (2,)
     finally:
         command.upgrade(alembic_cfg, "head")
+
+
+def test_migration_0022_is_reversible_and_restores_table_level_insert(
+    alembic_cfg: Config, admin_conn: psycopg.Connection[Any]
+) -> None:
+    def insert_privs() -> tuple[bool, bool, bool]:
+        row = admin_conn.execute(
+            "SELECT has_table_privilege('netkar_app', 'user_legal_acceptances', 'INSERT'),"
+            " has_column_privilege('netkar_app', 'user_legal_acceptances', 'accepted_at', 'INSERT'),"
+            " has_column_privilege('netkar_app', 'user_legal_acceptances', 'user_id', 'INSERT')"
+        ).fetchone()
+        assert row is not None
+        return (bool(row[0]), bool(row[1]), bool(row[2]))
+
+    def triggers() -> set[str]:
+        return {
+            r[0]
+            for r in admin_conn.execute(
+                "SELECT tgname FROM pg_trigger WHERE tgname LIKE '%no_truncate' OR tgname LIKE '%server_fields'"
+            )
+        }
+
+    assert insert_privs() == (False, False, True) and len(triggers()) == 3
+    try:
+        command.downgrade(alembic_cfg, "0021")
+        assert insert_privs() == (True, True, True) and triggers() == set()
+        command.upgrade(alembic_cfg, "head")
+        assert insert_privs() == (False, False, True) and len(triggers()) == 3
+    finally:
+        command.upgrade(alembic_cfg, "head")
+
+
+# --- 0022: sütun yetkisi, sunucu alanları ------------------------------------------------------------------
+def test_app_role_cannot_supply_id_or_accepted_at_and_server_fields_win(
+    api: Api, admin_conn: psycopg.Connection[Any], database: DatabaseInfo
+) -> None:
+    assert api.register("sunucu@example.com").status_code == 202
+    user = admin_conn.execute("SELECT id::text FROM users").fetchone()
+    assert user is not None
+    _publish(admin_conn, "terms", "2026-12-a")
+    doc = admin_conn.execute("SELECT id::text FROM legal_documents WHERE version = '2026-12-a'").fetchone()
+    assert doc is not None
+    with psycopg.connect(database.app_dsn()) as app:
+        app.execute("SELECT set_config('app.user_id', %s, true)", (user[0],))
+        for sql in (
+            "INSERT INTO user_legal_acceptances (user_id, document_id, accepted_at) "
+            "VALUES (%s, %s, now() - interval '5 years')",
+            "INSERT INTO user_legal_acceptances (user_id, document_id, id) VALUES (%s, %s, gen_random_uuid())",
+        ):
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                app.execute(sql, (user[0], doc[0]))  # type: ignore[arg-type]
+            app.rollback()
+            app.execute("SELECT set_config('app.user_id', %s, true)", (user[0],))
+        app.execute(
+            "INSERT INTO user_legal_acceptances (user_id, document_id) VALUES (%s, %s)", (user[0], doc[0])
+        )
+        app.commit()
+    # superuser bile zaman/kimlik veremez: tetikleyici sunucu değerini yazar
+    admin_conn.execute(
+        "INSERT INTO legal_documents (doc_type, version, content_sha256) VALUES ('privacy_notice', 'z', repeat('c', 64))"
+    )
+    row = admin_conn.execute(
+        "INSERT INTO user_legal_acceptances (id, user_id, document_id, accepted_at) "
+        "SELECT '00000000-0000-4000-8000-000000000009', %s::uuid, id, '2001-01-01' FROM legal_documents "
+        "WHERE version = 'z' RETURNING id::text, accepted_at > now() - interval '1 minute'",
+        (user[0],),
+    ).fetchone()
+    assert row is not None and row[0] != "00000000-0000-4000-8000-000000000009" and row[1] is True
+
+
+# --- kayıt: sürüm yarışı ve /v1/legal/current -------------------------------------------------------------
+def test_legal_current_is_public_and_has_no_personal_data(
+    api: Api, admin_conn: psycopg.Connection[Any]
+) -> None:
+    response = api.get("/v1/legal/current")  # oturumsuz
+    assert response.status_code == 200
+    body = response.json()
+    assert {(d["doc_type"], d["version"]) for d in body} == {
+        ("terms", PLACEHOLDER),
+        ("privacy_notice", PLACEHOLDER),
+    }
+    assert all(set(d) == {"doc_type", "version", "published_at"} for d in body)
+    _publish(admin_conn, "terms", "2026-12-a")
+    assert {d["version"] for d in api.get("/v1/legal/current").json() if d["doc_type"] == "terms"} == {
+        "2026-12-a"
+    }
+
+
+def test_register_with_stale_or_missing_version_is_409_or_422_and_creates_nothing(
+    make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any]
+) -> None:
+    api = make_api()
+    assert api.register("var@example.com").status_code == 202
+    users_before = admin_conn.execute("SELECT count(*) FROM users").fetchone()
+    before = _acceptances(admin_conn)
+    _publish(admin_conn, "terms", "2026-12-a")  # form açıkken yeni sürüm yayınlandı
+    for email in ("yeni-kayit@example.com", "var@example.com"):  # yeni ve var olan adres: aynı yanıt
+        stale = api.register(email, terms_version=PLACEHOLDER, privacy_notice_version=PLACEHOLDER)
+        assert _is_problem(stale, 409, "legal-version-stale"), stale.text
+    wrong_kind = api.register("x@example.com", terms_version="uydurma", privacy_notice_version=PLACEHOLDER)
+    assert _is_problem(wrong_kind, 409, "legal-version-stale")
+    assert api.register("x@example.com", terms_version=None).status_code == 422
+    assert api.register("x@example.com", privacy_notice_version=None).status_code == 422
+    assert admin_conn.execute("SELECT count(*) FROM users").fetchone() == users_before
+    assert _acceptances(admin_conn) == before
+    ok = api.register("yeni-kayit@example.com")  # güncel sürümler sunucudan alınır
+    assert ok.status_code == 202
+    assert ("terms", "2026-12-a") in _acceptances(admin_conn)
+
+
+# --- veri işlemeyi durdurma ucu kapıdan muaf ---------------------------------------------------------------
+def test_enforced_gate_keeps_marketplace_revoke_open(
+    make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any]
+) -> None:
+    api = make_api(legal_reacceptance_enforced=True)
+    api.signup_and_login("durdur@example.com")
+    _publish(admin_conn, "terms", "2026-12-a")
+    path = f"/v1/marketplace-accounts/{uuid.uuid4()}/revoke"
+    blocked_write = api.put(
+        f"/v1/marketplace-accounts/{uuid.uuid4()}/products/ABC123/costs",
+        {"valid_from": "2026-01-01", "unit_cost_excl_vat": "1", "vat_rate": "20"},
+    )
+    assert _is_problem(blocked_write, 403, "terms-acceptance-required")
+    assert api.post(path).status_code == 404  # kapı geçildi (hesap yok); 403 değil
+
+
+def test_unverified_user_still_cannot_revoke_even_though_gate_is_exempt(
+    make_api: Callable[..., Api],
+) -> None:
+    api = make_api(legal_reacceptance_enforced=True)
+    api.signup_and_login("dogrulanmamis-iptal@example.com", verified=False)
+    assert _is_problem(api.post(f"/v1/marketplace-accounts/{uuid.uuid4()}/revoke"), 403, "email-not-verified")
+
+
+# --- açılış uyarısı ---------------------------------------------------------------------------------------
+def test_startup_warns_when_real_version_exists_and_gate_is_off(
+    make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any], capsys: pytest.CaptureFixture[str]
+) -> None:
+    def warned() -> bool:
+        return "LEGAL_REACCEPTANCE_ENFORCED" in capsys.readouterr().out
+
+    make_api()  # yalnız taslak sürümler: uyarı yok
+    assert not warned()
+    _publish(admin_conn, "terms", "2026-12-a")
+    make_api(legal_reacceptance_enforced=True)  # kapı açık: uyarı yok
+    assert not warned()
+    make_api()  # gerçek sürüm + kapı kapalı
+    assert warned()
+
+
+# --- denetim kaydı yalnız yeni satırlar ----------------------------------------------------------------------
+def test_accept_audit_target_lists_only_newly_inserted_rows(
+    api: Api, admin_conn: psycopg.Connection[Any]
+) -> None:
+    api.signup_and_login("hedef@example.com")
+    _publish(admin_conn, "terms", "2026-12-a")
+    _publish(admin_conn, "privacy_notice", "2026-12-a")
+    terms = {"doc_type": "terms", "version": "2026-12-a"}
+    notice = {"doc_type": "privacy_notice", "version": "2026-12-a"}
+    assert api.post("/v1/legal/accept", {"documents": [terms]}).status_code == 200
+    assert api.post("/v1/legal/accept", {"documents": [terms, notice]}).status_code == 200
+    targets = [
+        r[0]
+        for r in admin_conn.execute(
+            "SELECT target FROM audit_log WHERE action = 'legal.accepted' ORDER BY id"
+        )
+    ]
+    assert targets == ["terms:2026-12-a", "privacy_notice:2026-12-a"]

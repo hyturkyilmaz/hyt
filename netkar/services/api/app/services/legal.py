@@ -75,12 +75,15 @@ async def pending_documents(db: AsyncSession, user_id: UUID) -> list[LegalDocume
     return [_row(r) for r in rows]
 
 
-async def record_acceptance(db: AsyncSession, user_id: UUID, documents: list[LegalDocument]) -> int:
-    """Belge sürümlerini kabul kaydına yazar; zaten kayıtlıysa dokunmaz. Eklenen satır sayısını döner.
+async def record_acceptance(
+    db: AsyncSession, user_id: UUID, documents: list[LegalDocument]
+) -> list[LegalDocument]:
+    """Belge sürümlerini kabul kaydına yazar; zaten kayıtlıysa dokunmaz. YENİ eklenenleri döner.
 
     RLS bağlamında app.user_id = user_id olmalı (politika başka kullanıcı adına yazmayı reddeder).
+    Yalnız (user_id, document_id) yazılır; id ve accepted_at sunucu tarafında (0022 tetikleyicisi) üretilir.
     """
-    inserted = 0
+    inserted: list[LegalDocument] = []
     for doc in documents:
         result = await db.execute(
             text(
@@ -89,5 +92,23 @@ async def record_acceptance(db: AsyncSession, user_id: UUID, documents: list[Leg
             ),
             {"uid": user_id, "doc": doc.id},
         )
-        inserted += int(result.rowcount or 0)  # type: ignore[attr-defined]
+        if result.rowcount:  # type: ignore[attr-defined]
+            inserted.append(doc)
     return inserted
+
+
+# Taslak olmayan (gerçek) güncel sürüm var mı: sürüm kodu "taslak-" ile başlamayan güncel satır sayısı.
+_REAL_CURRENT = """
+    SELECT count(*) FROM (
+        SELECT DISTINCT ON (doc_type) doc_type, version
+        FROM legal_documents
+        WHERE published_at <= now()
+        ORDER BY doc_type, published_at DESC, id DESC
+    ) c
+    WHERE c.version NOT LIKE 'taslak-%'
+"""
+
+
+async def real_current_exists(db: AsyncSession) -> bool:
+    """Güncel sürümlerden en az biri taslak değilse True (açılış uyarısı için)."""
+    return int((await db.execute(text(_REAL_CURRENT))).scalar_one()) > 0

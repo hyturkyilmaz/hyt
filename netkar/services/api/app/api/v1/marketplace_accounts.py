@@ -47,6 +47,10 @@ router = APIRouter(prefix="/marketplace-accounts", tags=["marketplace-accounts"]
 
 # Yazma uçları: e-postası doğrulanmamış hesap 403 email-not-verified alır (denetim O-06).
 AdminDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN, verified=True))]
+# Bağlantı iptali veri işlemeyi durdurur: yeniden kabul kapısı bunu rehin tutmaz (e-posta doğrulaması yine şart).
+StopDep = Annotated[
+    AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN, verified=True, legal_gate=False))
+]
 AnyRoleDep = Annotated[AuthContext, Depends(require_role(Role.OWNER, Role.ADMIN, Role.VIEWER))]
 
 _HOURLY = 60 * 60
@@ -198,7 +202,7 @@ async def list_accounts(ctx: AnyRoleDep, db: DbDep) -> list[MarketplaceAccount]:
 
 @router.post("/{account_id}/revoke", response_model=MarketplaceAccountOut)
 async def revoke_account(
-    account_id: UUID, request: Request, ctx: AdminDep, db: DbDep, settings: SettingsDep
+    account_id: UUID, request: Request, ctx: StopDep, db: DbDep, settings: SettingsDep
 ) -> MarketplaceAccount:
     """Bağlantıyı iptal eder: durum revoked, şifreli anahtarlar NULL; satır silinmez. İdempotenttir.
 

@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { AuthCard, FormError } from '@/components/auth/auth-card';
@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { ApiError, describeApiError } from '@/lib/api/client';
-import { authApi } from '@/lib/api/endpoints';
+import { authApi, legalApi } from '@/lib/api/endpoints';
 import {
   PASSWORD_MIN_LENGTH,
   TENANT_NAME_MAX_LENGTH,
@@ -32,6 +32,10 @@ import {
 export function RegisterForm() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+  // Kullanıcının GÖRDÜĞÜ belge sürümleri sunucudan alınır ve kayıtla birlikte geri gönderilir
+  // (form açıkken yeni sürüm yayınlanırsa sunucu 409 verir; kabul edilen sürüm görülenle aynıdır).
+  const [versions, setVersions] = useState<{ terms: string; privacy: string } | null>(null);
+  const [versionsFailed, setVersionsFailed] = useState(false);
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -44,8 +48,31 @@ export function RegisterForm() {
   });
   const { isSubmitting } = form.formState;
 
+  const loadVersions = useCallback(async () => {
+    try {
+      const docs = await legalApi.current();
+      const terms = docs.find((doc) => doc.doc_type === 'terms')?.version;
+      const privacy = docs.find((doc) => doc.doc_type === 'privacy_notice')?.version;
+      if (!terms || !privacy) throw new Error('eksik sürüm');
+      setVersions({ terms, privacy });
+      setVersionsFailed(false);
+    } catch {
+      setVersions(null);
+      setVersionsFailed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadVersions();
+  }, [loadVersions]);
+
   async function onSubmit(values: RegisterValues) {
     setServerError(null);
+    if (!versions) {
+      setServerError('Belge sürümleri alınamadı. Sayfayı yenileyip tekrar deneyin.');
+      void loadVersions();
+      return;
+    }
     try {
       // İki açık onay backend'e de gider (yalnız `true` kabul edilir) ve hesapla aynı işlemde güncel belge
       // sürümleri kabul kaydına yazılır. Aydınlatma "okudum" bilgisidir, açık rıza değildir.
@@ -53,12 +80,24 @@ export function RegisterForm() {
         email: values.email,
         password: values.password,
         tenant_name: values.tenantName,
+        terms_version: versions.terms,
+        privacy_notice_version: versions.privacy,
         accept_terms: true,
         acknowledge_privacy_notice: true,
       });
       // Kayıt oturum açmaz (202, hesap varlığı sızdırılmaz): girişe yönlendirilir.
       router.push('/giris?kayit=1');
     } catch (error) {
+      if (error instanceof ApiError && error.code === 'legal-version-stale') {
+        // Form açıkken belgeler güncellendi: yeni sürüm okunmadan kabul kaydı oluşmaz.
+        form.setValue('acceptTerms', false);
+        form.setValue('acknowledgePrivacy', false);
+        void loadVersions();
+        setServerError(
+          'Kullanım koşulları ya da aydınlatma metni güncellendi. Güncel sürümleri okuyup kutuları yeniden işaretleyin.',
+        );
+        return;
+      }
       // 422 "weak-password": parola sızmış listesinde; diğer 422'ler alan doğrulamasıdır.
       const fallback =
         error instanceof ApiError && error.code === 'weak-password'
@@ -85,7 +124,14 @@ export function RegisterForm() {
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
-          <FormError message={serverError} />
+          <FormError
+            message={
+              serverError ??
+              (versionsFailed
+                ? 'Belge sürümleri alınamadı. Sayfayı yenileyip tekrar deneyin.'
+                : null)
+            }
+          />
           <FormField
             control={form.control}
             name="email"
@@ -166,8 +212,10 @@ export function RegisterForm() {
                     >
                       Kullanım koşullarını
                     </Link>{' '}
-                    <span className="text-muted-foreground">(yeni sekmede açılır)</span> okudum,
-                    kabul ediyorum.
+                    <span className="text-muted-foreground">
+                      (yeni sekmede açılır{versions ? `; sürüm ${versions.terms}` : ''})
+                    </span>{' '}
+                    okudum, kabul ediyorum.
                   </FormLabel>
                 </div>
                 <FormMessage />
@@ -201,7 +249,10 @@ export function RegisterForm() {
                     >
                       Aydınlatma metnini
                     </Link>{' '}
-                    <span className="text-muted-foreground">(yeni sekmede açılır)</span> okudum.
+                    <span className="text-muted-foreground">
+                      (yeni sekmede açılır{versions ? `; sürüm ${versions.privacy}` : ''})
+                    </span>{' '}
+                    okudum.
                   </FormLabel>
                 </div>
                 {/* Aydınlatma bir bilgilendirmedir: bu kutu açık rıza değil, okuduğunuzun kaydıdır (KVKK m.10). */}

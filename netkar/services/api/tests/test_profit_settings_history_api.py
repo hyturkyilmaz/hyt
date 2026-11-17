@@ -31,7 +31,7 @@ from app.models import VariableExpenseRecord
 from app.services import profit_settings as ps
 from app.services import profit_views as views
 from app.services.profit_report import period_profit
-from tests.conftest import Api, DatabaseInfo
+from tests.conftest import Api, DatabaseInfo, legal_loss_flag
 from tests.product_cost_helpers import Shop, fixed_today, make_shop_factory  # noqa: F401
 from tests.report_helpers import seed_basic
 from tests.test_profit_settings_api import (
@@ -933,7 +933,7 @@ def test_moved_headless_account_has_a_stamp_and_the_first_replace_is_200_not_500
 ) -> None:
     """Denetim YT-03 PoC A.7'nin tersi: 0007 şemasında başlıksız satır; upgrade sonrası damga 1, değiştirme 200."""
     # Kayıtlı kullanıcı kabul kaydı taşır; 0021 downgrade'i ispat verisi için durur (bu test o veriyi önemsemez).
-    monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", "1")
+    monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", legal_loss_flag(admin_conn))
     try:
         command.downgrade(alembic_cfg, "0007")
         admin_conn.execute(

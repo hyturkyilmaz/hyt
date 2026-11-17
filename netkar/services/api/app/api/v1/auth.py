@@ -160,6 +160,21 @@ async def register(
 
     IP sınırı gövde ayrıştırılmadan önce `IpRateLimitMiddleware` içinde uygulanır.
     """
+    # Sürüm yarışı: kullanıcının gördüğü sürümler güncel olmalı. Hesabın var olup olmamasından bağımsız,
+    # herkes için aynı denetim (numaralandırma sızıntısı yok); gönderilen sürüm kabul kaydına yazılmaz,
+    # yalnız güncel olduğu doğrulanır ve kayıt anındaki güncel satırlar yazılır.
+    current_docs = await legal_service.current_documents(db)
+    seen = {
+        legal_service.DocType.TERMS: body.terms_version,
+        legal_service.DocType.PRIVACY_NOTICE: body.privacy_notice_version,
+    }
+    if {d.doc_type: d.version for d in current_docs} != seen:
+        raise ProblemError(
+            409,
+            "Belge sürümü güncel değil",
+            "legal-version-stale",
+            "Kullanım koşulları ya da aydınlatma metni güncellendi. Sayfayı yenileyip güncel sürümü okuyun.",
+        )
     # Zamanlama farkını gizlemek için özet her durumda hesaplanır (iş parçacığı havuzunda).
     password_hash = await passwords.hash(body.password)
     if await pwned.is_pwned(body.password):
@@ -191,7 +206,7 @@ async def register(
         )
         # Kayıt onayı (zorunlu onay kutuları): kullanım koşulları ve aydınlatma metninin kayıt anındaki güncel
         # sürümü hesapla aynı işlemde kaydedilir (ya hepsi ya hiçbiri). IP/aracı bilgisi yazılmaz.
-        await legal_service.record_acceptance(db, user_id, await legal_service.current_documents(db))
+        await legal_service.record_acceptance(db, user_id, current_docs)
         # Doğrulama bağlantısı hesapla aynı işlemde üretilir; ham token yalnız e-postada bulunur.
         verify_token = await auth_service.create_email_verification(
             db, user_id, settings.email_verification_ttl_hours * 60

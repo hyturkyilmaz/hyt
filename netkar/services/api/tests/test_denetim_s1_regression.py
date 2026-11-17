@@ -110,6 +110,8 @@ def test_y01_distinct_real_clients_do_not_consume_each_others_limit(
                 "email": "kurban@example.com",
                 "password": GOOD_PASSWORD,
                 "tenant_name": "Kurban",
+                "terms_version": "taslak-2026-11",
+                "privacy_notice_version": "taslak-2026-11",
                 "accept_terms": True,
                 "acknowledge_privacy_notice": True,
             },

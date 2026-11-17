@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.db.session import create_engine
 from app.services.report_cache import report_data_version
 from app.services.sync import store
-from tests.conftest import Api, DatabaseInfo
+from tests.conftest import Api, DatabaseInfo, legal_loss_flag
 from tests.product_cost_helpers import B1, B2, Shop, csv_bytes, make_shop_factory, upload
 from tests.report_helpers import seed_basic
 from tests.sync_fixtures import Env
@@ -448,8 +448,8 @@ def test_migration_0013_downgrade_restores_the_0012_state_without_losing_data_an
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Kayıtlı kullanıcı kabul kaydı taşır; 0021 downgrade'i ispat verisi için durur (bu test o veriyi önemsemez).
-    monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", "1")
     shop = make_shop_factory(make_api, admin_conn)("a@example.com", "Mağaza A")
+    monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", legal_loss_flag(admin_conn))
     seed_basic(admin_conn, shop)
     before = revision(admin_conn, shop.account_id)
     assert before >= 1
