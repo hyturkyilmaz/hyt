@@ -84,7 +84,7 @@ def test_enable_returns_ten_codes_once_and_stores_only_keyed_hashes(
     assert stored == expected
     assert recovery_code_hash(master, UUID(int=1), codes[0].replace("-", "")) not in stored
     audit = admin_conn.execute("SELECT meta FROM audit_log WHERE action = 'auth.totp_enabled'").fetchone()
-    assert audit is not None and audit[0] == {"recovery_codes": 10}
+    assert audit is not None and audit[0] == {"recovery_codes": 10, "other_sessions_revoked": 0}
     assert not any(c in str(audit) for c in codes)
 
 
@@ -108,17 +108,21 @@ def test_setup_and_enable_require_the_current_password(
     assert actions.count("auth.reauth_failed") == 2
 
 
-def test_failed_reauth_is_rate_limited_and_locks_through_existing_machinery(
-    make_api: Callable[..., Api], admin_conn: psycopg.Connection
+def test_password_failures_rate_limited_but_never_touch_the_login_lock(
+    make_api: Callable[..., Api], clock: FakeClock, admin_conn: psycopg.Connection
 ) -> None:
-    api = make_api(totp_max_failures=3, rate_limit_totp_user=50)
+    """Çalınmış çerezle yanlış parola denemek kurbanın girişini kilitleyemez (DoS yok); yalnız hız sınırı işler."""
+    api = make_api(rate_limit_totp_user=4, totp_max_failures=2)
     api.signup_and_login("kilit@example.com")
     bad = {"password": "yanlis-parola-1234"}
-    assert [api.post("/v1/auth/totp/setup", bad).status_code for _ in range(3)] == [403, 403, 403]
-    locked = api.post("/v1/auth/totp/setup", PW)  # doğru parola bile kilitliyken kabul edilmez
-    assert locked.status_code == 429 and locked.json()["type"].endswith("totp-locked")
-    assert int(locked.headers["retry-after"]) > 0
-    assert admin_conn.execute("SELECT totp_locked_until > now() FROM users").fetchone() == (True,)
+    assert [api.post("/v1/auth/totp/setup", bad).status_code for _ in range(4)] == [403] * 4
+    assert api.post("/v1/auth/totp/setup", PW).status_code == 429  # hız sınırı (doğru parola bile)
+    assert admin_conn.execute("SELECT totp_failed_count, totp_locked_until FROM users").fetchone() == (
+        0,
+        None,
+    )
+    other = make_api()
+    assert other.login("kilit@example.com").json() == {"status": "ok"}  # giriş etkilenmedi
 
     limited = make_api(rate_limit_totp_user=2, totp_max_failures=100)
     limited.signup_and_login("hiz@example.com")
@@ -126,6 +130,19 @@ def test_failed_reauth_is_rate_limited_and_locks_through_existing_machinery(
         limited.post("/v1/auth/totp/setup", {"password": "yanlis-parola-1234"}).status_code for _ in range(4)
     ]
     assert statuses == [403, 403, 429, 429]
+
+
+def test_second_factor_failures_in_reauth_feed_the_login_lock(
+    make_api: Callable[..., Api], clock: FakeClock, admin_conn: psycopg.Connection
+) -> None:
+    api, secret, _ = _user(
+        make_api, clock, "kod-kilit@example.com", totp_max_failures=3, rate_limit_totp_user=50
+    )
+    wrong = {**PW, "code": _wrong(clock, secret)}
+    assert [api.post("/v1/auth/totp/disable", wrong).status_code for _ in range(3)] == [403, 403, 403]
+    locked = api.post("/v1/auth/totp/disable", {**PW, "code": clock.code(secret)})
+    assert locked.status_code == 429 and locked.json()["type"].endswith("totp-locked")
+    assert admin_conn.execute("SELECT totp_locked_until > now() FROM users").fetchone() == (True,)
 
 
 # --- girişte kurtarma kodu --------------------------------------------------------------------------
@@ -473,3 +490,175 @@ def test_legacy_unverified_totp_rows_are_untouched_by_the_trigger_and_rule_stays
     assert admin_conn.execute(
         "SELECT count(*) FROM users WHERE email_verified_at IS NULL AND totp_enabled"
     ).fetchone() == (1,)  # yalnız taklit edilen eski satır
+
+
+# --- inceleme turu 1 ------------------------------------------------------------------------------------
+def _notices(outbox: Any, email: str) -> list[Any]:
+    return [m for m in outbox.to(email) if "güvenliği bildirimi" in m.subject]
+
+
+def test_mfa_changes_and_recovery_login_send_a_notice_without_secrets(
+    make_api: Callable[..., Api], clock: FakeClock, outbox: Any
+) -> None:
+    email = "bildirim@example.com"
+    api, secret, codes = _user(make_api, clock, email)
+    assert len(_notices(outbox, email)) == 1  # etkinleştirme
+    assert api.post("/v1/auth/totp/recovery-codes", {**PW, "code": clock.code(secret)}).status_code == 200
+    clock.advance(30)
+    fresh = _notices(outbox, email)
+    assert len(fresh) == 2
+    api.post("/v1/auth/logout")
+    other = make_api()
+    other.login(email)
+    assert other.post("/v1/auth/totp/verify", {"code": clock.code(secret)}).status_code == 200
+    assert len(_notices(outbox, email)) == 2  # TOTP girişi bildirim üretmez
+    clock.advance(30)
+    assert other.post("/v1/auth/totp/disable", {**PW, "code": clock.code(secret)}).status_code == 204
+    messages = _notices(outbox, email)
+    assert len(messages) == 3
+    kinds = [m.body.split("\n")[0] for m in messages]
+    assert "etkinleştirildi" in kinds[0] and "yenilendi" in kinds[1] and "kapatıldı" in kinds[2]
+    for message in messages:
+        assert message.to == email
+        assert "/sifre-sifirla" in message.body and "siz yapmadıysanız" in message.body
+        assert re.search(r"Zaman: \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC", message.body)
+        assert not any(c in message.body for c in codes) and secret not in message.body
+        assert "testclient" not in message.body and "127.0.0.1" not in message.body
+
+
+def test_recovery_code_login_sends_a_notice(
+    make_api: Callable[..., Api], clock: FakeClock, outbox: Any
+) -> None:
+    email = "kurtarma-bildirim@example.com"
+    owner, _, codes = _user(make_api, clock, email)
+    owner.post("/v1/auth/logout")
+    api = make_api()
+    api.login(email)
+    before = len(_notices(outbox, email))
+    assert api.post("/v1/auth/totp/verify", {"code": codes[0]}).status_code == 200
+    messages = _notices(outbox, email)
+    assert len(messages) == before + 1 and "kurtarma kodu kullanıldı" in messages[-1].body
+    assert codes[0] not in messages[-1].body
+
+
+def test_notice_failure_does_not_break_the_operation(
+    make_api: Callable[..., Api], clock: FakeClock, outbox: Any, admin_conn: psycopg.Connection
+) -> None:
+    async def boom(message: Any) -> None:
+        raise RuntimeError("e-posta servisi çöktü")
+
+    api = make_api()
+    api.signup_and_login("coken@example.com")
+    outbox.send = boom  # kayıt sonrası: bildirim gönderimi çöker
+    secret, _ = _enable(api, clock)
+    assert api.get("/v1/me").json()["totp_enabled"] is True  # etkinleştirme bildirim hatasına rağmen tamam
+    assert api.post("/v1/auth/totp/disable", {**PW, "code": clock.code(secret)}).status_code == 204
+    assert admin_conn.execute("SELECT totp_enabled FROM users").fetchone() == (False,)
+
+
+def test_enable_revokes_other_sessions(make_api: Callable[..., Api], clock: FakeClock) -> None:
+    first = make_api()
+    first.signup_and_login("etkin@example.com")
+    other = make_api()
+    assert other.login("etkin@example.com").json() == {"status": "ok"}
+    assert other.get("/v1/me").status_code == 200
+    _enable(first, clock)
+    assert first.get("/v1/me").status_code == 200 and other.get("/v1/me").status_code == 401
+
+
+def test_regenerate_rejects_recovery_codes_as_second_factor(
+    make_api: Callable[..., Api], clock: FakeClock, admin_conn: psycopg.Connection
+) -> None:
+    api, secret, codes = _user(make_api, clock, "sadece-totp@example.com")
+    rejected = api.post("/v1/auth/totp/recovery-codes", {**PW, "code": codes[0]})
+    assert rejected.status_code == 422
+    assert admin_conn.execute(
+        "SELECT count(*) FROM mfa_recovery_codes WHERE used_at IS NOT NULL"
+    ).fetchone() == (0,)
+    assert api.post("/v1/auth/totp/recovery-codes", {**PW, "code": clock.code(secret)}).status_code == 200
+
+
+async def test_concurrent_regenerations_leave_exactly_ten_active_codes(
+    make_api: Callable[..., Api], clock: FakeClock, database: DatabaseInfo, admin_conn: psycopg.Connection
+) -> None:
+    from app.services.auth import replace_recovery_codes
+
+    owner, _, _ = _user(make_api, clock, "es-zamanli@example.com")
+    me = owner.get("/v1/me").json()
+    user_id, tenant_id = UUID(me["user_id"]), UUID(me["tenant"]["id"])
+    engine = create_async_engine(database.app_url.render_as_string(hide_password=False))
+    try:
+
+        async def regenerate(tag: str) -> None:
+            async with engine.connect() as conn:
+                session = AsyncSession(bind=conn)
+                await set_rls_context(session, tenant_id, user_id)
+                await replace_recovery_codes(
+                    session, user_id, [f"{tag}{i:02d}".ljust(64, "0") for i in range(10)]
+                )
+                await asyncio.sleep(0.2)  # kilit yoksa diğer işlem bu aralıkta kendi satırlarını ekler
+                await session.commit()
+
+        await asyncio.gather(regenerate("a"), regenerate("b"))
+    finally:
+        await engine.dispose()
+    assert admin_conn.execute(
+        "SELECT count(*) FROM mfa_recovery_codes WHERE used_at IS NULL AND revoked_at IS NULL"
+    ).fetchone() == (10,)
+
+
+def test_recovery_code_marks_are_immutable(
+    make_api: Callable[..., Api], clock: FakeClock, database: DatabaseInfo
+) -> None:
+    api, _, _ = _user(make_api, clock, "degismez@example.com")
+    uid = api.get("/v1/me").json()["user_id"]
+    api.post("/v1/auth/logout")
+    with psycopg.connect(database.app_dsn()) as conn:
+
+        def ctx() -> None:
+            conn.execute("SELECT set_config('app.user_id', %s, true)", (uid,))
+
+        ctx()
+        conn.execute(
+            "UPDATE mfa_recovery_codes SET used_at = now() WHERE id = (SELECT id FROM mfa_recovery_codes LIMIT 1)"
+        )
+        conn.execute("UPDATE mfa_recovery_codes SET revoked_at = now() WHERE used_at IS NULL")
+        conn.commit()
+        for statement in (
+            "UPDATE mfa_recovery_codes SET used_at = NULL WHERE used_at IS NOT NULL",
+            "UPDATE mfa_recovery_codes SET revoked_at = NULL WHERE revoked_at IS NOT NULL",
+            "UPDATE mfa_recovery_codes SET used_at = now() + interval '1 day' WHERE used_at IS NOT NULL",
+        ):
+            ctx()
+            with pytest.raises(psycopg.errors.CheckViolation):
+                conn.execute(statement)
+            conn.rollback()
+
+
+def test_migration_0020_is_reversible_and_hardens_search_path(
+    alembic_cfg: Config, admin_conn: psycopg.Connection
+) -> None:
+    def search_path() -> list[str]:
+        row = admin_conn.execute(
+            "SELECT p.proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+            "WHERE n.nspname = 'auth_gate' AND p.proname = 'revoke_other_sessions'"
+        ).fetchone()
+        assert row is not None
+        return [c for c in row[0] if c.startswith("search_path=")]
+
+    def trigger() -> bool:
+        return (
+            admin_conn.execute(
+                "SELECT 1 FROM pg_trigger WHERE tgname = 'mfa_recovery_codes_immutable_marks'"
+            ).fetchone()
+            is not None
+        )
+
+    assert trigger() and search_path()[0].endswith("pg_temp")
+    command.downgrade(alembic_cfg, "0019")
+    assert not trigger() and "pg_temp" not in search_path()[0]
+    assert admin_conn.execute(
+        "SELECT has_function_privilege('netkar_app', 'auth_gate.revoke_other_sessions(uuid, uuid)', 'EXECUTE')"
+    ).fetchone() == (True,)
+    command.upgrade(alembic_cfg, "head")
+    assert trigger() and search_path()[0].endswith("pg_temp")

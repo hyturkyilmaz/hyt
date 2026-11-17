@@ -106,6 +106,7 @@ export function SecurityView({
 
         {view.kind === 'regenerate' ? (
           <TotpManageForm
+            totpOnly
             title="Kurtarma kodlarını yenile"
             description="Yeni 10 kod üretilir, eski kodlar geçersiz olur. Güvenlik için bu cihaz dışındaki tüm oturumlar kapatılır."
             submitLabel="Yeni kodlar üret"

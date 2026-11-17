@@ -19,7 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { describeMfaError } from '@/lib/security/mfa-errors';
-import { mfaChangeSchema, type MfaChangeValues } from '@/lib/validation/auth';
+import { mfaChangeSchema, mfaTotpOnlySchema, type MfaChangeValues } from '@/lib/validation/auth';
 
 /**
  * TOTP açıkken yapılan değişiklikler (kapatma, kurtarma kodlarını yenileme) için ortak form:
@@ -33,6 +33,7 @@ export function TotpManageForm({
   failureMessage,
   onSubmit,
   onCancel,
+  totpOnly = false,
 }: {
   title: string;
   description: string;
@@ -41,10 +42,12 @@ export function TotpManageForm({
   failureMessage: string;
   onSubmit: (values: MfaChangeValues) => Promise<void>;
   onCancel: () => void;
+  /** true: yalnız uygulamadaki 6 haneli kod kabul edilir (kurtarma kodu yenileme) */
+  totpOnly?: boolean;
 }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<MfaChangeValues>({
-    resolver: zodResolver(mfaChangeSchema),
+    resolver: zodResolver(totpOnly ? mfaTotpOnlySchema : mfaChangeSchema),
     defaultValues: { password: '', code: '' },
   });
   const { isSubmitting } = form.formState;
@@ -86,19 +89,24 @@ export function TotpManageForm({
           name="code"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Doğrulama ya da kurtarma kodu</FormLabel>
+              <FormLabel>
+                {totpOnly ? 'Doğrulama uygulaması kodu' : 'Doğrulama ya da kurtarma kodu'}
+              </FormLabel>
               <FormControl>
                 <Input
                   autoComplete="one-time-code"
                   autoCapitalize="characters"
                   spellCheck={false}
-                  maxLength={20}
+                  maxLength={totpOnly ? 6 : 20}
+                  inputMode={totpOnly ? 'numeric' : undefined}
                   className="num"
                   {...field}
                 />
               </FormControl>
               <FormDescription>
-                Uygulamadaki 6 haneli kodu ya da kullanılmamış bir kurtarma kodunu yazın.
+                {totpOnly
+                  ? 'Uygulamadaki güncel 6 haneli kodu yazın (kurtarma kodu burada kabul edilmez).'
+                  : 'Uygulamadaki 6 haneli kodu ya da kullanılmamış bir kurtarma kodunu yazın.'}
               </FormDescription>
               <FormMessage />
             </FormItem>

@@ -76,6 +76,13 @@ class TotpReauthRequest(_Strict):
     code: LoginCode
 
 
+class RecoveryCodesRegenerateRequest(_Strict):
+    """Kurtarma kodu yenileme: parola + YALNIZ güncel TOTP kodu (kurtarma kodu kabul edilmez)."""
+
+    password: LoginPassword
+    code: TotpCode
+
+
 class RecoveryCodesResponse(BaseModel):
     # Düz metin kodlar yalnız bu yanıtta, bir kez döner; sunucuda yalnız özeti saklanır.
     recovery_codes: list[str]

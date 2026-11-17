@@ -95,3 +95,14 @@ O-05 "kapandı (e-posta bildirimi ve destek süreci hariç)" olarak değerlendir
 - Madde 4 (kullanım koşulları sürüm kaydı), D-05 (token URL parçası), D-08 (e-posta arka ucu) bu dilimde yok.
 - e2e (Playwright) `/panel/guvenlik` için yazılmadı; gerçek API e2e'sinin TOTP adımı yeni sözleşmeye güncellendi ama bu ortamda koşulmadı.
 - Migrasyon downgrade'i `mfa_recovery_codes` tablosunu düşürür (özetler kaybolur; kullanıcılar kodları yeniden üretir).
+
+
+## Dilim 2, bağımsız inceleme turu 1 (0020)
+
+- **MFA bildirimi (ASVS V2.2.3), kapandı:** TOTP etkinleştirme, kapatma, kurtarma kodu yenileme ve kurtarma koduyla giriş sonrası kullanıcıya e-posta gider (`EmailSender` + `BackgroundTasks`, yanıttan sonra; gönderim hatası yutulur ve yalnız adressiz uyarı günlüğe yazılır). Gövde: işlem türü, UTC zamanı, `/sifre-sifirla` bağlantısı; kod ve IP yok. Testler: `test_mfa_changes_and_recovery_login_send_a_notice_without_secrets`, `test_recovery_code_login_sends_a_notice`, `test_notice_failure_does_not_break_the_operation`. Bu, önceki "e-posta bildirimi AÇIK" maddesini kapatır (gerçek e-posta arka ucu hâlâ yok, D-08).
+- **Düşük 1:** yeniden doğrulamada PAROLA hataları `totp_failed_count` ve giriş kilidine yazılmaz (çalınmış çerezle kurbanın girişini kilitleme DoS'u); yalnız `reauth:user` hız sınırı ve denetim kaydı işler. İkinci faktör hataları kilidi besler (parola gerektirdiği için çerezle tek başına tetiklenemez). Testler: `test_password_failures_rate_limited_but_never_touch_the_login_lock`, `test_second_factor_failures_in_reauth_feed_the_login_lock`.
+- **Düşük 2:** `replace_recovery_codes` kullanıcı satırını `FOR UPDATE` ile kilitler; `test_concurrent_regenerations_leave_exactly_ten_active_codes`.
+- **Düşük 3:** etkinleştirme de diğer oturumları iptal eder; `test_enable_revokes_other_sessions`.
+- **Düşük 4:** `/totp/recovery-codes` yalnız TOTP kabul eder (kurtarma kodu 422); kapatma kurtarma kodunu kabul etmeye devam eder. Web formu buna uyar.
+- **Düşük 5 (0020, 0019'a dokunulmadı):** `mfa_recovery_codes` BEFORE UPDATE tetikleyicisi, dolmuş `used_at`/`revoked_at` değiştirilemez (23514); `auth_gate.revoke_other_sessions` `search_path` sonuna `pg_temp`. Geri alınabilir; `test_migration_0020_is_reversible_and_hardens_search_path`, `test_recovery_code_marks_are_immutable`.
+- **Web:** `downloadTextFile` `revokeObjectURL`'i 1 sn erteler; kurtarma kodu doğrulaması yalnız boşluk ve tire ayracı kabul eder (backend ile aynı).

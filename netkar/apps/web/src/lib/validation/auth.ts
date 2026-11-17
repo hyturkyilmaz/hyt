@@ -65,7 +65,7 @@ const loginCode = z
   .min(1, 'Kodu yazın.')
   .refine((value) => {
     if (/^\d{6}$/.test(value)) return true;
-    const compact = value.replace(/[-\s]/g, '');
+    const compact = value.replace(/[- ]/g, '');
     return compact.length === RECOVERY_CODE_LENGTH && /^[A-Za-z0-9]+$/.test(compact);
   }, 'Doğrulama uygulamasındaki 6 haneli kodu ya da 12 karakterlik bir kurtarma kodunu yazın.');
 
@@ -76,8 +76,8 @@ export const recoveryCodeSchema = z.object({
     .min(1, 'Kurtarma kodunu yazın.')
     .refine(
       (value) =>
-        value.replace(/[-\s]/g, '').length === RECOVERY_CODE_LENGTH &&
-        /^[A-Za-z0-9\s-]+$/.test(value),
+        value.replace(/[- ]/g, '').length === RECOVERY_CODE_LENGTH &&
+        /^[A-Za-z0-9 -]+$/.test(value),
       'Kurtarma kodu 12 karakterdir. Örnek: ABCD-EFGH-JKLM',
     ),
 });
@@ -95,10 +95,16 @@ export const totpEnableSchema = z.object({
   code: twoFactorSchema.shape.code,
 });
 
-/** TOTP kapatma ve kurtarma kodu yenileme: parola + güncel kod. */
+/** TOTP kapatma: parola + güncel kod (TOTP ya da kurtarma kodu). */
 export const mfaChangeSchema = z.object({
   password: reauthSchema.shape.password,
   code: loginCode,
+});
+
+/** Kurtarma kodu yenileme: parola + YALNIZ güncel TOTP kodu (backend kurtarma kodunu kabul etmez). */
+export const mfaTotpOnlySchema = z.object({
+  password: reauthSchema.shape.password,
+  code: twoFactorSchema.shape.code,
 });
 
 export type RecoveryCodeValues = z.infer<typeof recoveryCodeSchema>;

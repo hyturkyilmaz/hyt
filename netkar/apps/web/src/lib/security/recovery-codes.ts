@@ -15,18 +15,18 @@ export function formatRecoveryCodesFile(codes: readonly string[], now: Date = ne
   ].join('\n');
 }
 
-/** Metni .txt olarak indirir (tarayıcıda, ağ isteği yok). Nesne adresi hemen serbest bırakılır. */
+const REVOKE_DELAY_MS = 1000;
+
+/** Metni .txt olarak indirir (tarayıcıda, ağ isteği yok). Nesne adresi kısa bir süre sonra serbest bırakılır. */
 export function downloadTextFile(filename: string, text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
-  try {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.rel = 'noopener';
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = 'noopener';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  // İndirme başlamadan adres serbest bırakılırsa bazı tarayıcılarda dosya boş/başarısız iner: serbest bırakma ertelenir.
+  setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
 }

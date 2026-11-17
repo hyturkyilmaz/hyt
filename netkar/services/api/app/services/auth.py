@@ -309,7 +309,11 @@ async def verify_account_password(
 
 
 async def replace_recovery_codes(db: AsyncSession, user_id: UUID, code_hashes: list[str]) -> None:
-    """Önceki etkin kodları geçersiz kılar (silmez) ve yenilerini ekler. RLS bağlamı ayarlı olmalı."""
+    """Önceki etkin kodları geçersiz kılar (silmez) ve yenilerini ekler. RLS bağlamı ayarlı olmalı.
+
+    Kullanıcı satırı önce kilitlenir: eşzamanlı iki yenileme sırayla çalışır, 20 etkin kod kalmaz.
+    """
+    await db.execute(text("SELECT id FROM users WHERE id = :u FOR UPDATE"), {"u": user_id})
     await db.execute(
         text(
             "UPDATE mfa_recovery_codes SET revoked_at = now() "

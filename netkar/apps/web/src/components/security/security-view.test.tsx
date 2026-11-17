@@ -303,7 +303,13 @@ describe('Güvenlik ayarları: açıkken', () => {
     render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={1} />);
     await user.click(screen.getByRole('button', { name: 'Kurtarma kodlarını yenile' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
-    await user.type(screen.getByLabelText('Doğrulama ya da kurtarma kodu'), '123456');
+    // Yenilemede yalnız TOTP kodu kabul edilir: kurtarma kodu biçimi istemcide reddedilir
+    const codeInput = screen.getByLabelText('Doğrulama uygulaması kodu');
+    await user.type(codeInput, 'abcd-efgh');
+    await user.click(screen.getByRole('button', { name: 'Yeni kodlar üret' }));
+    expect(await screen.findByText(/6 haneli olmalı/)).toBeInTheDocument();
+    await user.clear(codeInput);
+    await user.type(codeInput, '123456');
     await user.click(screen.getByRole('button', { name: 'Yeni kodlar üret' }));
     const list = await screen.findByRole('list', { name: 'Kurtarma kodları' });
     expect(within(list).getAllByRole('listitem')).toHaveLength(10);

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -29,6 +30,7 @@ from app.api.v1.schemas import (
     PasswordResetConfirm,
     PasswordResetRequest,
     ReauthRequest,
+    RecoveryCodesRegenerateRequest,
     RecoveryCodesResponse,
     RegisterRequest,
     StatusResponse,
@@ -46,7 +48,7 @@ from app.core.cookies import (
     set_session_cookie,
 )
 from app.core.crypto import DecryptionError, FieldCipher
-from app.core.email import EmailMessage
+from app.core.email import EmailMessage, EmailSender
 from app.core.errors import ProblemError
 from app.core.middleware import CSRF_COOKIE, is_valid_csrf_format, new_csrf_token
 from app.core.ratelimit import RateLimiter, digest
@@ -67,6 +69,8 @@ from app.services import auth as auth_service
 from app.services.audit import record_audit
 from app.services.auth import AuthContext
 
+log = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _WINDOW_LOGIN = 15 * 60
@@ -81,6 +85,38 @@ def _web_link(settings: Settings, path: str, token: str | None = None) -> str:
 
 def _digest(settings: Settings, purpose: str, value: str) -> str:
     return digest(settings.master_key, purpose, value)
+
+
+async def _send_quietly(sender: EmailSender, message: EmailMessage) -> None:
+    """Bildirim e-postasını gönderir; hata işlemi bozmaz (yanıt çoktan verilmiştir), yalnız günlüğe yazılır."""
+    try:
+        await sender.send(message)
+    except Exception:
+        # Alıcı adresi ve gövde günlüğe yazılmaz (kişisel veri).
+        log.warning("MFA bildirim e-postası gönderilemedi")
+
+
+def _queue_mfa_notice(
+    background: BackgroundTasks, sender: EmailSender, settings: Settings, to: str, what: str
+) -> None:
+    """MFA değişikliği/kurtarma kodu kullanımı bildirimi (ASVS V2.2.3). Yalnız işlem türü ve UTC zamanı yazılır.
+
+    Kod, IP ve başka kişisel veri gövdeye girmez. Gönderim yanıttan sonra, hata yutularak yapılır.
+    """
+    when = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    background.add_task(
+        _send_quietly,
+        sender,
+        EmailMessage(
+            to=to,
+            subject=f"{settings.product_name}: hesap güvenliği bildirimi",
+            body=(
+                f"Hesabınızda şu işlem yapıldı: {what}\nZaman: {when}\n"
+                "Bu işlemi siz yapmadıysanız hemen parolanızı sıfırlayın (tüm oturumlar kapanır): "
+                f"{_web_link(settings, '/sifre-sifirla')}"
+            ),
+        ),
+    )
 
 
 def _invalid_credentials() -> ProblemError:
@@ -259,6 +295,8 @@ async def totp_verify(
     settings: SettingsDep,
     limiter: RateLimiterDep,
     cipher: CipherDep,
+    background: BackgroundTasks,
+    sender: EmailSenderDep,
 ) -> StatusResponse:
     """Girişte ikinci adım: bekleyen çerez + 6 haneli TOTP kodu YA DA tek kullanımlık kurtarma kodu.
 
@@ -336,6 +374,10 @@ async def totp_verify(
             meta={"remaining": await auth_service.count_recovery_codes(db, user_id)},
         )
         await _start_session(request, response, db, settings, user_id, tenant_id, "auth.login_recovery")
+        if user is not None:
+            _queue_mfa_notice(
+                background, sender, settings, user.email, "girişte bir kurtarma kodu kullanıldı"
+            )
     else:
         await _start_session(request, response, db, settings, user_id, tenant_id, "auth.login_totp")
     return StatusResponse(status="ok")
@@ -396,30 +438,31 @@ async def _reauth_failed(
     factor: str,
     status: int = 403,
 ) -> ProblemError:
-    """Başarısız yeniden doğrulamayı mevcut kilit sayacına işler, denetim kaydı yazar, hatayı döndürür.
+    """Başarısız yeniden doğrulamayı işler (ikinci faktör hatası kilit sayacına), denetim kaydı yazar, hatayı döndürür.
 
     403 verilir (401 değil): web istemcisi 401'i "oturum bitti" sayıp girişe yönlendirir; burada oturum geçerlidir.
     """
-    count, locked_until = await auth_service.register_totp_failure(
-        db, ctx.user_id, settings.totp_max_failures, settings.totp_lock_seconds
-    )
     ip_hash = ip_hash_for(request, settings)
-    if locked_until is not None:
-        await record_audit(
-            db,
-            ctx.tenant_id,
-            "auth.totp_locked",
-            user_id=ctx.user_id,
-            ip_hash=ip_hash,
-            meta={"lock_seconds": settings.totp_lock_seconds},
+    meta: dict[str, object] = {"factor": factor}
+    if factor != "password":
+        # Yalnız İKİNCİ FAKTÖR hataları giriş kilidini besler. Parola hataları kilide yazılmaz: çalınmış oturum
+        # çerezi olan biri yanlış parolalarla kurbanın girişini kilitleyemesin. Parola denemesi `reauth:user`
+        # hız sınırıyla sınırlıdır.
+        count, locked_until = await auth_service.register_totp_failure(
+            db, ctx.user_id, settings.totp_max_failures, settings.totp_lock_seconds
         )
+        meta["failures"] = count
+        if locked_until is not None:
+            await record_audit(
+                db,
+                ctx.tenant_id,
+                "auth.totp_locked",
+                user_id=ctx.user_id,
+                ip_hash=ip_hash,
+                meta={"lock_seconds": settings.totp_lock_seconds},
+            )
     await record_audit(
-        db,
-        ctx.tenant_id,
-        "auth.reauth_failed",
-        user_id=ctx.user_id,
-        ip_hash=ip_hash,
-        meta={"factor": factor, "failures": count},
+        db, ctx.tenant_id, "auth.reauth_failed", user_id=ctx.user_id, ip_hash=ip_hash, meta=meta
     )
     await db.commit()
     return ProblemError(
@@ -442,11 +485,13 @@ async def _reauthenticate(
     code: str | None = None,
     *,
     need_code: bool = False,
+    totp_only: bool = False,
 ) -> User:
     """MFA ayarı değişikliği öncesi yeniden kimlik doğrulama (ASVS V2.5, V7.5; denetim O-05).
 
     Güncel parola her zaman istenir; `need_code` (TOTP kapatma, kod yenileme) ve hesapta TOTP etkinse `code`
-    (güncel TOTP ya da kurtarma kodu) da doğrulanmalıdır. Kurulum/etkinleştirme yalnız parola ister (TOTP henüz yok). Kullanıcı başına hız sınırı ve ardışık hata kilidi girişteki TOTP altyapısını paylaşır.
+    (güncel TOTP ya da kurtarma kodu) da doğrulanmalıdır. Kurulum/etkinleştirme yalnız parola ister (TOTP henüz yok). `totp_only`: kurtarma kodu kabul edilmez.
+    Kullanıcı başına hız sınırı vardır; ikinci faktör hataları girişteki TOTP kilidini paylaşır, parola hataları paylaşmaz.
     Başarıda kullanıcı satırı döner; kurtarma kodu/TOTP adımı bu işlemde tüketilmiştir (çağıran commit eder).
     """
     await limiter.hit(
@@ -462,6 +507,8 @@ async def _reauthenticate(
     if not need_code or not user.totp_enabled:
         return user
     if code is None:
+        raise await _reauth_failed(request, ctx, db, settings, "code")
+    if totp_only and not _is_totp_code(code):
         raise await _reauth_failed(request, ctx, db, settings, "code")
     if _is_totp_code(code):
         secret = _decrypt_secret(cipher, user)
@@ -535,6 +582,8 @@ async def totp_enable(
     cipher: CipherDep,
     limiter: RateLimiterDep,
     passwords: PasswordsDep,
+    background: BackgroundTasks,
+    sender: EmailSenderDep,
 ) -> RecoveryCodesResponse:
     """Parola + kullanıcının ürettiği kodu doğrulayıp TOTP'yi etkinleştirir; 10 kurtarma kodunu BİR KEZ döndürür."""
     user = await _reauthenticate(request, ctx, db, settings, limiter, passwords, cipher, body.password)
@@ -566,15 +615,18 @@ async def totp_enable(
         .values(totp_enabled=True, totp_last_step=step, totp_failed_count=0, totp_locked_until=None)
     )
     codes = await _issue_recovery_codes(db, settings, ctx.user_id)
+    # Yeni ikinci faktör devreye girerken diğer oturumlar da kapanır (çalınmış oturum ikinci faktörsüz kalmasın).
+    revoked = await auth_service.revoke_other_sessions(db, ctx.user_id, ctx.session_id)
     await record_audit(
         db,
         ctx.tenant_id,
         "auth.totp_enabled",
         user_id=ctx.user_id,
         ip_hash=ip_hash_for(request, settings),
-        meta={"recovery_codes": len(codes)},
+        meta={"recovery_codes": len(codes), "other_sessions_revoked": revoked},
     )
     await db.commit()
+    _queue_mfa_notice(background, sender, settings, user.email, "iki adımlı doğrulama (TOTP) etkinleştirildi")
     return RecoveryCodesResponse(recovery_codes=codes)
 
 
@@ -588,6 +640,8 @@ async def totp_disable(
     cipher: CipherDep,
     limiter: RateLimiterDep,
     passwords: PasswordsDep,
+    background: BackgroundTasks,
+    sender: EmailSenderDep,
 ) -> Response:
     """TOTP'yi kapatır: güncel parola + güncel TOTP (ya da kurtarma) kodu ister; diğer tüm oturumlar iptal edilir.
 
@@ -620,12 +674,13 @@ async def totp_disable(
         meta={"other_sessions_revoked": revoked},
     )
     await db.commit()
+    _queue_mfa_notice(background, sender, settings, user.email, "iki adımlı doğrulama (TOTP) kapatıldı")
     return Response(status_code=204)
 
 
 @router.post("/totp/recovery-codes", response_model=RecoveryCodesResponse)
 async def recovery_codes_regenerate(
-    body: TotpReauthRequest,
+    body: RecoveryCodesRegenerateRequest,
     request: Request,
     ctx: VerifiedAuthDep,
     db: DbDep,
@@ -633,10 +688,22 @@ async def recovery_codes_regenerate(
     cipher: CipherDep,
     limiter: RateLimiterDep,
     passwords: PasswordsDep,
+    background: BackgroundTasks,
+    sender: EmailSenderDep,
 ) -> RecoveryCodesResponse:
-    """Kurtarma kodlarını yeniler (eskiler geçersiz olur): güncel parola + TOTP kodu ister; diğer oturumları iptal eder."""
+    """Kurtarma kodlarını yeniler (eskiler geçersiz olur): güncel parola + güncel TOTP kodu ister (kurtarma kodu kabul edilmez); diğer oturumları iptal eder."""
     user = await _reauthenticate(
-        request, ctx, db, settings, limiter, passwords, cipher, body.password, body.code, need_code=True
+        request,
+        ctx,
+        db,
+        settings,
+        limiter,
+        passwords,
+        cipher,
+        body.password,
+        body.code,
+        need_code=True,
+        totp_only=True,
     )
     if not user.totp_enabled:
         raise ProblemError(409, "Çakışma", "totp-not-enabled", "TOTP etkin değil.")
@@ -651,6 +718,7 @@ async def recovery_codes_regenerate(
         meta={"recovery_codes": len(codes), "other_sessions_revoked": revoked},
     )
     await db.commit()
+    _queue_mfa_notice(background, sender, settings, user.email, "kurtarma kodları yenilendi")
     return RecoveryCodesResponse(recovery_codes=codes)
 
 
