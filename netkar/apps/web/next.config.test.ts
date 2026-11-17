@@ -21,4 +21,15 @@ describe('next.config', () => {
       { source: '/api/v1/:path*', destination: expect.stringMatching(/\/v1\/:path\*$/) },
     ]);
   });
+
+  it('e-posta doğrulama yolu no-referrer ve no-store başlıkları taşır', async () => {
+    const rules = (await nextConfig.headers?.()) ?? [];
+    const rule = rules.find((r) => r.source === '/e-posta-dogrula');
+    expect(rule?.headers).toEqual(
+      expect.arrayContaining([
+        { key: 'Referrer-Policy', value: 'no-referrer' },
+        { key: 'Cache-Control', value: 'no-store' },
+      ]),
+    );
+  });
 });

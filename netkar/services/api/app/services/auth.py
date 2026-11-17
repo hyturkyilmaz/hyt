@@ -213,12 +213,18 @@ async def create_email_verification(db: AsyncSession, user_id: UUID, ttl_minutes
     return token if created else None
 
 
-async def consume_email_verification(db: AsyncSession, token: str) -> tuple[UUID, UUID | None] | None:
-    """Token geçerliyse e-postayı doğrulanmış işaretler. Dönüş: (user_id, tenant_id) veya None."""
+async def consume_email_verification(
+    db: AsyncSession, token: str, user_id: UUID
+) -> tuple[UUID, UUID | None] | None:
+    """Token geçerliyse VE `user_id`'ye aitse e-postayı doğrulanmış işaretler.
+
+    Başkasının token'ı tüketilmez ve sonuç geçersiz token ile aynıdır (None). Dönüş: (user_id, tenant_id).
+    """
     row = (
         (
             await db.execute(
-                text("SELECT * FROM auth_gate.consume_email_verification(:h)"), {"h": hash_token(token)}
+                text("SELECT * FROM auth_gate.consume_email_verification(:h, :u)"),
+                {"h": hash_token(token), "u": user_id},
             )
         )
         .mappings()

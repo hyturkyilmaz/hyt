@@ -533,7 +533,10 @@ async def _register_user(
         # Demo hesabı uydurma adrestedir (e-posta gitmez): doğrulama, API ile aynı auth_gate yolundan işaretlenir;
         # aksi halde demo kullanıcısı yazma uçlarında 403 email-not-verified alırdı.
         verify_token = await auth_service.create_email_verification(db, user_id, 5)
-        if verify_token is None or await auth_service.consume_email_verification(db, verify_token) is None:
+        if (
+            verify_token is None
+            or await auth_service.consume_email_verification(db, verify_token, user_id) is None
+        ):
             raise DemoGuardError(f"{email} için e-posta doğrulaması işaretlenemedi; dokunulmadı")
         await set_rls_context(db, tenant_id, user_id)
         await record_audit(db, tenant_id, "demo_seed.tenant_created", user_id=user_id, meta={"demo": True})

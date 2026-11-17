@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import hashlib
 import re
+import threading
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import psycopg
+import pytest
 
 from app.core.email import InMemoryOutbox
 from tests.conftest import Api, FakeClock
@@ -84,19 +86,111 @@ def test_verify_flow_marks_user_verified_and_token_is_single_use(
     assert "auth.email_verified" in actions
 
 
-def test_verify_works_without_session(make_api: Callable[..., Api]) -> None:
-    """Token e-posta kutusuna erişimi kanıtlar; bağlantı başka tarayıcıda da açılabilir."""
-    first = make_api()
-    first.register("o@example.com")
-    token = first.verification_token("o@example.com")
+def test_verify_requires_a_session(make_api: Callable[..., Api]) -> None:
+    """Oturumsuz doğrulama yok: bağlantıyı açan e-posta tarayıcısı/başka kişi hesabı doğrulayamaz."""
+    owner = make_api()
+    owner.register("o@example.com")
+    token = owner.verification_token("o@example.com")
+    stranger = make_api()  # oturum açmadı
+    assert stranger.post("/v1/auth/email/verify", {"token": token}).status_code == 401
+    # Token yakılmadı: sahibi oturumuyla hâlâ doğrulayabilir
+    assert owner.login("o@example.com").status_code == 200
+    assert owner.post("/v1/auth/email/verify", {"token": token}).status_code == 204
+
+
+def test_verify_with_another_users_session_fails_with_the_same_400(
+    make_api: Callable[..., Api], admin_conn: psycopg.Connection
+) -> None:
+    owner = make_api()
+    owner.register("a@example.com")
+    token = owner.verification_token("a@example.com")
     other = make_api()
-    assert other.post("/v1/auth/email/verify", {"token": token}).status_code == 204
-    assert other.login("o@example.com").status_code == 200
-    assert other.get("/v1/me").json()["email_verified"] is True
+    other.signup_and_login("b@example.com")
+    wrong_user = other.post("/v1/auth/email/verify", {"token": token})
+    unknown = other.post("/v1/auth/email/verify", {"token": "z" * 43})
+    # Başkasının token'ı ile bilinmeyen token ayırt edilemez (numaralandırma yok)
+    assert _is_problem(wrong_user, 400, "invalid-verification-token")
+    assert wrong_user.json()["detail"] == unknown.json()["detail"]
+    assert admin_conn.execute(
+        "SELECT email_verified_at IS NULL FROM users WHERE email = 'a@example.com'"
+    ).fetchone() == (True,)
+    # Token yakılmadı; gerçek sahibi doğrulayabilir
+    owner.login("a@example.com")
+    assert owner.post("/v1/auth/email/verify", {"token": token}).status_code == 204
+
+
+def test_verify_chain_prehijack_with_open_session_is_closed(
+    make_api: Callable[..., Api], outbox: InMemoryOutbox, admin_conn: psycopg.Connection
+) -> None:
+    """Zincirin tamamı: saldırgan kurbanın adresiyle kayıt olup oturumu açık tutar; bağlantıyı açan başkası
+    (oturumsuz e-posta tarayıcısı ya da başka hesap) hesabı doğrulayamaz; saldırgan TOTP kuramaz; kurban
+    sıfırlamayla hesabı devralır."""
+    victim_email = "ceo@kurban.example"
+    attacker = make_api()
+    attacker.register(victim_email, password="saldirgan-parolasi-77")
+    assert attacker.login(victim_email, "saldirgan-parolasi-77").status_code == 200
+    token = attacker.verification_token(victim_email)  # kurbanın gelen kutusundaki bağlantı
+
+    scanner = make_api()  # oturumsuz tarayıcı / kurban (parolası yok)
+    assert scanner.post("/v1/auth/email/verify", {"token": token}).status_code == 401
+    bystander = make_api()
+    bystander.signup_and_login("baska@example.com")
+    assert _is_problem(
+        bystander.post("/v1/auth/email/verify", {"token": token}), 400, "invalid-verification-token"
+    )
+    assert attacker.get("/v1/me").json()["email_verified"] is False
+
+    # Saldırgan TOTP kuramaz (hesap doğrulanmamış kaldı)
+    assert attacker.post("/v1/auth/totp/setup").status_code == 403
+    assert attacker.post("/v1/auth/totp/enable", {"code": "123456"}).status_code == 403
+    assert admin_conn.execute(
+        "SELECT totp_enabled, totp_secret_encrypted IS NULL FROM users WHERE email = %s", (victim_email,)
+    ).fetchone() == (False, True)
+
+    # Kurban sıfırlamayla hesabı devralır ve ikinci faktörü kendisi kurabilir
+    victim = make_api()
+    victim.post("/v1/auth/password-reset/request", {"email": victim_email})
+    reset = _reset_token(outbox, victim_email)
+    assert (
+        victim.post(
+            "/v1/auth/password-reset/confirm", {"token": reset, "new_password": NEW_PASSWORD}
+        ).status_code
+        == 204
+    )
+    assert attacker.get("/v1/me").status_code == 401
+    assert victim.login(victim_email, NEW_PASSWORD).json() == {"status": "ok"}
+    me = victim.get("/v1/me").json()
+    assert me["email_verified"] is True and me["totp_enabled"] is False
+    assert victim.post("/v1/auth/totp/setup").status_code == 200
+
+
+def test_concurrent_verifications_of_the_same_token_let_only_one_win(
+    make_api: Callable[..., Api],
+) -> None:
+    first = make_api()
+    first.register("race@example.com")
+    first.login("race@example.com")
+    second = make_api()
+    second.login("race@example.com")
+    token = first.verification_token("race@example.com")
+    barrier = threading.Barrier(2)
+    codes: list[int] = []
+
+    def attempt(api: Api) -> None:
+        barrier.wait()
+        codes.append(int(api.post("/v1/auth/email/verify", {"token": token}).status_code))
+
+    threads = [threading.Thread(target=attempt, args=(a,)) for a in (first, second)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert sorted(codes) == [204, 400]
 
 
 def test_verify_token_expires(api: Api, admin_conn: psycopg.Connection) -> None:
     api.register("e@example.com")
+    api.login("e@example.com")
     token = api.verification_token("e@example.com")
     admin_conn.execute("UPDATE email_verification_tokens SET expires_at = now() - interval '1 second'")
     assert _is_problem(api.post("/v1/auth/email/verify", {"token": token}), 400, "invalid-verification-token")
@@ -105,6 +199,7 @@ def test_verify_token_expires(api: Api, admin_conn: psycopg.Connection) -> None:
 
 def test_verify_rejects_extra_fields_and_requires_csrf(api: Api) -> None:
     api.register("c@example.com")
+    api.login("c@example.com")
     token = api.verification_token("c@example.com")
     assert api.post("/v1/auth/email/verify", {"token": token, "x": 1}).status_code == 422
     assert api.post("/v1/auth/email/verify", {"token": token}, csrf=False).status_code == 403
@@ -115,7 +210,7 @@ def test_verify_is_rate_limited_per_ip_before_body_is_parsed(
 ) -> None:
     api = make_api(rate_limit_verify_confirm_ip=2)
     codes = [api.post("/v1/auth/email/verify", {"token": "y" * 43}).status_code for _ in range(3)]
-    assert codes == [400, 400, 429]
+    assert codes == [401, 401, 429]  # IP sınırı oturum denetiminden ve gövde ayrıştırmasından önce
 
 
 # --- yeniden gönderme --------------------------------------------------------------------------------
@@ -188,28 +283,64 @@ def test_register_for_existing_email_is_same_202_and_sends_no_verification_link(
 
 
 # --- doğrulanmamış hesap kısıtı ----------------------------------------------------------------------
-def test_unverified_account_is_blocked_on_write_and_totp_endpoints(api: Api) -> None:
+_ACC = "00000000-0000-4000-8000-000000000001"
+_ITEM = "00000000-0000-4000-8000-000000000002"
+_TOTP_PATHS = ("/v1/auth/totp/setup", "/v1/auth/totp/enable")
+_BASE = f"/v1/marketplace-accounts/{_ACC}"
+_PS = f"{_BASE}/profit-settings"
+# Doğrulama kapısı olan 14 uç: 12 yazma ucu + 2 TOTP kurulum ucu (yöntem, yol, gövde).
+_BLOCKED_ENDPOINTS: list[tuple[str, str, Any]] = [
+    ("post", "/v1/marketplace-accounts", {"seller_id": "2738", "api_key": "k" * 12, "api_secret": "s" * 12}),
+    ("post", f"{_BASE}/revoke", None),
+    (
+        "put",
+        f"{_BASE}/products/ABC123/costs",
+        {"valid_from": "2026-01-01", "unit_cost_excl_vat": "1", "vat_rate": "20"},
+    ),
+    ("post", f"{_BASE}/product-costs/import", "FILE"),
+    ("put", f"{_PS}/cargo-tariffs", {"x": 1}),
+    ("delete", f"{_PS}/cargo-tariffs/{_ITEM}", None),
+    ("put", f"{_PS}/service-fee-estimates", {"x": 1}),
+    ("delete", f"{_PS}/service-fee-estimates/{_ITEM}", None),
+    ("post", f"{_PS}/variable-expenses", {"name": "x"}),
+    ("put", f"{_PS}/variable-expenses/{_ITEM}", {"name": "x"}),
+    ("delete", f"{_PS}/variable-expenses/{_ITEM}", None),
+    ("put", f"{_PS}/defaults", {"x": 1}),
+    ("post", "/v1/auth/totp/setup", None),
+    ("post", "/v1/auth/totp/enable", {"code": "123456"}),
+]
+
+
+@pytest.mark.parametrize(("method", "path", "body"), _BLOCKED_ENDPOINTS, ids=lambda v: str(v)[:40])
+def test_unverified_account_is_blocked_on_every_write_and_totp_endpoint(
+    api: Api, method: str, path: str, body: Any
+) -> None:
     api.signup_and_login("u@example.com", verified=False)
-    account = uuid.uuid4()
-    base = f"/v1/marketplace-accounts/{account}"
-    blocked = [
-        api.post(
-            "/v1/marketplace-accounts",
-            {"seller_id": "2738", "api_key": "anahtar-12345678", "api_secret": "sir-12345678"},
-        ),
-        api.put(
-            f"{base}/products/ABC123/costs",
-            {"valid_from": "2026-01-01", "unit_cost_excl_vat": "10.00", "vat_rate": "20"},
-        ),
-        api.post(f"{base}/product-costs/import", files={"file": ("m.csv", b"a;b\n1;2\n", "text/csv")}),
-        api.post(f"{base}/profit-settings/variable-expenses", {"name": "x"}),
-        api.delete(f"{base}/profit-settings/variable-expenses/{uuid.uuid4()}"),
-        api.post("/v1/auth/totp/setup"),
-        api.post("/v1/auth/totp/enable", {"code": "123456"}),
-    ]
-    for response in blocked:
-        assert _is_problem(response, 403, "email-not-verified"), response.text
-        assert response.json()["status"] == 403 and response.json()["title"]
+    if body == "FILE":
+        response = api.post(path, files={"file": ("m.csv", b"a;b\n1;2\n", "text/csv")})
+    elif method == "post":
+        response = api.post(path, body)
+    elif method == "put":
+        response = api.put(path, body)
+    else:
+        response = api.delete(path)
+    assert _is_problem(response, 403, "email-not-verified"), response.text
+    assert response.json()["status"] == 403 and response.json()["title"]
+
+
+def test_write_endpoint_list_covers_every_gated_route(api: Api) -> None:
+    """Yeni bir yazma ucu eklenir ve kapıya konmazsa bu test düşer: listede olmayan yazma yolu yok."""
+    gated = {(m.lower(), p) for m, p, _ in _BLOCKED_ENDPOINTS}
+    schema = api.get("/v1/openapi.json").json()["paths"]
+    seen: set[tuple[str, str]] = set()
+    for path, operations in schema.items():
+        if not (path.startswith("/v1/marketplace-accounts") or path in _TOTP_PATHS):
+            continue
+        for method in operations:
+            if method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+                norm = path.replace("{account_id}", _ACC).replace("{item_id}", _ITEM)
+                seen.add((method, norm.replace("{barcode}", "ABC123")))
+    assert seen == gated, seen ^ gated
 
 
 def test_unverified_account_can_read_and_log_out(api: Api) -> None:
@@ -270,15 +401,17 @@ def test_prehijack_attacker_cannot_lock_out_the_real_owner(
     ).fetchone() == (0,)
 
 
-def test_reset_of_unverified_account_clears_totp_even_if_it_was_somehow_enabled(
+def test_reset_of_legacy_unverified_account_with_enabled_totp_keeps_totp(
     make_api: Callable[..., Api], outbox: InMemoryOutbox, admin_conn: psycopg.Connection
 ) -> None:
-    """Savunma derinliği: önceki sürümde kurulmuş saldırgan TOTP'si (veri) sıfırlamayla temizlenir."""
+    """0017 öncesi hesap (doğrulanmamış ama TOTP etkin): gerçek kullanıcı olabilir, ikinci faktörü silinmez.
+
+    0017'den sonra doğrulanmamış hesapta TOTP etkinleştirilemediği için bu satır yalnız eski hesaplarda olur.
+    """
     api = make_api()
     api.register("eski@example.com")
     admin_conn.execute(
-        "UPDATE users SET totp_enabled = true, totp_secret_encrypted = 'v1:x', totp_last_step = 5, "
-        "totp_failed_count = 3, totp_locked_until = now() + interval '1 hour'"
+        "UPDATE users SET totp_enabled = true, totp_secret_encrypted = 'v1:x', totp_last_step = 5"
     )
     api.post("/v1/auth/password-reset/request", {"email": "eski@example.com"})
     token = _reset_token(outbox, "eski@example.com")
@@ -289,11 +422,76 @@ def test_reset_of_unverified_account_clears_totp_even_if_it_was_somehow_enabled(
         == 204
     )
     row = admin_conn.execute(
-        "SELECT totp_enabled, totp_secret_encrypted, totp_last_step, totp_failed_count, totp_locked_until, "
-        "email_verified_at IS NOT NULL FROM users"
+        "SELECT totp_enabled, totp_secret_encrypted, totp_last_step, email_verified_at IS NOT NULL FROM users"
     ).fetchone()
-    assert row == (False, None, None, 0, None, True)
-    assert api.login("eski@example.com", NEW_PASSWORD).json() == {"status": "ok"}
+    assert row == (True, "v1:x", 5, True)  # e-posta doğrulandı, TOTP korundu
+    assert api.login("eski@example.com", NEW_PASSWORD).json() == {"status": "totp_required"}
+
+
+def test_reset_of_unverified_account_clears_staged_but_not_enabled_totp_secret(
+    make_api: Callable[..., Api], outbox: InMemoryOutbox, admin_conn: psycopg.Connection
+) -> None:
+    api = make_api()
+    api.register("yarim@example.com")
+    admin_conn.execute(
+        "UPDATE users SET totp_enabled = false, totp_secret_encrypted = 'v1:y', totp_last_step = 7, "
+        "totp_failed_count = 2, totp_locked_until = now() + interval '1 hour'"
+    )
+    api.post("/v1/auth/password-reset/request", {"email": "yarim@example.com"})
+    token = _reset_token(outbox, "yarim@example.com")
+    api.post("/v1/auth/password-reset/confirm", {"token": token, "new_password": NEW_PASSWORD})
+    row = admin_conn.execute(
+        "SELECT totp_enabled, totp_secret_encrypted, totp_last_step, totp_failed_count, totp_locked_until "
+        "FROM users"
+    ).fetchone()
+    assert row == (False, None, None, 0, None)
+
+
+def test_takeover_by_reset_restarts_the_trial_without_deleting_anything(
+    make_api: Callable[..., Api], outbox: InMemoryOutbox, admin_conn: psycopg.Connection
+) -> None:
+    api = make_api()
+    api.register("deneme@example.com", tenant="Saldırgan Mağaza")
+    admin_conn.execute(
+        "UPDATE tenants SET trial_ends_at = now() + interval '1 day', created_at = now() - interval '13 days'"
+    )
+    api.post("/v1/auth/password-reset/request", {"email": "deneme@example.com"})
+    token = _reset_token(outbox, "deneme@example.com")
+    api.post("/v1/auth/password-reset/confirm", {"token": token, "new_password": NEW_PASSWORD})
+    name, remaining = admin_conn.execute("SELECT name, trial_ends_at - now() FROM tenants").fetchone()  # type: ignore[misc]
+    assert name == "Saldırgan Mağaza"  # ad ve kayıt silinmez
+    assert timedelta(days=13, hours=23) < remaining <= timedelta(days=14)  # deneme baştan (14 gün)
+
+
+def test_reset_of_verified_account_does_not_restart_the_trial(
+    api: Api, outbox: InMemoryOutbox, admin_conn: psycopg.Connection
+) -> None:
+    api.signup_and_login("dogrulanmis@example.com")
+    before = admin_conn.execute("SELECT trial_ends_at FROM tenants").fetchone()
+    admin_conn.execute("UPDATE tenants SET created_at = now() - interval '5 days'")
+    api.post("/v1/auth/password-reset/request", {"email": "dogrulanmis@example.com"})
+    token = _reset_token(outbox, "dogrulanmis@example.com")
+    api.post("/v1/auth/password-reset/confirm", {"token": token, "new_password": NEW_PASSWORD})
+    assert admin_conn.execute("SELECT trial_ends_at FROM tenants").fetchone() == before
+
+
+def test_create_email_verification_rejects_out_of_range_ttl_and_locks_the_user_row(
+    api: Api, admin_conn: psycopg.Connection
+) -> None:
+    api.register("ttl@example.com")
+    user_id = admin_conn.execute("SELECT id FROM users").fetchone()[0]  # type: ignore[index]
+    for bad in (0, -5, 4321):
+        with pytest.raises(psycopg.errors.InvalidParameterValue):
+            admin_conn.execute("SELECT auth_gate.create_email_verification(%s, 'h', %s)", (user_id, bad))
+    for good in (1, 4320):
+        assert admin_conn.execute(
+            "SELECT auth_gate.create_email_verification(%s, %s, %s)", (user_id, f"h{good}", good)
+        ).fetchone() == (True,)
+    source = admin_conn.execute(
+        "SELECT prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+        "WHERE n.nspname = 'auth_gate' AND p.proname = 'create_email_verification'"
+    ).fetchone()
+    assert source is not None and "FOR UPDATE" in source[0]
 
 
 # --- parola sıfırlama ve TOTP (madde 6) --------------------------------------------------------------

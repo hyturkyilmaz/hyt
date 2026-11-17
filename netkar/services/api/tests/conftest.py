@@ -288,7 +288,7 @@ class Api:
         raise AssertionError(f"{email} için doğrulama bağlantısı yok")
 
     def verify_email(self, email: str) -> Any:
-        """Doğrulama bağlantısındaki token'ı gerçek uç noktaya gönderir."""
+        """Doğrulama bağlantısındaki token'ı gerçek uç noktaya gönderir (oturum açık olmalı)."""
         return self.post("/v1/auth/email/verify", {"token": self.verification_token(email)})
 
     def signup_and_login(self, email: str, tenant: str = "Test Mağaza", verified: bool = True) -> None:
@@ -297,9 +297,10 @@ class Api:
         `verified=False`: doğrulanmamış hesap (kısıt testleri için).
         """
         assert self.register(email, tenant=tenant).status_code == 202
-        if verified:
-            assert self.verify_email(email).status_code == 204
         assert self.login(email).status_code == 200
+        if verified:
+            # Doğrulama oturumlu ve token'ın sahibi kullanıcıyla yapılır (gerçek akış).
+            assert self.verify_email(email).status_code == 204
 
 
 AppFactory = Callable[..., FastAPI]

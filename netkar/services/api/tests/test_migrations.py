@@ -175,3 +175,43 @@ def test_migration_0017_email_verification_is_reversible_and_least_privileged(
     command.upgrade(alembic_cfg, "head")
     assert new_functions <= functions()
     assert result_columns() == ["reset_user_id", "reset_tenant_id", "reset_claimed_unverified"]
+
+
+def test_migration_0018_hardening_is_reversible_and_least_privileged(
+    alembic_cfg: Config, admin_conn: psycopg.Connection
+) -> None:
+    def consume_args() -> str:
+        row = admin_conn.execute(
+            "SELECT pg_get_function_identity_arguments(p.oid) FROM pg_proc p "
+            "JOIN pg_namespace n ON n.oid = p.pronamespace "
+            "WHERE n.nspname = 'auth_gate' AND p.proname = 'consume_email_verification'"
+        ).fetchone()
+        assert row is not None
+        return str(row[0])
+
+    def can_update_trial_end() -> bool:
+        row = admin_conn.execute(
+            "SELECT has_column_privilege('netkar_auth', 'tenants', 'trial_ends_at', 'UPDATE'),"
+            " has_column_privilege('netkar_auth', 'tenants', 'name', 'UPDATE')"
+        ).fetchone()
+        assert row is not None
+        assert row[1] is False  # başka sütun değil
+        return bool(row[0])
+
+    assert consume_args() == "p_token_hash text, p_user_id uuid"
+    assert can_update_trial_end()
+    assert admin_conn.execute(
+        "SELECT has_function_privilege('netkar_app', 'auth_gate.consume_email_verification(text, uuid)', "
+        "'EXECUTE'), has_function_privilege('public', "
+        "'auth_gate.consume_email_verification(text, uuid)', 'EXECUTE')"
+    ).fetchone() == (True, False)
+
+    command.downgrade(alembic_cfg, "0017")
+    assert consume_args() == "p_token_hash text"  # oturumsuz eski imza geri geldi
+    assert not can_update_trial_end()
+    assert admin_conn.execute(
+        "SELECT has_function_privilege('netkar_app', 'auth_gate.consume_email_verification(text)', 'EXECUTE')"
+    ).fetchone() == (True,)
+    command.upgrade(alembic_cfg, "head")
+    assert consume_args() == "p_token_hash text, p_user_id uuid"
+    assert can_update_trial_end()

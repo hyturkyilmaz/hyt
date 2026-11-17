@@ -154,6 +154,7 @@ async def register(
                 f"{settings.product_name} hesabınız oluşturuldu. E-posta adresinizi "
                 f"{settings.email_verification_ttl_hours} saat içinde şu bağlantıyla doğrulayın: "
                 f"{_web_link(settings, '/e-posta-dogrula', verify_token)}\n"
+                "Bağlantıyı bu hesapla giriş yaptığınız tarayıcıda açın; gerekirse önce giriş istenir. "
                 "Doğrulanana dek mağaza bağlama ve veri girişi kapalıdır. "
                 f"Giriş: {_web_link(settings, '/giris')}\n"
                 "Bu hesabı siz oluşturmadıysanız bağlantıya tıklamayın; parolanızı "
@@ -490,33 +491,32 @@ async def password_reset_confirm(
 
 @router.post("/email/verify", status_code=204)
 async def email_verify(
-    body: EmailVerifyRequest, request: Request, db: DbDep, settings: SettingsDep
+    body: EmailVerifyRequest, request: Request, ctx: AuthDep, db: DbDep, settings: SettingsDep
 ) -> Response:
-    """E-posta doğrulama bağlantısındaki token'ı tüketir (tek kullanımlık, süreli).
+    """E-posta doğrulama token'ını tüketir (tek kullanımlık, süreli, oturumlu).
 
-    Oturum gerekmez: token e-posta kutusuna erişimi kanıtlar. IP sınırı gövde ayrıştırılmadan önce
+    Oturum ZORUNLUDUR ve token yalnız oturumdaki kullanıcıya aitse kabul edilir: bağlantıyı açan (ör. e-posta
+    tarayıcısı ya da kurban) kayıt olan oturumla aynı kişi değilse doğrulama olmaz. Başka kullanıcının token'ı
+    ve geçersiz token aynı 400 yanıtını verir (numaralandırma yok). IP sınırı gövde ayrıştırılmadan önce
     `IpRateLimitMiddleware` içinde uygulanır.
     """
-    result = await auth_service.consume_email_verification(db, body.token)
+    result = await auth_service.consume_email_verification(db, body.token, ctx.user_id)
     if result is None:
         await db.rollback()
         raise ProblemError(
             400,
             "Geçersiz bağlantı",
             "invalid-verification-token",
-            "Doğrulama bağlantısı geçersiz, kullanılmış veya süresi dolmuş.",
+            "Doğrulama bağlantısı geçersiz, bu hesaba ait değil, kullanılmış veya süresi dolmuş.",
         )
-    user_id, tenant_id = result
-    if tenant_id is not None:
-        await set_rls_context(db, tenant_id, user_id)
-        await record_audit(
-            db,
-            tenant_id,
-            "auth.email_verified",
-            user_id=user_id,
-            ip_hash=ip_hash_for(request, settings),
-            meta={"via": "link"},
-        )
+    await record_audit(
+        db,
+        ctx.tenant_id,
+        "auth.email_verified",
+        user_id=ctx.user_id,
+        ip_hash=ip_hash_for(request, settings),
+        meta={"via": "link"},
+    )
     await db.commit()
     return Response(status_code=204)
 

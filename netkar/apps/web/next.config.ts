@@ -18,6 +18,12 @@ const securityHeaders = [
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 
+// Token taşıyan sayfa: Referrer-Policy genel kuraldaki 'strict-origin-when-cross-origin' yerine 'no-referrer'.
+export const tokenPageHeaders = [
+  { key: 'Referrer-Policy', value: 'no-referrer' },
+  { key: 'Cache-Control', value: 'no-store' },
+];
+
 // Rapor zaman aşımı zinciri (içten dışa): PostgreSQL statement_timeout 40 sn, API rapor hesap sınırı 45 sn
 // (PROFIT_REPORT_COMPUTE_TIMEOUT_SECONDS), tek uçuş bekleme sınırı 25 sn (PROFIT_REPORT_CACHE_WAIT_SECONDS),
 // Next.js rewrite vekili 55 sn, Caddy yanıt sınırı 60 sn. Vekilin varsayılanı 30 sn'dir (next@15.5.29:
@@ -57,7 +63,12 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      // E-posta doğrulama bağlantısı token taşır: kaynak bilgisi gönderilmez, yanıt önbelleğe alınmaz.
+      // Genel kuraldan SONRA gelir; aynı başlık anahtarında bu kural geçerli olur.
+      { source: '/e-posta-dogrula', headers: tokenPageHeaders },
+    ];
   },
 };
 
