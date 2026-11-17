@@ -6,7 +6,7 @@
 | Saat | 20:50 TRT (30 günlük plan) |
 | Anahtar kelime | EPOSTA |
 | Yazım hatası | "satırlrı" (doğrusu: satırları) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 17 Kasım akşamı: haber içermiyor; tarihler (23, 27, 30 Kasım) ve İYS/ret bağlantısı kuralı geçerli. Metinde istem dışı hata yok. |
 
 ## Açıklama
 
