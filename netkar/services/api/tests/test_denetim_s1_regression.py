@@ -224,9 +224,9 @@ def test_o01_older_time_step_rejected_after_newer_one(make_api: Callable[..., Ap
 def test_o01_enable_consumes_its_time_step(make_api: Callable[..., Api], clock: FakeClock) -> None:
     owner = make_api()
     owner.signup_and_login("enable@example.com")
-    setup = owner.post("/v1/auth/totp/setup").json()["secret"]
+    setup = owner.post("/v1/auth/totp/setup", {"password": GOOD_PASSWORD}).json()["secret"]
     code = clock.code(setup)
-    assert owner.post("/v1/auth/totp/enable", {"code": code}).status_code == 204
+    assert owner.post("/v1/auth/totp/enable", {"code": code, "password": GOOD_PASSWORD}).status_code == 200
     fresh = make_api()
     fresh.login("enable@example.com")
     assert fresh.post("/v1/auth/totp/verify", {"code": code}).status_code == 401

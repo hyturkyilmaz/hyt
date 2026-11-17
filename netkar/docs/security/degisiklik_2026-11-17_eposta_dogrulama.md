@@ -44,3 +44,54 @@ Seçenekler: (a) doğrulanmamış hesabın girişini tümden engellemek, (b) kay
 - Doğrulanmamış hesapların 24-72 saat sonra silinmesi (O-06 önerisi) YAPILMADI: veri silme yasağı; ayrı karar ve ayrı iş gerektirir.
 - D-05 (token'ın URL parçasına/POST değişimine taşınması) açık: doğrulama ve sıfırlama bağlantıları hâlâ `?token=` taşır.
 - Gerçek e-posta arka ucu yok (dev/test: dosya/bellek); prod başlatma engeli (D-08) sürüyor.
+
+
+---
+
+# Dilim 2: MFA yeniden doğrulama, kurtarma kodları, web TOTP ekranı (0019)
+
+- Tarih: 17 Kasım 2026. Kapsam: Trello P1 "S1-S2 güvenlik ve hesap" kartı madde 2 ve 3, önceki dilim düşük bulgusu (D) ve bilgi bulgusu (B). Madde 4 (kullanım koşulları sürüm kaydı) bu dilimde YOK. Durum: commit edilmedi; koordinatör incelemesi bekliyor. OWASP ASVS L2 V2.5 (kurtarma), V2.8 (OTP), V3 (oturum).
+
+## O-05 durumu (dürüst)
+
+| Konu | Durum | Kanıt (test) |
+|---|---|---|
+| `/totp/setup` ve `/totp/enable` yeniden doğrulama | Kapandı: güncel parola zorunlu (yoksa 422, yanlışsa 403 `reauth-failed`, işlem yapılmaz) | `test_setup_and_enable_require_the_current_password` |
+| TOTP etkinken değişiklik (kapatma, kod yenileme) | Kapandı: parola + güncel TOTP ya da kurtarma kodu | `test_disable_requires_password_and_current_code_and_revokes_other_sessions`, `test_regenerate_replaces_codes_revokes_other_sessions_and_needs_reauth` |
+| Başarısız yeniden doğrulama | Mevcut altyapıya bağlı: kullanıcı başına hız sınırı (`reauth:user`), `totp_failed_count` ve `totp_locked_until` kilidi (TOTP girişiyle paylaşılır), denetim kaydı `auth.reauth_failed` | `test_failed_reauth_is_rate_limited_and_locks_through_existing_machinery` |
+| Kurtarma kodları | Kapandı: etkinleştirmede 10 kod, düz metin yalnız o yanıtta | `test_enable_returns_ten_codes_once_and_stores_only_keyed_hashes` |
+| TOTP kapatma yolu | Kapandı: `POST /v1/auth/totp/disable` | aynı test |
+| Diğer oturumların iptali | Kapandı: kapatma ve kod yenilemede çağıran oturum hariç tümü (`auth_gate.revoke_other_sessions`) | aynı testler |
+| MFA değişikliğinde e-posta bildirimi | AÇIK: yapılmadı (gerçek e-posta arka ucu yok, D-08). Denetim kaydı var (`auth.totp_enabled`, `auth.totp_disabled`, `auth.recovery_codes_regenerated`) | |
+| Destek üzerinden kimlik doğrulamalı MFA sıfırlama süreci belgesi | AÇIK | |
+
+O-05 "kapandı (e-posta bildirimi ve destek süreci hariç)" olarak değerlendirilmelidir.
+
+## Tasarım kararları
+
+- **Özet yöntemi:** HMAC-SHA256, anahtar `derive_key(master, "recovery-code")` (pepper), girdi `user_id:kod`. Kodlar 60 bit (12 karakter, 32'lik alfabe, `secrets`) olduğundan yavaş parola özeti gerekmez; çevrimiçi tahmin hız sınırı ve 5 hatada 15 dakikalık kilitle sınırlıdır (TOTP ile aynı sayaç). DB sızsa bile anahtar olmadan kod türetilemez.
+- **Yarış önlemi:** `UPDATE mfa_recovery_codes SET used_at = now() WHERE user_id = ? AND code_hash = ? AND used_at IS NULL AND revoked_at IS NULL RETURNING id` (tek ifade, atomik). Kanıt: `test_concurrent_use_of_the_same_recovery_code_lets_only_one_win` (8 eşzamanlı deneme, 1 kazanan).
+- **Şema (0019):** `mfa_recovery_codes` ENABLE + FORCE RLS (`user_id = app.user_id`), `netkar_app` yalnız SELECT, INSERT ve `used_at/revoked_at` UPDATE; DELETE yok (kullanılan `used_at`, yenilenen/kapatılan `revoked_at` alır, satır silinmez); worker erişemez. `auth_gate.revoke_other_sessions(user, keep)` SECURITY DEFINER, yalnız çağıranın kendi `app.user_id` bağlamı için çalışır (başkası için 42501).
+- **Giriş:** `/totp/verify` 6 haneli TOTP ya da kurtarma kodu kabul eder (aynı uç, aynı IP/kullanıcı sınırı ve kilit). Kullanım `auth.recovery_code_used` (kalan sayı) ve `auth.login_recovery` olarak denetlenir; hatalar `auth.recovery_failed`. Kalan kod sayısı `GET /v1/me` içinde `recovery_codes_remaining`.
+- **Hata durumu:** yeniden doğrulama başarısızlığı 401 değil 403 döner (web istemcisi 401'i "oturum bitti" sayar).
+- **Sözleşme değişikliği:** `/totp/setup` gövde `{password}`, `/totp/enable` gövde `{code, password}` ve 204 yerine 200 `{recovery_codes}` döner (geriye dönük uyumsuz; web ve testler güncellendi). Yeni: `/totp/disable`, `/totp/recovery-codes`; ikisi de doğrulanmış e-posta kapısı arkasında (kapı testi 16 uca çıktı).
+
+## (D) Doğrulanmamış hesapta TOTP: veritabanı tetikleyicisi
+
+`users_totp_requires_verified_email` (BEFORE INSERT OR UPDATE): `email_verified_at IS NULL` iken `totp_enabled = true` yazılamaz (23514). Karar yalnız yeni INSERT'te ve `totp_enabled`/`email_verified_at` değerinin değiştiği UPDATE'te verilir; 0017 öncesi (doğrulanmamış + TOTP etkin) satır olduğu gibi kalır ve diğer sütunları (zaman adımı, sayaç) güncellenebilir. 0018 kuralının (sıfırlama etkin TOTP'yi korur) yalnız eski hesaplara özgü olduğu kanıtı: `test_trigger_blocks_totp_on_unverified_accounts_for_new_writes`, `test_legacy_unverified_totp_rows_are_untouched_by_the_trigger_and_rule_stays_legacy_only` (eski durum yalnız tetikleyici kapatılarak taklit edilir; API yeni duruma ulaşamaz). O-06 prod denetimi notu (elle `SELECT ... WHERE email_verified_at IS NULL AND totp_enabled`) geçerliliğini korur.
+
+## (B) Giriş sayfasında token
+
+`/giris?sonra=/e-posta-dogrula?token=...` ve `/iki-adim?sonra=...`: sayfa açılınca `history.replaceState` ile token taşıyan `sonra` adresten silinir (hedef bileşen durumunda korunur). Kanıt: `auth-forms.test.tsx` "Giriş akışı: adres çubuğundaki token", `redact-url.test.ts`.
+
+## Web (madde 3)
+
+`/panel/guvenlik` (Ayarlar sayfasından bağlantılı): parola ile yeniden doğrulama, QR (istemcide `qrcode-generator@2.0.4`, MIT, sıfır bağımlılık, `npm audit` 0 bulgu; çıktı React SVG yolu, innerHTML ve dış servis yok), elle anahtar ve kopyala, kod doğrulama, kurtarma kodlarını bir kez gösterme (kopyala, `.txt` indir, "kaydettim" onayı olmadan "Bitti" kapalı, sayfadan ayrılırken uyarı), TOTP kapatma ve kod yenileme. Girişte "Kurtarma kodu kullan". Parola yalnız bileşen belleğinde tutulur; kodlar storage, toast ya da günlüğe yazılmaz.
+
+## Açık kalanlar
+
+- MFA değişikliği e-posta bildirimi, destek MFA sıfırlama süreci belgesi (yukarıda).
+- Kurtarma kodu kalmayınca ya da TOTP cihazı kaybolunca self-servis yol: yalnız parola sıfırlama TOTP'yi korur; kurtarma kodları bittiyse kullanıcı oturum açıkken yenileyebilir, açık oturum yoksa destek süreci gerekir (belgelenmedi).
+- Madde 4 (kullanım koşulları sürüm kaydı), D-05 (token URL parçası), D-08 (e-posta arka ucu) bu dilimde yok.
+- e2e (Playwright) `/panel/guvenlik` için yazılmadı; gerçek API e2e'sinin TOTP adımı yeni sözleşmeye güncellendi ama bu ortamda koşulmadı.
+- Migrasyon downgrade'i `mfa_recovery_codes` tablosunu düşürür (özetler kaybolur; kullanıcılar kodları yeniden üretir).

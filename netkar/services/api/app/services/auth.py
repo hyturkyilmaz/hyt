@@ -10,7 +10,7 @@ from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.security import generate_token, hash_token
+from app.core.security import PasswordWorker, generate_token, hash_token
 from app.models import Role, SessionRecord, User
 
 # last_seen_at her istekte yazılmaz; bu kadar saniyeden eskiyse tazelenir.
@@ -295,3 +295,80 @@ async def register_totp_failure(
         .one()
     )
     return int(row["totp_failed_count"]), row["totp_locked_until"]
+
+
+async def verify_account_password(
+    db: AsyncSession, passwords: PasswordWorker, email: str, password: str
+) -> bool:
+    """Oturumdaki hesabın güncel parolasını doğrular (yeniden kimlik doğrulama; özet auth_gate'ten okunur)."""
+    candidate = await find_user_for_login(db, email)
+    if candidate is None:
+        await passwords.burn(password)
+        return False
+    return await passwords.verify(candidate.password_hash, password)
+
+
+async def replace_recovery_codes(db: AsyncSession, user_id: UUID, code_hashes: list[str]) -> None:
+    """Önceki etkin kodları geçersiz kılar (silmez) ve yenilerini ekler. RLS bağlamı ayarlı olmalı."""
+    await db.execute(
+        text(
+            "UPDATE mfa_recovery_codes SET revoked_at = now() "
+            "WHERE user_id = :u AND used_at IS NULL AND revoked_at IS NULL"
+        ),
+        {"u": user_id},
+    )
+    for code_hash in code_hashes:
+        await db.execute(
+            text("INSERT INTO mfa_recovery_codes (user_id, code_hash) VALUES (:u, :h)"),
+            {"u": user_id, "h": code_hash},
+        )
+
+
+async def revoke_recovery_codes(db: AsyncSession, user_id: UUID) -> None:
+    """TOTP kapatılırken tüm etkin kurtarma kodlarını geçersiz kılar (silmez)."""
+    await db.execute(
+        text(
+            "UPDATE mfa_recovery_codes SET revoked_at = now() "
+            "WHERE user_id = :u AND used_at IS NULL AND revoked_at IS NULL"
+        ),
+        {"u": user_id},
+    )
+
+
+async def consume_recovery_code(db: AsyncSession, user_id: UUID, code_hash: str) -> bool:
+    """Kurtarma kodunu atomik tüketir: koşullu UPDATE ile eşzamanlı denemelerde yalnız biri kazanır."""
+    row = await db.execute(
+        text(
+            "UPDATE mfa_recovery_codes SET used_at = now() "
+            "WHERE user_id = :u AND code_hash = :h AND used_at IS NULL AND revoked_at IS NULL "
+            "RETURNING id"
+        ),
+        {"u": user_id, "h": code_hash},
+    )
+    return row.first() is not None
+
+
+async def count_recovery_codes(db: AsyncSession, user_id: UUID) -> int:
+    """Kullanılabilir (kullanılmamış ve geçersiz kılınmamış) kurtarma kodu sayısı."""
+    return int(
+        (
+            await db.execute(
+                text(
+                    "SELECT count(*) FROM mfa_recovery_codes "
+                    "WHERE user_id = :u AND used_at IS NULL AND revoked_at IS NULL"
+                ),
+                {"u": user_id},
+            )
+        ).scalar_one()
+    )
+
+
+async def revoke_other_sessions(db: AsyncSession, user_id: UUID, keep_session_id: UUID) -> int:
+    """Geçerli oturum dışındaki tüm oturumları iptal eder (auth_gate; RLS bağlamı ayarlı olmalı)."""
+    return int(
+        (
+            await db.execute(
+                text("SELECT auth_gate.revoke_other_sessions(:u, :k)"), {"u": user_id, "k": keep_session_id}
+            )
+        ).scalar_one()
+    )

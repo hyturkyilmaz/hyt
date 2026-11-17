@@ -311,6 +311,100 @@ describe('TwoFactorForm', () => {
   });
 });
 
+describe('TwoFactorForm: kurtarma kodu', () => {
+  async function openRecovery(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: 'Kurtarma kodu kullan' }));
+    return screen.getByLabelText('Kurtarma kodu');
+  }
+
+  it('"kurtarma kodu kullan" seçeneği biçimi doğrular ve kodu aynı uca gönderir', async () => {
+    const fetchMock = mockFetch(200, { status: 'ok' });
+    const user = userEvent.setup();
+    render(<TwoFactorForm next="/panel/ayarlar" />);
+    const input = await openRecovery(user);
+    expect(input).toHaveAttribute('autocomplete', 'off');
+    expect(screen.getByRole('heading', { name: 'Kurtarma kodu ile giriş' })).toBeInTheDocument();
+
+    await user.type(input, 'ABCD-12');
+    await user.click(screen.getByRole('button', { name: 'Kodu doğrula' }));
+    expect(await screen.findByText(/Kurtarma kodu 12 karakterdir/)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.clear(input);
+    await user.type(input, 'abcd-efgh-jk2m');
+    await user.click(screen.getByRole('button', { name: 'Kodu doğrula' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/panel/ayarlar'));
+    const { url, body } = lastRequest(fetchMock);
+    expect(url).toBe('/api/v1/auth/totp/verify');
+    expect(body).toEqual({ code: 'abcd-efgh-jk2m' });
+  });
+
+  it('kullanılmış ya da yanlış kodda hata gösterir ve TOTP moduna dönülebilir', async () => {
+    mockFetch(401, { type: 'urn:netkar:problem:invalid-code', status: 401 });
+    const user = userEvent.setup();
+    render(<TwoFactorForm />);
+    const input = await openRecovery(user);
+    await user.type(input, 'ABCD-EFGH-JK2M');
+    await user.click(screen.getByRole('button', { name: 'Kodu doğrula' }));
+    expect(await screen.findByText(/daha önce kullanılmış/)).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Doğrulama uygulaması kodu kullan' }));
+    expect(screen.getByLabelText('Doğrulama kodu')).toBeInTheDocument();
+  });
+
+  it('kilitliyken (429 totp-locked) bekleme süresini söyler', async () => {
+    const fn = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ type: 'urn:netkar:problem:totp-locked', status: 429 }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/problem+json', 'Retry-After': '840' },
+        }),
+    );
+    vi.stubGlobal('fetch', fn);
+    const user = userEvent.setup();
+    render(<TwoFactorForm />);
+    const input = await openRecovery(user);
+    await user.type(input, 'ABCD-EFGH-JK2M');
+    await user.click(screen.getByRole('button', { name: 'Kodu doğrula' }));
+    expect(await screen.findByText(/14 dakika/)).toBeInTheDocument();
+  });
+});
+
+describe('Giriş akışı: adres çubuğundaki token (B)', () => {
+  const next = '/e-posta-dogrula?token=GIZLI_TOKEN_DEGERI_1234567890';
+
+  afterEach(() => window.history.replaceState(null, '', '/'));
+
+  it('LoginForm token taşıyan sonra parametresini adresten siler, hedef korunur', async () => {
+    window.history.pushState(null, '', `/giris?sonra=${encodeURIComponent(next)}`);
+    const fetchMock = mockFetch(200, { status: 'ok' });
+    const user = userEvent.setup();
+    render(<LoginForm next={next} />);
+    await waitFor(() => expect(window.location.href).not.toContain('GIZLI_TOKEN'));
+    expect(window.location.pathname).toBe('/giris');
+
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'dogru-at-pil-kalem-42');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(next));
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it('TwoFactorForm de aynı şekilde adresi temizler', async () => {
+    window.history.pushState(null, '', `/iki-adim?sonra=${encodeURIComponent(next)}`);
+    render(<TwoFactorForm next={next} />);
+    await waitFor(() => expect(window.location.href).not.toContain('GIZLI_TOKEN'));
+  });
+
+  it('token taşımayan sonra parametresine dokunmaz', async () => {
+    window.history.pushState(null, '', '/giris?sonra=%2Fpanel%2Furunler');
+    render(<LoginForm next="/panel/urunler" />);
+    await waitFor(() => expect(screen.getByLabelText('E-posta')).toBeInTheDocument());
+    expect(window.location.search).toBe('?sonra=%2Fpanel%2Furunler');
+  });
+});
+
 describe('Parola sıfırlama', () => {
   it('e-posta isteğinden sonra hesap sızdırmayan onay gösterir', async () => {
     const fetchMock = mockFetch(202);

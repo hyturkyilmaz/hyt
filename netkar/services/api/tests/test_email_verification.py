@@ -19,7 +19,7 @@ import psycopg
 import pytest
 
 from app.core.email import InMemoryOutbox
-from tests.conftest import Api, FakeClock
+from tests.conftest import GOOD_PASSWORD, Api, FakeClock
 
 NEW_PASSWORD = "yepyeni-parola-9876"
 WEB = "https://app.test.invalid"
@@ -141,8 +141,13 @@ def test_verify_chain_prehijack_with_open_session_is_closed(
     assert attacker.get("/v1/me").json()["email_verified"] is False
 
     # Saldırgan TOTP kuramaz (hesap doğrulanmamış kaldı)
-    assert attacker.post("/v1/auth/totp/setup").status_code == 403
-    assert attacker.post("/v1/auth/totp/enable", {"code": "123456"}).status_code == 403
+    assert attacker.post("/v1/auth/totp/setup", {"password": "saldirgan-parolasi-77"}).status_code == 403
+    assert (
+        attacker.post(
+            "/v1/auth/totp/enable", {"code": "123456", "password": "saldirgan-parolasi-77"}
+        ).status_code
+        == 403
+    )
     assert admin_conn.execute(
         "SELECT totp_enabled, totp_secret_encrypted IS NULL FROM users WHERE email = %s", (victim_email,)
     ).fetchone() == (False, True)
@@ -161,7 +166,7 @@ def test_verify_chain_prehijack_with_open_session_is_closed(
     assert victim.login(victim_email, NEW_PASSWORD).json() == {"status": "ok"}
     me = victim.get("/v1/me").json()
     assert me["email_verified"] is True and me["totp_enabled"] is False
-    assert victim.post("/v1/auth/totp/setup").status_code == 200
+    assert victim.post("/v1/auth/totp/setup", {"password": NEW_PASSWORD}).status_code == 200
 
 
 def test_concurrent_verifications_of_the_same_token_let_only_one_win(
@@ -285,10 +290,15 @@ def test_register_for_existing_email_is_same_202_and_sends_no_verification_link(
 # --- doğrulanmamış hesap kısıtı ----------------------------------------------------------------------
 _ACC = "00000000-0000-4000-8000-000000000001"
 _ITEM = "00000000-0000-4000-8000-000000000002"
-_TOTP_PATHS = ("/v1/auth/totp/setup", "/v1/auth/totp/enable")
+_TOTP_PATHS = (
+    "/v1/auth/totp/setup",
+    "/v1/auth/totp/enable",
+    "/v1/auth/totp/disable",
+    "/v1/auth/totp/recovery-codes",
+)
 _BASE = f"/v1/marketplace-accounts/{_ACC}"
 _PS = f"{_BASE}/profit-settings"
-# Doğrulama kapısı olan 14 uç: 12 yazma ucu + 2 TOTP kurulum ucu (yöntem, yol, gövde).
+# Doğrulama kapısı olan 16 uç: 12 yazma ucu + 4 MFA ucu (yöntem, yol, gövde).
 _BLOCKED_ENDPOINTS: list[tuple[str, str, Any]] = [
     ("post", "/v1/marketplace-accounts", {"seller_id": "2738", "api_key": "k" * 12, "api_secret": "s" * 12}),
     ("post", f"{_BASE}/revoke", None),
@@ -306,8 +316,10 @@ _BLOCKED_ENDPOINTS: list[tuple[str, str, Any]] = [
     ("put", f"{_PS}/variable-expenses/{_ITEM}", {"name": "x"}),
     ("delete", f"{_PS}/variable-expenses/{_ITEM}", None),
     ("put", f"{_PS}/defaults", {"x": 1}),
-    ("post", "/v1/auth/totp/setup", None),
-    ("post", "/v1/auth/totp/enable", {"code": "123456"}),
+    ("post", "/v1/auth/totp/setup", {"password": "x"}),
+    ("post", "/v1/auth/totp/enable", {"code": "123456", "password": "x"}),
+    ("post", "/v1/auth/totp/disable", {"code": "123456", "password": "x"}),
+    ("post", "/v1/auth/totp/recovery-codes", {"code": "123456", "password": "x"}),
 ]
 
 
@@ -360,7 +372,7 @@ def test_verified_account_passes_the_gate(api: Api) -> None:
     assert api.put(base, body).status_code == 403
     assert api.verify_email("ok@example.com").status_code == 204
     assert api.put(base, body).status_code == 404
-    totp = api.post("/v1/auth/totp/setup")
+    totp = api.post("/v1/auth/totp/setup", {"password": GOOD_PASSWORD})
     assert totp.status_code == 200
 
 
@@ -373,8 +385,15 @@ def test_prehijack_attacker_cannot_lock_out_the_real_owner(
     victim_email = "ceo@kurban.example"
     attacker.register(victim_email, password="saldirgan-parolasi-77")
     assert attacker.login(victim_email, "saldirgan-parolasi-77").status_code == 200
-    assert attacker.post("/v1/auth/totp/setup").status_code == 403  # ikinci faktör kurulamaz
-    assert attacker.post("/v1/auth/totp/enable", {"code": "123456"}).status_code == 403
+    assert (
+        attacker.post("/v1/auth/totp/setup", {"password": "saldirgan-parolasi-77"}).status_code == 403
+    )  # ikinci faktör kurulamaz
+    assert (
+        attacker.post(
+            "/v1/auth/totp/enable", {"code": "123456", "password": "saldirgan-parolasi-77"}
+        ).status_code
+        == 403
+    )
 
     # Gerçek sahip "şifremi unuttum" ile hesabı devralır.
     victim = make_api()
@@ -401,6 +420,18 @@ def test_prehijack_attacker_cannot_lock_out_the_real_owner(
     ).fetchone() == (0,)
 
 
+def _make_legacy_unverified_totp_account(admin_conn: psycopg.Connection, secret: str, step: int) -> None:
+    """0017 öncesi durumu taklit eder: tetikleyici (0019) yalnız bu güncelleme için kapatılır, sonra açılır."""
+    admin_conn.execute("ALTER TABLE users DISABLE TRIGGER users_totp_requires_verified_email")
+    try:
+        admin_conn.execute(
+            "UPDATE users SET totp_enabled = true, totp_secret_encrypted = %s, totp_last_step = %s",
+            (secret, step),
+        )
+    finally:
+        admin_conn.execute("ALTER TABLE users ENABLE TRIGGER users_totp_requires_verified_email")
+
+
 def test_reset_of_legacy_unverified_account_with_enabled_totp_keeps_totp(
     make_api: Callable[..., Api], outbox: InMemoryOutbox, admin_conn: psycopg.Connection
 ) -> None:
@@ -410,9 +441,7 @@ def test_reset_of_legacy_unverified_account_with_enabled_totp_keeps_totp(
     """
     api = make_api()
     api.register("eski@example.com")
-    admin_conn.execute(
-        "UPDATE users SET totp_enabled = true, totp_secret_encrypted = 'v1:x', totp_last_step = 5"
-    )
+    _make_legacy_unverified_totp_account(admin_conn, "v1:x", 5)
     api.post("/v1/auth/password-reset/request", {"email": "eski@example.com"})
     token = _reset_token(outbox, "eski@example.com")
     assert (
@@ -496,8 +525,11 @@ def test_create_email_verification_rejects_out_of_range_ttl_and_locks_the_user_r
 
 # --- parola sıfırlama ve TOTP (madde 6) --------------------------------------------------------------
 def _enable_totp(api: Api, clock: FakeClock) -> str:
-    secret = str(api.post("/v1/auth/totp/setup").json()["secret"])
-    assert api.post("/v1/auth/totp/enable", {"code": clock.code(secret)}).status_code == 204
+    secret = str(api.post("/v1/auth/totp/setup", {"password": GOOD_PASSWORD}).json()["secret"])
+    assert (
+        api.post("/v1/auth/totp/enable", {"code": clock.code(secret), "password": GOOD_PASSWORD}).status_code
+        == 200
+    )
     clock.advance(30)
     return secret
 

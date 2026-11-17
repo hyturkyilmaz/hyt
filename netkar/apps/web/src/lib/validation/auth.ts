@@ -56,3 +56,52 @@ export type RegisterValues = z.infer<typeof registerSchema>;
 export type TwoFactorValues = z.infer<typeof twoFactorSchema>;
 export type PasswordResetRequestValues = z.infer<typeof passwordResetRequestSchema>;
 export type PasswordResetConfirmValues = z.infer<typeof passwordResetConfirmSchema>;
+
+// Giriş kodu: 6 haneli TOTP ya da 12 karakterlik kurtarma kodu (tire/boşluk serbest). Backend `LoginCode` ile aynı kural.
+export const RECOVERY_CODE_LENGTH = 12;
+const loginCode = z
+  .string()
+  .trim()
+  .min(1, 'Kodu yazın.')
+  .refine((value) => {
+    if (/^\d{6}$/.test(value)) return true;
+    const compact = value.replace(/[-\s]/g, '');
+    return compact.length === RECOVERY_CODE_LENGTH && /^[A-Za-z0-9]+$/.test(compact);
+  }, 'Doğrulama uygulamasındaki 6 haneli kodu ya da 12 karakterlik bir kurtarma kodunu yazın.');
+
+export const recoveryCodeSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(1, 'Kurtarma kodunu yazın.')
+    .refine(
+      (value) =>
+        value.replace(/[-\s]/g, '').length === RECOVERY_CODE_LENGTH &&
+        /^[A-Za-z0-9\s-]+$/.test(value),
+      'Kurtarma kodu 12 karakterdir. Örnek: ABCD-EFGH-JKLM',
+    ),
+});
+
+/** Yeniden doğrulama: güncel parola. */
+export const reauthSchema = z.object({
+  password: z
+    .string()
+    .min(1, 'Güncel parolanızı yazın.')
+    .max(PASSWORD_MAX_LENGTH, 'Parola çok uzun.'),
+});
+
+/** TOTP etkinleştirme: uygulamadaki 6 haneli kod (parola önceki adımda alınmıştır). */
+export const totpEnableSchema = z.object({
+  code: twoFactorSchema.shape.code,
+});
+
+/** TOTP kapatma ve kurtarma kodu yenileme: parola + güncel kod. */
+export const mfaChangeSchema = z.object({
+  password: reauthSchema.shape.password,
+  code: loginCode,
+});
+
+export type RecoveryCodeValues = z.infer<typeof recoveryCodeSchema>;
+export type ReauthValues = z.infer<typeof reauthSchema>;
+export type TotpEnableValues = z.infer<typeof totpEnableSchema>;
+export type MfaChangeValues = z.infer<typeof mfaChangeSchema>;

@@ -152,13 +152,17 @@ test('TOTP: etkinleştir, çıkış yap, ikinci adımla giriş yap', async ({ pa
   await login(page);
   await expect(page).toHaveURL(/\/panel$/);
 
-  // Arayüzde henüz TOTP kurulum ekranı yok: aynı oturum ve CSRF ile API doğrudan çağrılır.
-  const setup = await browserPost(page, '/auth/totp/setup');
+  // Kurulum arayüzü /panel/guvenlik sayfasındadır (vitest ile kapsanır); burada aynı oturum ve CSRF ile API çağrılır.
+  const setup = await browserPost(page, '/auth/totp/setup', { password: PASSWORD });
   expect(setup.status).toBe(200);
   const secret = setup.json?.secret ?? '';
   expect(secret).toMatch(/^[A-Z2-7]{16,}$/);
-  const enable = await browserPost(page, '/auth/totp/enable', { code: totpCode(secret) });
-  expect(enable.status).toBe(204);
+  const enable = await browserPost(page, '/auth/totp/enable', {
+    code: totpCode(secret),
+    password: PASSWORD,
+  });
+  expect(enable.status).toBe(200);
+  expect(enable.json?.recovery_codes).toHaveLength(10);
   await logout(page);
 
   // Parola doğru ama TOTP açık: ikinci adım sayfası

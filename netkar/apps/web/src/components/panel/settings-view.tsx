@@ -1,7 +1,8 @@
 'use client';
 
-import { Link2, Store, Truck } from 'lucide-react';
+import { Link2, ShieldCheck, Store, Truck } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 
 import { EmptyState } from '@/components/panel/empty-state';
 import { ReportError, ReportSkeleton } from '@/components/profit/shared';
@@ -93,6 +94,23 @@ export function SettingsContent() {
               onRetry={retry}
             />
           ) : null}
+        </CardContent>
+      </Card>
+
+      <Card id="guvenlik">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="size-5 text-primary" aria-hidden="true" />
+            Hesap güvenliği
+          </CardTitle>
+          <CardDescription>
+            İki adımlı doğrulamayı açın, kapatın ve kurtarma kodlarınızı yönetin.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="secondary">
+            <Link href="/panel/guvenlik">Güvenlik ayarlarına git</Link>
+          </Button>
         </CardContent>
       </Card>
 

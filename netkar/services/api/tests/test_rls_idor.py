@@ -247,6 +247,7 @@ def test_auth_gate_functions_are_security_definer_with_fixed_search_path(
         "consume_password_reset",
         "create_email_verification",
         "consume_email_verification",
+        "revoke_other_sessions",
     }
     for name, secdef, owner, config in rows:
         assert secdef and owner == "netkar_auth", name

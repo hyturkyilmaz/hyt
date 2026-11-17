@@ -8,22 +8,24 @@ import uuid
 import psycopg
 
 from app.core.security import sign_pending_token
-from tests.conftest import TEST_KEY, Api, FakeClock
+from tests.conftest import GOOD_PASSWORD, TEST_KEY, Api, FakeClock
+
+PW = {"password": GOOD_PASSWORD}
 
 
 def _enable_totp(api: Api, clock: FakeClock) -> str:
     """TOTP'yi etkinleştirir; kullanılan zaman adımı tüketilir, sonraki giriş için saat ilerletilir."""
-    setup = api.post("/v1/auth/totp/setup")
+    setup = api.post("/v1/auth/totp/setup", PW)
     assert setup.status_code == 200
     secret = setup.json()["secret"]
-    assert api.post("/v1/auth/totp/enable", {"code": clock.code(secret)}).status_code == 204
+    assert api.post("/v1/auth/totp/enable", {"code": clock.code(secret), **PW}).status_code == 200
     clock.advance(30)
     return str(secret)
 
 
 def test_totp_setup_returns_uri_and_stores_encrypted(api: Api, admin_conn: psycopg.Connection) -> None:
     api.signup_and_login("t@example.com")
-    body = api.post("/v1/auth/totp/setup").json()
+    body = api.post("/v1/auth/totp/setup", PW).json()
     assert body["otpauth_uri"].startswith("otpauth://totp/")
     assert f"secret={body['secret']}" in body["otpauth_uri"]
     stored = admin_conn.execute("SELECT totp_secret_encrypted, totp_enabled FROM users").fetchone()
@@ -34,21 +36,21 @@ def test_totp_setup_returns_uri_and_stores_encrypted(api: Api, admin_conn: psyco
 
 def test_totp_enable_requires_valid_code_and_setup(api: Api, clock: FakeClock) -> None:
     api.signup_and_login("t@example.com")
-    assert api.post("/v1/auth/totp/enable", {"code": "123456"}).status_code == 409  # kurulum yok
-    secret = api.post("/v1/auth/totp/setup").json()["secret"]
+    assert api.post("/v1/auth/totp/enable", {"code": "123456", **PW}).status_code == 409  # kurulum yok
+    secret = api.post("/v1/auth/totp/setup", PW).json()["secret"]
     wrong = "000000" if clock.code(secret) != "000000" else "111111"
-    r = api.post("/v1/auth/totp/enable", {"code": wrong})
+    r = api.post("/v1/auth/totp/enable", {"code": wrong, **PW})
     assert r.status_code == 400
-    assert api.post("/v1/auth/totp/enable", {"code": "abc"}).status_code == 422
-    assert api.post("/v1/auth/totp/enable", {"code": clock.code(secret)}).status_code == 204
+    assert api.post("/v1/auth/totp/enable", {"code": "abc", **PW}).status_code == 422
+    assert api.post("/v1/auth/totp/enable", {"code": clock.code(secret), **PW}).status_code == 200
     assert api.get("/v1/me").json()["totp_enabled"] is True
-    assert api.post("/v1/auth/totp/setup").status_code == 409  # zaten etkin
-    assert api.post("/v1/auth/totp/enable", {"code": clock.code(secret)}).status_code == 409
+    assert api.post("/v1/auth/totp/setup", PW).status_code == 409  # zaten etkin
+    assert api.post("/v1/auth/totp/enable", {"code": clock.code(secret), **PW}).status_code == 409
 
 
 def test_totp_setup_requires_authentication(api: Api) -> None:
-    assert api.post("/v1/auth/totp/setup").status_code == 401
-    assert api.post("/v1/auth/totp/enable", {"code": "123456"}).status_code == 401
+    assert api.post("/v1/auth/totp/setup", PW).status_code == 401
+    assert api.post("/v1/auth/totp/enable", {"code": "123456", **PW}).status_code == 401
 
 
 def test_login_with_totp_second_step(make_api, clock: FakeClock) -> None:  # type: ignore[no-untyped-def]

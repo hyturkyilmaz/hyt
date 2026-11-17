@@ -50,6 +50,37 @@ class TotpCodeRequest(_Strict):
     code: TotpCode
 
 
+# Giriş/yeniden doğrulama kodu: 6 haneli TOTP ya da kurtarma kodu (12 karakter; tire/boşluk serbest).
+LoginCode = Annotated[str, StringConstraints(pattern=r"^(\d{6}|[A-Za-z0-9 \-]{12,20})$")]
+
+
+class LoginCodeRequest(_Strict):
+    code: LoginCode
+
+
+class ReauthRequest(_Strict):
+    """Yeniden kimlik doğrulama: güncel parola (MFA ayarı değişikliği, ASVS V2.5/V7.5)."""
+
+    password: LoginPassword
+
+
+class TotpEnableRequest(_Strict):
+    code: TotpCode
+    password: LoginPassword
+
+
+class TotpReauthRequest(_Strict):
+    """TOTP etkinken MFA değişikliği: güncel parola + güncel TOTP (ya da bir kurtarma) kodu."""
+
+    password: LoginPassword
+    code: LoginCode
+
+
+class RecoveryCodesResponse(BaseModel):
+    # Düz metin kodlar yalnız bu yanıtta, bir kez döner; sunucuda yalnız özeti saklanır.
+    recovery_codes: list[str]
+
+
 class PasswordResetRequest(_Strict):
     email: NormalizedEmail
 
@@ -88,6 +119,8 @@ class MeResponse(BaseModel):
     totp_enabled: bool
     # E-posta doğrulandı mı (doğrulanana dek mağaza bağlama ve veri yazma kapalıdır).
     email_verified: bool
+    # Kullanılabilir kurtarma kodu sayısı (TOTP etkin değilse 0).
+    recovery_codes_remaining: int
     tenant: TenantOut
 
 

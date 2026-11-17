@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { AuthCard, FormError } from '@/components/auth/auth-card';
@@ -22,6 +22,7 @@ import { PasswordInput } from '@/components/ui/password-input';
 import { describeApiError, ApiError } from '@/lib/api/client';
 import { authApi } from '@/lib/api/endpoints';
 import { buildTwoFactorUrl } from '@/lib/auth/redirect';
+import { stripTokenCarryingNext } from '@/lib/auth/redact-url';
 import { loginSchema, type LoginValues } from '@/lib/validation/auth';
 
 export function LoginForm({
@@ -40,6 +41,12 @@ export function LoginForm({
     defaultValues: { email: '', password: '' },
   });
   const { isSubmitting } = form.formState;
+
+  // /giris?sonra=/e-posta-dogrula?token=... : hedef props'ta tutulur, tek kullanımlık token adres çubuğundan
+  // ve tarayıcı geçmişinden silinir.
+  useEffect(() => {
+    stripTokenCarryingNext();
+  }, []);
 
   async function onSubmit(values: LoginValues) {
     setServerError(null);

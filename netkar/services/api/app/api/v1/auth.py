@@ -24,12 +24,16 @@ from app.api.deps import (
 from app.api.v1.schemas import (
     CsrfResponse,
     EmailVerifyRequest,
+    LoginCodeRequest,
     LoginRequest,
     PasswordResetConfirm,
     PasswordResetRequest,
+    ReauthRequest,
+    RecoveryCodesResponse,
     RegisterRequest,
     StatusResponse,
-    TotpCodeRequest,
+    TotpEnableRequest,
+    TotpReauthRequest,
     TotpSetupResponse,
 )
 from app.core.config import Settings
@@ -45,10 +49,14 @@ from app.core.crypto import DecryptionError, FieldCipher
 from app.core.email import EmailMessage
 from app.core.errors import ProblemError
 from app.core.middleware import CSRF_COOKIE, is_valid_csrf_format, new_csrf_token
-from app.core.ratelimit import digest
+from app.core.ratelimit import RateLimiter, digest
 from app.core.security import (
+    PasswordWorker,
+    generate_recovery_codes,
     new_totp_secret,
+    normalize_recovery_code,
     read_pending_token,
+    recovery_code_hash,
     sign_pending_token,
     totp_uri,
     verify_totp_step,
@@ -57,6 +65,7 @@ from app.db.rls import set_rls_context
 from app.models import User
 from app.services import auth as auth_service
 from app.services.audit import record_audit
+from app.services.auth import AuthContext
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -243,7 +252,7 @@ async def login(
 
 @router.post("/totp/verify", response_model=StatusResponse)
 async def totp_verify(
-    body: TotpCodeRequest,
+    body: LoginCodeRequest,
     request: Request,
     response: Response,
     db: DbDep,
@@ -251,10 +260,11 @@ async def totp_verify(
     limiter: RateLimiterDep,
     cipher: CipherDep,
 ) -> StatusResponse:
-    """Girişte ikinci adım: bekleyen çerez + 6 haneli TOTP kodu.
+    """Girişte ikinci adım: bekleyen çerez + 6 haneli TOTP kodu YA DA tek kullanımlık kurtarma kodu.
 
-    Korumalar: IP sınırı (ara katman), kullanıcı başına sınır, ardışık hatada geçici kilit (O-02)
-    ve aynı zaman adımının tekrar kullanımının reddi (O-01).
+    Korumalar: IP sınırı (ara katman), kullanıcı başına sınır, ardışık hatada geçici kilit (O-02; TOTP ve
+    kurtarma denemeleri aynı sayacı paylaşır), aynı zaman adımının tekrar kullanımının reddi (O-01) ve
+    kurtarma kodunun koşullu UPDATE ile atomik tek kullanımı.
     """
     pending = request.cookies.get(PENDING_COOKIE)
     identity = read_pending_token(settings.master_key, pending) if pending else None
@@ -268,30 +278,31 @@ async def totp_verify(
     )
     await set_rls_context(db, tenant_id, user_id)
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
-    if user is not None and user.totp_locked_until is not None:
-        remaining = (user.totp_locked_until - datetime.now(UTC)).total_seconds()
-        if remaining > 0:
-            await db.rollback()
-            raise ProblemError(
-                429,
-                "Çok fazla istek",
-                "totp-locked",
-                "Çok fazla hatalı kod girildi. Lütfen daha sonra tekrar deneyin.",
-                headers={"Retry-After": str(max(1, int(remaining)))},
-            )
-    secret = _decrypt_secret(cipher, user)
-    step = (
-        verify_totp_step(secret, body.code)
-        if user is not None and user.totp_enabled and secret is not None
-        else None
-    )
+    await _raise_if_locked(db, user)
     ip_hash = ip_hash_for(request, settings)
+    use_recovery = not _is_totp_code(body.code)
     failure_action: str | None = None
-    if user is None or step is None:
-        failure_action = "auth.totp_failed"
-    elif not await auth_service.consume_totp_step(db, user_id, step):
-        # Aynı veya daha eski zaman adımı: kod daha önce kullanılmış (tekrar oynatma).
-        failure_action = "auth.totp_replay"
+    if use_recovery:
+        normalized = normalize_recovery_code(body.code)
+        if user is None or not user.totp_enabled or normalized is None:
+            failure_action = "auth.recovery_failed"
+        elif not await auth_service.consume_recovery_code(
+            db, user_id, recovery_code_hash(settings.master_key, user_id, normalized)
+        ):
+            # Bilinmeyen, kullanılmış ya da geçersiz kılınmış kod (ya da eşzamanlı yarışı kaybeden).
+            failure_action = "auth.recovery_failed"
+    else:
+        secret = _decrypt_secret(cipher, user)
+        step = (
+            verify_totp_step(secret, body.code)
+            if user is not None and user.totp_enabled and secret is not None
+            else None
+        )
+        if user is None or step is None:
+            failure_action = "auth.totp_failed"
+        elif not await auth_service.consume_totp_step(db, user_id, step):
+            # Aynı veya daha eski zaman adımı: kod daha önce kullanılmış (tekrar oynatma).
+            failure_action = "auth.totp_replay"
     if failure_action is not None:
         meta: dict[str, object] = {}
         if user is not None:
@@ -311,8 +322,42 @@ async def totp_verify(
         await record_audit(db, tenant_id, failure_action, user_id=user_id, ip_hash=ip_hash, meta=meta)
         await db.commit()
         raise ProblemError(401, "Geçersiz kod", "invalid-code", "Doğrulama kodu hatalı.")
-    await _start_session(request, response, db, settings, user_id, tenant_id, "auth.login_totp")
+    if use_recovery:
+        # Kurtarma kodu da başarılı ikinci faktördür: kaba kuvvet sayacı sıfırlanır, kullanım denetim kaydına yazılır.
+        await db.execute(
+            update(User).where(User.id == user_id).values(totp_failed_count=0, totp_locked_until=None)
+        )
+        await record_audit(
+            db,
+            tenant_id,
+            "auth.recovery_code_used",
+            user_id=user_id,
+            ip_hash=ip_hash,
+            meta={"remaining": await auth_service.count_recovery_codes(db, user_id)},
+        )
+        await _start_session(request, response, db, settings, user_id, tenant_id, "auth.login_recovery")
+    else:
+        await _start_session(request, response, db, settings, user_id, tenant_id, "auth.login_totp")
     return StatusResponse(status="ok")
+
+
+def _is_totp_code(code: str) -> bool:
+    return len(code) == 6 and code.isascii() and code.isdigit()
+
+
+async def _raise_if_locked(db: AsyncSession, user: User | None) -> None:
+    """Ardışık hata kilidi sürüyorsa 429 (Retry-After ile) fırlatır."""
+    if user is not None and user.totp_locked_until is not None:
+        remaining = (user.totp_locked_until - datetime.now(UTC)).total_seconds()
+        if remaining > 0:
+            await db.rollback()
+            raise ProblemError(
+                429,
+                "Çok fazla istek",
+                "totp-locked",
+                "Çok fazla hatalı kod girildi. Lütfen daha sonra tekrar deneyin.",
+                headers={"Retry-After": str(max(1, int(remaining)))},
+            )
 
 
 @router.post("/logout", status_code=204)
@@ -343,16 +388,112 @@ def _decrypt_secret(cipher: FieldCipher, user: User | None) -> str | None:
         return None
 
 
+async def _reauth_failed(
+    request: Request,
+    ctx: AuthContext,
+    db: AsyncSession,
+    settings: Settings,
+    factor: str,
+    status: int = 403,
+) -> ProblemError:
+    """Başarısız yeniden doğrulamayı mevcut kilit sayacına işler, denetim kaydı yazar, hatayı döndürür.
+
+    403 verilir (401 değil): web istemcisi 401'i "oturum bitti" sayıp girişe yönlendirir; burada oturum geçerlidir.
+    """
+    count, locked_until = await auth_service.register_totp_failure(
+        db, ctx.user_id, settings.totp_max_failures, settings.totp_lock_seconds
+    )
+    ip_hash = ip_hash_for(request, settings)
+    if locked_until is not None:
+        await record_audit(
+            db,
+            ctx.tenant_id,
+            "auth.totp_locked",
+            user_id=ctx.user_id,
+            ip_hash=ip_hash,
+            meta={"lock_seconds": settings.totp_lock_seconds},
+        )
+    await record_audit(
+        db,
+        ctx.tenant_id,
+        "auth.reauth_failed",
+        user_id=ctx.user_id,
+        ip_hash=ip_hash,
+        meta={"factor": factor, "failures": count},
+    )
+    await db.commit()
+    return ProblemError(
+        status,
+        "Yeniden doğrulama başarısız",
+        "reauth-failed" if factor == "password" else "invalid-code",
+        "Parola hatalı." if factor == "password" else "Doğrulama kodu hatalı.",
+    )
+
+
+async def _reauthenticate(
+    request: Request,
+    ctx: AuthContext,
+    db: AsyncSession,
+    settings: Settings,
+    limiter: RateLimiter,
+    passwords: PasswordWorker,
+    cipher: FieldCipher,
+    password: str,
+    code: str | None = None,
+    *,
+    need_code: bool = False,
+) -> User:
+    """MFA ayarı değişikliği öncesi yeniden kimlik doğrulama (ASVS V2.5, V7.5; denetim O-05).
+
+    Güncel parola her zaman istenir; `need_code` (TOTP kapatma, kod yenileme) ve hesapta TOTP etkinse `code`
+    (güncel TOTP ya da kurtarma kodu) da doğrulanmalıdır. Kurulum/etkinleştirme yalnız parola ister (TOTP henüz yok). Kullanıcı başına hız sınırı ve ardışık hata kilidi girişteki TOTP altyapısını paylaşır.
+    Başarıda kullanıcı satırı döner; kurtarma kodu/TOTP adımı bu işlemde tüketilmiştir (çağıran commit eder).
+    """
+    await limiter.hit(
+        f"reauth:user:{_digest(settings, 'rl-user', str(ctx.user_id))}",
+        settings.rate_limit_totp_user,
+        _WINDOW_LOGIN,
+    )
+    user = (await db.execute(select(User).where(User.id == ctx.user_id))).scalar_one()
+    await _raise_if_locked(db, user)
+    if not await auth_service.verify_account_password(db, passwords, user.email, password):
+        # find_user_for_login işlem bağlamını değiştirmez; RLS bağlamı hâlâ geçerlidir.
+        raise await _reauth_failed(request, ctx, db, settings, "password")
+    if not need_code or not user.totp_enabled:
+        return user
+    if code is None:
+        raise await _reauth_failed(request, ctx, db, settings, "code")
+    if _is_totp_code(code):
+        secret = _decrypt_secret(cipher, user)
+        step = verify_totp_step(secret, code) if secret is not None else None
+        if step is None or not await auth_service.consume_totp_step(db, user.id, step):
+            raise await _reauth_failed(request, ctx, db, settings, "code")
+    else:
+        normalized = normalize_recovery_code(code)
+        if normalized is None or not await auth_service.consume_recovery_code(
+            db, user.id, recovery_code_hash(settings.master_key, user.id, normalized)
+        ):
+            raise await _reauth_failed(request, ctx, db, settings, "code")
+    return user
+
+
 @router.post("/totp/setup", response_model=TotpSetupResponse)
 async def totp_setup(
-    request: Request, ctx: VerifiedAuthDep, db: DbDep, settings: SettingsDep, cipher: CipherDep
+    body: ReauthRequest,
+    request: Request,
+    ctx: VerifiedAuthDep,
+    db: DbDep,
+    settings: SettingsDep,
+    cipher: CipherDep,
+    limiter: RateLimiterDep,
+    passwords: PasswordsDep,
 ) -> TotpSetupResponse:
-    """Yeni TOTP sırrı üretir (şifreli saklanır, henüz etkin değil).
+    """Yeni TOTP sırrı üretir (şifreli saklanır, henüz etkin değil). Güncel parola ister (yeniden doğrulama).
 
     E-postası doğrulanmamış hesap TOTP kuramaz: önceden kayıt olan saldırganın ikinci faktörü gerçek
     sahibini kilitleyemesin (denetim O-06).
     """
-    user = (await db.execute(select(User).where(User.id == ctx.user_id))).scalar_one()
+    user = await _reauthenticate(request, ctx, db, settings, limiter, passwords, cipher, body.password)
     if user.totp_enabled:
         raise ProblemError(409, "Çakışma", "totp-already-enabled", "TOTP zaten etkin.")
     secret = new_totp_secret()
@@ -372,17 +513,31 @@ async def totp_setup(
     return TotpSetupResponse(secret=secret, otpauth_uri=totp_uri(secret, user.email, settings.product_name))
 
 
-@router.post("/totp/enable", status_code=204)
+async def _issue_recovery_codes(db: AsyncSession, settings: Settings, user_id: UUID) -> list[str]:
+    """10 yeni kod üretir, yalnız HMAC özetlerini yazar (öncekiler geçersiz kılınır); düz metni döndürür."""
+    codes = generate_recovery_codes()
+    hashes = []
+    for code in codes:
+        normalized = normalize_recovery_code(code)
+        assert normalized is not None  # kendi ürettiğimiz kod her zaman geçerlidir
+        hashes.append(recovery_code_hash(settings.master_key, user_id, normalized))
+    await auth_service.replace_recovery_codes(db, user_id, hashes)
+    return codes
+
+
+@router.post("/totp/enable", response_model=RecoveryCodesResponse)
 async def totp_enable(
-    body: TotpCodeRequest,
+    body: TotpEnableRequest,
     request: Request,
     ctx: VerifiedAuthDep,
     db: DbDep,
     settings: SettingsDep,
     cipher: CipherDep,
-) -> Response:
-    """Kullanıcının ürettiği kodu doğrulayıp TOTP'yi etkinleştirir."""
-    user = (await db.execute(select(User).where(User.id == ctx.user_id))).scalar_one()
+    limiter: RateLimiterDep,
+    passwords: PasswordsDep,
+) -> RecoveryCodesResponse:
+    """Parola + kullanıcının ürettiği kodu doğrulayıp TOTP'yi etkinleştirir; 10 kurtarma kodunu BİR KEZ döndürür."""
+    user = await _reauthenticate(request, ctx, db, settings, limiter, passwords, cipher, body.password)
     if user.totp_enabled:
         raise ProblemError(409, "Çakışma", "totp-already-enabled", "TOTP zaten etkin.")
     secret = _decrypt_secret(cipher, user)
@@ -390,16 +545,113 @@ async def totp_enable(
         raise ProblemError(409, "Çakışma", "totp-not-set-up", "Önce /v1/auth/totp/setup çağrılmalı.")
     step = verify_totp_step(secret, body.code)
     if step is None:
+        # Yanlış kod da kilit sayacına işlenir (kurulum kodunu kaba kuvvetle denemek sınırlıdır).
+        count, locked_until = await auth_service.register_totp_failure(
+            db, ctx.user_id, settings.totp_max_failures, settings.totp_lock_seconds
+        )
+        await record_audit(
+            db,
+            ctx.tenant_id,
+            "auth.reauth_failed",
+            user_id=ctx.user_id,
+            ip_hash=ip_hash_for(request, settings),
+            meta={"factor": "enable_code", "failures": count, "locked": locked_until is not None},
+        )
+        await db.commit()
         raise ProblemError(400, "Geçersiz kod", "invalid-code", "Doğrulama kodu hatalı.")
     # Etkinleştirmede kullanılan adım da tüketilir: aynı kodla hemen giriş yapılamaz.
     await db.execute(
-        update(User).where(User.id == ctx.user_id).values(totp_enabled=True, totp_last_step=step)
+        update(User)
+        .where(User.id == ctx.user_id)
+        .values(totp_enabled=True, totp_last_step=step, totp_failed_count=0, totp_locked_until=None)
     )
+    codes = await _issue_recovery_codes(db, settings, ctx.user_id)
     await record_audit(
-        db, ctx.tenant_id, "auth.totp_enabled", user_id=ctx.user_id, ip_hash=ip_hash_for(request, settings)
+        db,
+        ctx.tenant_id,
+        "auth.totp_enabled",
+        user_id=ctx.user_id,
+        ip_hash=ip_hash_for(request, settings),
+        meta={"recovery_codes": len(codes)},
+    )
+    await db.commit()
+    return RecoveryCodesResponse(recovery_codes=codes)
+
+
+@router.post("/totp/disable", status_code=204)
+async def totp_disable(
+    body: TotpReauthRequest,
+    request: Request,
+    ctx: VerifiedAuthDep,
+    db: DbDep,
+    settings: SettingsDep,
+    cipher: CipherDep,
+    limiter: RateLimiterDep,
+    passwords: PasswordsDep,
+) -> Response:
+    """TOTP'yi kapatır: güncel parola + güncel TOTP (ya da kurtarma) kodu ister; diğer tüm oturumlar iptal edilir.
+
+    Sır, zaman adımı ve sayaçlar temizlenir, kalan kurtarma kodları geçersiz kılınır (satırlar silinmez).
+    """
+    user = await _reauthenticate(
+        request, ctx, db, settings, limiter, passwords, cipher, body.password, body.code, need_code=True
+    )
+    if not user.totp_enabled:
+        raise ProblemError(409, "Çakışma", "totp-not-enabled", "TOTP etkin değil.")
+    await db.execute(
+        update(User)
+        .where(User.id == ctx.user_id)
+        .values(
+            totp_enabled=False,
+            totp_secret_encrypted=None,
+            totp_last_step=None,
+            totp_failed_count=0,
+            totp_locked_until=None,
+        )
+    )
+    await auth_service.revoke_recovery_codes(db, ctx.user_id)
+    revoked = await auth_service.revoke_other_sessions(db, ctx.user_id, ctx.session_id)
+    await record_audit(
+        db,
+        ctx.tenant_id,
+        "auth.totp_disabled",
+        user_id=ctx.user_id,
+        ip_hash=ip_hash_for(request, settings),
+        meta={"other_sessions_revoked": revoked},
     )
     await db.commit()
     return Response(status_code=204)
+
+
+@router.post("/totp/recovery-codes", response_model=RecoveryCodesResponse)
+async def recovery_codes_regenerate(
+    body: TotpReauthRequest,
+    request: Request,
+    ctx: VerifiedAuthDep,
+    db: DbDep,
+    settings: SettingsDep,
+    cipher: CipherDep,
+    limiter: RateLimiterDep,
+    passwords: PasswordsDep,
+) -> RecoveryCodesResponse:
+    """Kurtarma kodlarını yeniler (eskiler geçersiz olur): güncel parola + TOTP kodu ister; diğer oturumları iptal eder."""
+    user = await _reauthenticate(
+        request, ctx, db, settings, limiter, passwords, cipher, body.password, body.code, need_code=True
+    )
+    if not user.totp_enabled:
+        raise ProblemError(409, "Çakışma", "totp-not-enabled", "TOTP etkin değil.")
+    codes = await _issue_recovery_codes(db, settings, ctx.user_id)
+    revoked = await auth_service.revoke_other_sessions(db, ctx.user_id, ctx.session_id)
+    await record_audit(
+        db,
+        ctx.tenant_id,
+        "auth.recovery_codes_regenerated",
+        user_id=ctx.user_id,
+        ip_hash=ip_hash_for(request, settings),
+        meta={"recovery_codes": len(codes), "other_sessions_revoked": revoked},
+    )
+    await db.commit()
+    return RecoveryCodesResponse(recovery_codes=codes)
 
 
 @router.post("/password-reset/request", status_code=202, response_model=StatusResponse)

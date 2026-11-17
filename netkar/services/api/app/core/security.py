@@ -19,7 +19,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
 from app.core import clock
-from app.core.crypto import derive_key
+from app.core.crypto import derive_key, hmac_hex
 
 PASSWORD_MIN_LENGTH = 12
 PASSWORD_MAX_LENGTH = 128
@@ -164,3 +164,36 @@ def read_pending_token(master: bytes, token: str, now: float | None = None) -> t
         return UUID(payload["u"]), UUID(payload["t"])
     except (ValueError, KeyError, TypeError):
         return None
+
+
+# Kurtarma kodları (ASVS V2.5): 12 karakter, 32'lik alfabe = 60 bit entropi. Karışan karakterler (0/O, 1/I)
+# alfabede yoktur. Gösterim "XXXX-XXXX-XXXX"; girişte boşluk, tire ve küçük harf yok sayılır.
+RECOVERY_CODE_COUNT = 10
+RECOVERY_CODE_LENGTH = 12
+_RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def generate_recovery_codes(count: int = RECOVERY_CODE_COUNT) -> list[str]:
+    """Rastgele (secrets) kurtarma kodları üretir; gösterim biçimindedir ve kendi içinde tekildir."""
+    codes: set[str] = set()
+    while len(codes) < count:
+        raw = "".join(secrets.choice(_RECOVERY_ALPHABET) for _ in range(RECOVERY_CODE_LENGTH))
+        codes.add("-".join(raw[i : i + 4] for i in range(0, RECOVERY_CODE_LENGTH, 4)))
+    return sorted(codes)
+
+
+def normalize_recovery_code(value: str) -> str | None:
+    """Kullanıcı girdisini kanonik biçime çevirir; biçim geçersizse None."""
+    cleaned = value.replace("-", "").replace(" ", "").upper()
+    if len(cleaned) != RECOVERY_CODE_LENGTH or any(ch not in _RECOVERY_ALPHABET for ch in cleaned):
+        return None
+    return cleaned
+
+
+def recovery_code_hash(master: bytes, user_id: UUID, normalized_code: str) -> str:
+    """Kurtarma kodunun anahtarlı özeti: HMAC-SHA256 (ana anahtardan türetilen pepper) + kullanıcıya bağlama.
+
+    Kodlar yüksek entropili rastgele değerlerdir; yavaş parola özeti gerekmez. Anahtar yalnız uygulamada
+    durur, DB sızsa bile özetlerden kod türetilemez.
+    """
+    return hmac_hex(master, "recovery-code", f"{user_id}:{normalized_code}")

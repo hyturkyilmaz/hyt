@@ -31,12 +31,19 @@ export interface MeResponse {
   totp_enabled: boolean;
   /** E-posta doğrulandı mı; false iken mağaza bağlama ve veri yazma uçları 403 email-not-verified döner. */
   email_verified: boolean;
+  /** Kullanılabilir kurtarma kodu sayısı (TOTP etkin değilse 0). Düz metin kodlar yalnız üretildiği yanıtta döner. */
+  recovery_codes_remaining: number;
   tenant: TenantInfo;
 }
 
 export interface TotpSetupResult {
   secret: string;
   otpauth_uri: string;
+}
+
+/** TOTP etkinleştirme ve kurtarma kodu yenileme yanıtı: 10 tek kullanımlık kod, YALNIZ bir kez döner. */
+export interface RecoveryCodesResult {
+  recovery_codes: string[];
 }
 
 export const authApi = {
@@ -47,7 +54,10 @@ export const authApi = {
   register: (body: { email: string; password: string; tenant_name: string }) =>
     apiFetch<AcceptedResult>('/auth/register', { method: 'POST', body }),
 
-  /** Girişte ikinci adım: `__Host-nk_pending` çerezi + 6 haneli TOTP kodu. */
+  /**
+   * Girişte ikinci adım: `__Host-nk_pending` çerezi + 6 haneli TOTP kodu YA DA tek kullanımlık kurtarma kodu
+   * (12 karakter; tire ve boşluk serbest, büyük/küçük harf fark etmez).
+   */
   verifyTotp: (body: { code: string }) =>
     apiFetch<{ status: 'ok' }>('/auth/totp/verify', { method: 'POST', body }),
 
@@ -56,10 +66,21 @@ export const authApi = {
 
   me: () => apiFetch<MeResponse>('/me'),
 
-  totpSetup: () => apiFetch<TotpSetupResult>('/auth/totp/setup', { method: 'POST' }),
+  /** Yeni TOTP sırrı; yeniden doğrulama için GÜNCEL PAROLA ister (yanlışsa 403 `reauth-failed`). */
+  totpSetup: (body: { password: string }) =>
+    apiFetch<TotpSetupResult>('/auth/totp/setup', { method: 'POST', body }),
 
-  totpEnable: (body: { code: string }) =>
-    apiFetch<void>('/auth/totp/enable', { method: 'POST', body }),
+  /** Parola + uygulamadaki ilk kod; başarıda 10 kurtarma kodu döner (bir kez gösterilir). */
+  totpEnable: (body: { code: string; password: string }) =>
+    apiFetch<RecoveryCodesResult>('/auth/totp/enable', { method: 'POST', body }),
+
+  /** TOTP'yi kapatır (204): güncel parola + güncel TOTP ya da kurtarma kodu; diğer oturumlar iptal edilir. */
+  totpDisable: (body: { password: string; code: string }) =>
+    apiFetch<void>('/auth/totp/disable', { method: 'POST', body }),
+
+  /** Kurtarma kodlarını yeniler (eskiler geçersiz olur): parola + kod; diğer oturumlar iptal edilir. */
+  regenerateRecoveryCodes: (body: { password: string; code: string }) =>
+    apiFetch<RecoveryCodesResult>('/auth/totp/recovery-codes', { method: 'POST', body }),
 
   requestPasswordReset: (body: { email: string }) =>
     apiFetch<AcceptedResult>('/auth/password-reset/request', { method: 'POST', body }),

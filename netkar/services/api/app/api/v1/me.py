@@ -9,6 +9,7 @@ from app.api.deps import AuthDep, DbDep
 from app.api.v1.schemas import MeResponse, TenantOut
 from app.core.errors import ProblemError
 from app.models import Tenant, User
+from app.services.auth import count_recovery_codes
 
 router = APIRouter(tags=["me"])
 auth_alias = APIRouter(prefix="/auth", include_in_schema=False)
@@ -25,6 +26,7 @@ async def _me(ctx: AuthDep, db: DbDep) -> MeResponse:
         role=ctx.role.value,
         totp_enabled=user.totp_enabled,
         email_verified=user.email_verified_at is not None,
+        recovery_codes_remaining=await count_recovery_codes(db, user.id) if user.totp_enabled else 0,
         tenant=TenantOut(
             id=tenant.id,
             name=tenant.name,
