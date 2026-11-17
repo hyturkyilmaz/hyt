@@ -12,11 +12,13 @@ from pydantic import (
     BeforeValidator,
     ConfigDict,
     EmailStr,
+    Field,
     SecretStr,
     StringConstraints,
 )
 
 from app.core.security import PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH
+from app.services.legal import DocType
 
 
 def _normalize_email(value: str) -> str:
@@ -28,6 +30,16 @@ NewPassword = Annotated[
     str, StringConstraints(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
 ]
 LoginPassword = Annotated[str, StringConstraints(min_length=1, max_length=PASSWORD_MAX_LENGTH)]
+
+
+def _must_be_true(value: bool) -> bool:
+    if value is not True:
+        raise ValueError("açık onay (true) gerekli")
+    return value
+
+
+# Yalnız JSON `true` (1, "true" gibi dönüştürülen değerler ve false reddedilir).
+StrictTrue = Annotated[bool, Field(strict=True), AfterValidator(_must_be_true)]
 TotpCode = Annotated[str, StringConstraints(pattern=r"^\d{6}$")]
 
 
@@ -39,6 +51,10 @@ class RegisterRequest(_Strict):
     email: NormalizedEmail
     password: NewPassword
     tenant_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    # Açık onay kutuları: yalnız `true` kabul edilir (eksik ya da false 422). Kullanım koşulları onayı sözleşme
+    # kabulüdür; aydınlatma "okudum" bilgisidir ve KVKK açık rızası DEĞİLDİR (pazarlama izni ayrı, burada yok).
+    accept_terms: StrictTrue
+    acknowledge_privacy_notice: StrictTrue
 
 
 class LoginRequest(_Strict):
@@ -119,6 +135,30 @@ class TenantOut(BaseModel):
     locale: str
 
 
+class LegalDocumentRef(_Strict):
+    """Belge türü + sürüm: kabul isteğinde kullanıcının gördüğü sürüm, yanıtta bekleyen/güncel sürüm."""
+
+    doc_type: DocType
+    version: Annotated[str, StringConstraints(min_length=1, max_length=64)]
+
+
+class LegalAcceptRequest(_Strict):
+    documents: Annotated[list[LegalDocumentRef], Field(min_length=1, max_length=2)]
+
+
+class LegalPendingOut(BaseModel):
+    doc_type: DocType
+    version: str
+    published_at: datetime
+
+
+class LegalStatus(BaseModel):
+    # Kabul edilmemiş güncel belge sürümleri (boşsa güncel).
+    pending: list[LegalPendingOut]
+    # Sunucu kabul edilene kadar yazma uçlarını 403 (terms-acceptance-required) ile kapatıyor mu.
+    enforced: bool
+
+
 class MeResponse(BaseModel):
     user_id: UUID
     email: str
@@ -128,6 +168,8 @@ class MeResponse(BaseModel):
     email_verified: bool
     # Kullanılabilir kurtarma kodu sayısı (TOTP etkin değilse 0).
     recovery_codes_remaining: int
+    # Belge sürümü yeniden kabul bilgisi (kullanım koşulları, aydınlatma metni).
+    legal: LegalStatus
     tenant: TenantOut
 
 

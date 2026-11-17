@@ -200,6 +200,11 @@ def _clean_tables(database: DatabaseInfo) -> None:
             "audit_log, rate_limits, marketplace_accounts, report_data_revisions, procrastinate_jobs "
             "RESTART IDENTITY CASCADE"
         )
+        # Belge sürüm kaydı değişmezdir (tetikleyici); testlerin yayınladığı sürümler tetikleyici devre dışı
+        # bırakılarak (yalnız superuser, bu oturumda) temizlenir. Kabul kayıtları yukarıdaki CASCADE ile gitti.
+        conn.execute("SET session_replication_role = replica")
+        conn.execute("DELETE FROM legal_documents WHERE version <> 'taslak-2026-11'")
+        conn.execute("SET session_replication_role = DEFAULT")
 
 
 @pytest.fixture
@@ -272,8 +277,21 @@ class Api:
     def get(self, url: str, **kw: Any) -> Any:
         return self.client.get(url, **kw)
 
-    def register(self, email: str, password: str = GOOD_PASSWORD, tenant: str = "Test Mağaza") -> Any:
-        return self.post("/v1/auth/register", {"email": email, "password": password, "tenant_name": tenant})
+    def register(
+        self,
+        email: str,
+        password: str = GOOD_PASSWORD,
+        tenant: str = "Test Mağaza",
+        accept_terms: Any = True,
+        acknowledge_privacy_notice: Any = True,
+    ) -> Any:
+        """Kayıt isteği; onay kutuları varsayılan işaretli (`None`: alan hiç gönderilmez)."""
+        body: dict[str, Any] = {"email": email, "password": password, "tenant_name": tenant}
+        if accept_terms is not None:
+            body["accept_terms"] = accept_terms
+        if acknowledge_privacy_notice is not None:
+            body["acknowledge_privacy_notice"] = acknowledge_privacy_notice
+        return self.post("/v1/auth/register", body)
 
     def login(self, email: str, password: str = GOOD_PASSWORD) -> Any:
         return self.post("/v1/auth/login", {"email": email, "password": password})

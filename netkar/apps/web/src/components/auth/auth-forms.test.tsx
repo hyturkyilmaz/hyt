@@ -208,6 +208,9 @@ describe('RegisterForm', () => {
     expect(
       screen.getByText('Devam etmek için kullanım koşullarını kabul etmelisiniz.'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('Devam etmek için aydınlatma metnini okuduğunuzu işaretleyin.'),
+    ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -218,17 +221,20 @@ describe('RegisterForm', () => {
     await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
     await user.type(screen.getByLabelText('İşletme veya mağaza adı'), '  Örnek Mağaza ');
     await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
-    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ }));
     await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith('/giris?kayit=1'));
     const { url, body } = lastRequest(fetchMock);
     expect(url).toBe('/api/v1/auth/register');
-    // Backend gövdesi extra="forbid": accept_terms gibi alanlar gönderilmez.
+    // Backend gövdesi extra="forbid": yalnız API'nin bildiği alanlar (iki açık onay dahil) gider.
     expect(body).toEqual({
       email: 'ad@ornek.com',
       password: 'uzun bir parola cümlesi',
       tenant_name: 'Örnek Mağaza',
+      accept_terms: true,
+      acknowledge_privacy_notice: true,
     });
   });
 
@@ -239,10 +245,45 @@ describe('RegisterForm', () => {
     await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
     await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
     await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
-    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ }));
     await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
     expect(await screen.findByText(/veri sızıntılarında görülmüş/)).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it('iki onay kutusu ayrı, zorunlu ve açıklamalıdır; biri eksikse istek gitmez', async () => {
+    const fetchMock = mockFetch(202, { status: 'accepted' });
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    const terms = screen.getByRole('checkbox', { name: /Kullanım koşullarını/ });
+    const privacy = screen.getByRole('checkbox', { name: /Aydınlatma metnini/ });
+    expect(terms).toHaveAttribute('aria-required', 'true');
+    expect(privacy).toHaveAttribute('aria-required', 'true');
+    // Bağlantılar yeni sekmede açılır ve bu görünür metinle söylenir; sürüm sayfaları var olan yollardır.
+    expect(screen.getByRole('link', { name: 'Kullanım koşullarını' })).toHaveAttribute(
+      'href',
+      '/kullanim-kosullari',
+    );
+    expect(screen.getByRole('link', { name: 'Aydınlatma metnini' })).toHaveAttribute(
+      'href',
+      '/kvkk-aydinlatma-metni',
+    );
+    expect(screen.getAllByText('(yeni sekmede açılır)')).toHaveLength(2);
+    // Aydınlatma açık rıza değildir: açıklama bunu söyler ve "kabul ediyorum" ifadesi kullanılmaz.
+    expect(screen.getByText(/açık rıza yerine geçmez/)).toBeInTheDocument();
+    expect(privacy.closest('div')).not.toHaveTextContent('kabul ediyorum');
+
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
+    await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
+    await user.click(terms);
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+    expect(
+      await screen.findByText('Devam etmek için aydınlatma metnini okuduğunuzu işaretleyin.'),
+    ).toBeInTheDocument();
+    expect(privacy).toHaveAccessibleDescription(/açık rıza yerine geçmez/);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('beklenmeyen hatada genel mesaj gösterir', async () => {
@@ -252,7 +293,8 @@ describe('RegisterForm', () => {
     await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
     await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
     await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
-    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ }));
     await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
     expect(await screen.findByText(/Kayıt tamamlanamadı/)).toBeInTheDocument();
   });

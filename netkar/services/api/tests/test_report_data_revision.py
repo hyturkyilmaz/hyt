@@ -442,8 +442,13 @@ def test_migration_0012_downgrades_cleanly_and_upgrades_again(
 
 
 def test_migration_0013_downgrade_restores_the_0012_state_without_losing_data_and_upgrades_again(
-    alembic_cfg: Config, admin_conn: psycopg.Connection[Any], make_api: Callable[..., Api]
+    alembic_cfg: Config,
+    admin_conn: psycopg.Connection[Any],
+    make_api: Callable[..., Api],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Kayıtlı kullanıcı kabul kaydı taşır; 0021 downgrade'i ispat verisi için durur (bu test o veriyi önemsemez).
+    monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", "1")
     shop = make_shop_factory(make_api, admin_conn)("a@example.com", "Mağaza A")
     seed_basic(admin_conn, shop)
     before = revision(admin_conn, shop.account_id)

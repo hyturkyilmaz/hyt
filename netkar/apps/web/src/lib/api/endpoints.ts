@@ -33,7 +33,23 @@ export interface MeResponse {
   email_verified: boolean;
   /** Kullanılabilir kurtarma kodu sayısı (TOTP etkin değilse 0). Düz metin kodlar yalnız üretildiği yanıtta döner. */
   recovery_codes_remaining: number;
+  /** Güncel belge sürümleri kabul durumu; eski API'de alan yoktur (bekleyen yok sayılır). */
+  legal?: LegalStatus;
   tenant: TenantInfo;
+}
+
+export type LegalDocType = 'terms' | 'privacy_notice';
+
+export interface LegalPending {
+  doc_type: LegalDocType;
+  version: string;
+  published_at: string;
+}
+
+/** `pending`: kabul edilmemiş güncel sürümler; `enforced`: sunucu kabule kadar yazma uçlarını 403 ile kapatıyor mu. */
+export interface LegalStatus {
+  pending: LegalPending[];
+  enforced: boolean;
 }
 
 export interface TotpSetupResult {
@@ -51,8 +67,15 @@ export const authApi = {
     apiFetch<LoginResult>('/auth/login', { method: 'POST', body }),
 
   /** Kayıt oturum AÇMAZ (202); kullanıcı ardından giriş yapar. tenant_name 1-120 karakter. */
-  register: (body: { email: string; password: string; tenant_name: string }) =>
-    apiFetch<AcceptedResult>('/auth/register', { method: 'POST', body }),
+  register: (body: {
+    email: string;
+    password: string;
+    tenant_name: string;
+    /** Kullanım koşulları açık onayı (yalnız `true` kabul edilir; eksikse 422). */
+    accept_terms: true;
+    /** Aydınlatma metni "okudum" bilgisi (açık rıza değildir; yalnız `true` kabul edilir). */
+    acknowledge_privacy_notice: true;
+  }) => apiFetch<AcceptedResult>('/auth/register', { method: 'POST', body }),
 
   /**
    * Girişte ikinci adım: `__Host-nk_pending` çerezi + 6 haneli TOTP kodu YA DA tek kullanımlık kurtarma kodu
@@ -95,4 +118,13 @@ export const authApi = {
   /** Backend alan adı `new_password` (token 20-200 karakter). Başarıda 204. */
   confirmPasswordReset: (body: { token: string; new_password: string }) =>
     apiFetch<void>('/auth/password-reset/confirm', { method: 'POST', body }),
+};
+
+export const legalApi = {
+  /**
+   * Gördüğünüz güncel belge sürümlerini kabul eder. Sürüm güncel değilse 409 `legal-version-stale`
+   * (sayfa yenilenip yeni sürüm okunmalı). Yanıt: kalan bekleyenler.
+   */
+  accept: (documents: { doc_type: LegalDocType; version: string }[]) =>
+    apiFetch<LegalStatus>('/legal/accept', { method: 'POST', body: { documents } }),
 };

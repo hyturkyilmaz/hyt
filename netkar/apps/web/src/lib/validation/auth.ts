@@ -37,6 +37,10 @@ export const registerSchema = z.object({
   acceptTerms: z.boolean().refine((value) => value, {
     message: 'Devam etmek için kullanım koşullarını kabul etmelisiniz.',
   }),
+  // Aydınlatma "okudum" bilgisidir, açık rıza değildir (KVKK m.10); yine de kayıt için işaretlenmesi zorunludur.
+  acknowledgePrivacy: z.boolean().refine((value) => value, {
+    message: 'Devam etmek için aydınlatma metnini okuduğunuzu işaretleyin.',
+  }),
 });
 
 export const twoFactorSchema = z.object({

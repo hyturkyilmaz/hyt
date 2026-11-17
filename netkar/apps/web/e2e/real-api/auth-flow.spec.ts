@@ -75,7 +75,8 @@ test('kayıt: API 202 verir, kullanıcı girişe yönlenir', async ({ page }) =>
   await page.getByLabel('E-posta').fill(EMAIL);
   await page.getByLabel('İşletme veya mağaza adı').fill(TENANT);
   await page.getByLabel('Parola', { exact: true }).fill(PASSWORD);
-  await page.getByRole('checkbox').check();
+  await page.getByRole('checkbox', { name: /Kullanım koşullarını/ }).check();
+  await page.getByRole('checkbox', { name: /Aydınlatma metnini/ }).check();
   await page.getByRole('button', { name: 'Hesap oluştur' }).click();
   await expect(page).toHaveURL(/\/giris\?kayit=1$/);
   await expect(page.getByRole('status')).toContainText('Kaydınız alındı');

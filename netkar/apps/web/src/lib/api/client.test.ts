@@ -220,6 +220,17 @@ describe('describeApiError', () => {
     expect(describeApiError(new Error('?'), 'yedek')).toBe('yedek');
   });
 
+  it('403 terms-acceptance-required, güncel sürümü kabul etmeye yönlendirir', () => {
+    const message = describeApiError(
+      new ApiError({ status: 403, code: 'terms-acceptance-required' }),
+      'x',
+    );
+    expect(message).toContain('güncel sürümü');
+    expect(message).not.toBe(
+      describeApiError(new ApiError({ status: 403, code: 'csrf-failed' }), 'x'),
+    );
+  });
+
   it('403 email-not-verified, CSRF hatasından ayrı ve doğrulamaya yönlendiren mesaj verir', () => {
     const unverified = describeApiError(
       new ApiError({ status: 403, code: 'email-not-verified' }),

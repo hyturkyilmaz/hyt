@@ -79,6 +79,7 @@ from app.models import (
 )
 from app.models.enums import MarketplaceAccountStatus, Platform
 from app.services import auth as auth_service
+from app.services import legal as legal_service
 from app.services import profit_settings as ps
 from app.services.audit import record_audit
 from app.services.marketplace_accounts import encrypt_secret, find_live_account
@@ -539,6 +540,9 @@ async def _register_user(
         ):
             raise DemoGuardError(f"{email} için e-posta doğrulaması işaretlenemedi; dokunulmadı")
         await set_rls_context(db, tenant_id, user_id)
+        # Demo hesabı gerçek bir kabul değildir; yalnız (açıksa) yeniden kabul kapısı demo yazmalarını kesmesin diye
+        # güncel belge sürümleri kabul sayılır (üretim dışı, korumalı betik; doğrulama işaretiyle aynı gerekçe).
+        await legal_service.record_acceptance(db, user_id, await legal_service.current_documents(db))
         await record_audit(db, tenant_id, "demo_seed.tenant_created", user_id=user_id, meta={"demo": True})
         await db.commit()
     return Existing(user_id, tenant_id)

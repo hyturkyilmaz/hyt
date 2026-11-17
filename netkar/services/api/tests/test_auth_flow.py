@@ -94,19 +94,40 @@ def test_password_policy(api: Api) -> None:
 def test_register_validation_rejects_bad_input(api: Api) -> None:
     assert (
         api.post(
-            "/v1/auth/register", {"email": "gecersiz", "password": GOOD_PASSWORD, "tenant_name": "x"}
+            "/v1/auth/register",
+            {
+                "email": "gecersiz",
+                "password": GOOD_PASSWORD,
+                "tenant_name": "x",
+                "accept_terms": True,
+                "acknowledge_privacy_notice": True,
+            },
         ).status_code
         == 422
     )
     assert (
         api.post(
-            "/v1/auth/register", {"email": "a@example.com", "password": GOOD_PASSWORD, "tenant_name": ""}
+            "/v1/auth/register",
+            {
+                "email": "a@example.com",
+                "password": GOOD_PASSWORD,
+                "tenant_name": "",
+                "accept_terms": True,
+                "acknowledge_privacy_notice": True,
+            },
         ).status_code
         == 422
     )
     r = api.post(
         "/v1/auth/register",
-        {"email": "a@example.com", "password": GOOD_PASSWORD, "tenant_name": "x", "role": "owner"},
+        {
+            "email": "a@example.com",
+            "password": GOOD_PASSWORD,
+            "tenant_name": "x",
+            "role": "owner",
+            "accept_terms": True,
+            "acknowledge_privacy_notice": True,
+        },
     )
     assert r.status_code == 422  # beklenmeyen alan reddedilir
 

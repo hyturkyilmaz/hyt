@@ -29,6 +29,7 @@ from app.services.auth import (
     touch_session,
 )
 from app.services.import_gate import ImportGate
+from app.services.legal import pending_documents
 from app.services.marketplace_accounts import TrendyolClientFactory
 from app.services.report_cache import ReportCache
 from app.services.report_gate import ReportGate
@@ -174,6 +175,16 @@ def email_not_verified() -> ProblemError:
     )
 
 
+def terms_acceptance_required() -> ProblemError:
+    return ProblemError(
+        403,
+        "Güncel koşulların kabulü gerekli",
+        "terms-acceptance-required",
+        "Kullanım koşulları ya da aydınlatma metni yeni bir sürüme geçti. Devam etmek için panelden "
+        "güncel sürümü gözden geçirip kabul edin. Verilerinizi görüntülemeye devam edebilirsiniz.",
+    )
+
+
 async def get_verified_auth_context(ctx: AuthDep, db: DbDep) -> AuthContext:
     """Oturum açık ve e-posta doğrulanmış olmalı (TOTP kurulumu gibi hesap güvenliği uçları)."""
     if not await is_email_verified(db, ctx.user_id):
@@ -187,15 +198,21 @@ VerifiedAuthDep = Annotated[AuthContext, Depends(get_verified_auth_context)]
 def require_role(*roles: Role, verified: bool = False) -> Callable[..., Awaitable[AuthContext]]:
     """Belirtilen rollerden birini şart koşan bağımlılık üretir.
 
-    `verified=True`: kullanıcının e-postası da doğrulanmış olmalıdır (yazma uçları; ön ele geçirme önlemi).
+    `verified=True`: kullanıcının e-postası da doğrulanmış olmalıdır (yazma uçları; ön ele geçirme önlemi);
+    `legal_reacceptance_enforced` açıksa güncel belge sürümleri de kabul edilmiş olmalıdır.
     Okuma ve oturum kapama uçları bu koşulu taşımaz. Önce rol, sonra doğrulama denetlenir.
     """
 
-    async def _check(ctx: AuthDep, db: DbDep) -> AuthContext:
+    async def _check(ctx: AuthDep, db: DbDep, settings: SettingsDep) -> AuthContext:
         if ctx.role not in roles:
             raise ProblemError(403, "Erişim reddedildi", "forbidden")
-        if verified and not await is_email_verified(db, ctx.user_id):
-            raise email_not_verified()
+        if verified:
+            if not await is_email_verified(db, ctx.user_id):
+                raise email_not_verified()
+            # Yeniden kabul kapısı (varsayılan kapalı): yalnız tenant verisi YAZAN uçlarda; okuma, dışa
+            # aktarma, hesap güvenliği (TOTP), çıkış ve kabul ucu açık kalır (veri/güvenlik rehin tutulmaz).
+            if settings.legal_reacceptance_enforced and await pending_documents(db, ctx.user_id):
+                raise terms_acceptance_required()
         return ctx
 
     return _check

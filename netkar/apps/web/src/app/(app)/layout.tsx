@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 
 import { BrandMark, BrandName } from '@/components/brand/brand-mark';
 import { EmailVerificationBanner } from '@/components/panel/email-verification-banner';
+import { LegalReacceptanceBanner } from '@/components/panel/legal-reacceptance-banner';
 import { LogoutButton } from '@/components/panel/logout-button';
 import { BottomNav, Sidebar } from '@/components/panel/panel-nav';
 import { Button } from '@/components/ui/button';
@@ -64,6 +65,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         >
           {/* Eski API (alan yok) doğrulanmış sayılır; yalnız açıkça false olan hesap uyarılır. */}
           <EmailVerificationBanner verified={me.email_verified !== false} email={me.email} />
+          {/* Eski API'de alan yok: bekleyen belge yok sayılır. */}
+          <LegalReacceptanceBanner
+            pending={me.legal?.pending ?? []}
+            enforced={me.legal?.enforced === true}
+          />
           {children}
         </main>
       </div>

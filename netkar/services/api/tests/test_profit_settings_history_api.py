@@ -926,9 +926,14 @@ def test_future_start_needs_no_confirmation_and_ignores_a_stray_one(shop: Shop) 
 
 # --------------------------------------------------------------------------- YT-03: başlıksız hesap taşıması
 def test_moved_headless_account_has_a_stamp_and_the_first_replace_is_200_not_500(
-    shop: Shop, admin_conn: psycopg.Connection[Any], alembic_cfg: Config
+    shop: Shop,
+    admin_conn: psycopg.Connection[Any],
+    alembic_cfg: Config,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Denetim YT-03 PoC A.7'nin tersi: 0007 şemasında başlıksız satır; upgrade sonrası damga 1, değiştirme 200."""
+    # Kayıtlı kullanıcı kabul kaydı taşır; 0021 downgrade'i ispat verisi için durur (bu test o veriyi önemsemez).
+    monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", "1")
     try:
         command.downgrade(alembic_cfg, "0007")
         admin_conn.execute(

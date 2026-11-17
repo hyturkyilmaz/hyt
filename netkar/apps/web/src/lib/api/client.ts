@@ -270,6 +270,9 @@ export function describeApiError(error: unknown, fallback: string): string {
     if (error.code === 'email-not-verified') {
       return 'Bu işlem için e-posta adresinizi doğrulamanız gerekir. Sayfanın üstündeki uyarıdan doğrulama e-postasını yeniden isteyebilirsiniz.';
     }
+    if (error.code === 'terms-acceptance-required') {
+      return 'Kullanım koşulları ya da aydınlatma metni yeni bir sürüme geçti. Sayfanın üstündeki bölümden güncel sürümü gözden geçirip kabul edin; verilerinizi görüntülemeye devam edebilirsiniz.';
+    }
     if (error.status === 403) {
       return 'İstek doğrulanamadı. Sayfayı yenileyip tekrar deneyin.';
     }

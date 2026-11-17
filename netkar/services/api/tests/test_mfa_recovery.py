@@ -662,3 +662,79 @@ def test_migration_0020_is_reversible_and_hardens_search_path(
     ).fetchone() == (True,)
     command.upgrade(alembic_cfg, "head")
     assert trigger() and search_path()[0].endswith("pg_temp")
+
+
+# --- yeniden doğrulama günlük üst sınırı (önceki dilim bilgi notu) --------------------------------------
+def test_reauth_daily_cap_is_independent_of_short_window_and_login_lock(
+    make_api: Callable[..., Api],
+    frozen_ratelimit_clock: float,
+    monkeypatch: pytest.MonkeyPatch,
+    admin_conn: psycopg.Connection,
+) -> None:
+    """15 dakikalık pencere dolup yenilense de günlük sınır sürer; giriş kilidi ve girişe dokunmaz."""
+    from types import SimpleNamespace
+
+    from app.core import ratelimit as ratelimit_module
+
+    api = make_api(rate_limit_totp_user=3, rate_limit_reauth_daily_user=5, totp_max_failures=100)
+    api.signup_and_login("gunluk@example.com")
+    bad = {"password": "yanlis-parola-1234"}
+    assert [api.post("/v1/auth/totp/setup", bad).status_code for _ in range(3)] == [403] * 3
+    assert api.post("/v1/auth/totp/setup", bad).status_code == 429  # 15 dakikalık sınır
+    later = frozen_ratelimit_clock + 16 * 60  # yeni 15 dakikalık pencere, aynı UTC günü
+    monkeypatch.setattr(ratelimit_module, "time", SimpleNamespace(time=lambda: later))
+    assert [api.post("/v1/auth/totp/setup", bad).status_code for _ in range(2)] == [403] * 2
+    over = api.post("/v1/auth/totp/setup", PW)  # doğru parola bile: günlük sınır aşıldı
+    assert over.status_code == 429 and over.json()["type"].endswith("rate-limited")
+    assert int(over.headers["Retry-After"]) > 60  # kalan süre günlük pencereye göre
+    # giriş kilidi beslenmedi; kullanıcı normal girebilir
+    assert admin_conn.execute("SELECT totp_failed_count, totp_locked_until FROM users").fetchone() == (
+        0,
+        None,
+    )
+    assert make_api().login("gunluk@example.com").json() == {"status": "ok"}
+    # sonraki UTC günü sayaç yenilenir
+    monkeypatch.setattr(
+        ratelimit_module, "time", SimpleNamespace(time=lambda: frozen_ratelimit_clock + 24 * 3600)
+    )
+    assert api.post("/v1/auth/totp/setup", PW).status_code == 200
+
+
+def test_reauth_daily_cap_counts_successful_attempts_and_every_reauth_endpoint(
+    make_api: Callable[..., Api], frozen_ratelimit_clock: float
+) -> None:
+    api = make_api(rate_limit_reauth_daily_user=3, rate_limit_totp_user=50)
+    api.signup_and_login("basarili@example.com")
+    assert [api.post("/v1/auth/totp/setup", PW).status_code for _ in range(3)] == [200] * 3
+    # enable da aynı sayacı paylaşır (kullanıcı başına, uç noktadan bağımsız)
+    assert api.post("/v1/auth/totp/enable", {"code": "123456", **PW}).status_code == 429
+    # başka kullanıcının sayacı ayrıdır
+    other = make_api(rate_limit_reauth_daily_user=3, rate_limit_totp_user=50)
+    other.signup_and_login("baska@example.com")
+    assert other.post("/v1/auth/totp/setup", PW).status_code == 200
+
+
+def test_reauth_daily_cap_fails_closed_when_the_counter_is_unavailable(
+    make_api: Callable[..., Api], monkeypatch: pytest.MonkeyPatch, admin_conn: psycopg.Connection
+) -> None:
+    """Sayaç yazılamazsa (havuz doldu vb.) parola doğrulanmaz, işlem yapılmaz (503, kapalı başarısızlık)."""
+    from app.core.errors import ProblemError
+    from app.core.ratelimit import RateLimiter
+
+    api = make_api()
+    api.signup_and_login("kapali-basarisizlik@example.com")
+    real_hit = RateLimiter.hit
+
+    async def flaky(
+        self: RateLimiter, key: str, limit: int, window_seconds: int, now: float | None = None
+    ) -> None:
+        if key.startswith("reauth:day:"):
+            raise ProblemError(
+                503, "Hız sınırı servisi yoğun", "rate-limit-busy", headers={"Retry-After": "2"}
+            )
+        await real_hit(self, key, limit, window_seconds, now)
+
+    monkeypatch.setattr(RateLimiter, "hit", flaky)
+    response = api.post("/v1/auth/totp/setup", PW)
+    assert response.status_code == 503 and response.json()["type"].endswith("rate-limit-busy")
+    assert admin_conn.execute("SELECT totp_secret_encrypted IS NULL FROM users").fetchone() == (True,)

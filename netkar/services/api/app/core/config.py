@@ -100,6 +100,13 @@ class Settings(BaseSettings):
     rate_limit_verify_confirm_ip: int = Field(20, ge=1)
     rate_limit_totp_user: int = Field(10, ge=1)
     rate_limit_totp_ip: int = Field(30, ge=1)
+    # Yeniden doğrulama (parola/MFA ayarı) için kullanıcı başına GÜNLÜK üst sınır; 15 dakikalık sınıra ve
+    # giriş kilidine ek, ondan bağımsızdır (yavaş, dağınık tahmini keser). Sabit 24 saat (UTC günü).
+    rate_limit_reauth_daily_user: int = Field(30, ge=1)
+    # Yeni belge sürümü yayınlanınca yazma uçlarını kabule kadar 403 ile kapatır (terms-acceptance-required).
+    # VARSAYILAN KAPALI: yer tutucu (avukat onaysız) sürümle mevcut kullanıcıyı kilitlemeyiz; yalnız /me ve
+    # panel uyarısı çalışır. Açma kararı Hasan/avukatındır (bkz. docs/security).
+    legal_reacceptance_enforced: bool = False
 
     # TOTP kaba kuvvet koruması: ardışık başarısız deneme eşiği aşılırsa hesap geçici kilitlenir.
     totp_max_failures: int = Field(5, ge=1)

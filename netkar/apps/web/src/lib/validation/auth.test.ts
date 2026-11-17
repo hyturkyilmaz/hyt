@@ -39,6 +39,7 @@ describe('registerSchema', () => {
     tenantName: 'Örnek Mağaza',
     password: 'on iki karakter parola',
     acceptTerms: true,
+    acknowledgePrivacy: true,
   };
 
   it('geçerli girdiyi kabul eder', () => {
@@ -70,6 +71,14 @@ describe('registerSchema', () => {
   it('koşulları kabul etmeden geçmez', () => {
     const result = registerSchema.safeParse({ ...valid, acceptTerms: false });
     expect(firstMessage(result)).toContain('kullanım koşullarını kabul');
+  });
+
+  it('aydınlatma metnini okuduğunu işaretlemeden geçmez (açık rıza değil, bilgi kaydı)', () => {
+    const result = registerSchema.safeParse({ ...valid, acknowledgePrivacy: false });
+    expect(firstMessage(result)).toContain('aydınlatma metnini okuduğunuzu');
+    expect(registerSchema.safeParse({ ...valid, acknowledgePrivacy: undefined }).success).toBe(
+      false,
+    );
   });
 });
 

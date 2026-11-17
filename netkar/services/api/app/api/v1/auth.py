@@ -66,6 +66,7 @@ from app.core.security import (
 from app.db.rls import set_rls_context
 from app.models import User
 from app.services import auth as auth_service
+from app.services import legal as legal_service
 from app.services.audit import record_audit
 from app.services.auth import AuthContext
 
@@ -75,6 +76,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 _WINDOW_LOGIN = 15 * 60
 _WINDOW_HOURLY = 60 * 60
+_WINDOW_DAILY = 24 * 60 * 60
 
 
 def _web_link(settings: Settings, path: str, token: str | None = None) -> str:
@@ -187,6 +189,9 @@ async def register(
             target=f"tenant:{tenant_id}",
             ip_hash=ip_hash_for(request, settings),
         )
+        # Kayıt onayı (zorunlu onay kutuları): kullanım koşulları ve aydınlatma metninin kayıt anındaki güncel
+        # sürümü hesapla aynı işlemde kaydedilir (ya hepsi ya hiçbiri). IP/aracı bilgisi yazılmaz.
+        await legal_service.record_acceptance(db, user_id, await legal_service.current_documents(db))
         # Doğrulama bağlantısı hesapla aynı işlemde üretilir; ham token yalnız e-postada bulunur.
         verify_token = await auth_service.create_email_verification(
             db, user_id, settings.email_verification_ttl_hours * 60
@@ -491,13 +496,23 @@ async def _reauthenticate(
 
     Güncel parola her zaman istenir; `need_code` (TOTP kapatma, kod yenileme) ve hesapta TOTP etkinse `code`
     (güncel TOTP ya da kurtarma kodu) da doğrulanmalıdır. Kurulum/etkinleştirme yalnız parola ister (TOTP henüz yok). `totp_only`: kurtarma kodu kabul edilmez.
-    Kullanıcı başına hız sınırı vardır; ikinci faktör hataları girişteki TOTP kilidini paylaşır, parola hataları paylaşmaz.
+    Kullanıcı başına 15 dakikalık hız sınırı ve ayrıca GÜNLÜK üst sınır (`rate_limit_reauth_daily_user`, 24 saatte 30) vardır;
+    ikinci faktör hataları girişteki TOTP kilidini paylaşır, parola hataları paylaşmaz.
     Başarıda kullanıcı satırı döner; kurtarma kodu/TOTP adımı bu işlemde tüketilmiştir (çağıran commit eder).
     """
     await limiter.hit(
         f"reauth:user:{_digest(settings, 'rl-user', str(ctx.user_id))}",
         settings.rate_limit_totp_user,
         _WINDOW_LOGIN,
+    )
+    # Günlük üst sınır: 15 dakikalık sınıra ve giriş kilidine EK, ikisinden bağımsız (yavaş, dağınık tahmini keser;
+    # parola hatası kilidi beslemediği için çalınmış çerezle tek başına sınırsız deneme olmasın). Başarılı ve
+    # başarısız her deneme sayılır. Sayaç kapalı başarısızlıkla çalışır (havuz doluysa 503, aşımda 429; sayılamayan
+    # istek geçirilmez). Sabit (UTC günü) pencere: gün sınırında kısa sürede iki pencere kullanılabilir.
+    await limiter.hit(
+        f"reauth:day:{_digest(settings, 'rl-user', str(ctx.user_id))}",
+        settings.rate_limit_reauth_daily_user,
+        _WINDOW_DAILY,
     )
     user = (await db.execute(select(User).where(User.id == ctx.user_id))).scalar_one()
     await _raise_if_locked(db, user)

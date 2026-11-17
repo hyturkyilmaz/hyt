@@ -106,7 +106,13 @@ def test_y01_distinct_real_clients_do_not_consume_each_others_limit(
     assert (
         api.post(
             "/v1/auth/register",
-            {"email": "kurban@example.com", "password": GOOD_PASSWORD, "tenant_name": "Kurban"},
+            {
+                "email": "kurban@example.com",
+                "password": GOOD_PASSWORD,
+                "tenant_name": "Kurban",
+                "accept_terms": True,
+                "acknowledge_privacy_notice": True,
+            },
             headers=victim,
         ).status_code
         == 202

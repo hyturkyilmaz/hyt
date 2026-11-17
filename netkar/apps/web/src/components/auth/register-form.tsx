@@ -34,19 +34,27 @@ export function RegisterForm() {
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { email: '', tenantName: '', password: '', acceptTerms: false },
+    defaultValues: {
+      email: '',
+      tenantName: '',
+      password: '',
+      acceptTerms: false,
+      acknowledgePrivacy: false,
+    },
   });
   const { isSubmitting } = form.formState;
 
   async function onSubmit(values: RegisterValues) {
     setServerError(null);
     try {
-      // Kullanım koşulları onayı yalnız arayüzde zorunludur; API'nin böyle bir alanı yoktur
-      // (gövde extra="forbid"). Onay sürümü kaydı backend'de henüz yok (bkz. rapor).
+      // İki açık onay backend'e de gider (yalnız `true` kabul edilir) ve hesapla aynı işlemde güncel belge
+      // sürümleri kabul kaydına yazılır. Aydınlatma "okudum" bilgisidir, açık rıza değildir.
       await authApi.register({
         email: values.email,
         password: values.password,
         tenant_name: values.tenantName,
+        accept_terms: true,
+        acknowledge_privacy_notice: true,
       });
       // Kayıt oturum açmaz (202, hesap varlığı sızdırılmaz): girişe yönlendirilir.
       router.push('/giris?kayit=1');
@@ -145,6 +153,7 @@ export function RegisterForm() {
                       onBlur={field.onBlur}
                       name={field.name}
                       ref={field.ref}
+                      aria-required="true"
                       className="mt-0.5 size-6 shrink-0 accent-[var(--primary)]"
                     />
                   </FormControl>
@@ -156,29 +165,53 @@ export function RegisterForm() {
                       className="font-medium text-primary underline underline-offset-4"
                     >
                       Kullanım koşullarını
-                      <span className="sr-only"> (yeni sekmede açılır)</span>
                     </Link>{' '}
-                    okudum, kabul ediyorum.
+                    <span className="text-muted-foreground">(yeni sekmede açılır)</span> okudum,
+                    kabul ediyorum.
                   </FormLabel>
                 </div>
                 <FormMessage />
               </FormItem>
             )}
           />
-          {/* Aydınlatma bir bilgilendirmedir, onay kutusuna bağlı değildir (KVKK m.10). */}
-          <p className="text-sm text-muted-foreground">
-            Kişisel verilerinizin nasıl işleneceğini{' '}
-            <Link
-              href="/kvkk-aydinlatma-metni"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-primary underline underline-offset-4"
-            >
-              aydınlatma metninde
-              <span className="sr-only"> (yeni sekmede açılır)</span>
-            </Link>{' '}
-            okuyabilirsiniz.
-          </p>
+          <FormField
+            control={form.control}
+            name="acknowledgePrivacy"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-start gap-3">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value}
+                      onChange={(event) => field.onChange(event.target.checked)}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                      aria-required="true"
+                      className="mt-0.5 size-6 shrink-0 accent-[var(--primary)]"
+                    />
+                  </FormControl>
+                  <FormLabel className="font-normal leading-normal">
+                    <Link
+                      href="/kvkk-aydinlatma-metni"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-primary underline underline-offset-4"
+                    >
+                      Aydınlatma metnini
+                    </Link>{' '}
+                    <span className="text-muted-foreground">(yeni sekmede açılır)</span> okudum.
+                  </FormLabel>
+                </div>
+                {/* Aydınlatma bir bilgilendirmedir: bu kutu açık rıza değil, okuduğunuzun kaydıdır (KVKK m.10). */}
+                <FormDescription>
+                  Bu işaret bilgilendirildiğinizi kaydeder; açık rıza yerine geçmez.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <Button type="submit" disabled={isSubmitting} aria-disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
             {isSubmitting ? 'Hesap oluşturuluyor' : 'Hesap oluştur'}
