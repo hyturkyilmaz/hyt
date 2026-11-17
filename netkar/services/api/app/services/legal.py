@@ -50,16 +50,23 @@ async def current_documents(db: AsyncSession) -> list[LegalDocument]:
     return [_row(r) for r in (await db.execute(text(_CURRENT))).all()]
 
 
-# _CURRENT sabittir (kullanıcı girdisi birleşmez); kullanıcı kimliği bağlı parametredir.
-_PENDING = f"""
+# Düz sabit dizge (f-string ile birleştirme yok; semgrep avoid-sqlalchemy-text). Alt sorgu _CURRENT ile
+# aynıdır; değişirse ikisi birlikte güncellenmeli (test_legal_acceptance güncel sürüm testleri yakalar).
+# Kullanıcı kimliği bağlı parametredir.
+_PENDING = """
     SELECT c.id, c.doc_type, c.version, c.published_at
-    FROM ({_CURRENT}) c
+    FROM (
+        SELECT DISTINCT ON (doc_type) id, doc_type, version, published_at
+        FROM legal_documents
+        WHERE published_at <= now()
+        ORDER BY doc_type, published_at DESC, id DESC
+    ) c
     WHERE NOT EXISTS (
         SELECT 1 FROM user_legal_acceptances a
         WHERE a.user_id = :uid AND a.document_id = c.id
     )
     ORDER BY c.doc_type
-"""  # noqa: S608
+"""
 
 
 async def pending_documents(db: AsyncSession, user_id: UUID) -> list[LegalDocument]:
