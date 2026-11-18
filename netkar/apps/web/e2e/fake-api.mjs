@@ -6,6 +6,7 @@
 import { createServer } from 'node:http';
 
 import { costAccountId, costRole, costSessionName, handleCostRequest } from './fake-costs.mjs';
+import { handleSecurityRequest, securityMe, securitySessionName } from './fake-security.mjs';
 
 const PORT = Number(process.env.FAKE_API_PORT ?? 9101);
 
@@ -60,6 +61,9 @@ createServer((req, res) => {
     }
     // Ürün maliyeti senaryoları: `maliyet-<ad>` oturumu (bkz. e2e/fake-costs.mjs); görüntüleyici adı `goruntuleyici...`
     const costName = costSessionName(session);
+    // Güvenlik ekranı senaryoları: `guvenlik-<ad>` oturumu TOTP/e-posta durumunu taşır (bkz. e2e/fake-security.mjs)
+    const securityName = securitySessionName(session);
+    if (securityName) return send(res, 200, { ...ME, ...securityMe(securityName) });
     return send(res, 200, costName ? { ...ME, role: costRole(costName) } : ME);
   }
   // Rapor ekranları için varsayılan: bağlı mağaza yok (boş durum). Veri senaryoları e2e/profit.spec.ts
@@ -90,6 +94,16 @@ createServer((req, res) => {
       { 'Set-Cookie': `__Host-nk_csrf=${token}; Max-Age=3600; Path=/; SameSite=Lax; Secure` },
     );
   }
+  if (
+    handleSecurityRequest(
+      req,
+      res,
+      url,
+      cookies(req.headers.cookie)['__Host-nk_session'],
+      cookies(req.headers.cookie),
+    )
+  )
+    return;
   if (handleCostRequest(req, res, url, cookies(req.headers.cookie)['__Host-nk_session'])) return;
   return send(res, 404, { type: 'urn:netkar:problem:not-found', title: 'Bulunamadı', status: 404 });
 }).listen(PORT, '127.0.0.1', () => {
