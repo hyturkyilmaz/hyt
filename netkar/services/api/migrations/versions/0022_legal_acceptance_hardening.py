@@ -1,6 +1,6 @@
 """Kabul kaydı sertleştirmesi: sütun düzeyinde INSERT, sunucu alanları, TRUNCATE engeli, downgrade koruması.
 
-(0021 inceleme turu 1; 0021'e dokunulmaz.)
+(0021 inceleme turu 1; 0021'in yalnız downgrade koruma biçimi sonradan 0022 ile aynılandı.)
 
 1. `netkar_app` için `user_legal_acceptances` INSERT yetkisi tablo düzeyinden alınır, yalnız `(user_id, document_id)`
    sütunlarına verilir. `id` ve `accepted_at`'i istemci (uygulama kodu ya da ele geçirilmiş bir bağlantı) veremez;
@@ -12,9 +12,8 @@
    - ENVIRONMENT=prod iken HER durumda reddedilir (kanıt defterinin üretimde geri alınması desteklenmez).
    - Kabul kaydı ya da yer tutucu dışı sürüm varsa NETKAR_ALLOW_LEGAL_DATA_LOSS tam olarak
      `accepted=<N>,published=<M>` olmalı (silinecek gerçek sayılar); eşleşmezse durur. "1" artık yetmez.
-   Doğrulama geçince 0021'in eski ("1") korumasının aynı süreçte geçmesi için ortam değişkeni süreç içinde "1"e
-   çekilir (0021 değiştirilmediği için; yalnız bu alembic sürecini etkiler). Koruma 0022'den 0021'e tek adımlık
-   geri almada da çalışır (kayıt kaybı olmasa da tutucu davranır).
+   0021'in downgrade koruması da artık aynı tam biçimi ister (eskiden "1" kabul ediyordu ve burada süreç içinde
+   "1"e çekiliyordu; bu kaldırıldı). Koruma 0022'den 0021'e tek adımlık geri almada da çalışır.
 
 Geri alma: tetikleyiciler/işlevler kaldırılır, INSERT yetkisi tablo düzeyine döner. Veri silinmez.
 
@@ -109,8 +108,8 @@ def _guard() -> None:
             "(pg_dump -t user_legal_acceptances -t legal_documents). Kaybı bilerek kabul ediyorsanız "
             f"{ALLOW_DATA_LOSS_ENV}={expected} ile yeniden çalıştırın (sayılar değiştiyse yeniden hesaplanır)."
         )
-    # 0021'in eski koruması "1" bekler; sayılar doğrulandığı için bu süreçte geçmesine izin verilir.
-    os.environ[ALLOW_DATA_LOSS_ENV] = "1"
+    # 0021'in koruması da aynı tam değeri bekler (aynı sayılar; 0022 downgrade'i veri değiştirmez), ortam
+    # değişkenine dokunulmaz.
 
 
 def downgrade() -> None:

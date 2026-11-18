@@ -85,6 +85,8 @@ export interface ApiRequestInit {
   /** Dosya yükleme (multipart): Content-Type'ı tarayıcı sınır değeriyle birlikte kendisi koyar */
   formData?: FormData;
   signal?: AbortSignal;
+  /** Tarayıcı HTTP önbelleğini atlatır (ör. bayat kalmış herkese açık liste yeniden çekilirken). */
+  cache?: RequestCache;
 }
 
 function parseFieldErrors(value: unknown): ApiFieldError[] | undefined {
@@ -223,6 +225,7 @@ async function send(path: string, init: ApiRequestInit): Promise<Response> {
             : JSON.stringify(init.body),
       credentials: 'same-origin',
       signal: init.signal,
+      ...(init.cache === undefined ? {} : { cache: init.cache }),
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;

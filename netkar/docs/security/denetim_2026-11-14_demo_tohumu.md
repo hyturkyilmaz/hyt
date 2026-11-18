@@ -198,3 +198,11 @@ Bağımsız inceleme (opus): **Merge: evet; DT-21 kapatılabilir, DT-20 kapatıl
 | I-3..I-7 | Bilgi | Düzeltildi | Döndürülmüş ad eşleşmesi `fullmatch` + ASCII rakam; kurucu var olan etkin dosyayı 0600'e çeker; işçi bağlantısına `statement_timeout` (aynı 10 sn sabiti); "yalnız prod" diyen yorumlar güncellendi; `marked`/`unmarked` fixture'ları conftest'e taşındı ve önceki işareti geri koyar (var olan işaret silinmez), eşzamansız tam değer testi eklendi. |
 
 DT-20 ve DT-21 için kapatma kararı koordinatöre aittir.
+
+## Takip, 18 Kasım 2026 (DT-22)
+
+| Kimlik | Durum | Not |
+|---|---|---|
+| DT-22 | Kapandı | İşçi denetiminde `connect_timeout` ve `statement_timeout` aynı sabitten (`CHECK_TIMEOUT_SECONDS`) geliyordu; eksik olan testti. `tests/test_dt22_followups.py` bağlantı argümanlarını ve gerçek bağlantıda `SHOW statement_timeout` değerini doğruluyor. `PWNED_CHECK_ENABLED` sertleşmiş ortamlarda (staging, prod) kapalıysa açılışta WARNING yazılır; açılış durmaz. Zorunlu kılmak HIBP yurt dışı aktarım sorusu (KVKK, avukat) çözülünce ayrıca değerlendirilecek. |
+
+Açık bulgular (bu dosya): Kritik 0, Yüksek 0, Orta 0, Düşük 0, Bilgi 5 (DT-08, DT-09, DT-10, DT-12, DT-19).

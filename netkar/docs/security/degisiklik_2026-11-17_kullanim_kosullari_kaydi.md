@@ -62,3 +62,11 @@ Gerekçe:
 | Bilgi | Denetim hedefi | `legal.accepted` hedefi yalnız bu istekte YENİ eklenen satırları listeler. | `test_accept_audit_target_lists_only_newly_inserted_rows` |
 
 Dürüst notlar: ileri tarihli yayın ve `--yes` yalnız bakım penceresinde kullanılmalıdır; `session_replication_role` atlaması yalnız superuser'a açıktır (uygulama rolü yapamaz). Saklama süresi ve KVKK m.7/m.11 silme talebi ile ispat verisi çelişkisi Hasan/avukat kararı olarak yukarıda (madde 2) açıktır.
+
+## Takip, 18 Kasım 2026
+
+- **0021 downgrade koruması sıkılaştı:** 0021 artık `NETKAR_ALLOW_LEGAL_DATA_LOSS=accepted=N,published=M` tam biçimini ister; "1" hiçbir yolda yetmez. 0022 doğrulama sonrası değişkeni "1"e çekmeyi bıraktı. Yukarıdaki "0021 değişmedi" ve "`=1` ile geri alınır" ifadeleri bu tarihten sonra geçersizdir. Test: `test_migration_0021_own_guard_requires_exact_counts_not_loose_flag`.
+- **`/v1/legal/current` önbelleği:** süreç içi 60 sn TTL ve `Cache-Control: public, max-age=60`. Yalnız herkese açık güncel belge listesi önbelleğe girer; kayıt ve kabul yolları veritabanından okur. Çok işçide liste en kötü yaklaşık 120 sn bayat görünebilir; bayat liste yalnız 409 `legal-version-stale` üretir, yanlış kabul üretmez.
+- **Açılış hukuk denetimi:** hata seviyesi debug yerine WARNING; ileti yalnız istisna sınıfını yazar.
+- **Yayın notu (runbook):** gerçek koşul ve aydınlatma sürümünü `--published-at` ile en az 60 sn ileri tarihli yayınlayın. Önbellek ileri tarihli yayının anını bilir ve tam zamanında yenilenir; hemen yayınlanan sürüm en geç 60 sn sonra görünür, bu arada kayıt 409 `legal-version-stale` alabilir.
+- **Downgrade:** 0021 ve 0022 geri alma işlemi API ve worker durdurulmuşken çalıştırılır; 0021 de artık `ENVIRONMENT=prod` iken reddeder.

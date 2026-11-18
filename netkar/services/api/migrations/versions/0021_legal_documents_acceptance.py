@@ -18,9 +18,10 @@
    özetidir (`netkar-legal-placeholder:<tür>:<sürüm>`); gerçek metin onaylanınca YENİ sürüm yayınlanır. Hukuki
    metin yazılmadı.
 
-Geri alma: tablolar ve işlevler kaldırılır. Kabul kaydı (ispat verisi) ya da yer tutucu dışı sürüm varsa
-downgrade DURUR (0007 deseni); veri kaybını bilerek kabul etmek için NETKAR_ALLOW_LEGAL_DATA_LOSS=1 ve önce
-yedek (pg_dump -t user_legal_acceptances -t legal_documents) gerekir.
+Geri alma: tablolar ve işlevler kaldırılır. Downgrade, uygulama (API ve worker) DURDURULMUŞKEN çalıştırılmalıdır:
+eşzamanlı yazma kanıt sayılarını değiştirir ve zincir 0021'de yarım kalır. ENVIRONMENT=prod iken her durumda reddedilir.
+Kabul kaydı (ispat verisi) ya da yer tutucu dışı sürüm varsa downgrade DURUR (0007 deseni); veri kaybını bilerek kabul etmek için NETKAR_ALLOW_LEGAL_DATA_LOSS=accepted=N,published=M
+(silinecek gerçek sayılar; "1" kabul edilmez) ve önce yedek (pg_dump -t user_legal_acceptances -t legal_documents) gerekir.
 
 Revision ID: 0021
 Revises: 0020
@@ -109,6 +110,11 @@ def upgrade() -> None:
 
 def _guard_evidence() -> None:
     """Kabul kaydı ya da yer tutucu dışı sürüm varsa ve açık onay yoksa downgrade'i durdurur (işlem geri alınır)."""
+    if os.environ.get("ENVIRONMENT", "").strip().lower() == "prod":
+        raise RuntimeError(
+            "0021 downgrade REDDEDİLDİ: ENVIRONMENT=prod iken hukuki kanıt defteri geri alınamaz. "
+            "Gerekirse önce yedek alıp ayrı, onaylı bir bakım sürecinde ilerleyin."
+        )
     bind = op.get_bind()
     # Tablolar FORCE RLS altındadır: sayım için FORCE bu işlemde kapatılır (hata atılırsa işlem geri alınır).
     op.execute("ALTER TABLE user_legal_acceptances NO FORCE ROW LEVEL SECURITY")
@@ -119,13 +125,19 @@ def _guard_evidence() -> None:
             f"SELECT count(*) FROM legal_documents WHERE version <> '{PLACEHOLDER_VERSION}'"
         ).scalar_one()
     )
-    if (accepted == 0 and published == 0) or os.environ.get(ALLOW_DATA_LOSS_ENV) == "1":
+    if accepted == 0 and published == 0:
+        return
+    # Bayrak "1" gibi gevşek bir değer olamaz: silinecek gerçek sayılarla tam eşleşmelidir (0022 ile aynı biçim).
+    expected = f"accepted={accepted},published={published}"
+    if os.environ.get(ALLOW_DATA_LOSS_ENV) == expected:
         return
     raise RuntimeError(
         f"0021 downgrade DURDURULDU: hukuki kayıt var (kabul kaydı: {accepted}, yer tutucu dışı belge sürümü: "
         f"{published}). Bu kayıtlar ispat verisidir (TBK m.20-21) ve geri getirilemez. Önce yedek alın "
         "(pg_dump -t user_legal_acceptances -t legal_documents). Veri kaybını bilerek kabul ediyorsanız komutu "
-        f"{ALLOW_DATA_LOSS_ENV}=1 ortam değişkeniyle yeniden çalıştırın."
+        f"{ALLOW_DATA_LOSS_ENV}={expected} ortam değişkeniyle yeniden çalıştırın (sayılar değiştiyse yeniden hesaplanır). "
+        "Downgrade uygulama (API ve worker) DURDURULMUŞKEN çalıştırılmalı: eşzamanlı yazma sayıları değiştirir "
+        "ve zincir 0021'de yarım kalır."
     )
 
 

@@ -328,8 +328,13 @@ describe('RegisterForm', () => {
     expect(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ })).not.toBeChecked();
     expect(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ })).not.toBeChecked();
     expect(push).not.toHaveBeenCalled();
-    const currentCalls = fn.mock.calls.filter(([url]) => String(url).endsWith('/legal/current'));
+    const currentCalls = fn.mock.calls.filter(([url]) =>
+      String(url).endsWith('/legal/current'),
+    ) as unknown as [string, RequestInit | undefined][];
     expect(currentCalls.length).toBeGreaterThanOrEqual(2); // açılışta ve 409 sonrası yeniden
+    // Bayat tarayıcı önbelleği 409 döngüsü yaratmasın: yeniden çekme no-store ile gider, ilk çekme normal.
+    expect(currentCalls[0]?.[1]?.cache).toBeUndefined();
+    expect(currentCalls.at(-1)?.[1]?.cache).toBe('no-store');
   });
 
   it('sürümler alınamazsa kayıt isteği gönderilmez ve neden söylenir', async () => {

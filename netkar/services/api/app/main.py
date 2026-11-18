@@ -70,13 +70,31 @@ async def _warn_if_real_terms_without_gate(
     try:
         async with sessionmaker() as session:
             real = await real_current_exists(session)
-    except Exception:
-        log.debug("belge sürümü açılış denetimi yapılamadı", exc_info=True)
+    except Exception as exc:
+        # WARNING: denetim sessizce atlanırsa gerçek sürüm + kapalı kapı uyarısı hiç görünmeyebilir.
+        # Özel durum ayrıntısı (bağlantı dizesi içerebilir) yazılmaz; yalnız tür adı.
+        log.warning(
+            "belge sürümü açılış denetimi yapılamadı (%s); gerçek sürüm uyarısı atlandı",
+            exc.__class__.__name__,
+        )
         return
     if real:
         log.warning(
             "Taslak olmayan güncel kullanım koşulları/aydınlatma sürümü var ama LEGAL_REACCEPTANCE_ENFORCED "
             "kapalı: mevcut kullanıcılar yeni sürümü kabul etmeden yazabilir (karar: Hasan/avukat)"
+        )
+
+
+def _warn_if_pwned_check_disabled(settings: Settings) -> None:
+    """Sertleşmiş ortamda sızdırılmış parola denetimi kapalıysa uyarı yazar (açılışı ENGELLEMEZ).
+
+    HIBP dış çağrısının KVKK durumu Hasan/avukat kararında olduğu için bayrak zorunlu yapılmadı (DT-22).
+    """
+    if settings.environment in HARDENED_ENVIRONMENTS and not settings.pwned_check_enabled:
+        log.warning(
+            "ENVIRONMENT=%s iken PWNED_CHECK_ENABLED kapalı: sızdırılmış parola denetimi çalışmıyor "
+            "(HIBP dış çağrısının KVKK durumu karar bekliyor)",
+            settings.environment,
         )
 
 
@@ -174,6 +192,7 @@ def create_app(
             )
         )
     app.state.email_sender = email_sender
+    _warn_if_pwned_check_disabled(settings)
     if pwned_checker is None:
         pwned_checker = HibpPwnedChecker() if settings.pwned_check_enabled else NullPwnedChecker()
     app.state.pwned_checker = pwned_checker

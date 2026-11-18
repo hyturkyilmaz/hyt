@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from app.api.deps import AuthDep, DbDep, SettingsDep
 from app.api.v1.schemas import LegalAcceptRequest, LegalPendingOut, LegalStatus
@@ -25,14 +25,19 @@ def status_of(pending: list[legal_service.LegalDocument], enforced: bool) -> Leg
 
 
 @router.get("/current", response_model=list[LegalPendingOut])
-async def current(db: DbDep) -> list[LegalPendingOut]:
+async def current(db: DbDep, response: Response) -> list[LegalPendingOut]:
     """Herkese açık: her türün güncel sürümü (tür, sürüm, yayın zamanı). Kişisel veri yoktur.
 
     Kayıt formu bu sürümleri gösterir ve kayıt isteğiyle geri gönderir (kullanıcının gördüğü sürüm kabul edilir).
+    Süreç içinde en çok 60 sn önbelleğe alınır; yanıt başlığı önbellekte kalan süreyi söyler. Sürüm doğrulaması (kayıt, kabul)
+    önbelleği kullanmaz, bu yüzden bayat liste yalnız 409 ile sonuçlanır, yanlış kabul üretmez.
     """
+    docs, remaining = await legal_service.current_documents_cached(db)
+    # Kullanıcıya özel veri yok (oturumsuz uç); middleware'in varsayılan no-store değeri bu uçta ezilir.
+    # max-age önbellekte KALAN süredir: tarayıcı, yeni sürümün yayın anından sonra bayat liste tutmaz.
+    response.headers["Cache-Control"] = f"public, max-age={remaining}"
     return [
-        LegalPendingOut(doc_type=d.doc_type, version=d.version, published_at=d.published_at)
-        for d in await legal_service.current_documents(db)
+        LegalPendingOut(doc_type=d.doc_type, version=d.version, published_at=d.published_at) for d in docs
     ]
 
 

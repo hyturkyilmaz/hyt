@@ -48,9 +48,10 @@ export function RegisterForm() {
   });
   const { isSubmitting } = form.formState;
 
-  const loadVersions = useCallback(async () => {
+  // fresh: 409 sonrası tarayıcı önbelleğindeki bayat listeyi atlayıp sunucudan taze sürüm alınır.
+  const loadVersions = useCallback(async (fresh = false) => {
     try {
-      const docs = await legalApi.current();
+      const docs = await legalApi.current({ fresh });
       const terms = docs.find((doc) => doc.doc_type === 'terms')?.version;
       const privacy = docs.find((doc) => doc.doc_type === 'privacy_notice')?.version;
       if (!terms || !privacy) throw new Error('eksik sürüm');
@@ -70,7 +71,7 @@ export function RegisterForm() {
     setServerError(null);
     if (!versions) {
       setServerError('Belge sürümleri alınamadı. Sayfayı yenileyip tekrar deneyin.');
-      void loadVersions();
+      void loadVersions(true);
       return;
     }
     try {
@@ -92,7 +93,7 @@ export function RegisterForm() {
         // Form açıkken belgeler güncellendi: yeni sürüm okunmadan kabul kaydı oluşmaz.
         form.setValue('acceptTerms', false);
         form.setValue('acknowledgePrivacy', false);
-        void loadVersions();
+        void loadVersions(true);
         setServerError(
           'Kullanım koşulları ya da aydınlatma metni güncellendi. Güncel sürümleri okuyup kutuları yeniden işaretleyin.',
         );

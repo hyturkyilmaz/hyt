@@ -208,6 +208,14 @@ def _clean_tables(database: DatabaseInfo) -> None:
         conn.execute("SET session_replication_role = DEFAULT")
 
 
+@pytest.fixture(autouse=True)
+def _reset_legal_current_cache() -> None:
+    """Herkese açık güncel belge önbelleği süreç içidir; testler birbirini etkilemesin diye her testten önce boşalır."""
+    from app.services import legal as legal_service
+
+    legal_service.reset_current_cache()
+
+
 @pytest.fixture
 def settings(database: DatabaseInfo) -> Settings:
     return Settings(

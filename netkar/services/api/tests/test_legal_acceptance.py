@@ -19,6 +19,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 
+from app.services import legal as legal_service
 from app.tools import legal_documents as tool
 from app.tools.common import ToolConfigError
 from tests.conftest import GOOD_PASSWORD, Api, DatabaseInfo, legal_loss_flag
@@ -509,6 +510,39 @@ def test_migration_downgrade_protects_evidence_with_exact_counts_and_refuses_pro
         command.upgrade(alembic_cfg, "head")
 
 
+def test_migration_0021_own_guard_requires_exact_counts_not_loose_flag(
+    api: Api,
+    alembic_cfg: Config,
+    admin_conn: psycopg.Connection[Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """0021 downgrade korumasını tek başına sınar (0022 önce geri alınır): "1" artık yetmez, tam biçim şart."""
+    assert api.register("kanit0021@example.com").status_code == 202
+    flag = legal_loss_flag(admin_conn)
+    monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", flag)
+    try:
+        command.downgrade(alembic_cfg, "0021")  # yalnız 0022 geri alınır (kayıtlar yerinde)
+        assert len(_acceptances(admin_conn)) == 2
+        for wrong in ("1", "accepted=1,published=0", "accepted=2", ""):
+            monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", wrong)
+            with pytest.raises(RuntimeError, match=f"NETKAR_ALLOW_LEGAL_DATA_LOSS={flag}"):
+                command.downgrade(alembic_cfg, "0020")
+            assert len(_acceptances(admin_conn)) == 2  # veri silinmedi, tablolar yerinde
+        monkeypatch.delenv("NETKAR_ALLOW_LEGAL_DATA_LOSS")
+        with pytest.raises(RuntimeError, match="DURDURULDU"):
+            command.downgrade(alembic_cfg, "0020")
+        assert len(_acceptances(admin_conn)) == 2
+        monkeypatch.setenv("NETKAR_ALLOW_LEGAL_DATA_LOSS", flag)
+        monkeypatch.setenv("ENVIRONMENT", "prod")  # D2: doğru bayrak bile prod'da yetmez (0021 kendi başına)
+        with pytest.raises(RuntimeError, match="0021 downgrade REDDEDİLDİ"):
+            command.downgrade(alembic_cfg, "0020")
+        assert len(_acceptances(admin_conn)) == 2
+        monkeypatch.setenv("ENVIRONMENT", "test")
+        command.downgrade(alembic_cfg, "0020")  # tam biçim: geri alınır
+    finally:
+        command.upgrade(alembic_cfg, "head")
+
+
 def test_migration_downgrade_without_evidence_needs_no_flag_but_prod_always_refuses(
     alembic_cfg: Config, admin_conn: psycopg.Connection[Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -607,6 +641,7 @@ def test_legal_current_is_public_and_has_no_personal_data(
     }
     assert all(set(d) == {"doc_type", "version", "published_at"} for d in body)
     _publish(admin_conn, "terms", "2026-12-a")
+    legal_service.reset_current_cache()  # herkese açık uç 60 sn önbellekli
     assert {d["version"] for d in api.get("/v1/legal/current").json() if d["doc_type"] == "terms"} == {
         "2026-12-a"
     }
@@ -629,6 +664,7 @@ def test_register_with_stale_or_missing_version_is_409_or_422_and_creates_nothin
     assert api.register("x@example.com", privacy_notice_version=None).status_code == 422
     assert admin_conn.execute("SELECT count(*) FROM users").fetchone() == users_before
     assert _acceptances(admin_conn) == before
+    legal_service.reset_current_cache()  # form listesi önbellekli; yenilenince yeni sürüm görünür
     ok = api.register("yeni-kayit@example.com")  # güncel sürümler sunucudan alınır
     assert ok.status_code == 202
     assert ("terms", "2026-12-a") in _acceptances(admin_conn)

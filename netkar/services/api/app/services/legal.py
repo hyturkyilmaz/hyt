@@ -7,6 +7,7 @@ Aydınlatma metni "okudum" bilgisidir, KVKK açık rızası DEĞİLDİR; ayrı b
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -48,6 +49,51 @@ def _row(row: object) -> LegalDocument:
 async def current_documents(db: AsyncSession) -> list[LegalDocument]:
     """Her türün güncel sürümü (tür adına göre sıralı)."""
     return [_row(r) for r in (await db.execute(text(_CURRENT))).all()]
+
+
+# Herkese açık "güncel belge listesi" için süreç içi kısa önbellek. Yalnız kullanıcıdan bağımsız, kamusal veri
+# tutulur (tür, sürüm, yayın zamanı); kullanıcıya özel sonuç (bekleyen belgeler vb.) ASLA buraya girmez.
+# İleri tarihli belge yayın anında görünür (önbellek o ana kadar tutulur); hemen yayınlanan
+# belge en geç CURRENT_CACHE_TTL_SECONDS sonra görünür. Kayıt ve kabul
+# yolları önbelleği KULLANMAZ: sürüm doğrulaması her zaman veritabanındaki gerçek güncel sürümle yapılır.
+CURRENT_CACHE_TTL_SECONDS = 60
+_clock = time.monotonic  # testte sahte saatle değiştirilebilir
+# (doldurma başlangıcı, bitiş, belgeler). Bitiş = min(başlangıç + TTL, sonraki ileri tarihli yayın zamanı):
+# yeni sürümün yayın anı geçince önbellek bayat liste göstermez (kayıt 409 döngüsü olmaz).
+_current_cache: tuple[float, float, tuple[LegalDocument, ...]] | None = None
+
+# Bir sonraki ileri tarihli yayına kalan saniye (yoksa NULL). Düz sabit dizge.
+_SECONDS_TO_NEXT_PUBLISH = (
+    "SELECT extract(epoch FROM (min(published_at) - now())) FROM legal_documents WHERE published_at > now()"
+)
+
+
+def reset_current_cache() -> None:
+    """Güncel belge önbelleğini boşaltır (testlerin birbirini etkilememesi için)."""
+    global _current_cache
+    _current_cache = None
+
+
+async def current_documents_cached(db: AsyncSession) -> tuple[list[LegalDocument], int]:
+    """Güncel belgeler ve önbellekte kalan tam saniye (Cache-Control max-age için; 0 altına düşmez).
+
+    Yalnız herkese açık uç içindir. Eşzamanlı doldurmalarda yalnız DAHA YENİ başlayan sonuç yazılır:
+    yavaş kalmış eski bir sorgu daha yeni sonucu ezemez.
+    """
+    global _current_cache
+    now = _clock()
+    cached = _current_cache
+    if cached is not None and 0 <= now - cached[0] and now < cached[1]:
+        return list(cached[2]), max(0, int(cached[1] - now))
+    docs = await current_documents(db)
+    to_next = (await db.execute(text(_SECONDS_TO_NEXT_PUBLISH))).scalar_one_or_none()
+    ttl = float(CURRENT_CACHE_TTL_SECONDS)
+    if to_next is not None:
+        ttl = min(ttl, max(0.0, float(to_next)))
+    latest = _current_cache
+    if latest is None or now >= latest[0]:
+        _current_cache = (now, now + ttl, tuple(docs))
+    return docs, max(0, int(ttl))
 
 
 # Düz sabit dizge (f-string ile birleştirme yok; semgrep avoid-sqlalchemy-text). Alt sorgu _CURRENT ile

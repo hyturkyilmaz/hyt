@@ -125,7 +125,8 @@ export const authApi = {
 
 export const legalApi = {
   /** Herkese açık: her türün güncel sürümü (kişisel veri yok). Kayıt formu sürümü buradan alır. */
-  current: () => apiFetch<LegalPending[]>('/legal/current'),
+  current: (options: { fresh?: boolean } = {}) =>
+    apiFetch<LegalPending[]>('/legal/current', options.fresh ? { cache: 'no-store' } : {}),
 
   /**
    * Gördüğünüz güncel belge sürümlerini kabul eder. Sürüm güncel değilse 409 `legal-version-stale`
