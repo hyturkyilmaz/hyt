@@ -1,4 +1,5 @@
 import { ApiError, describeApiError } from '@/lib/api/client';
+import { describeRateLimitWait } from '@/lib/api/retry-after';
 
 /**
  * İki adımlı doğrulama ayarı hatalarını Türkçe cümleye çevirir.
@@ -16,6 +17,11 @@ export function describeMfaError(error: unknown, fallback: string): string {
       return minutes
         ? `Çok fazla hatalı deneme yapıldı. Yaklaşık ${minutes} dakika sonra tekrar deneyin.`
         : 'Çok fazla hatalı deneme yapıldı. Biraz sonra tekrar deneyin.';
+    }
+    if (error.status === 429) {
+      // Günlük yeniden doğrulama sınırı (rate-limited) saatlerce sürebilir; Retry-After varsa gerçek süreyi söyler.
+      const message = describeRateLimitWait(error.retryAfterSeconds);
+      if (message) return message;
     }
     if (error.code === 'totp-already-enabled') return 'İki adımlı doğrulama zaten açık.';
     if (error.code === 'totp-not-enabled') return 'İki adımlı doğrulama zaten kapalı.';

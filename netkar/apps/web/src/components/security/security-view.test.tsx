@@ -69,7 +69,9 @@ afterEach(() => {
 
 describe('Güvenlik ayarları: kurulum', () => {
   it('kapalıyken durum "Kapalı" ve kurulum düğmesi görünür', () => {
-    render(<SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} />);
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
     expect(screen.getByRole('status')).toHaveTextContent('Kapalı');
     expect(screen.getByRole('button', { name: 'Kurulumu başlat' })).toBeInTheDocument();
   });
@@ -77,7 +79,9 @@ describe('Güvenlik ayarları: kurulum', () => {
   it('parola olmadan kurulum istenmez; Türkçe hata gösterir', async () => {
     const { fn } = mockApi({});
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} />);
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
     await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
     await user.click(screen.getByRole('button', { name: 'Devam et' }));
     expect(await screen.findByText('Güncel parolanızı yazın.')).toBeInTheDocument();
@@ -87,7 +91,9 @@ describe('Güvenlik ayarları: kurulum', () => {
   it('yanlış parolada "Parola hatalı" der ve QR adımına geçmez', async () => {
     mockApi({ '/api/v1/auth/totp/setup': problem(403, 'reauth-failed') });
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} />);
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
     await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'yanlis-parola-1234');
     await user.click(screen.getByRole('button', { name: 'Devam et' }));
@@ -98,7 +104,9 @@ describe('Güvenlik ayarları: kurulum', () => {
   it('kilitliyken (429) bekleme süresini söyler', async () => {
     mockApi({ '/api/v1/auth/totp/setup': problem(429, 'totp-locked', { 'Retry-After': '600' }) });
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} />);
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
     await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
     await user.click(screen.getByRole('button', { name: 'Devam et' }));
@@ -108,11 +116,76 @@ describe('Güvenlik ayarları: kurulum', () => {
   it('doğrulanmamış e-postada açıklayıcı hata verir', async () => {
     mockApi({ '/api/v1/auth/totp/setup': problem(403, 'email-not-verified') });
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} />);
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
     await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
     await user.click(screen.getByRole('button', { name: 'Devam et' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('e-posta adresinizi doğrulamanız');
+  });
+
+  it('e-posta doğrulanmamışsa düğme aria-disabled olur, açıklama gösterilir ve form açılmaz', async () => {
+    const { fn } = mockApi({});
+    const user = userEvent.setup();
+    render(
+      <SecurityView
+        initialTotpEnabled={false}
+        initialRecoveryCodesRemaining={0}
+        emailVerified={false}
+      />,
+    );
+    const button = screen.getByRole('button', { name: 'Kurulumu başlat' });
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveAccessibleDescription(/e-posta adresinizi doğrulamanız gerekir/);
+    await user.click(button);
+    // Klavye: odaklanabilir kalır; Enter ve Space formu açmaz
+    button.focus();
+    expect(button).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await user.keyboard(' ');
+    expect(screen.queryByLabelText('Güncel parola')).not.toBeInTheDocument();
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('e-posta doğrulanmışsa düğme etkindir ve uyarı yoktur', () => {
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
+    expect(screen.getByRole('button', { name: 'Kurulumu başlat' })).not.toHaveAttribute(
+      'aria-disabled',
+    );
+    expect(screen.queryByText(/önce e-posta adresinizi/)).not.toBeInTheDocument();
+  });
+
+  it('günlük sınırda (429 rate-limited, 12 saat) gerçek süreyi söyler', async () => {
+    mockApi({
+      '/api/v1/auth/totp/setup': problem(429, 'rate-limited', { 'Retry-After': '43200' }),
+    });
+    const user = userEvent.setup();
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
+    await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
+    await user.click(screen.getByRole('button', { name: 'Devam et' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Yaklaşık 12 saat sonra tekrar deneyin');
+    expect(alert).not.toHaveTextContent('Birkaç dakika');
+  });
+
+  it('Retry-After yoksa genel 429 mesajı kalır', async () => {
+    mockApi({ '/api/v1/auth/totp/setup': problem(429, 'rate-limited') });
+    const user = userEvent.setup();
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
+    await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
+    await user.click(screen.getByRole('button', { name: 'Devam et' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Birkaç dakika sonra tekrar deneyin',
+    );
   });
 
   it('tam akış: parola, QR + elle anahtar, kod, kurtarma kodları, "kaydettim" onayı, bitti', async () => {
@@ -121,7 +194,9 @@ describe('Güvenlik ayarları: kurulum', () => {
       '/api/v1/auth/totp/enable': { status: 200, body: { recovery_codes: CODES } },
     });
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} />);
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
 
     await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
@@ -174,7 +249,9 @@ describe('Güvenlik ayarları: kurulum', () => {
       '/api/v1/auth/totp/enable': problem(400, 'invalid-code'),
     });
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} />);
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
     await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
     await user.click(screen.getByRole('button', { name: 'Devam et' }));
@@ -196,7 +273,9 @@ describe('Güvenlik ayarları: kurulum', () => {
       ),
     );
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} />);
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
     await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
     await user.click(screen.getByRole('button', { name: 'Devam et' }));
@@ -220,7 +299,9 @@ describe('Güvenlik ayarları: kurulum', () => {
       .spyOn(HTMLAnchorElement.prototype, 'click')
       .mockImplementation(() => undefined);
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} />);
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
     await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
     await user.click(screen.getByRole('button', { name: 'Devam et' }));
@@ -243,20 +324,20 @@ describe('Güvenlik ayarları: kurulum', () => {
 describe('Güvenlik ayarları: açıkken', () => {
   it('kalan kod sayısını gösterir; azalınca uyarır', () => {
     const { unmount } = render(
-      <SecurityView initialTotpEnabled initialRecoveryCodesRemaining={8} />,
+      <SecurityView initialTotpEnabled initialRecoveryCodesRemaining={8} emailVerified />,
     );
     expect(screen.getByRole('status')).toHaveTextContent('Açık');
     expect(screen.getByText('8', { selector: 'span.num' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     unmount();
-    render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={2} />);
+    render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={2} emailVerified />);
     expect(screen.getByRole('alert')).toHaveTextContent('kodlarınız azaldı');
   });
 
   it('kapatma: parola + kod gönderir, başarıda durum "Kapalı" olur', async () => {
     const { calls } = mockApi({ '/api/v1/auth/totp/disable': { status: 204 } });
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={5} />);
+    render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={5} emailVerified />);
     await user.click(screen.getByRole('button', { name: 'İki adımlı doğrulamayı kapat' }));
     expect(screen.getByText(/dışındaki tüm oturumlar kapatılır/)).toBeInTheDocument();
     // Boş gönderimde istek yok
@@ -274,7 +355,7 @@ describe('Güvenlik ayarları: açıkken', () => {
   it('kapatma: kurtarma kodu da ikinci faktör olarak kabul edilir (biçim)', async () => {
     const { calls } = mockApi({ '/api/v1/auth/totp/disable': { status: 204 } });
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={5} />);
+    render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={5} emailVerified />);
     await user.click(screen.getByRole('button', { name: 'İki adımlı doğrulamayı kapat' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
     await user.type(screen.getByLabelText('Doğrulama ya da kurtarma kodu'), 'abcd-efgh-jk2m');
@@ -286,7 +367,7 @@ describe('Güvenlik ayarları: açıkken', () => {
   it('kapatma hatası: kod hatalıysa açık kalır ve Türkçe hata verir', async () => {
     mockApi({ '/api/v1/auth/totp/disable': problem(403, 'invalid-code') });
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={5} />);
+    render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={5} emailVerified />);
     await user.click(screen.getByRole('button', { name: 'İki adımlı doğrulamayı kapat' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
     await user.type(screen.getByLabelText('Doğrulama ya da kurtarma kodu'), '000000');
@@ -300,7 +381,7 @@ describe('Güvenlik ayarları: açıkken', () => {
       '/api/v1/auth/totp/recovery-codes': { status: 200, body: { recovery_codes: CODES } },
     });
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={1} />);
+    render(<SecurityView initialTotpEnabled initialRecoveryCodesRemaining={1} emailVerified />);
     await user.click(screen.getByRole('button', { name: 'Kurtarma kodlarını yenile' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
     // Yenilemede yalnız TOTP kodu kabul edilir: kurtarma kodu biçimi istemcide reddedilir
@@ -324,7 +405,9 @@ describe('Güvenlik ayarları: açıkken', () => {
       '/api/v1/auth/totp/setup': { status: 200, body: { secret: SECRET, otpauth_uri: URI } },
     });
     const user = userEvent.setup();
-    render(<SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} />);
+    render(
+      <SecurityView initialTotpEnabled={false} initialRecoveryCodesRemaining={0} emailVerified />,
+    );
     await user.click(screen.getByRole('button', { name: 'Kurulumu başlat' }));
     await user.type(screen.getByLabelText('Güncel parola'), 'dogru-at-pil-kalem-42');
     await user.click(screen.getByRole('button', { name: 'Devam et' }));

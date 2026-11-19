@@ -23,6 +23,7 @@ export default async function SecurityPage() {
       <SecurityView
         initialTotpEnabled={me.totp_enabled}
         initialRecoveryCodesRemaining={me.recovery_codes_remaining ?? 0}
+        emailVerified={me.email_verified}
       />
     </>
   );

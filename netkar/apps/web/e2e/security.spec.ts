@@ -338,19 +338,32 @@ test.describe('güvenlik: iki adım açık hesap', () => {
 });
 
 test.describe('güvenlik: hata durumları', () => {
-  test('e-postası doğrulanmamış hesapta kurulum engellenir ve nedeni söylenir (403 email-not-verified)', async ({
+  test('e-postası doğrulanmamış hesapta kurulum düğmesi kapalıdır ve nedeni ekranda söylenir', async ({
     page,
   }, testInfo) => {
     const watcher = await open(page, testInfo, ['dogrulanmamis'], 'eposta');
     await expect(page.getByRole('region', { name: 'E-posta doğrulama uyarısı' })).toBeVisible();
-    await startSetup(page);
-    const alert = page
-      .getByRole('alert')
-      .filter({ hasText: 'e-posta adresinizi doğrulamanız gerekir' });
-    await expect(alert).toBeVisible();
-    // Yanlış parola mesajına çevrilmez; kullanıcı parola formunda kalır
-    await expect(page.getByText('Parola hatalı')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: '1. Parolanızı doğrulayın' })).toBeVisible();
+    const start = page.getByRole('button', { name: 'Kurulumu başlat' });
+    await expect(start).toHaveAttribute('aria-disabled', 'true');
+    // Düğme açıklama metnine bağlıdır; metin görünür ve doğrulama e-postasını yeniden istemeye yönlendirir
+    const note = card(page).getByText('önce e-posta adresinizi doğrulamanız gerekir');
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('doğrulama e-postasını yeniden');
+    await expect(start).toHaveAccessibleDescription(/e-posta adresinizi doğrulamanız gerekir/);
+    await expectClean(page);
+
+    // Tıklamak kurulum formunu açmaz, sunucuya istek gitmez
+    const setupRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/totp/setup')) setupRequests.push(request.url());
+    });
+    await start.click({ force: true });
+    await start.focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Space');
+    await expect(page.getByRole('heading', { name: '1. Parolanızı doğrulayın' })).toHaveCount(0);
+    await expect(start).toBeVisible();
+    expect(setupRequests).toEqual([]);
     await expectClean(page);
     await expectNoLeaks(page, watcher, [FAKE_PASSWORD]);
   });
@@ -361,7 +374,9 @@ test.describe('güvenlik: hata durumları', () => {
     const watcher = await open(page, testInfo, ['gunluk'], 'gunluk');
     await startSetup(page);
     const alert = page.getByRole('alert').filter({ hasText: 'Çok fazla deneme' });
-    await expect(alert).toBeVisible();
+    // Retry-After 12 saat: "birkaç dakika" denmez, gerçek süre söylenir
+    await expect(alert).toContainText('Yaklaşık 12 saat sonra tekrar deneyin');
+    await expect(alert).not.toContainText('dakika');
     // Parola formunda kalır, parola alanı doldurulmuş değil hatalı sanılmaz
     await expect(page.getByText('Parola hatalı')).toHaveCount(0);
     await expectClean(page);

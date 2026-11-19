@@ -28,9 +28,12 @@ type View =
 export function SecurityView({
   initialTotpEnabled,
   initialRecoveryCodesRemaining,
+  emailVerified,
 }: {
   initialTotpEnabled: boolean;
   initialRecoveryCodesRemaining: number;
+  /** E-posta doğrulanmadıysa sunucu kurulumu 403 ile reddeder; düğme baştan kapatılır. */
+  emailVerified: boolean;
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(initialTotpEnabled);
@@ -85,8 +88,34 @@ export function SecurityView({
               </div>
             </>
           ) : (
-            <div>
-              <Button onClick={() => setView({ kind: 'setup' })}>Kurulumu başlat</Button>
+            <div className="flex flex-col gap-3">
+              {emailVerified ? null : (
+                <p
+                  id="eposta-dogrulama-uyarisi"
+                  className="rounded-md border border-warning bg-warning-soft p-3 text-sm font-medium"
+                >
+                  İki adımlı doğrulamayı kurabilmek için önce e-posta adresinizi doğrulamanız
+                  gerekir. Sayfanın üstündeki uyarıdan doğrulama e-postasını yeniden
+                  isteyebilirsiniz.
+                </p>
+              )}
+              <div>
+                <Button
+                  // Gerçekten devre dışı (disabled) yapılmaz: odaklanabilir kalır, açıklama ekran okuyucuya okunur.
+                  aria-disabled={emailVerified ? undefined : true}
+                  aria-describedby={emailVerified ? undefined : 'eposta-dogrulama-uyarisi'}
+                  className={
+                    emailVerified
+                      ? undefined
+                      : 'cursor-not-allowed opacity-60 aria-disabled:hover:bg-primary'
+                  }
+                  onClick={() => {
+                    if (emailVerified) setView({ kind: 'setup' });
+                  }}
+                >
+                  Kurulumu başlat
+                </Button>
+              </div>
             </div>
           )
         ) : null}
