@@ -24,7 +24,7 @@ Kaynaklar: 30 günlük plan `icerik/plan/30-gun-2026-11-11.md`, 17:50 kuşağı 
 | 16 | 17 Kas | Sal | 20:50 | Olumsuz yorumu silemezsin. Cevaplayabilirsin. | YORUM | Dosya iletildi 16 Kas |
 | 17 | 18 Kas | Çar | 17:50 | Kasım indiriminde 10 gün kuralı. | FIYAT | Dosya iletildi 10-11 Kas |
 | 18 | 18 Kas | Çar | 20:50 | Kampanya mesajlarını bugün yaz. | EPOSTA | Yayında (kullanıcı bildirdi) |
-| 19 | 19 Kas | Per | 08:50 | Kampanya haftasında DM'ler sana yetişmez. | MESAJ | Dosya iletildi 18 Kas |
+| 19 | 19 Kas | Per | 08:50 | Kampanya haftasında DM'ler sana yetişmez. | MESAJ | Yayında 19 Kas ~15:00, çok platform (kullanıcı bildirdi) |
 | 20 | 19 Kas | Per | 17:50 | ChatGPT ürün öneriyor, satış sitende bitiyor. | VITRIN | Dosya iletildi 10-11 Kas |
 | 21 | 20 Kas | Cum | 17:50 | AI'a 5 satırlık brief ver, 10 metin al. | METIN | Dosya iletildi 10-11 Kas |
 | 22 | 20 Kas | Cum | 21:20 | Ürün fotoğrafın videoya dönüşüyor. | VIDEO | Akşam önce iletilecek |
