@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import os
 import pwd
 import re
@@ -129,27 +131,122 @@ def _alembic_config(owner_url: URL) -> Config:
     return cfg
 
 
+# Roller küme düzeyindedir: paylaşılan kümede (TEST_DATABASE_URL) tüm xdist işçileri aynı üç giriş rolünü
+# kullanır. İki kilit anahtarı veritabanından bağımsız `postgres` bakım veritabanında alınır
+# (advisory kilitler veritabanı başınadır).
+PROVISION_LOCK_KEY = 0x4E4B5052  # rol kurulumunu sıraya sokar
+CLUSTER_LOCK_KEY = 0x4E4B434C  # paylaşılan (testler) ve özel (cluster_global testleri) kilit
+
+
+def _xdist_worker() -> str:
+    """xdist işçi kimliği (gw0, gw1, ...); seri koşuda boş."""
+    return os.environ.get("PYTEST_XDIST_WORKER", "")
+
+
+def _role_passwords() -> tuple[str, str, str]:
+    """owner/app/worker şifreleri.
+
+    xdist altında tüm işçiler aynı koşunun şifrelerini türetir (PYTEST_XDIST_TESTRUNUID ortak): paylaşılan
+    kümede her işçi `ALTER ROLE ... PASSWORD` çalıştırır, farklı şifre üretselerdi sonraki işçi şifreyi
+    değiştirir ve öteki işçilerin YENİ bağlantılarının kimlik doğrulaması bozulurdu (açık bağlantılar kopmaz).
+    Seri koşuda her oturum rastgele şifre üretir.
+    """
+    run_uid = os.environ.get("PYTEST_XDIST_TESTRUNUID")
+    if not run_uid:
+        owner, app, worker = (secrets.token_urlsafe(12) for _ in range(3))
+        return owner, app, worker
+    owner, app, worker = (
+        hmac.new(run_uid.encode(), role.encode(), hashlib.sha256).hexdigest()[:24]
+        for role in ("owner", "app", "worker")
+    )
+    return owner, app, worker
+
+
 @pytest.fixture(scope="session")
 def database(pg_admin_url: URL) -> Iterator[DatabaseInfo]:
-    """Rastgele adlı veritabanı: roller kurulur, migrasyonlar owner rolüyle çalışır."""
-    name = f"netkar_test_{secrets.token_hex(4)}"
-    owner_pw, app_pw, worker_pw = (secrets.token_urlsafe(12) for _ in range(3))
+    """Rastgele adlı veritabanı: roller kurulur, migrasyonlar owner rolüyle çalışır.
+
+    xdist altında her işçinin kendi veritabanı vardır (`netkar_test_<hex>_<gw>`).
+    """
+    worker = _xdist_worker()
+    name = f"netkar_test_{secrets.token_hex(4)}" + (f"_{worker}" if worker else "")
+    owner_pw, app_pw, worker_pw = _role_passwords()
     admin_dsn = pg_admin_url.set(drivername="postgresql").render_as_string(hide_password=False)
     with psycopg.connect(admin_dsn, autocommit=True) as conn:
         conn.execute(f'CREATE DATABASE "{name}"')
-        provision_roles(conn, name, owner_pw, app_pw, worker_pw)
-    info = DatabaseInfo(
-        admin_url=pg_admin_url.set(database=name),
-        owner_url=pg_admin_url.set(username="netkar_owner", password=owner_pw, database=name),
-        app_url=pg_admin_url.set(username="netkar_app", password=app_pw, database=name),
-        worker_url=pg_admin_url.set(username="netkar_worker", password=worker_pw, database=name),
-        name=name,
-    )
-    command.upgrade(_alembic_config(info.owner_url), "head")
+        # Roller küme düzeyindedir. CREATE ROLE / GRANT rol üyeliği eşzamanlı çalışınca "tuple concurrently
+        # updated" ya da "role already exists" ile düşer (var mı sorgusu ile CREATE arasında yarış). IF NOT
+        # EXISTS rol için yok ve hata yakalayıp yeniden denemek yarımış kurulumu gizler; bu yüzden tüm kurulum
+        # tek bir advisory kilidiyle sıraya sokulur: kilidi alan işçi bitirir, sonrakiler ALTER yoluna girer.
+        # Kurulum ve migrasyon, cluster_global testlerinin özel kilidine karşı paylaşılan küme kilidi altında
+        # çalışır (rol yeniden adlandırma/BYPASSRLS ile yarışmasın). Sıra: önce küme kilidi (paylaşılan), sonra
+        # kurulum kilidi. Kilit, ilk testin `_cluster_lock` fixture'ından ÖNCE bırakılır (o fixture `database`
+        # fixture'ına bağımlıdır), böylece bekleyen özel kilit ile bu bağlantı birbirini beklemez.
+        conn.execute("SET lock_timeout = '10min'")
+        conn.execute("SELECT pg_advisory_lock_shared(%s)", (CLUSTER_LOCK_KEY,))
+        try:
+            conn.execute("SELECT pg_advisory_lock(%s)", (PROVISION_LOCK_KEY,))
+            try:
+                provision_roles(conn, name, owner_pw, app_pw, worker_pw)
+            finally:
+                conn.execute("SELECT pg_advisory_unlock(%s)", (PROVISION_LOCK_KEY,))
+            info = DatabaseInfo(
+                admin_url=pg_admin_url.set(database=name),
+                owner_url=pg_admin_url.set(username="netkar_owner", password=owner_pw, database=name),
+                app_url=pg_admin_url.set(username="netkar_app", password=app_pw, database=name),
+                worker_url=pg_admin_url.set(username="netkar_worker", password=worker_pw, database=name),
+                name=name,
+            )
+            command.upgrade(_alembic_config(info.owner_url), "head")
+        finally:
+            conn.execute("SELECT pg_advisory_unlock_shared(%s)", (CLUSTER_LOCK_KEY,))
     yield info
     if os.environ.get("TEST_DATABASE_URL"):
         with psycopg.connect(admin_dsn, autocommit=True) as conn:
             conn.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+
+
+@pytest.fixture(scope="session")
+def _cluster_lock_conn(pg_admin_url: URL) -> Iterator[psycopg.Connection[Any] | None]:
+    """Paylaşılan kümede (TEST_DATABASE_URL) küme kilidi bağlantısı; geçici kümede (işçi başına) gerekmez."""
+    if not os.environ.get("TEST_DATABASE_URL"):
+        yield None
+        return
+    dsn = pg_admin_url.set(drivername="postgresql").render_as_string(hide_password=False)
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        # Askıda kalan bir test tüm işçileri sessizce durdurmasın: 10 dk sonra anlaşılır hatayla düşer.
+        conn.execute("SET lock_timeout = '10min'")
+        yield conn
+
+
+@pytest.fixture(autouse=True)
+def _cluster_lock(
+    request: pytest.FixtureRequest,
+    _cluster_lock_conn: psycopg.Connection[Any] | None,
+    database: DatabaseInfo,  # yalnız sıralama: oturum kurulumu (kendi paylaşılan kilidi) önce bitsin
+) -> Iterator[None]:
+    """Küme düzeyinde etkisi olan testleri öteki işçilerden yalıtır (yalnız paylaşılan kümede).
+
+    Her test paylaşılan kilidi tutar; `@pytest.mark.cluster_global` testleri (rol değiştirme/oluşturma,
+    yeniden adlandırma) özel kilidi alır: başka işçilerin çalışan testleri bitene kadar bekler ve o sürede
+    yeni test başlamaz. Aksi halde bir işçinin `ALTER ROLE netkar_app BYPASSRLS` çağrısı ötekilerin RLS
+    testlerini bozardı. Geçici kümede her işçinin kendi kümesi olduğundan kilit alınmaz.
+    """
+    conn = _cluster_lock_conn
+    if conn is None:
+        yield
+        return
+    exclusive = request.node.get_closest_marker("cluster_global") is not None
+    lock, unlock = (
+        ("pg_advisory_lock", "pg_advisory_unlock")
+        if exclusive
+        else ("pg_advisory_lock_shared", "pg_advisory_unlock_shared")
+    )
+    conn.execute(f"SELECT {lock}(%s)", (CLUSTER_LOCK_KEY,))
+    try:
+        yield
+    finally:
+        conn.execute(f"SELECT {unlock}(%s)", (CLUSTER_LOCK_KEY,))
 
 
 @pytest.fixture(scope="session")

@@ -1125,6 +1125,7 @@ def test_maintenance_exemption_is_an_explicit_positive_list(admin_conn: psycopg.
     assert "netkar_app" not in exempt and "netkar_worker" not in exempt
 
 
+@pytest.mark.cluster_global  # küme düzeyinde rol oluşturur/siler; rol sayan testlerle çakışmasın
 def test_a_future_role_granted_write_access_is_bound_by_the_sequence_rules(
     admin_conn: psycopg.Connection[Any],
 ) -> None:

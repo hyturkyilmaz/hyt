@@ -347,7 +347,9 @@ def test_o01_no_idle_in_transaction_connection_while_the_engine_runs(
     try:
         assert engine.started.wait(15)
         rows = admin_conn.execute(
-            "SELECT state FROM pg_stat_activity WHERE usename = 'netkar_app' AND state = 'idle in transaction'"
+            # küme geneli görünüm: yalnız bu işçinin veritabanı (xdist, paylaşılan küme)
+            "SELECT state FROM pg_stat_activity WHERE usename = 'netkar_app' AND datname = current_database() "
+            "AND state = 'idle in transaction'"
         ).fetchall()
         assert rows == [], f"motor çalışırken işlem açık: {rows}"
     finally:

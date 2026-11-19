@@ -415,6 +415,7 @@ def test_migration_0006_is_reversible_and_restores_previous_grants(
         command.upgrade(alembic_cfg, "head")
 
 
+@pytest.mark.cluster_global  # rolü yeniden adlandırır: küme düzeyinde
 def test_migration_fails_with_clear_message_when_roles_are_missing(
     alembic_cfg: Config, admin_conn: psycopg.Connection
 ) -> None:

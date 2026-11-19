@@ -63,8 +63,11 @@ jobs:
         run: uv run ruff format --check .
       - name: mypy
         run: uv run mypy
-      - name: pytest (kapsam eşiği %90)
-        run: uv run pytest --cov --cov-report=term-missing
+      - name: pytest (paralel, kapsam eşiği %90)
+        # xdist: her işçi kendi veritabanını açar; kapsam işçilerden otomatik birleşir. Paylaşılan Postgres
+        # servisinde 4 işçiyle (--maxprocesses=4) en çok 41 eşzamanlı bağlantı ölçüldü (varsayılan max_connections=100 yeterli).
+        # Roller küme düzeyinde ortaktır: rol değiştiren testler cluster_global işaretiyle yalıtılır.
+        run: uv run pytest -n auto --maxprocesses=4 --cov --cov-report=term-missing
 
   web:
     name: web (lint, typecheck, test)

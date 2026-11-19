@@ -7,13 +7,14 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 # infra/.env varsa ortama yükler (yerel çalıştırma için).
 LOAD_ENV := set -a; if [ -f $(CURDIR)/$(ENV_FILE) ]; then . $(CURDIR)/$(ENV_FILE); fi; set +a;
 
-.PHONY: help setup env lint test test-profit dev migrate worker seed-demo mark-non-prod db-up db-down web-lint web-test
+.PHONY: help setup env lint test test-seri test-profit dev migrate worker seed-demo mark-non-prod db-up db-down web-lint web-test
 
 help:
 	@echo "setup  : Python bağımlılıklarını kurar (uv sync)"
 	@echo "env    : infra/.env üretir (rastgele sırlarla), varsa dokunmaz"
 	@echo "lint   : ruff check + ruff format --check + mypy"
-	@echo "test   : pytest (gerçek PostgreSQL 16, kapsam raporlu)"
+	@echo "test   : pytest -n auto (xdist, işçi başına veritabanı; gerçek PostgreSQL 16, kapsam raporlu)"
+	@echo "test-seri: aynı takım tek işlemde (hata ayıklama ve paralel/seri karşılaştırması için)"
 	@echo "test-profit: kâr motoru testleri, app/profit satır ve dal kapsamı %100 (DB gerekmez)"
 	@echo "db-up  : compose ile yalnız PostgreSQL'i başlatır"
 	@echo "migrate: alembic upgrade head (DATABASE_MIGRATION_URL)"
@@ -39,7 +40,12 @@ lint:
 	cd $(API) && uv run ruff format --check .
 	cd $(API) && uv run mypy
 
+# Paralel koşu: her xdist işçisi kendi veritabanını (ve yerelde kendi geçici kümesini) açar; kapsam otomatik birleşir.
 test:
+	cd $(API) && uv run pytest -n auto --maxprocesses=4 --cov
+
+# Seri koşu (xdist yok): paralel modda yalnız görülen bir hatayı ayırt etmek için.
+test-seri:
 	cd $(API) && uv run pytest --cov
 
 test-profit:

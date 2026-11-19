@@ -316,7 +316,9 @@ def test_y01_default_parse_concurrency_is_two(shop: Shop) -> None:
 
 def idle_in_transaction(conn: psycopg.Connection[Any]) -> int:
     row = conn.execute(
-        "SELECT count(*) FROM pg_stat_activity WHERE usename = 'netkar_app' AND state LIKE 'idle in transaction%'"
+        # pg_stat_activity küme geneldir: yalnız bu işçinin veritabanı sayılır (xdist, paylaşılan küme).
+        "SELECT count(*) FROM pg_stat_activity WHERE usename = 'netkar_app' AND datname = current_database() "
+        "AND state LIKE 'idle in transaction%'"
     ).fetchone()
     assert row is not None
     return int(row[0])

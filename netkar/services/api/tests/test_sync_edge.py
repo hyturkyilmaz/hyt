@@ -63,7 +63,10 @@ async def test_lock_connection_is_discarded_when_unlock_fails(
         # kilidi tutan oturum öldürülür (ağ kopması): bırakma başarısız olur, bağlantı havuza dönmez
         admin_conn.execute(
             "SELECT pg_terminate_backend(pid) FROM pg_locks WHERE locktype = 'advisory' AND granted "
-            "AND pid <> pg_backend_pid()"
+            "AND pid <> pg_backend_pid() "
+            # pg_locks küme genelidir: yalnız bu testin veritabanındaki kilitler (paylaşılan kümede öteki
+            # işçilerin oturumları öldürülmesin).
+            "AND database = (SELECT oid FROM pg_database WHERE datname = current_database())"
         )
         await asyncio.sleep(0.2)
     async with account_lock(worker_engine, seller.account_id) as again:

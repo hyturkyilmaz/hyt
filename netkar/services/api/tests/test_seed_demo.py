@@ -715,6 +715,7 @@ async def test_server_side_checks_refuse_wrong_roles_before_any_write(
     assert counts(admin_conn) == dict.fromkeys(TABLES, 0)
 
 
+@pytest.mark.cluster_global  # ALTER ROLE küme düzeyindedir (paylaşılan kümede öteki işçileri etkilerdi)
 async def test_super_or_bypassrls_role_is_refused_even_with_expected_name(
     settings: Settings, admin_conn: psycopg.Connection[Any]
 ) -> None:

@@ -30,6 +30,7 @@ dev = [
   "ruff>=0.6",
   "mypy>=1.11",
   "types-openpyxl>=3.1.5.20261017",
+  "pytest-xdist==3.8.0",
 ]
 
 [build-system]
