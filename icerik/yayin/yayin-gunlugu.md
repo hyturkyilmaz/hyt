@@ -27,7 +27,7 @@ Kaynaklar: 30 günlük plan `icerik/plan/30-gun-2026-11-11.md`, 17:50 kuşağı 
 | 19 | 19 Kas | Per | 08:50 | Kampanya haftasında DM'ler sana yetişmez. | MESAJ | Yayında 19 Kas ~15:00, çok platform (kullanıcı bildirdi) |
 | 20 | 19 Kas | Per | 17:50 | ChatGPT ürün öneriyor, satış sitende bitiyor. | VITRIN | Dosya iletildi 10-11 Kas |
 | 21 | 20 Kas | Cum | 17:50 | AI'a 5 satırlık brief ver, 10 metin al. | METIN | Dosya iletildi 10-11 Kas |
-| 22 | 20 Kas | Cum | 21:20 | Ürün fotoğrafın videoya dönüşüyor. | VIDEO | Akşam önce iletilecek |
+| 22 | 20 Kas | Cum | 21:20 | Ürün fotoğrafın videoya dönüşüyor. | VIDEO | Dosya iletildi 19 Kas |
 | 23 | 21 Kas | Cmt | 17:50 | Carousel geri döndü mü? | KAYDIR | Dosya iletildi 10-11 Kas |
 | 24 | 21 Kas | Cmt | 21:20 | Müşterinin sorusunu ürün sayfasında cevapla. | SSS | Akşam önce iletilecek |
 | 25 | 22 Kas | Paz | 17:50 | GA4 raporunu 3 karara indir. | RAPOR | Dosya iletildi 10-11 Kas |

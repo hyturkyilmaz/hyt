@@ -6,7 +6,7 @@
 | Saat | 21:20 TRT (30 günlük plan) |
 | Anahtar kelime | VIDEO |
 | Yazım hatası | "önizlemey" (doğrusu: önizlemeyi) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 19 Kasım akşamı: Advantage+ görsel animasyonu (tek görselden kısa video, Reels yerleşimi) Meta geliştirici belgelerinde ve basında mevcut. Metinde istem dışı hata yok. |
 
 ## Açıklama
 

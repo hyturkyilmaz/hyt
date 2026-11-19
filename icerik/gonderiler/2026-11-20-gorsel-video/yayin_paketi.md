@@ -2,7 +2,7 @@
 
 | Alan | Değer |
 |---|---|
-| Video | `icerik/gonderiler/2026-11-20-gorsel-video/medya/reels-altyazili.mp4` (1080×1920, H.264, AAC) |
+| Video | `icerik/gonderiler/2026-11-20-gorsel-video/medya/reels-muzikli-altyazisiz.mp4` (altyazısız, kullanıcı tercihi) · altyazılı: `medya/reels-altyazili.mp4` |
 | Anahtar kelime | VIDEO (yalnız Instagram DM otomasyonu) |
 | Lead | `lead/2026-11-20-gorsel-video.pdf` → WhatsApp Topluluğu'nda aynı gün sabitlenir |
 | Yazım hatası | "kapt" (doğrusu: kapat) Instagram, Facebook, YouTube açıklaması, TikTok, X. LinkedIn'de "önizlemey" (doğrusu: önizlemeyi). YouTube başlığı ve sabit yorumlar hatasız. |
@@ -93,7 +93,7 @@ Ama AI ürün sahnesini değiştirebiliyor: renk tonu kayabiliyor, logo bulanık
 
 Otomasyon zaman kazandırıyor, ama müşterinin göreceği şeye son kez bakmak hâlâ bir insanın işi.
 
-Sende hangi rakam farklı çıktı? Yorumda paylaşırsan karşılaştıralım.
+Sen bu aracı denedin mi? Sonucu yorumda yaz, birlikte bakalım.
 
 Animasyonlu reklam kontrol listesini WhatsApp Topluluğu'nda paylaşıyorum, bağlantı ilk yorumda.
 
