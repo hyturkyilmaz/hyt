@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import or_, select, text, update
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -129,21 +129,26 @@ async def lookup_session(
     return ctx, row["last_seen_at"]
 
 
-async def touch_session(db: AsyncSession, session_id: UUID, now: datetime | None = None) -> None:
-    """Boşta süresini uzatır. RLS bağlamı ayarlı olmalı."""
+async def touch_session(db: AsyncSession, session_id: UUID) -> None:
+    """Boşta süresini uzatır. RLS bağlamı ayarlı olmalı.
+
+    Zaman damgası veritabanı saatinden (`now()`) gelir: uygulama saati kayık olsa da 0023 tetikleyicisinin
+    `now() + 5 dk` sınırına takılmaz. GREATEST: eşzamanlı iki istekte geç commit eden eski değer
+    `last_seen_at`'i geriye çekemez (tetikleyici geri gitmeyi reddeder).
+    """
     await db.execute(
         update(SessionRecord)
         .where(SessionRecord.id == session_id)
-        .values(last_seen_at=now or datetime.now(UTC))
+        .values(last_seen_at=func.greatest(SessionRecord.last_seen_at, func.now()))
     )
 
 
-async def revoke_session(db: AsyncSession, session_id: UUID, now: datetime | None = None) -> None:
-    """Oturumu iptal eder (kayıt silinmez)."""
+async def revoke_session(db: AsyncSession, session_id: UUID) -> None:
+    """Oturumu iptal eder (kayıt silinmez). İptal zamanı veritabanı saatindendir (tetikleyici penceresi)."""
     await db.execute(
         update(SessionRecord)
         .where(SessionRecord.id == session_id, SessionRecord.revoked_at.is_(None))
-        .values(revoked_at=now or datetime.now(UTC))
+        .values(revoked_at=func.now())
     )
 
 

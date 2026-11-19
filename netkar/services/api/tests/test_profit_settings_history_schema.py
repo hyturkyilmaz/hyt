@@ -897,7 +897,8 @@ def test_0009_downgrade_removes_only_its_objects_and_roundtrips(
 
     def names(kind: str) -> set[str]:
         sql = {
-            "trigger": "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE '%guard'",
+            # Yalnız kâr ayarı tetikleyicileri (trg_ öneki); başka tablolardaki guard'lar (ör. 0023 sessions) kapsam dışı
+            "trigger": "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'trg\\_%guard'",
             "index": "SELECT indexname FROM pg_indexes WHERE indexname LIKE 'ix_%_replaces'",
             "fk": "SELECT conname FROM pg_constraint WHERE conname = 'fk_profit_settings_changes_member'",
             "function": "SELECT proname FROM pg_proc WHERE proname IN "

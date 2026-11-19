@@ -151,7 +151,7 @@ async def get_auth_context(request: Request, db: DbDep, settings: SettingsDep) -
     await set_rls_context(db, ctx.tenant_id, ctx.user_id)
     now = datetime.now(UTC)
     if (now - last_seen).total_seconds() > TOUCH_INTERVAL_SECONDS:
-        await touch_session(db, ctx.session_id, now)
+        await touch_session(db, ctx.session_id)
         await db.commit()
         # Commit işlem yerel GUC'leri sıfırlar; işleyici için yeniden kurulur.
         await set_rls_context(db, ctx.tenant_id, ctx.user_id)

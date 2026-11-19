@@ -8,6 +8,7 @@ import psycopg
 
 from app.core.email import InMemoryOutbox
 from tests.conftest import GOOD_PASSWORD, Api, FakePwned
+from tests.session_helpers import session_guard_disabled
 
 
 def test_register_login_me_logout_flow(api: Api, outbox: InMemoryOutbox) -> None:
@@ -181,21 +182,29 @@ def test_session_idle_and_absolute_expiry_and_revocation(api: Api, admin_conn: p
     api.signup_and_login("e@example.com")
     assert api.get("/v1/me").status_code == 200
 
-    admin_conn.execute("UPDATE sessions SET last_seen_at = now() - interval '11 hours'")
+    # last_seen_at geriye çekme ve süre uzatma 0023 tetikleyicisince reddedilir; zaman kaydırma için
+    # tetikleyici geçici kapatılır (yönetici DDL yolu).
+    with session_guard_disabled(admin_conn):
+        admin_conn.execute("UPDATE sessions SET last_seen_at = now() - interval '11 hours'")
     assert api.get("/v1/me").status_code == 200  # boşta 12 saat dolmadı
-    admin_conn.execute("UPDATE sessions SET last_seen_at = now() - interval '13 hours'")
+    with session_guard_disabled(admin_conn):
+        admin_conn.execute("UPDATE sessions SET last_seen_at = now() - interval '13 hours'")
     assert api.get("/v1/me").status_code == 401  # boşta süre doldu
 
     admin_conn.execute("UPDATE sessions SET last_seen_at = now(), expires_at = now() - interval '1 second'")
     assert api.get("/v1/me").status_code == 401  # mutlak süre doldu
 
-    admin_conn.execute("UPDATE sessions SET expires_at = now() + interval '1 day', revoked_at = now()")
+    with session_guard_disabled(admin_conn):
+        admin_conn.execute("UPDATE sessions SET expires_at = now() + interval '1 day'")
+    assert api.get("/v1/me").status_code == 200  # süre yeniden geçerli: iptal tek başına denenir
+    admin_conn.execute("UPDATE sessions SET revoked_at = now()")
     assert api.get("/v1/me").status_code == 401  # iptal edilmiş
 
 
 def test_session_last_seen_is_refreshed(api: Api, admin_conn: psycopg.Connection) -> None:
     api.signup_and_login("t@example.com")
-    admin_conn.execute("UPDATE sessions SET last_seen_at = now() - interval '2 hours'")
+    with session_guard_disabled(admin_conn):
+        admin_conn.execute("UPDATE sessions SET last_seen_at = now() - interval '2 hours'")
     assert api.get("/v1/me").status_code == 200
     age = admin_conn.execute("SELECT extract(epoch FROM now() - last_seen_at) FROM sessions").fetchone()
     assert age is not None and age[0] < 60
