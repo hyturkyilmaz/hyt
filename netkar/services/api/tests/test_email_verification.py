@@ -20,6 +20,7 @@ import pytest
 
 from app.core.email import InMemoryOutbox
 from tests.conftest import GOOD_PASSWORD, Api, FakeClock
+from tests.session_helpers import tenant_guard_disabled
 
 NEW_PASSWORD = "yepyeni-parola-9876"
 WEB = "https://app.test.invalid"
@@ -481,9 +482,10 @@ def test_takeover_by_reset_restarts_the_trial_without_deleting_anything(
 ) -> None:
     api = make_api()
     api.register("deneme@example.com", tenant="Saldırgan Mağaza")
-    admin_conn.execute(
-        "UPDATE tenants SET trial_ends_at = now() + interval '1 day', created_at = now() - interval '13 days'"
-    )
+    with tenant_guard_disabled(admin_conn):  # created_at kaydırma: kimlik tetikleyicisi geçici kapalı (0024)
+        admin_conn.execute(
+            "UPDATE tenants SET trial_ends_at = now() + interval '1 day', created_at = now() - interval '13 days'"
+        )
     api.post("/v1/auth/password-reset/request", {"email": "deneme@example.com"})
     token = _reset_token(outbox, "deneme@example.com")
     api.post("/v1/auth/password-reset/confirm", {"token": token, "new_password": NEW_PASSWORD})
@@ -497,7 +499,8 @@ def test_reset_of_verified_account_does_not_restart_the_trial(
 ) -> None:
     api.signup_and_login("dogrulanmis@example.com")
     before = admin_conn.execute("SELECT trial_ends_at FROM tenants").fetchone()
-    admin_conn.execute("UPDATE tenants SET created_at = now() - interval '5 days'")
+    with tenant_guard_disabled(admin_conn):
+        admin_conn.execute("UPDATE tenants SET created_at = now() - interval '5 days'")
     api.post("/v1/auth/password-reset/request", {"email": "dogrulanmis@example.com"})
     token = _reset_token(outbox, "dogrulanmis@example.com")
     api.post("/v1/auth/password-reset/confirm", {"token": token, "new_password": NEW_PASSWORD})

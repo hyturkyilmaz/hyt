@@ -76,7 +76,7 @@ def test_app_can_update_only_the_two_runtime_columns(
         " has_table_privilege('netkar_app', 'sessions', 'DELETE'),"
         " has_table_privilege('netkar_app', 'sessions', 'INSERT'),"
         " has_table_privilege('netkar_app', 'sessions', 'SELECT')"
-    ).fetchone() == (False, False, True, True)
+    ).fetchone() == (False, False, False, True)  # INSERT 0024 ile kalktı (auth_gate.create_session)
 
 
 def test_auth_role_can_update_only_revoked_at(admin_conn: psycopg.Connection) -> None:

@@ -155,8 +155,11 @@ def test_cross_tenant_writes_are_blocked(
     with app_tx(database, a.tenant_id) as conn:
         cur = conn.execute("UPDATE sessions SET revoked_at = now() WHERE tenant_id = %s", (b.tenant_id,))
         assert cur.rowcount == 0
-        cur = conn.execute("UPDATE tenants SET name = 'ele geçirildi' WHERE id = %s", (b.tenant_id,))
-        assert cur.rowcount == 0
+    with app_tx(database, a.tenant_id) as conn:
+        # 0024: uygulama rolünün tenants UPDATE yetkisi yoktur (yalnız SELECT); RLS'den önce 42501.
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("UPDATE tenants SET name = 'ele geçirildi' WHERE id = %s", (b.tenant_id,))
+    with app_tx(database, a.tenant_id) as conn:
         # Kendi satırını başka kiracıya taşıyamaz (WITH CHECK)
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute(
@@ -248,6 +251,7 @@ def test_auth_gate_functions_are_security_definer_with_fixed_search_path(
         "create_email_verification",
         "consume_email_verification",
         "revoke_other_sessions",
+        "create_session",  # 0024
     }
     for name, secdef, owner, config in rows:
         assert secdef and owner == "netkar_auth", name

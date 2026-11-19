@@ -78,26 +78,28 @@ async def create_session(
     settings: Settings,
     user_id: UUID,
     tenant_id: UUID,
-    ip_hash: str | None,
+    ip_hash: str,
     user_agent: str | None,
-    now: datetime | None = None,
 ) -> str:
-    """Oturum satırı ekler ve ham token'ı döndürür. RLS bağlamı tenant_id ile ayarlı olmalı."""
-    current = now or datetime.now(UTC)
+    """Oturum satırı ekler ve ham token'ı döndürür (`auth_gate.create_session`; migrasyon 0024).
+
+    Uygulama rolünün `sessions` INSERT yetkisi yoktur: zamanlar (`created_at`, `last_seen_at`, `expires_at`),
+    `revoked_at = NULL` ve süre üst sınırı veritabanında üretilir, kullanıcının kiracı üyeliği orada
+    doğrulanır (üyelik yoksa ya da RLS bağlamı eşleşmiyorsa 42501). Çağrıdan önce `set_rls_context` ile
+    hem tenant_id hem user_id kurulmalıdır.
+    """
     token = generate_token()
-    db.add(
-        SessionRecord(
-            token_hash=hash_token(token),
-            user_id=user_id,
-            tenant_id=tenant_id,
-            created_at=current,
-            last_seen_at=current,
-            expires_at=current + timedelta(seconds=settings.session_absolute_seconds),
-            ip_hash=ip_hash,
-            user_agent=(user_agent or "")[:200] or None,
-        )
+    await db.execute(
+        text("SELECT auth_gate.create_session(:u, :t, :h, :ip, :ua, :s)"),
+        {
+            "u": user_id,
+            "t": tenant_id,
+            "h": hash_token(token),
+            "ip": ip_hash,
+            "ua": (user_agent or "")[:200] or None,
+            "s": settings.session_absolute_seconds,
+        },
     )
-    await db.flush()
     return token
 
 

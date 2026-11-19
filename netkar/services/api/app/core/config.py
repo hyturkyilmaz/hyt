@@ -24,6 +24,11 @@ IPNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
 # Secure/HttpOnly (app/core/cookies.py), yani staging de yalnız HTTPS ile çalışır.
 HARDENED_ENVIRONMENTS = frozenset({"staging", "prod"})
 
+# Oturumun mutlak ömür üst sınırı (saniye, 30 gün). Veritabanındaki `auth_gate.create_session` işlevi
+# (migrasyon 0024) aynı sabiti içerir ve süreyi bu değerle sınırlar; ayar kısaltabilir, uzatamaz
+# (testle eşitlik doğrulanır).
+SESSION_ABSOLUTE_MAX_SECONDS = 30 * 24 * 3600
+
 
 class Settings(BaseSettings):
     """Ortam değişkenlerinden okunan ayarlar (önek yok, büyük küçük harf duyarsız)."""
@@ -81,7 +86,9 @@ class Settings(BaseSettings):
 
     # Oturum süreleri (saniye)
     session_idle_seconds: int = 12 * 3600
-    session_absolute_seconds: int = 30 * 24 * 3600
+    session_absolute_seconds: int = Field(
+        SESSION_ABSOLUTE_MAX_SECONDS, ge=60, le=SESSION_ABSOLUTE_MAX_SECONDS
+    )
     reset_token_ttl_minutes: int = 30
     # E-posta doğrulama bağlantısı ömrü (saat): tek kullanımlık, yalnız özeti saklanır.
     email_verification_ttl_hours: int = Field(24, ge=1, le=72)
