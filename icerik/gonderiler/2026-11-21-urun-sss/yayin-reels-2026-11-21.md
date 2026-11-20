@@ -6,7 +6,7 @@
 | Saat | 21:20 TRT (30 günlük plan) |
 | Anahtar kelime | SSS |
 | Yazım hatası | "sayfalarndan" (doğrusu: sayfalarından) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 20 Kasım akşamı: haber içermiyor; Product, Offer ve MerchantReturnPolicy işaretlemesi Google Search Central belgelerinde geçerli. Metinde istem dışı hata yok. |
 
 ## Açıklama
 

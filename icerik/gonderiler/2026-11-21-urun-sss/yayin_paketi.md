@@ -2,7 +2,7 @@
 
 | Alan | Değer |
 |---|---|
-| Video | `icerik/gonderiler/2026-11-21-urun-sss/medya/reels-altyazili.mp4` (1080×1920, H.264, AAC) |
+| Video | `icerik/gonderiler/2026-11-21-urun-sss/medya/reels-muzikli-altyazisiz.mp4` (altyazısız, kullanıcı tercihi) · altyazılı: `medya/reels-altyazili.mp4` |
 | Anahtar kelime | SSS (yalnız Instagram DM otomasyonu) |
 | Lead | `lead/2026-11-21-urun-sss.pdf` → WhatsApp Topluluğu'nda aynı gün sabitlenir |
 | Yazım hatası | "sayfsında" (doğrusu: sayfasında) Instagram, Facebook, YouTube açıklaması, TikTok, X. LinkedIn'de "sayfalarndan" (doğrusu: sayfalarından). YouTube başlığı ve sabit yorumlar hatasız. |

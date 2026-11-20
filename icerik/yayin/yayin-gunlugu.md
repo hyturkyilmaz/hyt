@@ -29,7 +29,7 @@ Kaynaklar: 30 günlük plan `icerik/plan/30-gun-2026-11-11.md`, 17:50 kuşağı 
 | 21 | 20 Kas | Cum | 17:50 | AI'a 5 satırlık brief ver, 10 metin al. | METIN | Dosya iletildi 10-11 Kas |
 | 22 | 20 Kas | Cum | 21:20 | Ürün fotoğrafın videoya dönüşüyor. | VIDEO | Dosya iletildi 19 Kas |
 | 23 | 21 Kas | Cmt | 17:50 | Carousel geri döndü mü? | KAYDIR | Dosya iletildi 10-11 Kas |
-| 24 | 21 Kas | Cmt | 21:20 | Müşterinin sorusunu ürün sayfasında cevapla. | SSS | Akşam önce iletilecek |
+| 24 | 21 Kas | Cmt | 21:20 | Müşterinin sorusunu ürün sayfasında cevapla. | SSS | Dosya iletildi 20 Kas |
 | 25 | 22 Kas | Paz | 17:50 | GA4 raporunu 3 karara indir. | RAPOR | Dosya iletildi 10-11 Kas |
 | 26 | 22 Kas | Paz | 20:50 | Efsane hafta yarın başlıyor. | GÜNDEM | Akşam önce iletilecek |
 | 27 | 23 Kas | Pzt | 17:50 | AI asistanlar seni öneriyor mu? | GEO | Dosya iletildi 10-11 Kas |
