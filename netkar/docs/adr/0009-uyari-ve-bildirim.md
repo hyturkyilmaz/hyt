@@ -107,9 +107,9 @@ Ortak kurallar:
 | Kapsam ve tekilleştirme | Ürün (barkod). Anahtar `ZARARINA_SATIS|<hesap>|<barkod>`. Pencere anahtara girmez: ürün zararda kaldıkça tek olay açık kalır, `last_seen_at` ilerler. |
 | Yük | zarar satır sayısı; toplam zarar = Σ satır `net_kar` (null ise `eksik_giderler_haric_kar`); en kötü satır zararı; kesinlik; eksik kalem var mı. |
 | Eşik | Hesap ayarı `loss_min_amount` (varsayılan 5,00 TL): toplam zarar bu tutarın altındaysa olay açılmaz. 0,00 izinli. |
-| Gürültü | Aynı olay için yeniden bildirim yok. İstisna: toplam zarar son bildirilen değerin 2 katına çıkarsa bir kez daha (yük `notified_amount`). |
+| Gürültü | Aynı olay için yeniden bildirim yok. İstisna: toplam zarar son bildirilen değerin 2 katına çıkarsa YALNIZ BİR KEZ daha (4 kat, 8 kat için ek bildirim yok; D1 kodu: `loss_notification_due(total, notified_amount, renotified=...)`). Yük `notified_amount` ve D2'de `renotified` bayrağı saklanır. |
 | Kapanma | Değerlendirmede koşul yoksa `resolved`. 7 gün içinde yeniden açılırsa bildirim gitmez, yalnız panelde açılır. |
-| Yanlış pozitif | (a) Tahmini kargo (tarife, varsayılan desi) gerçekten yüksek çıkabilir; (b) maliyet yanlış girilmiş; (c) kampanya indirimi bilerek zarar. Azaltım: kesinlik etiketi metinde; "Bu ürünü 30 gün sustur" eylemi. |
+| Yanlış pozitif | (a) Tahmini kargo (tarife, varsayılan desi) gerçekten yüksek çıkabilir; (b) maliyet yanlış girilmiş; (c) kampanya indirimi bilerek zarar; (d) D9 gelince mağaza reklamının `dagitim_tahmini` payı satır zararına neden olabilir (tahmini mağaza reklamıyla zarar bildirimi) ve aynı üründe ZARARINA_SATIS ile REKLAM_KARI_YIYOR birlikte çalışabilir (çift bildirim). D9'a kadar reklam verisi olmadığı için ikisi de görünmez; D9'da bildirim birleştirme yeniden değerlendirilecek. Azaltım: kesinlik etiketi metinde; "Bu ürünü 30 gün sustur" eylemi. |
 
 ### 3.2 REKLAM_KARI_YIYOR
 
@@ -138,7 +138,7 @@ Ortak kurallar:
 | Eşik | Motor eşiği SABİT (5,00 TL / %5 / 0,05; `settings.py:66-77`). Kiracı ayarı değildir: motor eşiğini değiştirmek rapor sayısını ve K44 damgasını etkiler, ayar tarihçesine (ADR-0007) girmesi gerekir. Bunun yerine bildirim eşiği hesap ayarıdır: `deduction_notify_min` (varsayılan 10,00 TL; olay her zaman açılır, yalnız bu tutarın altındaki fark anlık bildirim üretmez, özete girer). |
 | Kapsam, anahtar | Sipariş satırı. `BEKLENMEYEN_KESINTI|<hesap>|<sipariş no>|<paket>|<satır>`. Sipariş numarası olay tablosunda kalır (panel bağlantısı için), bildirim içeriğine girmez. |
 | Gürültü | Ekstre senkronu günde 2 kez (`tasks.py:44`). Bir değerlendirmede açılan yeni olaylar tek bildirimde toplanır: "12 satırda beklenmeyen kesinti, toplam 184,20 TL". Aynı satır bir kez bildirilir. |
-| Yanlış pozitif | (a) Kargo tahmini varsayılan desiyle yapılmış (`KARGO_DESI_VARSAYILAN`, `default_desi_used` `profit_views.py:805`, `:846`): öneri bildirimden dışla, panelde göster (Hasan kararı H10). (b) Kampanya komisyonu: `KOMISYON_ORANI_FARKLI` ile birlikte gelir; yükte işaretlenir. (c) Tarife eski: ayar güncellenince sonraki değerlendirmede olay kapanır (`resolved`). |
+| Yanlış pozitif | (a) Kargo tahmini varsayılan desiyle yapılmış (`KARGO_DESI_VARSAYILAN`, `default_desi_used` `profit_views.py:805`, `:846`): öneri bildirimden dışla, panelde göster (Hasan kararı H10). Bastırma YALNIZ fark kargodan geliyorsa uygulanır: kesin gönderi kargosu karşılaştırmaya girmediyse ya da kargo dışı fark (`fark - (kargo_kesin - kargo_tahmini)`) tek başına motor eşiğini (`esik`) aşıyorsa (ör. komisyon farkı) bastırma yoktur. (b) Kampanya komisyonu: `KOMISYON_ORANI_FARKLI` ile birlikte gelir; yükte işaretlenir. (c) Tarife eski: ayar güncellenince sonraki değerlendirmede olay kapanır (`resolved`). |
 
 ### 3.4 IADE_ORANI_ARTISI
 
@@ -184,17 +184,21 @@ Tüm işlemler `Decimal` bölme ve çarpmadır; karekök yoktur. `z_kritik^2` sa
 
 | `k` | α (tek yönlü) | `z_kritik` | `z_kritik^2` |
 |---|---|---|---|
-| 1 | 0,01 | 2,326 | 5,410 |
-| 2-5 | 0,002 | 2,878 | 8,283 |
-| 6-20 | 0,0005 | 3,291 | 10,831 |
-| 21-100 | 0,0001 | 3,719 | 13,831 |
-| > 100 | 0,00002 | 4,107 | 16,867 |
+| 1 | 0,01 | 2,326 | 5,412 |
+| 2-5 | 0,002 | 2,878 | 8,284 |
+| 6-20 | 0,0005 | 3,291 | 10,828 |
+| 21-100 | 0,0001 | 3,719 | 13,832 |
+| 101-500 | 0,00002 | 4,107 | 16,872 |
+| 501 ve üstü | bkz. aşağıdaki not | | 18,190 ... 30,150 |
 
 Hesap düzeyinde aynı test tüm ürünlerin toplamına `k = 1` ile ayrıca uygulanır (kapsam `account`).
+
+Kova tablosu D1 kodunda `app/alerts/stats.py`'dedir. Kritik değer `inv_cdf(1 - alfa)^2` olarak `statistics.NormalDist` ile hesaplanıp 3 ondalığa YUKARI yuvarlanmıştır (testle doğrulanır). `k > 100` için kovalar genişletildi (alfa her kova üst ucu için 0,01/k'ya eşit ya da daha sıkı): 101-500: 0,00002 (16,872); 501-1000: 0,00001 (18,190); 1001-5000: 0,000002 (21,265); 5001-50000: 0,0000002 (25,695); üstü 0,00000002 (30,150). Karar `z^2` ile kritik değer arasında tamsayı çapraz çarpımla verilir. Ürün sayısı pratikte 50000'i geçmez.
 
 | Alan | Tasarım |
 |---|---|
 | Eşik | `min_fark` hesap ayarı `return_min_diff_points` (varsayılan 5 yüzde puanı). α, `H`, pencere uzunlukları ve küçük örneklem sınırları SABİT (yanlış ayarla istatistiği bozmamak için). |
+| Kesinlik | Olay `tahmini` etiketlidir (istatistiksel çıkarım; yalnız `Accepted` talepler sayılır). Motor etiketi yoktur. |
 | Kapsam, anahtar | Ürün: `IADE_ORANI_ARTISI|<hesap>|<barkod>`; hesap: `IADE_ORANI_ARTISI|<hesap>|*`. |
 | Yük | `nC`, `xC`, `nB`, `xB`, `pC`, `pB` (metin, 4 ondalık), kohort tarihleri, `k`, iade neden kodlarının ilk 3'ü (`reason_code`, yalnız kod, serbest metin yok). |
 | Gürültü | Günlük pencere kaydığı için ardışık günler yüksek korelasyonludur; yeniden bildirim 14 gün içinde yok. Kanal varsayılanı günlük özet. |
@@ -212,8 +216,8 @@ Hesap düzeyinde aynı test tüm ürünlerin toplamına `k = 1` ile ayrıca uygu
 | `tenant_id`, `marketplace_account_id` | uuid | Kiracı ve hesap. FK `tenants`, hesap FK `marketplace_accounts`. |
 | `rule` | text | CHECK: 4 kural adı. |
 | `scope` | text | CHECK: `product`, `order_line`, `account`. |
-| `subject` | text | Barkod, `<sipariş no>|<paket>|<satır>` ya da `*`. |
-| `dedupe_key` | text | `sha256(rule|hesap|subject)` hex. UNIQUE (`tenant_id`, `marketplace_account_id`, `dedupe_key`). |
+| `subject` | text | Kapsam önekli: `urun:<barkod>` (barkodun baş/son boşluğu atılır), `satir:<sipariş no>|<paket>|<satır>`, `hesap:*`. |
+| `dedupe_key` | text | `sha256(rule|hesap|subject)` hex; hesap kimliği kanonik küçük harfli UUID metnine çevrilir. UNIQUE (`tenant_id`, `marketplace_account_id`, `dedupe_key`). |
 | `first_seen_at`, `last_seen_at` | timestamptz | `first_seen_at` değişmez. |
 | `occurrence_count` | int | Görüldüğü değerlendirme sayısı. |
 | `severity` | text | CHECK: `high` (zararına satış, beklenmeyen kesinti), `medium` (reklam, iade). |

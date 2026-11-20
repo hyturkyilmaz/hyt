@@ -7,7 +7,7 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 # infra/.env varsa ortama yükler (yerel çalıştırma için).
 LOAD_ENV := set -a; if [ -f $(CURDIR)/$(ENV_FILE) ]; then . $(CURDIR)/$(ENV_FILE); fi; set +a;
 
-.PHONY: help setup env lint test test-seri test-profit dev migrate worker seed-demo mark-non-prod db-up db-down web-lint web-test
+.PHONY: help setup env lint test test-seri test-profit test-alerts dev migrate worker seed-demo mark-non-prod db-up db-down web-lint web-test
 
 help:
 	@echo "setup  : Python bağımlılıklarını kurar (uv sync)"
@@ -16,6 +16,7 @@ help:
 	@echo "test   : pytest -n auto (xdist, işçi başına veritabanı; gerçek PostgreSQL 16, kapsam raporlu)"
 	@echo "test-seri: aynı takım tek işlemde (hata ayıklama ve paralel/seri karşılaştırması için)"
 	@echo "test-profit: kâr motoru testleri, app/profit satır ve dal kapsamı %100 (DB gerekmez)"
+	@echo "test-alerts: uyarı kuralları (ADR-0009 D1) testleri, app/alerts satır ve dal kapsamı %100 (DB gerekmez)"
 	@echo "db-up  : compose ile yalnız PostgreSQL'i başlatır"
 	@echo "migrate: alembic upgrade head (DATABASE_MIGRATION_URL)"
 	@echo "seed-demo: uydurma demo veri + doğru cevap kartı (NETKAR_ENV=local|test|staging ve SEED_ARGS ile; üretimde reddeder)"
@@ -50,6 +51,10 @@ test-seri:
 
 test-profit:
 	cd $(API) && uv run pytest tests/test_profit_*.py --cov=app/profit --cov-branch --cov-fail-under=100 --cov-report=term-missing
+
+# Uyarı kuralları (app/alerts) saftır; kâr motoru kapsam koşusundan ayrı, kendi %100 kapsam kapısıyla.
+test-alerts:
+	cd $(API) && uv run pytest tests/test_alerts_*.py --cov=app/alerts --cov-branch --cov-fail-under=100 --cov-report=term-missing
 
 db-up:
 	$(COMPOSE) up -d postgres
