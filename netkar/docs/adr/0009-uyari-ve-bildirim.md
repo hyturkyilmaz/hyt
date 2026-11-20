@@ -155,6 +155,8 @@ iade sayısını eksik sayar: yanlış pozitifi azaltır, gecikmeyi artırır.
 **Sabit ufuk kohortu:** her iki dönemde de yalnız sipariş gününden sonraki `H` gün içinde açılmış iade sayılır
 (`claim_date <= ordered_at + H`). Böylece yeni kohort "henüz iade edecek vakti olmadı" diye düşük görünmez.
 
+Not: ufuk yalnız iadenin açılış tarihini sınırlar, `Accepted` statüsüne geçişin olgunluğunu değil; güncel kohortun iadeleri henüz kabul edilmemiş olabilir, bu yüzden güncel oran göreli eksik sayılır (yanlış negatif, ihtiyatlı yön).
+
 - `T` = değerlendirme günü (İstanbul). `H = 21` gün (Trendyol iade süresi + kargo; süre Doğrulanmadı, pilot veriyle
   ayarlanır).
 - Güncel kohort `C`: sipariş günü `[T-H-28, T-H)` (28 gün).
