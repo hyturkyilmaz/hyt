@@ -274,10 +274,10 @@ Diğer her geçiş 23514. Rol denetimi tetikleyicide `memberships` üzerinden ya
 | `notification_preferences` | PK (`tenant_id`, `user_id`, `rule`, `channel`); `mode` CHECK `off`, `instant`, `digest` | `netkar_app` (yalnız kendi satırı) | tenant VE `user_id = app.user_id` (yazma); worker tenant (okuma) |
 | `notification_settings` | PK (`tenant_id`, `user_id`); `quiet_start`, `quiet_end` (time), `digest_hour` (0-23), `show_amounts_email`, `show_amounts_push` (bool) | `netkar_app` (kendi) | aynı |
 | `push_subscriptions` | `id`, `tenant_id`, `user_id`, `endpoint_host` (düz, izin listesi için), `endpoint_digest` (HMAC, UNIQUE), `endpoint_enc`, `p256dh_enc`, `auth_enc` (ADR-0004 zarf), `vapid_key_id`, `created_session_id`, `created_at`, `last_success_at`, `failure_count`, `revoked_at` | `netkar_app` (INSERT, kendi satırında `revoked_at`); worker (`last_success_at`, `failure_count`, `revoked_at`) | tenant VE kullanıcı |
-| `notification_outbox` | `id`, `tenant_id`, `user_id`, `channel`, `kind` (`instant`, `digest`, `test`), `dedupe_key` UNIQUE, `alert_event_ids` uuid[], `payload` jsonb (izin listesi), `status` (`pending`, `held`, `sent`, `failed`, `suppressed`, `skipped`), `not_before`, `attempts`, `last_error_class`, `created_at`, `sent_at` | yalnız `netkar_worker` | tenant |
+| `notification_outbox` | `id`, `tenant_id`, `user_id`, `channel`, `kind` (`instant`, `digest`, `test`), `dedupe_key` UNIQUE, `alert_event_ids` uuid[], `payload` jsonb (izin listesi), `status` (`pending`, `held`, `sent`, `failed`, `failed_permanent`, `suppressed`, `skipped`; 0025), `not_before`, `attempts`, `last_error_class`, `created_at`, `sent_at` | yalnız `netkar_worker` | tenant |
 | `alert_evaluations` | `id`, `tenant_id`, `marketplace_account_id`, `as_of_date`, `data_revision`, `settings_revision`, `rules_version`, `started_at`, `finished_at`, `status`, `counts` jsonb; UNIQUE (hesap, `as_of_date`, `data_revision`, `settings_revision`, `rules_version`) | yalnız worker; yalnız ekleme + `finished_at`/`status` bir kez | tenant |
 
-Alıcı adresi outbox'ta saklanmaz: gönderim anında `notify_gate.email_for(user_id, tenant_id)` ile okunur. İşlev
+Alıcı adresi outbox'ta saklanmaz: gönderim anında `notify_gate.email_for(outbox_id)` ile okunur (0025: yalnız `pending`, `email` kanalı, `not_before` geçmiş ve kiracısı RLS bağlamıyla eşleşen satır için; GUC taklit eden kötü niyetli worker'a karşı tam sınır değildir). İşlev
 SECURITY DEFINER, sahibi yeni NOLOGIN `netkar_notify_gate` rolü (`users(id, email, email_verified_at)` ve
 `memberships` üzerinde SELECT, adlandırılmış politika), sabit `search_path`, PUBLIC EXECUTE yok, yalnız
 `netkar_worker` çalıştırır. Kullanıcı artık üye değilse ya da e-postası doğrulanmamışsa NULL döner ve satır
@@ -378,7 +378,7 @@ bekletmez.
   `file`/`memory` arka ucuna verir; gerçek arka uç tanımlı olsa bile uyarı e-postası gitmez, satır `suppressed`
   olur ve sayaç artar. `true` yapmak Hasan onayıdır (README "e-posta gönderimi Hasan onayıyla").
 - Hata: geçici hata `failed`, üstel bekleme (en çok 6 deneme, `SYNC_RETRY` ile aynı aralıklar, `tasks.py:34`);
-  kalıcı hata (adres geçersiz) `failed` ve yeniden deneme yok. Gövde ve adres loglanmaz (`auth.py:96-98` deseni).
+  kalıcı hata (adres geçersiz) ve 6. deneme `failed_permanent` (0025), yeniden deneme yok. Gövde ve adres loglanmaz (`auth.py:96-98` deseni).
 - Biçim: düz metin (bugünkü `EmailMessage.body`). Ürün başlıkları Trendyol katalogundan gelir, güvenilmez veridir:
   kontrol karakterleri temizlenir, 80 karaktere kesilir. HTML eklenirse kaçışlı şablon zorunlu.
 
@@ -622,10 +622,10 @@ Veritabanı ve migrasyon (D2):
 9. Kimlik alanı UPDATE 23514; doğrudan `status` UPDATE 23514; geçiş tablosunda UPDATE/DELETE/TRUNCATE 23514.
 10. Geçiş matrisi: kullanıcı `resolved` yapamaz; viewer `muted` yapamaz; `muted_until` > 90 gün reddedilir.
 11. `netkar_app` outbox'a erişemez; `notify_gate` işlevlerini çalıştıramaz; `users.email`'i yalnız kendi satırında görür.
-12. `notify_gate.email_for`: üye olmayan, doğrulanmamış kullanıcıda NULL; SECURITY DEFINER, sabit `search_path`,
+12. `notify_gate.email_for(outbox_id)`: üye olmayan, doğrulanmamış kullanıcıda ve `pending`/`email` olmayan satırda NULL, başka kiracı satırında 42501; SECURITY DEFINER, sabit `search_path`,
     PUBLIC EXECUTE yok.
 13. Alarm tabloları `report_data_revisions` tetikleyicisini tetiklemez (değerlendirme yazımı sürümü artırmaz).
-14. `payload`'a yasak anahtar (`email`, `name`, `address`) yazılamaz; 4 KB üstü reddedilir.
+14. `payload` yalnız izin listesindeki anahtarları taşır (0025: özyinelemeli CHECK, dizi yok, metin en çok 200 karakter, e-posta biçimli değer reddi); 4 KB üstü reddedilir.
 
 Değerlendirme (D3, D4):
 
@@ -689,3 +689,11 @@ API ve web (D6, D7):
 - Worker'a `report_data_revisions` okuma ve `notify_gate` üzerinden e-posta okuma yetkisi verilir; bu, ADR-0005 §6
   worker rolünün kapsamını genişletir ve S6 güvenlik incelemesinde ayrıca bakılmalıdır.
 - Bu ADR kodu okuyarak yazıldı; satır numaraları belirtilen dal içindir.
+
+### Not (0025 uygulama notu): kullanıcı silme ve anonimleştirme kararı açık
+
+`notification_preferences`, `notification_settings`, `push_subscriptions`, `notification_outbox` ve
+`alert_event_transitions.actor_user_id` kullanıcıya `users(id)` yabancı anahtarıyla bağlıdır (silme yönü tanımsızdır;
+bugün hiçbir rolde `users` DELETE yetkisi yoktur). Kullanıcı silme ya da anonimleştirme (KVKK silme talebi) kararı
+verildiğinde bu tabloların davranışı (basamaklı silme, `actor_user_id` NULL'lama ya da takma kimlik) ayrıca kararlaştırılmalı;
+geçiş defteri yalnız ekleme olduğundan anonimleştirme yolu özel bir SECURITY DEFINER işlev gerektirir. Bu 0025'te çözülmedi.

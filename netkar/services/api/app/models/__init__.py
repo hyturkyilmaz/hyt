@@ -1,5 +1,15 @@
 """ORM modelleri."""
 
+from app.models.alerts import (
+    AlertEvaluation,
+    AlertEvent,
+    AlertEventTransition,
+    AlertRuleSettings,
+    NotificationOutbox,
+    NotificationPreference,
+    NotificationSettings,
+    PushSubscription,
+)
 from app.models.enums import MarketplaceAccountStatus, Platform, Role
 from app.models.profit_settings import (
     CargoTariffRecord,
@@ -31,6 +41,10 @@ from app.models.trendyol_data import (
 )
 
 __all__ = [
+    "AlertEvaluation",
+    "AlertEvent",
+    "AlertEventTransition",
+    "AlertRuleSettings",
     "AuditLog",
     "CargoInvoiceItem",
     "CargoTariffRecord",
@@ -38,6 +52,9 @@ __all__ = [
     "MarketplaceAccount",
     "MarketplaceAccountStatus",
     "Membership",
+    "NotificationOutbox",
+    "NotificationPreference",
+    "NotificationSettings",
     "Order",
     "OrderLine",
     "Platform",
@@ -45,6 +62,7 @@ __all__ = [
     "ProductCost",
     "ProfitSettingsChange",
     "ProfitSettingsRecord",
+    "PushSubscription",
     "RateLimit",
     "ReportDataRevision",
     "Return",

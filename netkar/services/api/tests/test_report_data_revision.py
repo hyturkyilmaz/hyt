@@ -52,6 +52,10 @@ NOT_ENGINE_INPUT = {
     "cargo_tariffs",
     "service_fee_estimates",
     "variable_expenses",
+    # Uyarı tabloları (0025): değerlendirmenin kendi yazımı veri sürümünü artırmamalı (sonsuz döngü, ADR-0009 §5).
+    "alert_events",
+    "alert_rule_settings",
+    "alert_evaluations",
 }
 
 
@@ -130,9 +134,9 @@ def test_counter_table_is_rls_forced_and_application_roles_cannot_write_or_rewin
         with app_tx(database, tenant_a) as conn:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 conn.execute(statement)  # type: ignore[call-overload]
-    with app_tx(database, tenant_a, dsn=database.worker_dsn()) as conn:  # işçi sayacı okumaz da yazmaz da
-        with pytest.raises(psycopg.errors.InsufficientPrivilege):
-            conn.execute("SELECT revision FROM report_data_revisions")
+    # İşçi sayacı yalnız OKUR (0025, ADR-0009 §5: değerlendirme veri sürümünü okur), kendi kiracısında; yazamaz.
+    with app_tx(database, tenant_a, dsn=database.worker_dsn()) as conn:
+        assert conn.execute("SELECT revision FROM report_data_revisions").fetchall() == [(5,)]
     with app_tx(database, tenant_a, dsn=database.worker_dsn()) as conn:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute("UPDATE report_data_revisions SET revision = 0")

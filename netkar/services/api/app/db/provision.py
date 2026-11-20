@@ -20,7 +20,8 @@ def provision_roles(
     """Rolleri kurar ve veritabanını owner'a devreder (ADR-0005 §6).
 
     netkar_owner (migrasyon), netkar_app (API), netkar_worker (senkron işçisi: şifreli sütunları
-    okuyabilen TEK rol), netkar_auth (auth_gate işlev sahibi), netkar_sync_gate (sync_gate işlev sahibi).
+    okuyabilen TEK rol), netkar_auth (auth_gate işlev sahibi), netkar_sync_gate (sync_gate işlev sahibi),
+    netkar_notify_gate (notify_gate işlev sahibi, ADR-0009 §4.4).
     """
     admin_conn.autocommit = True
     for role, login, password in (
@@ -29,6 +30,7 @@ def provision_roles(
         ("netkar_worker", True, worker_password),
         ("netkar_auth", False, None),
         ("netkar_sync_gate", False, None),
+        ("netkar_notify_gate", False, None),
     ):
         exists = admin_conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)).fetchone()
         verb = "ALTER" if exists else "CREATE"
@@ -44,6 +46,8 @@ def provision_roles(
     admin_conn.execute("GRANT netkar_auth TO netkar_owner WITH INHERIT FALSE, SET TRUE")
     # Aynı kural sync_gate için: işlev sahibi rolün politikaları owner'a geçmez.
     admin_conn.execute("GRANT netkar_sync_gate TO netkar_owner WITH INHERIT FALSE, SET TRUE")
+    # Aynı kural notify_gate için (0025): işlev sahibi rolün politikaları owner'a geçmez.
+    admin_conn.execute("GRANT netkar_notify_gate TO netkar_owner WITH INHERIT FALSE, SET TRUE")
     db = sql.Identifier(database)
     admin_conn.execute(sql.SQL("ALTER DATABASE {db} OWNER TO netkar_owner").format(db=db))
     admin_conn.execute(sql.SQL("REVOKE ALL ON DATABASE {db} FROM PUBLIC").format(db=db))

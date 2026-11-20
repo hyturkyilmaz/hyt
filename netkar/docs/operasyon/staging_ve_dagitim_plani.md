@@ -135,11 +135,12 @@ Bellek kabaca (CX33, 4 vCPU / 8 GB varsayımıyla): rapor önbelleği süreç ba
 | Rol | Giriş | Özellik | Kim kullanır | Kaynak |
 |---|---|---|---|---|
 | `postgres` | evet (yalnız konteyner içi soket) | süper kullanıcı | Yalnız ilk kurulum (`01-roles.sh`), gece yedeği, `--mark-non-prod` ve ADR-0004 araçları (bakım penceresinde) | compose, ADR-0004 |
-| `netkar_owner` | evet | NOSUPERUSER, NOBYPASSRLS; veritabanının ve `public` nesnelerinin sahibi; `netkar_auth` ve `netkar_sync_gate` rollerine `INHERIT FALSE, SET TRUE` ile üye | Yalnız `migrate` servisi | `01-roles.sh`, 0013/0014 |
+| `netkar_owner` | evet | NOSUPERUSER, NOBYPASSRLS; veritabanının ve `public` nesnelerinin sahibi; `netkar_auth`, `netkar_sync_gate` ve `netkar_notify_gate` rollerine `INHERIT FALSE, SET TRUE` ile üye | Yalnız `migrate` servisi | `01-roles.sh`, 0013/0014 |
 | `netkar_app` | evet | NOSUPERUSER, NOBYPASSRLS; şifreli anahtar sütunlarını okuyamaz; `is_demo` yazamaz; `deployment_marks` yalnız okur | api | 0005, 0006, 0015 |
-| `netkar_worker` | evet | NOSUPERUSER, NOBYPASSRLS; şifreli sütunları okuyabilen tek rol; `deployment_marks` yalnız okur | worker | 0006, ADR-0005 §6 |
+| `netkar_worker` | evet | NOSUPERUSER, NOBYPASSRLS; şifreli sütunları okuyabilen tek rol; `deployment_marks` yalnız okur; 0025 ile uyarı/bildirim tablolarına dar yazma, `report_data_revisions` SELECT, `notify_gate`/`alert_gate` işlevleri | worker | 0006, 0025, ADR-0005 §6 |
 | `netkar_auth` | hayır | `auth_gate` şeması ve işlevlerinin sahibi | (SECURITY DEFINER işlevler) | 0001 |
 | `netkar_sync_gate` | hayır | `sync_gate` şeması ve işlevlerinin sahibi; politikası `status = 'active' AND NOT is_demo` | (SECURITY DEFINER işlevler) | 0006, 0015 |
+| `netkar_notify_gate` | hayır | `notify_gate` şeması ve işlevlerinin sahibi; `users(id, email, email_verified_at)`, `memberships(user_id, tenant_id)` ve `notification_outbox` (6 sütun) için yalnız `FOR SELECT` politikaları | (SECURITY DEFINER işlevler) | 0025, ADR-0009 §4.4 |
 
 Önemli ayrıntılar:
 
@@ -351,9 +352,9 @@ Kurallar:
 SELECT current_user = 'netkar_owner' AS rol_dogru, NOT r.rolsuper AND NOT r.rolbypassrls AS ozellik_dogru
 FROM pg_catalog.pg_roles r WHERE r.rolname = current_user;
 
--- 2) Beş rol var ve hiçbiri süper kullanıcı ya da BYPASSRLS değil
+-- 2) Altı rol var ve hiçbiri süper kullanıcı ya da BYPASSRLS değil
 SELECT rolname, rolcanlogin, rolsuper, rolbypassrls FROM pg_catalog.pg_roles
-WHERE rolname IN ('netkar_owner','netkar_app','netkar_worker','netkar_auth','netkar_sync_gate');
+WHERE rolname IN ('netkar_owner','netkar_app','netkar_worker','netkar_auth','netkar_sync_gate','netkar_notify_gate');
 
 -- 3) public şemasında sahibi netkar_owner olmayan tablo (0013 denetiminin genellemesi)
 SELECT c.relname, pg_catalog.pg_get_userbyid(c.relowner) AS sahip
@@ -362,9 +363,10 @@ WHERE n.nspname = 'public' AND c.relkind IN ('r','p')
   AND pg_catalog.pg_get_userbyid(c.relowner) <> 'netkar_owner';
 
 -- 4) 0014'ün denetlediği iki nesne (tablo ve işlev) netkar_owner'da
--- 5) Şema sahipleri: auth_gate -> netkar_auth, sync_gate -> netkar_sync_gate
+-- 5) Şema sahipleri: auth_gate -> netkar_auth, sync_gate -> netkar_sync_gate,
+--    notify_gate -> netkar_notify_gate, alert_gate -> netkar_owner
 SELECT nspname, pg_catalog.pg_get_userbyid(nspowner) FROM pg_catalog.pg_namespace
-WHERE nspname IN ('auth_gate','sync_gate');
+WHERE nspname IN ('auth_gate','sync_gate','notify_gate','alert_gate');
 
 -- 6) Yalnız prod: üretim değil işareti OLMAMALI (tablo henüz yoksa, yani 0015 öncesi, geçer)
 SELECT count(*) FROM public.deployment_marks WHERE key = 'non_production';

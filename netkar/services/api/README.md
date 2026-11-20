@@ -178,6 +178,9 @@ Trendyol verisi (ürün, sipariş paketi ve satırı, iade kalemi, ekstre, kargo
 CREATE ROLE netkar_worker LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD '<parola>';
 CREATE ROLE netkar_sync_gate NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
 GRANT netkar_sync_gate TO netkar_owner WITH INHERIT FALSE, SET TRUE;
+-- 0025 (uyarı ve bildirim tabloları, ADR-0009) için:
+CREATE ROLE netkar_notify_gate NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+GRANT netkar_notify_gate TO netkar_owner WITH INHERIT FALSE, SET TRUE;
 GRANT CONNECT ON DATABASE netkar TO netkar_worker;
 ```
 
