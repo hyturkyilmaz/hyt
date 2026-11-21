@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-19-dm-zamanlama",
+  "tarih": "2026-11-19",
+  "gun": "Perşembe",
+  "sutun": "ads",
+  "anahtar": "MESAJ",
+  "muzik_tohum": 53,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Sosyal medya · Instagram DM", "baslik": "Kampanya haftasında DM'ler _sana yetişmez._",
+     "alt": "İşletme hesaplarında **zamanlanmış mesaj ve çeviri** var. Çoğu kişi kullanmıyor.",
+     "zaman": [{"t": "Zamanlama", "s": "Gönder'e basılı tut", "renk": "ads"}, {"t": "Çeviri", "s": "99 dil", "renk": "seo"}, {"t": "Hazır yanıt", "s": "Kısayol", "renk": "ecom"}, {"t": "Sen", "s": "DM planın var mı?", "renk": "ai"}],
+     "kaynak": "Kaynak: Social Media Today · Social Samosa (Instagram duyurusu)"},
+    {"tip": "matris", "num": "01", "kicker": "Araçlar", "baslik": "DM kutusunda _3 araç_",
+     "basliklar": ["Araç", "Nasıl", "Ne zaman"],
+     "satirlar": [[["ads", "Zamanlanmış mesaj"], "Gönder'e basılı tut, tarih seç", "Söz verdiğin hatırlatma"], [["seo", "Çeviri"], "Mesaja basılı tut, Çevir", "Yabancı müşteri"], [["ecom", "Hazır yanıt"], "Kısayol yaz, metin gelsin", "Sık soru"]],
+     "kaynak": "Arayüz adları sürüme göre değişebilir."},
+    {"tip": "akis", "kicker": "Akış", "renk": "ads", "baslik": "Sorudan _siparişe_ DM",
+     "satirlar": [[{"ad": "Soru", "alt": "Beden var mı?", "ikon": "sohbet", "renk": "ink"}, {"ad": "Hazır yanıt", "alt": "10 saniye", "ikon": "kutu", "renk": "ecom"}, {"ad": "Söz", "alt": "Stok gelince haber", "ikon": "onay", "renk": "seo"}],
+                   [{"ad": "Zamanlanmış mesaj", "alt": "Kampanya sabahı", "ikon": "saat", "renk": "ads"}, {"ad": "Ürün bağlantısı", "alt": "UTM'li", "ikon": "etiket", "renk": "ai"}],
+                   [{"ad": "Sipariş", "alt": "Müşteri karar verir", "ikon": "sepet", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım DM akışı"},
+    {"tip": "kural", "num": "02", "kicker": "Sınır", "baslik": "Zamanlama _toplu mesaj_ değildir.",
+     "alt": "Yalnızca seninle yazışan ve haber isteyen kişiye.",
+     "kod": ["<span class=\"c\"># dm kuralı</span>", "<span class=\"k\">EVET</span> \"stok gelince haber ver\" diyen kişiye", "<span class=\"k\">EVET</span> sorusu cevapsız kalan kişiye", "<span class=\"k\">HAYIR</span> hiç yazışmadığın kişiye", "<span class=\"k\">HAYIR</span> aynı mesajı herkese kopyalamak"],
+     "prompt": "Geçen yılın kampanya haftasında DM'den gelen soruları ekte veriyorum. En sık 10 soruyu çıkar ve her biri için 2 cümlelik, samimi bir hazır yanıt yaz.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Hazır yanıt", "baslik": "10 saniyelik _cevap_",
+     "once": {"dosya": "elle_yanit", "etiket": "Her seferinde yeniden", "basliklar": ["Soru", "Süre"], "satirlar": [["Kargo ne zaman?", "3 dk"], ["İade var mı?", "4 dk"], ["Beden tablosu?", "5 dk"]]},
+     "sonra": {"dosya": "hazir_yanit", "etiket": "Kısayolla", "basliklar": ["Kısayol", "Süre"], "satirlar": [["/kargo", "10 sn"], ["/iade", "10 sn"], ["/beden", "10 sn"]]},
+     "kaynak": "Örnek süreler"},
+    {"tip": "ekran", "kicker": "Haftalık özet", "baslik": "DM'ler _ne soruyor?_",
+     "pencere": "Claude · DM soru analizi", "istek": "Bu haftanın DM sorularını grupla.",
+     "yanit": "**Soruların %60'ı 3 konuda.** Hazır yanıt ekle.",
+     "tablo": {"basliklar": ["Konu", "Pay", "Hazır yanıt"], "satirlar": [["Kargo süresi", "%27", "Var"], ["Beden", "%19", "Yok"], ["İndirim şartı", "%14", "Yok"]], "vurgu_sutun": 2},
+     "evet": "Yanıt ekle", "hayir": "Sonra", "aksiyon": "Kişi adları ve numaralar özete girmez.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "MESAJ", "vaat": "**Kampanya haftası 10 hazır DM yanıtını** DM'den göndereyim."}
+  ],
+  "aciklama": "Kampanya haftasında DM'ler sana yetişmez. İşletme hesaplarında bunun için üç araç var ve çoğu kişi kullanmıyor.\n\nInstagram, işletme hesaplarına mesaj zamanlama ve 99 dilde çeviri özelliğini açtı. Mesajı yazıp Gönder'e basılı tutunca tarih ve saat seçebiliyorsun. Bir mesaja basılı tutup Çevir dediğinde de çeviri altında görünüyor. Bunlara hazır yanıtları eklersen sık sorulan bir soruya cevap 10 saniyeye iniyor.\n\nBir sınır var: zamanlanmş mesaj toplu mesaj değildir. Yalnızca seninle yazışan ve \"stok gelince haber ver\" diyen kişiye kullan. Hiç yazışmadığın kişilere aynı mesajı kopyalamak hem güveni hem hesabını riske atar.\n\nMüşteri en çok beklemekten yoruluyor. Hızlı ve kişisel bir cevap, indirim kadar etkili olabiliyor.\n\nKaydırınca üç aracı, DM akışını ve hazır yanıt örneklerini göreceksin.\n\nYorumlara MESAJ yaz, kampanya haftası için 10 hazır DM yanıtını DM'den göndereyim.\n\n#instagram #musterideneyimi #eticaret #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "zamanlanmş", "dogrusu": "zamanlanmış", "paragraf": 3},
+  "dogrulama": ["Social Media Today: Instagram DM çeviri ve zamanlama", "Social Samosa", "Instagram Yardım Merkezi"],
+  "senaryo": [
+    {"tts": "Kampanya haftasında DM'ler sana yetişmez. Üç araç var, çoğu kişi kullanmıyor.", "altyazi": "Kampanya haftasında DM'ler sana yetişmez. 3 araç var, çoğu kişi kullanmıyor."},
+    {"tts": "Zamanlanmış mesaj, doksan dokuz dilde çeviri ve hazır yanıt.", "altyazi": "Zamanlanmış mesaj, 99 dilde çeviri ve hazır yanıt."},
+    {"tts": "Bir. Gönder'e basılı tut, tarih seç. Söz verdiğin hatırlatma zamanında gitsin.", "altyazi": "1. Gönder'e basılı tut, tarih seç. Söz verdiğin hatırlatma zamanında gitsin."},
+    {"tts": "İki. Zamanlama toplu mesaj değildir. Yalnız seninle yazışan kişiye.", "altyazi": "2. Zamanlama toplu mesaj değildir. Yalnız seninle yazışan kişiye."},
+    {"tts": "Üç. Sık sorulara hazır yanıt ekle. Cevap on saniyeye iner.", "altyazi": "3. Sık sorulara hazır yanıt ekle. Cevap 10 saniyeye iner."},
+    {"tts": "Haftanın sorularını grupla, kişi bilgilerini özete koyma.", "altyazi": "Haftanın sorularını grupla, kişi bilgilerini özete koyma."},
+    {"tts": "Hazır yanıtları istiyorsan yorumlara mesaj yaz. Di emden göndereyim.", "altyazi": "Hazır yanıtları istiyorsan yorumlara MESAJ yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Kampanya Haftası _Hazır DM Yanıtları_", "kicker": "Şablon · Instagram · DM",
+    "giris": "Efsane Cuma haftasında en sık gelen 10 DM sorusu için kısa, samimi hazır yanıtlar. Kişisel veri DM'de istenmez.",
+    "bolumler": [
+      {"ad": "Sipariş", "renk": "ads", "maddeler": [["/kargo", "Kampanya haftasında 2 iş günü içinde kargoya veriyoruz, takip numarası e-postanda."], ["/iade", "14 gün içinde ücretsiz iade; adımlar sipariş sayfanda."], ["/beden", "Beden tablosu ürün sayfasında; arada kalırsan bir büyüğünü öneriyoruz."], ["/stok", "Stok gelince sana buradan haber vereyim mi?"]]},
+      {"ad": "Kampanya", "renk": "ecom", "maddeler": [["/tarih", "Kampanya 23 Kasım 10:00 ile 30 Kasım 23:59 arasında."], ["/sart", "İndirim seçili ürünlerde ve sepette görünür; liste bağlantıda."], ["/kod", "Kod gerekmiyor, indirim sepette otomatik."]]},
+      {"ad": "Kural", "renk": "seo", "maddeler": [["Zamanlama", "Yalnızca haber isteyen kişiye."], ["Kişisel veri", "DM'de adres, kart, TC kimlik numarası istenmez."], ["Özet", "Haftalık soru özetinde ad ve numara yok."]]}
+    ]
+  }
+}

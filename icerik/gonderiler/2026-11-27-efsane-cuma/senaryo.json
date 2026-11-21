@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-27-efsane-cuma",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Bugün Efsane Cuma. Beş rakama bak, gerisini kapat.",
+   "altyazi": "Bugün Efsane Cuma. 5 rakama bak, gerisini kapat."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Sipariş, dönüşüm oranı, gerçek CPA, vitrin stoku ve destek kuyruğu.",
+   "altyazi": "Sipariş, dönüşüm oranı, gerçek CPA, vitrin stoku ve destek kuyruğu."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Her saat tek mesaj. Yalnız eşiği aşan metrikler.",
+   "altyazi": "1. Her saat tek mesaj. Yalnız eşiği aşan metrikler."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Eşik aşılınca rol sahibi on beş dakika içinde kuralı uygular.",
+   "altyazi": "2. Eşik aşılınca rol sahibi 15 dakika içinde kuralı uygular."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Bugün fiyat yükseltmek, yeni kampanya açmak ve son bir saat deyip uzatmak yok.",
+   "altyazi": "3. Bugün fiyat yükseltmek, yeni kampanya açmak ve \"son 1 saat\" deyip uzatmak yok."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Gece üç satırlık not: satış, sorun, yarının ilk işi.",
+   "altyazi": "Gece 3 satırlık not: satış, sorun, yarının ilk işi."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Panel şablonunu istiyorsan yorumlara canlı yaz. Di emden göndereyim.",
+   "altyazi": "Panel şablonunu istiyorsan yorumlara CANLI yaz. DM'den göndereyim."
+  }
+ ]
+}

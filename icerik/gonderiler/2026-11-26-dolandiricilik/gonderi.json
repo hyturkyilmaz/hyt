@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-26-dolandiricilik",
+  "tarih": "2026-11-26",
+  "gun": "Perşembe",
+  "sutun": "ecom",
+  "anahtar": "GÜVEN",
+  "muzik_tohum": 60,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Güvenlik", "baslik": "Efsane Cuma'da markanı _taklit_ eden site çıkabilir.",
+     "alt": "Bu yıl satıcılar da hedefte. **Müşterine resmi kanallarını bugün duyur.**",
+     "zaman": [{"t": "Sahte site", "s": "Benzer alan adı", "renk": "ecom"}, {"t": "Sahte hesap", "s": "Benzer kullanıcı adı", "renk": "ads"}, {"t": "Sahte e-posta", "s": "Satıcı paneline", "renk": "seo"}, {"t": "Sen", "s": "Duyurun hazır mı?", "renk": "ai"}],
+     "kaynak": "Kaynak: Yeni Ankara · Ticaret Bakanlığı uyarısı (basın aktarımı), 2026"},
+    {"tip": "matris", "num": "01", "kicker": "Riskler", "baslik": "Kampanya haftasının _3 tuzağı_",
+     "basliklar": ["Tuzak", "Hedef", "Önlem"],
+     "satirlar": [[["ecom", "Sahte site"], "Müşterin", "Resmi adresi duyur"], [["ads", "Sahte sosyal hesap"], "Müşterin", "Taklidi platforma bildir"], [["seo", "Sahte panel e-postası"], "Ekibin", "İki adımlı doğrulama"]],
+     "kaynak": "Örnek risk listesi"},
+    {"tip": "oncesonra", "num": "02", "kicker": "Duyuru", "baslik": "Müşterine _ne_ söylemeli?",
+     "once": {"dosya": "sessiz_marka", "etiket": "Sessiz", "basliklar": ["Kanal", "Durum"], "satirlar": [["Site", "Duyuru yok"], ["Instagram", "Duyuru yok"], ["E-posta", "Duyuru yok"]]},
+     "sonra": {"dosya": "acik_duyuru", "etiket": "Açık", "basliklar": ["Kanal", "Mesaj"], "satirlar": [["Site", "Tek resmi adresimiz: ornek.com"], ["Instagram", "Sabit Story: resmi hesaplar"], ["E-posta", "Şifre ve kart bilgisi istemeyiz"]]},
+     "kaynak": "Örnek metin"},
+    {"tip": "akis", "kicker": "Taklit bulursan", "renk": "ecom", "baslik": "İlk _bir saat_",
+     "satirlar": [[{"ad": "Tespit", "alt": "Müşteri haber verdi", "ikon": "arama", "renk": "ink"}, {"ad": "Kanıt", "alt": "Ekran görüntüsü, adres", "ikon": "belge", "renk": "seo"}, {"ad": "Bildir", "alt": "Platformun taklit formu", "ikon": "kalkan", "renk": "ads"}],
+                   [{"ad": "Duyur", "alt": "Story + site bandı", "ikon": "hoparlor", "renk": "ecom"}, {"ad": "Hukuk", "alt": "Gerekirse avukat", "ikon": "kisi", "renk": "ai"}],
+                   [{"ad": "Takip", "alt": "Kapanana kadar", "ikon": "onay", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım müdahale akışı"},
+    {"tip": "kural", "num": "03", "kicker": "Ekip", "baslik": "Panel güvenliğini _bugün_ kontrol et.",
+     "alt": "Kampanya haftasında gelen \"acil ödeme\" e-postası en tehlikelisi.",
+     "kod": ["<span class=\"c\"># ekip güvenlik kontrolü</span>", "<span class=\"k\">2FA</span> panel, reklam ve e-posta hesaplarında açık", "<span class=\"k\">YETKİ</span> ayrılan çalışanın erişimi kapalı", "<span class=\"k\">KURAL</span> e-postadaki bağlantıdan giriş yok", "<span class=\"k\">ŞÜPHE</span> önce telefonla teyit"],
+     "prompt": "Markamın adını ve resmi alan adını veriyorum. Dolandırıcıların kullanabileceği 15 benzer alan adı ve kullanıcı adı varyasyonu listele; bunları düzenli kontrol etmem için bir tablo yap.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "ekran", "kicker": "Tarama", "baslik": "Benzer adları _listele._",
+     "pencere": "Claude · taklit taraması", "istek": "Markam için benzer ad varyasyonları üret.",
+     "yanit": "**15 varyasyon çıkardım.** 3'ünü bugün kontrol et.",
+     "tablo": {"basliklar": ["Varyasyon", "Tür", "Öncelik"], "satirlar": [["ornek-indirim.com", "Alan adı", "Yüksek"], ["ornek.shop", "Alan adı", "Yüksek"], ["@ornek.resmi", "Kullanıcı adı", "Orta"]], "vurgu_sutun": 2},
+     "evet": "Kontrol et", "hayir": "Sonra", "aksiyon": "Her pazartesi aynı listeyi tara.", "kaynak": "Temsili örnek"},
+    {"tip": "cta", "anahtar": "GÜVEN", "vaat": "**Kampanya haftası güvenlik kontrol listesini** ve duyuru metnini DM'den göndereyim."}
+  ],
+  "aciklama": "Efsane Cuma'da markanı taklit eden bir site ya da hesap çıkabilir. Bu yıl satıcılar da hedefte.\n\nBasına yansıyan uyarılara göre kampanya döneminde sahte siteler, sahte sosyal medya hesapları ve sahte bağlantılar artıyor; dolandırıcılar artık yalnızca tüketiciyi değil satıcı panellerini de hedefliyor. Müşterine resmi kanallarını bugün duyur: tek resmi web adresin, resmi hesapların ve asla şifre ya da kart bilgisi istemediğin. Bir Story'yi öne çıkanlara sabitlemek yeterli.\n\nEkip tarafında da kontrol yap. Panel, reklam ve e-posta hesaplarında iki adımlı doğrulama açık olsun; ayrılan çalışanların erişimi kapansın. \"Acil ödeme\" ya da \"hesabınız askıya alınacak\" diyen e-postadaki bağlantıya tıklama, önce telefonla teyit et. Taklit bulursan kanıtı al, platformun taklit bildirme formunu kullan ve müşterilerni hemen bilgilendir.\n\nGüven yıllarda kurulur, bir sahte siteyle sarsılabilir. Erken davranan marka bunu korur.\n\nKaydırınca riskleri, duyuru örneğini ve ilk bir saatte yapılacakları göreceksin.\n\nYorumlara GÜVEN yaz, güvenlik kontrol listesini DM'den göndereyim.\n\n#eticaret #efsanecuma #siberguvenlik #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "müşterilerni", "dogrusu": "müşterilerini", "paragraf": 3},
+  "dogrulama": ["Yeni Ankara: Efsane Cuma öncesi dolandırıcılık alarmı", "Ticaret Bakanlığı uyarısı (Gzt aktarımı)", "Meta ve Instagram taklit hesap bildirim sayfaları"],
+  "senaryo": [
+    {"tts": "Efsane Cuma'da markanı taklit eden bir site çıkabilir. Bu yıl satıcılar da hedefte.", "altyazi": "Efsane Cuma'da markanı taklit eden bir site çıkabilir. Bu yıl satıcılar da hedefte."},
+    {"tts": "Üç tuzak: sahte site, sahte sosyal hesap ve sahte panel e-postası.", "altyazi": "3 tuzak: sahte site, sahte sosyal hesap ve sahte panel e-postası."},
+    {"tts": "Bir. Resmi kanallarını bugün duyur. Şifre ve kart bilgisi istemediğini yaz.", "altyazi": "1. Resmi kanallarını bugün duyur. Şifre ve kart bilgisi istemediğini yaz."},
+    {"tts": "İki. Taklit bulursan kanıt al, platforma bildir, müşterini bilgilendir.", "altyazi": "2. Taklit bulursan kanıt al, platforma bildir, müşterini bilgilendir."},
+    {"tts": "Üç. Ekipte iki adımlı doğrulama açık olsun. E-postadaki bağlantıdan giriş yok.", "altyazi": "3. Ekipte iki adımlı doğrulama açık olsun. E-postadaki bağlantıdan giriş yok."},
+    {"tts": "Benzer alan adlarını listele, her pazartesi tara.", "altyazi": "Benzer alan adlarını listele, her pazartesi tara."},
+    {"tts": "Güvenlik listesini istiyorsan yorumlara güven yaz. Di emden göndereyim.", "altyazi": "Güvenlik listesini istiyorsan yorumlara GÜVEN yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Kampanya Haftası _Güvenlik Listesi_", "kicker": "Kontrol listesi · E-ticaret · Güvenlik",
+    "giris": "Efsane Cuma döneminde sahte site, sahte hesap ve sahte panel e-postalarına karşı marka ve ekip için temel önlemler.",
+    "bolumler": [
+      {"ad": "Müşteri", "renk": "ecom", "maddeler": [["Resmi adres", "Sitede ve sosyal medyada tek resmi alan adı duyurusu."], ["Sabit Story", "Resmi hesaplar ve iletişim kanalları."], ["Bilgi talebi", "Şifre ve kart bilgisi asla istenmez mesajı."]]},
+      {"ad": "Ekip", "renk": "ads", "maddeler": [["İki adımlı doğrulama", "Panel, reklam ve e-posta hesaplarında açık."], ["Yetki temizliği", "Ayrılan çalışan ve ajans erişimleri kapalı."], ["Bağlantı kuralı", "E-postadaki bağlantıdan panele giriş yapılmaz."], ["Teyit", "Ödeme talebi önce telefonla doğrulanır."]]},
+      {"ad": "Müdahale", "renk": "seo", "maddeler": [["Kanıt", "Ekran görüntüsü, adres, tarih."], ["Bildirim", "Platformun taklit bildirme formu."], ["Duyuru", "Story ve site bandıyla müşteriye bilgi."]]}
+    ]
+  }
+}

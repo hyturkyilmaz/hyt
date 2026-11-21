@@ -1,0 +1,60 @@
+{
+  "id": "2026-12-05-icerik-guncelleme",
+  "tarih": "2026-12-05",
+  "gun": "Cumartesi",
+  "sutun": "seo",
+  "anahtar": "GÜNCEL",
+  "muzik_tohum": 69,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "SEO · Yıl sonu bakımı", "baslik": "Sitende hâlâ _2025_ yazan sayfa var mı?",
+     "alt": "Yeni içerik yazmadan önce **eskisini güncelle.** Hem Google hem AI asistanlar tarihe bakıyor.",
+     "zaman": [{"t": "Bul", "s": "Tarihli sayfalar", "renk": "seo"}, {"t": "Güncelle", "s": "Rakam, kaynak, tarih", "renk": "ads"}, {"t": "Birleştir", "s": "Benzer sayfalar", "renk": "ecom"}, {"t": "Kaydet", "s": "Değişiklik günlüğü", "renk": "ai"}],
+     "kaynak": "Kaynak: Google Search Central (faydalı içerik) · danışmanlık notları"},
+    {"tip": "akis", "kicker": "Yöntem", "renk": "seo", "baslik": "Bir günde _yıl sonu bakımı_",
+     "satirlar": [[{"ad": "Search Console", "alt": "Trafik düşen sayfalar", "ikon": "grafik", "renk": "seo"}, {"ad": "Site araması", "alt": "\"2025\" geçen sayfalar", "ikon": "arama", "renk": "ink"}, {"ad": "Liste", "alt": "Öncelik sırası", "ikon": "veri", "renk": "ai"}],
+                   [{"ad": "Güncelle", "alt": "Rakam, kaynak, ekran", "ikon": "belge", "renk": "ads"}, {"ad": "Birleştir", "alt": "301 yönlendirme", "ikon": "kod", "renk": "ecom"}],
+                   [{"ad": "Kontrol", "alt": "URL denetimi", "ikon": "onay", "renk": "seo", "insan": true}]],
+     "baglar": [[0, 2], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım bakım akışı"},
+    {"tip": "matris", "num": "01", "kicker": "Karar", "baslik": "Her sayfa için _tek_ karar",
+     "basliklar": ["Durum", "Karar", "Not"],
+     "satirlar": [[["ads", "Bilgi eskimiş"], "Güncelle", "Tarih ve kaynak yenile"], [["ecom", "Aynı konuda 2 sayfa"], "Birleştir", "Zayıfı güçlüye 301"], [["seo", "Hâlâ doğru, trafik var"], "Dokunma", "Sadece kontrol tarihi"], [["ai", "Ürün artık yok"], "Yönlendir", "En yakın kategoriye"]],
+     "kaynak": "İçerik silinmez; arşivlenir ya da yönlendirilir."},
+    {"tip": "oncesonra", "num": "02", "kicker": "Örnek", "baslik": "Aynı yazı, _güncel_ hali",
+     "once": {"dosya": "rehber_2025.html", "etiket": "Eskimiş", "basliklar": ["Bölüm", "İçerik"], "satirlar": [["Başlık", "2025 Instagram rehberi"], ["Rakamlar", "2024 verisi"], ["Tarih", "Yok"]]},
+     "sonra": {"dosya": "rehber_guncel.html", "etiket": "Güncel", "basliklar": ["Bölüm", "İçerik"], "satirlar": [["Başlık", "Instagram rehberi (Aralık 2026)"], ["Rakamlar", "2026 verisi + kaynak"], ["Tarih", "Son güncelleme: 5 Aralık 2026"]]},
+     "kaynak": "Örnek yapı. Tarih yalnızca gerçekten güncellenen sayfaya yazılır."},
+    {"tip": "kural", "num": "03", "kicker": "Dürüstlük", "baslik": "Tarihi _değiştirmek_ güncellemek değildir.",
+     "alt": "Yalnızca tarih değişen sayfa ne kullanıcıyı ne arama motorunu kandırır.",
+     "kod": ["<span class=\"c\"># gerçek güncelleme</span>", "<span class=\"k\">RAKAM</span> yeni veri ve kaynağı", "<span class=\"k\">ÖRNEK</span> yeni ekran görüntüsü", "<span class=\"k\">BÖLÜM</span> değişen bilgi için yeni bölüm", "<span class=\"g\">→</span> sonra güncelleme tarihi"],
+     "prompt": "Ekteki blog yazısında güncelliğini yitirmiş olabilecek rakam, tarih, ürün adı ve kaynakları listele. Her biri için doğrulamam gereken güncel kaynağı öner; bilmediğin rakamı uydurma.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "ekran", "kicker": "Tarama", "baslik": "Hangi sayfa _önce?_",
+     "pencere": "Claude · içerik envanteri", "istek": "Bu sayfa listesini öncelik sırasına koy.",
+     "yanit": "**38 sayfadan 9'u bu hafta güncellenmeli.**",
+     "tablo": {"basliklar": ["Sayfa", "Trafik", "Karar"], "satirlar": [["2025 Instagram rehberi", "Düşüyor", "Güncelle"], ["Meta reklam rehberi (2 sayfa)", "Bölünmüş", "Birleştir"], ["GA4 kurulum", "Sabit", "Dokunma"]], "vurgu_sutun": 2},
+     "evet": "Başla", "hayir": "Sonra", "aksiyon": "Her değişikliği günlüğe yaz.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "GÜNCEL", "vaat": "**Yıl sonu içerik bakım listesini** ve karar tablosunu DM'den göndereyim."}
+  ],
+  "aciklama": "Sitende hâlâ başlığında 2025 yazan bir sayfa var mı? Yeni içerik yazmadan önce eskisini güncellemek çoğu zaman daha hızlı sonuç veriyor.\n\nYıl sonu bakımı bir günde yapılabilir. Search Console'da trafiği düşen sayfaları ve site içinde \"2025\" geçen sayfaları listele, öncelik sırasına koy. Her sayfa için tek bir karar ver: bilgi eskimişse güncelle, aynı konuda iki sayfa varsa zayıfı güçlüye 301 ile birleştir, hâlâ doğruysa dokunma, ürün artık yoksa en yakın kategoriye yönlendir. Hiçbir içeriği silme, yönlendir ya da arşivle.\n\nBir kural önemli: yalnızca tarihi değiştirmek güncellemek değildir. Yeni rakam ve kaynağı, yeni ekran görüntüsünü ekle, sonra güncellemyi tarihle göster. Hem Google hem AI asistanlar güncel ve kaynaklı sayfayı tercih ediyor.\n\nİyi bir arşiv, yeni yazılan her şeyden daha uzun süre çalışır.\n\nKaydırınca bakım akışını, karar tablosunu ve güncelleme örneğini göreceksin.\n\nYorumlara GÜNCEL yaz, yıl sonu içerik bakım listesini DM'den göndereyim.\n\n#seo #icerikpazarlamasi #geo #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "güncellemyi", "dogrusu": "güncellemeyi", "paragraf": 3},
+  "dogrulama": ["Google Search Central: faydalı, güvenilir ve insan odaklı içerik", "Google Search Central: 301 yönlendirmeler"],
+  "senaryo": [
+    {"tts": "Sitende hâlâ başlığında iki bin yirmi beş yazan sayfa var mı?", "altyazi": "Sitende hâlâ başlığında 2025 yazan sayfa var mı?"},
+    {"tts": "Yeni içerikten önce eskisini güncelle. Bir günde yapılır.", "altyazi": "Yeni içerikten önce eskisini güncelle. Bir günde yapılır."},
+    {"tts": "Bir. Trafiği düşen ve tarihli sayfaları listele, öncelik sırasına koy.", "altyazi": "1. Trafiği düşen ve tarihli sayfaları listele, öncelik sırasına koy."},
+    {"tts": "İki. Her sayfaya tek karar: güncelle, birleştir, dokunma ya da yönlendir. Silme yok.", "altyazi": "2. Her sayfaya tek karar: güncelle, birleştir, dokunma ya da yönlendir. Silme yok."},
+    {"tts": "Üç. Sadece tarihi değiştirmek güncelleme değildir. Yeni rakam, yeni kaynak.", "altyazi": "3. Sadece tarihi değiştirmek güncelleme değildir. Yeni rakam, yeni kaynak."},
+    {"tts": "Her değişikliği günlüğe yaz.", "altyazi": "Her değişikliği günlüğe yaz."},
+    {"tts": "Bakım listesini istiyorsan yorumlara güncel yaz. Di emden göndereyim.", "altyazi": "Bakım listesini istiyorsan yorumlara GÜNCEL yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Yıl Sonu _İçerik Bakımı_", "kicker": "Kontrol listesi · SEO · Yıl sonu",
+    "giris": "Yeni içerik yazmadan önce eskisini güncelle. İçerik silinmez; güncellenir, birleştirilir ya da yönlendirilir.",
+    "bolumler": [
+      {"ad": "Bul", "renk": "seo", "maddeler": [["Trafik düşen sayfalar", "Search Console, son 3 ay ve önceki 3 ay."], ["Tarihli sayfalar", "Başlıkta ya da metinde eski yıl geçenler."], ["Benzer sayfalar", "Aynı soruyu cevaplayan iki sayfa."]]},
+      {"ad": "Karar", "renk": "ads", "maddeler": [["Güncelle", "Yeni rakam, kaynak, ekran görüntüsü."], ["Birleştir", "Zayıf sayfa güçlüye 301 ile."], ["Dokunma", "Doğru ve trafik alan sayfa."], ["Yönlendir", "Kalkan ürün en yakın kategoriye."]]},
+      {"ad": "Kayıt", "renk": "ecom", "maddeler": [["Değişiklik günlüğü", "Sayfa, tarih, ne değişti."], ["Güncelleme tarihi", "Yalnızca gerçekten güncellenen sayfada."], ["URL denetimi", "Search Console'da yeniden tarama isteği."]]}
+    ]
+  }
+}

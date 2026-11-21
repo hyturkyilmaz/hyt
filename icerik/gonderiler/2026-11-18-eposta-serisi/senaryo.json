@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-18-eposta-serisi",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Efsane Cuma e-postalarını kampanya günü değil, bugün yaz.",
+   "altyazi": "Efsane Cuma e-postalarını kampanya günü değil, bugün yaz."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Beş e-posta, tek hikâye: ön duyuru, açılış, rehber, Siber Pazartesi ve kapanış.",
+   "altyazi": "5 e-posta, tek hikâye: ön duyuru, açılış, rehber, Siber Pazartesi ve kapanış."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Prompt'a önce bağlamı ver: marka sesi, tarih, kitle ve kurallar.",
+   "altyazi": "1. Prompt'a önce bağlamı ver: marka sesi, tarih, kitle ve kurallar."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Yalnızca onaylı ve İ Ye Se'de kayıtlı listeye gönder. Ret bağlantısı her e-postada.",
+   "altyazi": "2. Yalnızca onaylı ve İYS'de kayıtlı listeye gönder. Ret bağlantısı her e-postada."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Konu satırında bağırma, bilgi ver: ürün, oran ve bitiş saati.",
+   "altyazi": "3. Konu satırında bağırma, bilgi ver: ürün, oran ve bitiş saati."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Göndermeden önce tara. Eksik e-posta gönderilmez. Bu hukuki görüş değildir.",
+   "altyazi": "Göndermeden önce tara. Eksik e-posta gönderilmez. Hukuki görüş değildir."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Seri prompt'unu istiyorsan yorumlara e-posta yaz. Di emden göndereyim.",
+   "altyazi": "Seri prompt'unu istiyorsan yorumlara EPOSTA yaz. DM'den göndereyim."
+  }
+ ]
+}

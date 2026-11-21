@@ -1,0 +1,61 @@
+{
+  "id": "2026-11-07-geo-gorunurluk",
+  "tarih": "2026-11-07",
+  "gun": "Cumartesi",
+  "sutun": "seo",
+  "anahtar": "GEO",
+  "muzik_tohum": 41,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "SEO · GEO", "baslik": "AI asistanlar _seni_ öneriyor mu?",
+     "alt": "Ayda bir kez **10 soru × 4 asistan** testi. Ücretsiz, 1 saat.",
+     "zaman": [{"t": "10 soru", "s": "Müşterinin sorduğu", "renk": "seo"}, {"t": "4 asistan", "s": "ChatGPT, Gemini, Claude, Perplexity", "renk": "ai"}, {"t": "1 tablo", "s": "Anıldın mı, kaynak oldun mu?", "renk": "ecom"}, {"t": "Her ay", "s": "Aynı sorular", "renk": "ads"}],
+     "kaynak": "Danışmanlıkta kullandığım aylık ölçüm yöntemi"},
+    {"tip": "matris", "num": "01", "kicker": "Asistanlar", "baslik": "Hangisi _kaynak_ gösteriyor?",
+     "alt": "Kaynak gösteren asistanda sayfan, göstermeyende markan ölçülür.",
+     "basliklar": ["Asistan", "Kaynak bağlantısı", "Neye bakılır"],
+     "satirlar": [[["ink", "ChatGPT"], "Aramalı yanıtta var", "Marka adı + bağlantı"], [["seo", "Gemini"], "Çoğu yanıtta var", "Hangi sayfan seçildi"], [["ai", "Claude"], "Web aramasında var", "Marka adı geçiyor mu"], [["ads", "Perplexity"], "Her yanıtta", "Kaynak sırası"]],
+     "kaynak": "Asistanların davranışı sürüme ve ayara göre değişir."},
+    {"tip": "ekran", "kicker": "Ölçüm tablosu", "baslik": "Sonucu _tabloya_ yaz.",
+     "pencere": "geo_olcum_kasim.xlsx", "istek": "Kasım ayı sonuçlarını özetle.",
+     "yanit": "**40 yanıtın 9'unda anıldın.** 4'ünde kaynak sendin.",
+     "tablo": {"basliklar": ["Soru", "Anıldı", "Kaynak", "Rakip"], "satirlar": [["E-ticaret SEO danışmanı", "2/4", "1/4", "A ajansı"], ["Meta reklam ajansı İzmir", "0/4", "0/4", "B ajansı"], ["GA4 kurulum hizmeti", "3/4", "2/4", "-"]], "vurgu_sutun": 1},
+     "evet": "Sayfayı güçlendir", "hayir": "İzle", "aksiyon": "0/4 olan soruya önce cevap sayfası yaz.", "kaynak": "Örnek veri"},
+    {"tip": "akis", "kicker": "Döngü", "renk": "seo", "baslik": "Aylık GEO _döngüsü_",
+     "satirlar": [[{"ad": "10 soru", "alt": "Müşteri dilinde", "ikon": "arama", "renk": "ink"}, {"ad": "4 asistan", "alt": "Aynı gün sor", "ikon": "sohbet", "renk": "ai"}, {"ad": "Tablo", "alt": "Anıldı / kaynak", "ikon": "veri", "renk": "seo"}],
+                   [{"ad": "En zayıf soru", "alt": "0/4 olanlar", "ikon": "grafik", "renk": "ecom"}, {"ad": "Sayfa", "alt": "Net cevap + kanıt", "ikon": "belge", "renk": "ads"}],
+                   [{"ad": "Gelecek ay", "alt": "Aynı soruları tekrar sor", "ikon": "saat", "renk": "seo", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım döngü"},
+    {"tip": "kural", "num": "02", "kicker": "Sayfa yapısı", "baslik": "Alıntılanan sayfa _böyle_ kurulur.",
+     "alt": "Asistan, sorunun cevabını sayfanın başında bulursa alıntılama olasılığı artar.",
+     "kod": ["<span class=\"k\">H1</span> soru ya da hizmet + şehir", "<span class=\"k\">İLK 2 CÜMLE</span> net cevap, kim için, ne kadar sürede", "<span class=\"k\">KANIT</span> rakam, örnek iş, tarih", "<span class=\"k\">SSS</span> 5 soru, kısa cevap, işaretli", "<span class=\"g\">→</span> yazar adı ve güncelleme tarihi görünür"],
+     "prompt": "Sektörümde müşterilerin bir AI asistana sorabileceği 10 soruyu yaz. Soruları satın alma niyetine göre sırala ve her biri için sitemde olması gereken sayfayı öner.",
+     "kaynak": "Garanti değil; alıntılanma olasılığını artırır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Hizmet sayfası", "baslik": "Hizmet sayfasını _cevaba_ çevir.",
+     "once": {"dosya": "hizmetler.html", "etiket": "Genel", "basliklar": ["Bölüm", "İçerik"], "satirlar": [["Başlık", "Hizmetlerimiz"], ["Giriş", "Biz kimiz, vizyonumuz"], ["Kanıt", "Yok"]]},
+     "sonra": {"dosya": "eticaret-seo.html", "etiket": "Cevap veren", "basliklar": ["Bölüm", "İçerik"], "satirlar": [["Başlık", "E-ticaret SEO danışmanlığı"], ["Giriş", "Kim için, ne kadar sürede, ne çıktı"], ["Kanıt", "2 örnek iş, rakamlı"]]},
+     "kaynak": "Örnek yapı"},
+    {"tip": "cta", "anahtar": "GEO", "vaat": "**10 soru × 4 asistan ölçüm tablosunu** DM'den göndereyim."}
+  ],
+  "aciklama": "AI asistanlar seni öneriyor mu? Bunu tahmin etmek yerine ayda bir saatte ölçebilirsin.\n\nYöntem basit: müşterinin soracağı 10 soruyu yaz, aynı gün ChatGPT, Gemini, Claude ve Perplexity'ye sor. Her yanıtta iki şeye bak: markan anıldı mı, sayfan kaynak olarak gösterildi mi? Sonucu tabloya yaz ve gelecek ay aynı soruları tekrar sor.\n\nİlk ölçümde çoğu marka 40 yanıtın birkaçında görünüyor. Bu kötü haber değil, başlangıç noktası. Asistanlrda hiç anılmadığın sorudan başla ve o soruya net cevap veren bir sayfa yaz.\n\nGörünürlük artık sadece sıralama değil; birinin seni başkasına önerip önermediği.\n\nKaydırınca asistanları, ölçüm tablosunu ve alıntılanan sayfa yapısını göreceksin.\n\nYorumlara GEO yaz, 10 soru × 4 asistan ölçüm tablosunu DM'den göndereyim.\n\n#seo #geo #yapayzeka #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "Asistanlrda", "dogrusu": "Asistanlarda", "paragraf": 3},
+  "dogrulama": ["Asistanların kendi yardım sayfaları (web arama ve kaynak gösterme)", "Google Search Central: yapısal veri ve SSS", "Danışmanlık ölçüm notları"],
+  "senaryo": [
+    {"tts": "Yapay zekâ asistanlar seni öneriyor mu? Ayda bir saatte ölçebilirsin.", "altyazi": "AI asistanlar seni öneriyor mu? Ayda bir saatte ölçebilirsin."},
+    {"tts": "On soru, dört asistan: Çet Ci Pi Ti, Cemini, Klod ve Pörpleksiti.", "altyazi": "10 soru, 4 asistan: ChatGPT, Gemini, Claude ve Perplexity."},
+    {"tts": "Bir. Her yanıtta iki şeye bak: anıldın mı, kaynak oldun mu?", "altyazi": "1. Her yanıtta iki şeye bak: anıldın mı, kaynak oldun mu?"},
+    {"tts": "Örnek: kırk yanıtın dokuzunda anıldın, dördünde kaynak sendin.", "altyazi": "Örnek: 40 yanıtın 9'unda anıldın, 4'ünde kaynak sendin."},
+    {"tts": "İki. Hiç anılmadığın sorudan başla, o soruya cevap veren sayfa yaz.", "altyazi": "2. Hiç anılmadığın sorudan başla, o soruya cevap veren sayfa yaz."},
+    {"tts": "Üç. Net cevap ilk iki cümlede, kanıt rakamla, güncelleme tarihi görünür.", "altyazi": "3. Net cevap ilk 2 cümlede, kanıt rakamla, güncelleme tarihi görünür."},
+    {"tts": "Ölçüm tablosunu istiyorsan yorumlara ge e o yaz. Di emden göndereyim.", "altyazi": "Ölçüm tablosunu istiyorsan yorumlara GEO yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "AI Görünürlük _Ölçüm Tablosu_", "kicker": "Şablon · SEO · GEO",
+    "giris": "Ayda bir, aynı 10 soruyu 4 asistana sor ve sonucu bu tabloya yaz. Değişimi aydan aya izle.",
+    "bolumler": [
+      {"ad": "Sorular", "renk": "seo", "maddeler": [["Müşteri dili", "Soruları senin değil, müşterinin kelimeleriyle yaz."], ["Niyet sırası", "Satın almaya en yakın sorular üstte."], ["Sabit liste", "Her ay aynı 10 soru; değiştirirsen not düş."]]},
+      {"ad": "Ölçüm", "renk": "ai", "maddeler": [["Aynı gün", "4 asistana aynı gün, oturum açmadan ya da temiz oturumla sor."], ["Anıldı", "Marka adın yanıtta geçti mi? 0-4 arası puan."], ["Kaynak", "Sayfan bağlantı olarak gösterildi mi? 0-4 arası puan."], ["Rakip", "Senin yerine kim anıldı?"]]},
+      {"ad": "Aksiyon", "renk": "ads", "maddeler": [["En zayıf soru", "0/4 olan sorudan başla."], ["Cevap sayfası", "H1 soru, ilk 2 cümle net cevap, rakamlı kanıt, SSS."], ["Güncelleme tarihi", "Yazar adı ve tarih sayfada görünür."]]}
+    ]
+  }
+}

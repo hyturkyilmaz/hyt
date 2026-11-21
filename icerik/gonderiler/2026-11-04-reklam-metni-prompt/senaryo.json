@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-04-reklam-metni-prompt",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Yapay zekâdan aldığın reklam metni zayıfsa, sorun çoğu zaman brif'te.",
+   "altyazi": "AI'dan aldığın reklam metni zayıfsa, sorun çoğu zaman brief'te."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Beş satır yeter: ürün, fayda, kanıt, yasak ifadeler ve format.",
+   "altyazi": "5 satır yeter: ürün, fayda, kanıt, yasak ifadeler ve format."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Aynı ürünü beş açıdan yazdır: fayda, kanıt, sorun, kullanım ve karşılaştırma.",
+   "altyazi": "1. Aynı ürünü 5 açıdan yazdır: fayda, kanıt, sorun, kullanım ve karşılaştırma."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Metinleri yasak listesine göre tara. Riskli metin yayına çıkmaz.",
+   "altyazi": "2. Metinleri yasak listesine göre tara. Riskli metin yayına çıkmaz."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Meta ve Google'da küçük bir test aç, kazananı sen seç.",
+   "altyazi": "3. Meta ve Google'da küçük bir test aç, kazananı sen seç."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "En ucuz yerine fiyatı, asla buruşmaz yerine ürün özelliğini yaz.",
+   "altyazi": "\"En ucuz\" yerine fiyatı, \"asla buruşmaz\" yerine ürün özelliğini yaz."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Brif şablonunu istiyorsan yorumlara metin yaz. Di emden göndereyim.",
+   "altyazi": "Brief şablonunu istiyorsan yorumlara METIN yaz. DM'den göndereyim."
+  }
+ ]
+}

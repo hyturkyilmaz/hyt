@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-25-ai-destek",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Kampanya haftasında destek yükü katlanıyor. Yapay zekâ yazsın, insan göndersin.",
+   "altyazi": "Kampanya haftasında destek yükü katlanıyor. AI yazsın, insan göndersin."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Soru ayıklanır, sınıflanır, taslak çıkar, insan onaylar.",
+   "altyazi": "Soru ayıklanır, sınıflanır, taslak çıkar, insan onaylar."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Ödeme, hukuki şikâyet ve öfkeli müşteri doğrudan insana gider.",
+   "altyazi": "1. Ödeme, hukuki şikâyet ve öfkeli müşteri doğrudan insana gider."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Modele kişisel veri gitmez. Ad, telefon, adres ayıklanır.",
+   "altyazi": "2. Modele kişisel veri gitmez. Ad, telefon, adres ayıklanır."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Model yalnız hazır yanıt havuzunu kullanır, söz uydurmaz.",
+   "altyazi": "3. Model yalnız hazır yanıt havuzunu kullanır, söz uydurmaz."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Yanıt robot gibi değil, insan gibi olsun. Yeni soruyu havuza ekle.",
+   "altyazi": "Yanıt robot gibi değil, insan gibi olsun. Yeni soruyu havuza ekle."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Kural setini istiyorsan yorumlara destek yaz. Di emden göndereyim.",
+   "altyazi": "Kural setini istiyorsan yorumlara DESTEK yaz. DM'den göndereyim."
+  }
+ ]
+}

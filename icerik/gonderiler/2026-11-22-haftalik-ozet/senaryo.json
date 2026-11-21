@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-22-haftalik-ozet",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Efsane hafta yarın başlıyor. Bu gece beş maddeyi kontrol et.",
+   "altyazi": "Efsane hafta yarın başlıyor. Bu gece 5 maddeyi kontrol et."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Kargo kapasitesi, yorum şablonları, e-posta serisi, ürün sayfası soruları ve DM yanıtları.",
+   "altyazi": "Kargo kapasitesi, yorum şablonları, e-posta serisi, ürün sayfası soruları ve DM yanıtları."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Efsane Cuma'ya beş, Siber Pazartesi'ye sekiz gün kaldı.",
+   "altyazi": "Efsane Cuma'ya 5, Siber Pazartesi'ye 8 gün kaldı."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Bir. Haftanın ritmini yaz: açılış, ısınma, son kontrol, canlı izleme, kapanış.",
+   "altyazi": "1. Haftanın ritmini yaz: açılış, ısınma, son kontrol, canlı izleme, kapanış."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. Kampanya haftasında yeni şey deneme. Hazırladığını uygula.",
+   "altyazi": "2. Kampanya haftasında yeni şey deneme. Hazırladığını uygula."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Her akşam on beş dakika not al. Gelecek yılın planı buradan çıkacak.",
+   "altyazi": "3. Her akşam 15 dakika not al. Gelecek yılın planı buradan çıkacak."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Değerlendirme formunu istiyorsan yorumlara gündem yaz. Di emden göndereyim.",
+   "altyazi": "Değerlendirme formunu istiyorsan yorumlara GÜNDEM yaz. DM'den göndereyim."
+  }
+ ]
+}

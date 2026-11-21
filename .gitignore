@@ -1,0 +1,5 @@
+# gonderi-uret.py yedekleri
+*.bak
+
+# Reels müziği tohumdan yeniden üretilir (muzik-uret.py); 14 günlük plan ve sonrası depoya eklenmez
+icerik/marka/muzik/hyt-altlik-t[3-9][0-9].wav

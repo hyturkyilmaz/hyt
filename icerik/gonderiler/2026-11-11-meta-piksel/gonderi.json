@@ -1,0 +1,61 @@
+{
+  "id": "2026-11-11-meta-piksel",
+  "tarih": "2026-11-11",
+  "gun": "Çarşamba",
+  "sutun": "ads",
+  "anahtar": "PIKSEL",
+  "muzik_tohum": 45,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Reklam · Meta Pixel", "baslik": "Yarından itibaren Meta _daha çok_ satış sayacak.",
+     "alt": "Satış artmadan rapor artabilir. **Bugün baz çizgini kaydet.**",
+     "zaman": [{"t": "Bugün", "s": "Baz çizgisi", "renk": "ink"}, {"t": "12 Kasım", "s": "Ayar varsayılan açık", "renk": "ads"}, {"t": "27 Kasım", "s": "Efsane Cuma", "renk": "ecom"}, {"t": "Sen", "s": "Hangi rakama güveneceksin?", "renk": "seo"}],
+     "kaynak": "Kaynak: PPC Land · Relevant Audience, Kasım 2026"},
+    {"tip": "akis", "kicker": "Ne değişiyor?", "renk": "ads", "baslik": "Eşleşme _telefonda_ yapılıyor",
+     "satirlar": [[{"ad": "Reklam görüldü", "alt": "Instagram, Facebook", "ikon": "hoparlor", "renk": "ads"}, {"ad": "Satın alma", "alt": "Senin siten", "ikon": "sepet", "renk": "ecom"}, {"ad": "Cihaz", "alt": "İkisi aynı telefonda", "ikon": "kisi", "renk": "ink"}],
+                   [{"ad": "Meta raporu", "alt": "Dönüşüm sayısı artar", "ikon": "grafik", "renk": "ads"}, {"ad": "Senin kasan", "alt": "Satış aynı kalabilir", "ikon": "veri", "renk": "seo"}],
+                   [{"ad": "Karar", "alt": "Baz çizgisiyle kıyasla", "ikon": "onay", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Şema: basın özetlerinden sadeleştirildi. AB ve Birleşik Krallık dışında geçerli."},
+    {"tip": "matris", "num": "01", "kicker": "Bugün kaydet", "baslik": "Baz çizgisinin _4 rakamı_",
+     "alt": "Son 14 günü kaydet; 12 Kasım'dan sonra aynı tabloyla kıyasla.",
+     "basliklar": ["Rakam", "Nereden", "Neden"],
+     "satirlar": [[["ads", "Meta satın alma"], "Ads Manager", "Rapor değişimini görmek için"], [["seo", "Gerçek sipariş"], "Panel / ERP", "Asıl doğru"], [["ecom", "GA4 satın alma"], "GA4", "Üçüncü göz"], [["ai", "Meta / gerçek oranı"], "Hesapla", "Şişmeyi ölçmek için"]],
+     "kaynak": "Örnek yöntem"},
+    {"tip": "grafik", "kicker": "Örnek", "renk": "ads", "baslik": "Rapor _artar_, kasa aynı",
+     "barlar": [{"ad": "Gerçek sipariş", "etiket": "100", "deger": 100, "renk": "seo", "alt": "Panelinden"}, {"ad": "Meta raporu (önce)", "etiket": "72", "deger": 72, "renk": "ink", "alt": "1-11 Kasım"}, {"ad": "Meta raporu (sonra)", "etiket": "88", "deger": 88, "renk": "ads", "alt": "12 Kasım sonrası, örnek"}],
+     "not": "Örnek değerler. Artışın ne kadarının ayardan geldiğini ancak baz çizgisiyle görebilirsin.",
+     "kaynak": "Temsili veri"},
+    {"tip": "kural", "num": "02", "kicker": "Kontrol", "baslik": "Ayarı _bul_, kararını ver.",
+     "alt": "Açık bırakmak da kapatmak da bir karar; yazılı olsun.",
+     "kod": ["<span class=\"c\"># meta pixel ayarı</span>", "<span class=\"k\">YOL</span> Events Manager > Data sources > Pixel > Settings", "<span class=\"k\">AYAR</span> Measure conversions on customer devices", "<span class=\"k\">NOT</span> değişiklik tarihini kaydet", "<span class=\"g\">→</span> bütçe kararı gerçek siparişe göre"],
+     "prompt": "Ekteki iki tabloyu karşılaştır: 1-11 Kasım ve 12-25 Kasım. Meta'nın raporladığı satın almayı gerçek siparişe oranla, oranın değişimini yüzde olarak yaz.",
+     "kaynak": "Ayar adı ve yolu Meta arayüzünde değişebilir."},
+    {"tip": "ekran", "kicker": "Haftalık kontrol", "baslik": "Oranı _her hafta_ izle.",
+     "pencere": "Claude · dönüşüm kıyası", "istek": "Meta raporunu gerçek siparişle kıyasla.",
+     "yanit": "**Meta/gerçek oranı %72'den %88'e çıktı.**",
+     "tablo": {"basliklar": ["Dönem", "Meta", "Gerçek", "Oran"], "satirlar": [["1-11 Kasım", "72", "100", "%72"], ["12-25 Kasım", "88", "100", "%88"], ["Fark", "+16", "0", "+16 puan"]], "vurgu_sutun": 3},
+     "evet": "Not al", "hayir": "Sonra", "aksiyon": "ROAS hedefini bu farka göre güncelle.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "PIKSEL", "vaat": "**Baz çizgisi tablosunu** (Meta, panel, GA4) DM'den göndereyim."}
+  ],
+  "aciklama": "Yarından itibaren Meta daha çok satış sayacak. Ama kasana daha çok para girmeyebilir.\n\nBasına yansıyan bilgilere göre Meta, 12 Kasım'dan itibaren Pixel'de \"Measure conversions on customer devices\" ayarını varsayılan olarak açıyor. Reklamı gören ve satın alan aynı cihazdaysa eşleşme telefonda yapılıyor. AB ve Birleşik Krallık dışında geçerli. Sonuç: raporlanan dönüşüm artabilir, gerçek satış aynı kalabilir.\n\nEfsane Cuma'ya iki hafta kala bu fark bütçe kararlarını bozabilir. Bugün son 14 günün Meta, panel ve GA4 rakamlarını tek tabloya kaydet. 12 Kasım sonrası aynı tabloyla kıyasla, ROAS hedefini buna göre güncelle. Yarın kaydedersen geç kalmş olursun, baz çizgisi bugünün iş.\n\nRakam büyüdüğünde sevinmek kolay. Önce neden büyüdüğünü sormak, iyi pazarlamacıyı ayırıyor.\n\nKaydırınca değişikliğin şemasını, kaydedeceğin 4 rakamı ve haftalık kontrolü göreceksin.\n\nYorumlara PIKSEL yaz, baz çizgisi tablosunu DM'den göndereyim.\n\n#metaads #performanspazarlama #eticaret #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "kalmş", "dogrusu": "kalmış", "paragraf": 3},
+  "dogrulama": ["PPC Land, Kasım 2026", "Relevant Audience", "Performance Marketing News", "Meta Events Manager (ayar adı)"],
+  "senaryo": [
+    {"tts": "Yarından itibaren Meta daha çok satış sayacak. Ama kasana daha çok para girmeyebilir.", "altyazi": "Yarından itibaren Meta daha çok satış sayacak. Ama kasana daha çok para girmeyebilir."},
+    {"tts": "On iki Kasım'dan itibaren eşleşme telefonda yapılıyor. Ayar varsayılan olarak açık geliyor.", "altyazi": "12 Kasım'dan itibaren eşleşme telefonda yapılıyor. Ayar varsayılan olarak açık geliyor."},
+    {"tts": "Bir. Bugün dört rakamı kaydet: Meta satın alma, gerçek sipariş, Ce a dört ve oran.", "altyazi": "1. Bugün 4 rakamı kaydet: Meta satın alma, gerçek sipariş, GA4 ve oran."},
+    {"tts": "Örnek: gerçek sipariş yüz, Meta raporu yetmiş ikiden seksen sekize çıkıyor.", "altyazi": "Örnek: gerçek sipariş 100, Meta raporu 72'den 88'e çıkıyor."},
+    {"tts": "İki. Ayarı Events Manager'da bul, kararını yaz ve tarihini kaydet.", "altyazi": "2. Ayarı Events Manager'da bul, kararını yaz ve tarihini kaydet."},
+    {"tts": "Üç. Oranı her hafta izle, bütçe kararını gerçek siparişe göre ver.", "altyazi": "3. Oranı her hafta izle, bütçe kararını gerçek siparişe göre ver."},
+    {"tts": "Baz çizgisi tablosunu istiyorsan yorumlara piksel yaz. Di emden göndereyim.", "altyazi": "Baz çizgisi tablosunu istiyorsan yorumlara PIKSEL yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Meta Pixel _Baz Çizgisi_", "kicker": "Tablo · Reklam · Meta ölçüm",
+    "giris": "12 Kasım 2026'dan itibaren Meta, cihaz üzerinde dönüşüm ölçümünü varsayılan olarak açıyor. Bu tablo, raporun ne kadar değiştiğini görmen için.",
+    "bolumler": [
+      {"ad": "Bugün kaydet", "renk": "ads", "maddeler": [["Meta satın alma", "Ads Manager, son 14 gün, günlük."], ["Gerçek sipariş", "Panel veya ERP, aynı günler, iptal ve iade hariç."], ["GA4 satın alma", "Aynı günler, aynı tanım."], ["Oran", "Meta satın alma ÷ gerçek sipariş."]]},
+      {"ad": "Ayar", "renk": "seo", "maddeler": [["Ayarı bul", "Events Manager > Data sources > Pixel > Settings."], ["Kararı yaz", "Açık mı kapalı mı, neden; tarihiyle."], ["Kapsam", "AB ve Birleşik Krallık'taki kişiler için etkin değil."]]},
+      {"ad": "İzle", "renk": "ecom", "maddeler": [["Haftalık kıyas", "Her pazartesi oranı yeniden hesapla."], ["ROAS hedefi", "Oran yükseldiyse hedef ROAS'ı aynı oranda yukarı çek."], ["Kampanya günü", "Efsane Cuma kararlarını gerçek siparişe göre ver."]]}
+    ]
+  }
+}

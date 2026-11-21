@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-09-1111-operasyon",
+  "tarih": "2026-11-09",
+  "gun": "Pazartesi",
+  "sutun": "ecom",
+  "anahtar": "PLAN",
+  "muzik_tohum": 43,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · 11.11 operasyonu", "baslik": "11.11 günü _kim_ neye bakıyor?",
+     "alt": "Kampanya günü sorun çıkar. Önemli olan **kimin, hangi eşikte** müdahale edeceği.",
+     "zaman": [{"t": "09 Kasım", "s": "Roller yazılır", "renk": "ink"}, {"t": "10 Kasım", "s": "Eşikler ve prova", "renk": "ecom"}, {"t": "11 Kasım", "s": "Saat saat takip", "renk": "ads"}, {"t": "12 Kasım", "s": "Değerlendirme", "renk": "seo"}],
+     "kaynak": "Danışmanlıkta kullandığım kampanya günü planı"},
+    {"tip": "matris", "num": "01", "kicker": "Roller", "baslik": "Her kişiye _tek_ ekran",
+     "basliklar": ["Rol", "Baktığı yer", "Eşik"],
+     "satirlar": [[["ads", "Reklam"], "CPA, bütçe harcaması", "CPA hedefin 1,3 katı"], [["ecom", "Stok"], "Vitrin ürünleri", "Stok 10'un altı"], [["seo", "Site"], "Hız, hata, ödeme", "Ödeme hatası > %2"], [["ai", "Müşteri hizmetleri"], "Mesaj kuyruğu", "Bekleme > 1 saat"]],
+     "kaynak": "Eşikler örnek; kendi geçmiş verine göre belirle."},
+    {"tip": "akis", "kicker": "Gün akışı", "renk": "ecom", "baslik": "Saat saat _11.11_",
+     "satirlar": [[{"ad": "00.00", "alt": "Fiyatlar ve etiketler", "ikon": "etiket", "renk": "ecom"}, {"ad": "09.00", "alt": "İlk özet", "ikon": "belge", "renk": "seo"}, {"ad": "13.00", "alt": "Bütçe kontrolü", "ikon": "grafik", "renk": "ads"}],
+                   [{"ad": "18.00", "alt": "Stok ve kargo", "ikon": "kutu", "renk": "ecom"}, {"ad": "21.00", "alt": "Son saat duyurusu", "ikon": "hoparlor", "renk": "ai"}],
+                   [{"ad": "23.59", "alt": "Kampanya biter, fiyat döner", "ikon": "saat", "renk": "ink", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Örnek saatler"},
+    {"tip": "ekran", "kicker": "Saatlik özet", "baslik": "Her saat _tek mesaj_",
+     "pencere": "Claude · 13.00 özeti", "istek": "13.00 verisini eşiklere göre özetle.",
+     "yanit": "**2 eşik aşıldı.** Karar senin.",
+     "tablo": {"basliklar": ["Alan", "Değer", "Eşik", "Durum"], "satirlar": [["Reklam CPA", "+%34", "+%30", "Aşıldı"], ["Keten gömlek stok", "8", "10", "Aşıldı"], ["Ödeme hatası", "%0,6", "%2", "Normal"]], "vurgu_sutun": 3},
+     "evet": "Müdahale et", "hayir": "İzle", "aksiyon": "Stok ürününün reklamını durdur.", "kaynak": "Örnek veri"},
+    {"tip": "kural", "num": "02", "kicker": "Eşikler", "baslik": "Kararı _önceden_ yaz.",
+     "alt": "Kampanya günü tartışmak yerine kuralı uygula.",
+     "kod": ["<span class=\"c\"># 11.11 eşikleri</span>", "<span class=\"k\">EĞER</span> CPA > hedef × 1,3 <span class=\"g\">→</span> bütçeyi %20 düşür", "<span class=\"k\">EĞER</span> stok < 10 <span class=\"g\">→</span> ürünün reklamını durdur", "<span class=\"k\">EĞER</span> bekleme > 1 saat <span class=\"g\">→</span> hazır yanıt + ek kişi", "<span class=\"k\">EĞER</span> ödeme hatası > %2 <span class=\"g\">→</span> geliştirici ara"],
+     "prompt": "Ekteki saatlik tabloyu bu eşiklere göre kontrol et. Aşılan eşikleri, ilgili rolü ve kuraldaki aksiyonu tek mesajda yaz. Eşik dışı yorum yapma.",
+     "kaynak": "Eşik değerleri örnek; geçmiş kampanya verine göre ayarla."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Ertesi gün", "baslik": "Değerlendirmeyi _yazılı_ yap.",
+     "once": {"dosya": "sozlu_degerlendirme", "etiket": "Unutulur", "basliklar": ["Konu", "Not"], "satirlar": [["Ne oldu?", "Çok yoğundu"], ["Sorun", "Stok bitti galiba"], ["Ders", "-"]]},
+     "sonra": {"dosya": "yazili_degerlendirme", "etiket": "Efsane Cuma'ya hazır", "basliklar": ["Konu", "Not"], "satirlar": [["Satış", "Hedefin %112'si"], ["Sorun", "2 ürün 18.00'de bitti"], ["Ders", "Stok eşiği 15 olsun"]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "cta", "anahtar": "PLAN", "vaat": "**Kampanya günü rol ve eşik planını** DM'den göndereyim."}
+  ],
+  "aciklama": "11.11 günü sorun çıkacak. Önemli olan kimin, hangi eşikte müdahale edeceğini önceden bilmek.\n\nKampanya günü en çok zaman kaybettiren şey sorun değil, sorun çıktığında kimin karar vereceğinin belli olmaması. Reklam, stok, site ve müşteri hizmetleri için birer kişi seç, her birine tek bir ekran ve tek bir eşik ver. Reklam CPA'sı hedefin 1,3 katını geçerse bütçe düşer, stok 10'un altına inerse reklam durur.\n\nHer kişinin sorumlulk alanı yazılı olunca gün boyu tek bir saatlik özet yetiyor. Gerisi kuralın uygulanması.\n\nYoğun günlerde insanlar kötü karar vermiyor, geç karar veriyor. Eşik bu gecikmeyi kaldırıyor.\n\nKaydırınca rolleri, saat saat akışı ve eşik kurallarını göreceksin.\n\nYorumlara PLAN yaz, kampanya günü rol ve eşik planını DM'den göndereyim.\n\n#eticaret #1111 #efsanecuma #kampanya #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "sorumlulk", "dogrusu": "sorumluluk", "paragraf": 3},
+  "dogrulama": ["Danışmanlık kampanya günü notları", "Ticaret Bakanlığı 10 gün kuralı (AA), 2026"],
+  "senaryo": [
+    {"tts": "On bir on bir günü sorun çıkacak. Önemli olan kimin, hangi eşikte müdahale edeceği.", "altyazi": "11.11 günü sorun çıkacak. Önemli olan kimin, hangi eşikte müdahale edeceği."},
+    {"tts": "Dört rol: reklam, stok, site ve müşteri hizmetleri. Her birine tek ekran.", "altyazi": "4 rol: reklam, stok, site ve müşteri hizmetleri. Her birine tek ekran."},
+    {"tts": "Bir. Günü saatlere böl: dokuzda özet, on üçte bütçe, on sekizde stok ve kargo.", "altyazi": "1. Günü saatlere böl: 09.00 özet, 13.00 bütçe, 18.00 stok ve kargo."},
+    {"tts": "İki. Saatlik özet tek mesaj olsun. Örnek: CPA yüzde otuz dört arttı, stok sekize düştü.", "altyazi": "2. Saatlik özet tek mesaj olsun. Örnek: CPA %34 arttı, stok 8'e düştü."},
+    {"tts": "Üç. Kararı önceden yaz. Stok ondan azsa reklam durur.", "altyazi": "3. Kararı önceden yaz. Stok 10'dan azsa reklam durur."},
+    {"tts": "Ertesi gün değerlendirmeyi yazılı yap. Efsane Cuma'ya o notla gir.", "altyazi": "Ertesi gün değerlendirmeyi yazılı yap. Efsane Cuma'ya o notla gir."},
+    {"tts": "Rol ve eşik planını istiyorsan yorumlara plan yaz. Di emden göndereyim.", "altyazi": "Rol ve eşik planını istiyorsan yorumlara PLAN yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Kampanya Günü _Rol ve Eşik Planı_", "kicker": "Plan · E-ticaret · 11.11 ve Efsane Cuma",
+    "giris": "Kampanya günü kim neye bakıyor, hangi eşikte ne yapılıyor? Bu planı bir gün önceden doldur ve ekiple paylaş.",
+    "bolumler": [
+      {"ad": "Roller", "renk": "ecom", "maddeler": [["Reklam", "CPA ve bütçe harcamasını izler."], ["Stok", "Vitrin ürünlerinin stok seviyesini izler."], ["Site", "Hız, hata ve ödeme başarısını izler."], ["Müşteri hizmetleri", "Mesaj kuyruğu ve bekleme süresini izler."]]},
+      {"ad": "Eşikler", "renk": "ads", "maddeler": [["CPA", "Hedefin 1,3 katı: bütçe %20 azalır."], ["Stok", "10'un altı: ürünün reklamı durur."], ["Bekleme", "1 saati geçerse hazır yanıt ve ek kişi."], ["Ödeme hatası", "%2'yi geçerse geliştirici aranır."]]},
+      {"ad": "Sonrası", "renk": "seo", "maddeler": [["Fiyat dönüşü", "Kampanya bitiş saatinde fiyatlar ve etiketler eski haline döner."], ["Yazılı değerlendirme", "Satış, sorun ve ders; ertesi gün öğlene kadar."]]}
+    ]
+  }
+}

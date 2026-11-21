@@ -1,0 +1,60 @@
+{
+  "id": "2026-12-08-ga4-bakim",
+  "tarih": "2026-12-08",
+  "gun": "Salı",
+  "sutun": "seo",
+  "anahtar": "ÖLÇÜM",
+  "muzik_tohum": 72,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "SEO · Analitik · GA4", "baslik": "Yeni yıla _temiz verilerle_ gir.",
+     "alt": "GA4'te 30 dakikalık yıl sonu bakımı: **6 ayar.** Ocak raporun buna bağlı.",
+     "zaman": [{"t": "Saklama", "s": "14 ay", "renk": "seo"}, {"t": "Anahtar olay", "s": "Gözden geçir", "renk": "ads"}, {"t": "Kanal", "s": "AI asistanlar", "renk": "ai"}, {"t": "Filtre", "s": "İç trafik", "renk": "ecom"}],
+     "kaynak": "Kaynak: Google Analytics Yardım Merkezi"},
+    {"tip": "matris", "num": "01", "kicker": "6 ayar", "baslik": "Yıl sonu _kontrolü_",
+     "basliklar": ["Ayar", "Kontrol"],
+     "satirlar": [[["seo", "Veri saklama"], "Etkinlik verisi 14 ay mı?"], [["ads", "Anahtar olaylar"], "Satın alma, form, WhatsApp tıklaması"], [["ai", "Kanal grubu"], "AI asistanlar ayrı kanal mı?"], [["ecom", "İç trafik"], "Ofis ve ekip trafiği filtreli mi?"], [["ink", "Referans hariç tutma"], "Ödeme sağlayıcısı kaynak olarak çıkmıyor mu?"]],
+     "kaynak": "Ayar adları arayüzde farklılık gösterebilir."},
+    {"tip": "kural", "num": "02", "kicker": "Saklama", "baslik": "Varsayılan _2 ay_ olabilir.",
+     "alt": "Keşif raporlarında geçmişe bakabilmek için saklama süresini kontrol et.",
+     "kod": ["<span class=\"c\"># veri saklama</span>", "<span class=\"k\">YOL</span> Yönetici > Veri toplama ve değiştirme > Veri saklama", "<span class=\"k\">AYAR</span> etkinlik verisi saklama: 14 ay", "<span class=\"k\">NOT</span> değişiklik geçmişe dönük çalışmaz", "<span class=\"g\">→</span> bugün değiştir, bugünden itibaren saklanır"],
+     "prompt": "GA4'teki anahtar olay listemi ekte veriyorum. İş hedeflerime (satış, form, WhatsApp) göre gereksiz, eksik ve adı tutarsız olanları işaretle; standart bir adlandırma öner.",
+     "kaynak": "Kaynak: Google Analytics Yardım, veri saklama"},
+    {"tip": "oncesonra", "num": "03", "kicker": "Anahtar olaylar", "baslik": "Her şey _anahtar_ olay değildir.",
+     "once": {"dosya": "olaylar_eski", "etiket": "Kalabalık", "basliklar": ["Olay", "Anahtar mı?"], "satirlar": [["page_view", "Evet"], ["scroll", "Evet"], ["purchase", "Evet"]]},
+     "sonra": {"dosya": "olaylar_yeni", "etiket": "Net", "basliklar": ["Olay", "Anahtar mı?"], "satirlar": [["purchase", "Evet"], ["generate_lead", "Evet"], ["whatsapp_click", "Evet"]]},
+     "kaynak": "Örnek liste"},
+    {"tip": "akis", "kicker": "Ocak'a hazırlık", "renk": "seo", "baslik": "Bakımdan _rapora_",
+     "satirlar": [[{"ad": "6 ayar", "alt": "30 dakika", "ikon": "kalkan", "renk": "seo"}, {"ad": "Test", "alt": "DebugView", "ikon": "arama", "renk": "ink"}, {"ad": "Not", "alt": "Değişiklik günlüğü", "ikon": "belge", "renk": "ai"}],
+                   [{"ad": "Pixel baz çizgisi", "alt": "Meta / gerçek oranı", "ikon": "grafik", "renk": "ads"}, {"ad": "Panel siparişi", "alt": "Asıl doğru", "ikon": "veri", "renk": "ecom"}],
+                   [{"ad": "Ocak raporu", "alt": "Temiz karşılaştırma", "ikon": "onay", "renk": "seo", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım yıl sonu akışı"},
+    {"tip": "ekran", "kicker": "Kontrol", "baslik": "Bakımda _ne çıktı?_",
+     "pencere": "Claude · GA4 bakım özeti", "istek": "GA4 ayarlarımı listeye göre özetle.",
+     "yanit": "**6 ayardan 3'ü düzeltilmeli.**",
+     "tablo": {"basliklar": ["Ayar", "Durum", "Aksiyon"], "satirlar": [["Veri saklama", "2 ay", "14 aya çıkar"], ["Anahtar olaylar", "8 olay", "3'e indir"], ["AI kanalı", "Yok", "Kanal grubu ekle"]], "vurgu_sutun": 2},
+     "evet": "Düzelt", "hayir": "Sonra", "aksiyon": "Değişiklikleri tarihle günlüğe yaz.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "ÖLÇÜM", "vaat": "**GA4 yıl sonu bakım listesini** (6 ayar) DM'den göndereyim."}
+  ],
+  "aciklama": "Yeni yıla temiz verilerle gir. Ocak'ta yapacağın her karşılaştırma bugün GA4'te yapacağın 30 dakikalık bakıma bağlı.\n\nAltı ayara bak. Etkinlik verisinin saklma süresi varsayılan olarak 2 ay olabilir; 14 aya çıkar, değişiklik geçmişe dönük çalışmadığı için bugün yap. Anahtar olayları sadeleştir: satın alma, form ve WhatsApp tıklaması gibi gerçekten iş getiren olaylar kalsın. AI asistanlardan gelen trafiği ayrı bir kanal grubunda topla, ofis ve ekip trafiğini filtrele, ödeme sağlayıcısının kaynak olarak görünmesini engelle.\n\nKasım'da aldığın Meta Pixel baz çizgisini de bu bakıma ekle: platform raporu, GA4 ve panel siparişi aynı tabloda dursun. Her değişikliği tarihiyle bir günlüğe yaz; altı ay sonra \"bu rakam neden değişti?\" sorusunun cevabı orada olacak.\n\nVeri temizliği kimsenin sevdiği iş değil ama yanlış veriyle verilen karar çok daha pahalı.\n\nKaydırınca altı ayarı, saklama kuralını ve anahtar olay örneğini göreceksin.\n\nYorumlara ÖLÇÜM yaz, GA4 yıl sonu bakım listesini DM'den göndereyim.\n\n#ga4 #analitik #seo #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "saklma", "dogrusu": "saklama", "paragraf": 2},
+  "dogrulama": ["Google Analytics Yardım: veri saklama", "Google Analytics Yardım: anahtar olaylar, kanal grupları, iç trafik filtreleri, istenmeyen yönlendirmeler"],
+  "senaryo": [
+    {"tts": "Yeni yıla temiz verilerle gir. Ce a dört'te otuz dakikalık bakım.", "altyazi": "Yeni yıla temiz verilerle gir. GA4'te 30 dakikalık bakım."},
+    {"tts": "Bir. Veri saklama süresini on dört aya çıkar. Değişiklik geçmişe dönük çalışmaz, bugün yap.", "altyazi": "1. Veri saklama süresini 14 aya çıkar. Değişiklik geçmişe dönük çalışmaz, bugün yap."},
+    {"tts": "İki. Anahtar olayları sadeleştir: satın alma, form, WhatsApp tıklaması.", "altyazi": "2. Anahtar olayları sadeleştir: satın alma, form, WhatsApp tıklaması."},
+    {"tts": "Üç. Yapay zekâ asistan trafiğini ayrı kanalda topla, iç trafiği filtrele.", "altyazi": "3. AI asistan trafiğini ayrı kanalda topla, iç trafiği filtrele."},
+    {"tts": "Meta Pixel baz çizgisini aynı tabloya ekle.", "altyazi": "Meta Pixel baz çizgisini aynı tabloya ekle."},
+    {"tts": "Her değişikliği tarihiyle günlüğe yaz.", "altyazi": "Her değişikliği tarihiyle günlüğe yaz."},
+    {"tts": "Bakım listesini istiyorsan yorumlara ölçüm yaz. Di emden göndereyim.", "altyazi": "Bakım listesini istiyorsan yorumlara ÖLÇÜM yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "GA4 _Yıl Sonu Bakımı_", "kicker": "Kontrol listesi · Analitik · GA4",
+    "giris": "Ocak raporlarının doğru olması için yıl bitmeden yapılacak altı ayar ve bir günlük. Ayar adları arayüzde farklılık gösterebilir.",
+    "bolumler": [
+      {"ad": "Ayarlar", "renk": "seo", "maddeler": [["Veri saklama", "Etkinlik verisi 14 ay."], ["Anahtar olaylar", "Yalnız iş getiren olaylar."], ["Kanal grubu", "AI asistanlar ayrı kanal."], ["İç trafik", "Ofis ve ekip IP'leri filtreli."], ["Referans hariç tutma", "Ödeme sağlayıcısı kaynak olarak görünmez."], ["Olay adları", "Tek ve tutarlı adlandırma."]]},
+      {"ad": "Kontrol", "renk": "ads", "maddeler": [["DebugView", "Değişiklik sonrası test olayları görünüyor."], ["Pixel baz çizgisi", "Meta, GA4 ve panel siparişi aynı tabloda."]]},
+      {"ad": "Kayıt", "renk": "ecom", "maddeler": [["Değişiklik günlüğü", "Ayar, tarih, kim değiştirdi."], ["Ocak karşılaştırması", "Aynı tanımlarla, aynı dönemlerle."]]}
+    ]
+  }
+}

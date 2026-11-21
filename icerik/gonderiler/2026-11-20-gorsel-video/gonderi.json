@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-20-gorsel-video",
+  "tarih": "2026-11-20",
+  "gun": "Cuma",
+  "sutun": "ads",
+  "anahtar": "VIDEO",
+  "muzik_tohum": 54,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Reklam · Meta Advantage+", "baslik": "Ürün fotoğrafın _videoya_ dönüşüyor.",
+     "alt": "Meta tek görselden kısa video üretiyor. **Hız kazandırır, kontrolü sende kalsın.**",
+     "zaman": [{"t": "Görsel", "s": "Tek ürün fotoğrafı", "renk": "ink"}, {"t": "Animasyon", "s": "Yakınlaşma, kaydırma", "renk": "ads"}, {"t": "Reels", "s": "Video yerleşimi", "renk": "ai"}, {"t": "Sen", "s": "Önizlemeye baktın mı?", "renk": "ecom"}],
+     "kaynak": "Kaynak: Social Media Today · Marketing Interactive, 2026"},
+    {"tip": "akis", "kicker": "Nasıl çalışıyor?", "renk": "ads", "baslik": "Fotoğraftan _Reels_ reklamına",
+     "satirlar": [[{"ad": "Ürün fotoğrafı", "alt": "Tek görsel", "ikon": "belge", "renk": "ink"}, {"ad": "Advantage+", "alt": "Animasyon ekler", "ikon": "sohbet", "renk": "ai"}, {"ad": "Kısa video", "alt": "Hareketli", "ikon": "hoparlor", "renk": "ads"}],
+                   [{"ad": "Önizleme", "alt": "Her yerleşim", "ikon": "arama", "renk": "seo"}, {"ad": "Karar", "alt": "Aç ya da kapat", "ikon": "kalkan", "renk": "ecom"}],
+                   [{"ad": "Yayın", "alt": "Onaylı haliyle", "ikon": "onay", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Şema: basın özetlerinden sadeleştirildi"},
+    {"tip": "matris", "num": "01", "kicker": "Uygun mu?", "baslik": "Hangi üründe _işe yarar?_",
+     "basliklar": ["Ürün", "Animasyon", "Not"],
+     "satirlar": [[["ecom", "Ev, aksesuar"], "Uygun", "Hareket ilgiyi artırır"], [["ads", "Giyim"], "Test et", "Kumaş görünümü bozulmasın"], [["seo", "Lüks ürün"], "Dikkatli", "Yapay görünebilir"], [["ai", "Teknik ürün"], "Dikkatli", "Detay kaybolmasın"]],
+     "kaynak": "Örnek değerlendirme"},
+    {"tip": "kural", "num": "02", "kicker": "Kontrol", "baslik": "Önizlemeyi _her yerleşimde_ izle.",
+     "alt": "AI ürün sahnesini değiştirebilir; yayına çıkan şey senin sorumluluğunda.",
+     "kod": ["<span class=\"c\"># animasyon kontrolü</span>", "<span class=\"k\">ÜRÜN</span> renk, logo, şekil aynı mı?", "<span class=\"k\">METİN</span> fiyat ve indirim okunuyor mu?", "<span class=\"k\">HAREKET</span> mide bulandırıyor mu?", "<span class=\"g\">→</span> tek hata = kapat, elle video kullan"],
+     "prompt": "Bu ürün için 6 saniyelik bir Reels reklamının sahne sahne planını yaz: ilk saniyede ürün, sonra fayda, son saniyede fiyat ve kampanya bitiş tarihi.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Test", "baslik": "Aynı ürün, _iki_ kreatif",
+     "once": {"dosya": "statik_reklam", "etiket": "Statik", "basliklar": ["Metrik", "Değer"], "satirlar": [["Gösterim", "10.000"], ["Tıklama oranı", "%0,9"], ["Üretim süresi", "-"]]},
+     "sonra": {"dosya": "animasyonlu_reklam", "etiket": "Animasyonlu", "basliklar": ["Metrik", "Değer"], "satirlar": [["Gösterim", "10.000"], ["Tıklama oranı", "Ölç ve karşılaştır"], ["Üretim süresi", "Dakikalar"]]},
+     "kaynak": "Örnek test yapısı; sonuç hesaba göre değişir."},
+    {"tip": "ekran", "kicker": "Haftalık kontrol", "baslik": "Animasyonlu reklamları _tara._",
+     "pencere": "Claude · kreatif kontrolü", "istek": "Bu 6 animasyonlu reklamı kontrol et.",
+     "yanit": "**2 reklamda ürün görünümü değişmiş.**",
+     "tablo": {"basliklar": ["Reklam", "Sorun", "Karar"], "satirlar": [["Kupa seti", "-", "Yayında"], ["Keten gömlek", "Renk tonu değişmiş", "Kapat"], ["Saat", "Logo bulanık", "Kapat"]], "vurgu_sutun": 2},
+     "evet": "Uygula", "hayir": "Bekle", "aksiyon": "Son karar her zaman sende.", "kaynak": "Temsili kontrol"},
+    {"tip": "cta", "anahtar": "VIDEO", "vaat": "**Animasyonlu reklam kontrol listesini** ve 6 saniyelik Reels planını DM'den göndereyim."}
+  ],
+  "aciklama": "Ürün fotoğrafın artık birkaç dakikada videoya dönüşüyor. Hız kazandırıyor, ama kontrol sende kalmalı.\n\nMeta, Advantage+ yaratıcı araçlarında tek bir ürün görselinden yakınlaşma ve kaydırma gibi hareketlerle kısa video üretebiliyor; bu videolar Reels gibi video yerleşimlerinde kullanılabiliyor. Elinde hiç video olmayan mağaza için Efsane Cuma öncesi iyi bir hızlandırıcı.\n\nAma AI ürün sahnesini değiştirebiliyor: renk tonu kayabiliyor, logo bulanıklaşabiliyor. Bu yüzden her yerleşimde önizlemey izlemek şart. Tek bir hata görürsen animasyonu o reklamda kapat ve kendi videonu kullan. Lüks ve teknik ürünlerde daha dikkatli ol.\n\nOtomasyon zaman kazandırıyor, ama müşterinin göreceği şeye son kez bakmak hâlâ bir insanın işi.\n\nKaydırınca nasıl çalıştığını, hangi ürünlerde işe yaradığını ve kontrol kuralını göreceksin.\n\nYorumlara VIDEO yaz, animasyonlu reklam kontrol listesini DM'den göndereyim.\n\n#metaads #reels #performanspazarlama #eticaret #yapayzeka",
+  "yazim_hatasi": {"kelime": "önizlemey", "dogrusu": "önizlemeyi", "paragraf": 3},
+  "dogrulama": ["Social Media Today: Meta image animation ve video expansion", "Marketing Interactive", "ContentGrip"],
+  "senaryo": [
+    {"tts": "Ürün fotoğrafın artık birkaç dakikada videoya dönüşüyor. Kontrol ise sende kalmalı.", "altyazi": "Ürün fotoğrafın artık birkaç dakikada videoya dönüşüyor. Kontrol ise sende kalmalı."},
+    {"tts": "Meta, tek görselden yakınlaşma ve kaydırmayla kısa video üretiyor.", "altyazi": "Meta, tek görselden yakınlaşma ve kaydırmayla kısa video üretiyor."},
+    {"tts": "Bir. Ev ve aksesuarda işe yarar. Lüks ve teknik üründe dikkatli ol.", "altyazi": "1. Ev ve aksesuarda işe yarar. Lüks ve teknik üründe dikkatli ol."},
+    {"tts": "İki. Önizlemeyi her yerleşimde izle. Renk, logo ve fiyat aynı mı?", "altyazi": "2. Önizlemeyi her yerleşimde izle. Renk, logo ve fiyat aynı mı?"},
+    {"tts": "Üç. Tek hata görürsen o reklamda animasyonu kapat.", "altyazi": "3. Tek hata görürsen o reklamda animasyonu kapat."},
+    {"tts": "Statik ve animasyonlu kreatifi aynı bütçeyle test et, sonuca göre karar ver.", "altyazi": "Statik ve animasyonlu kreatifi aynı bütçeyle test et, sonuca göre karar ver."},
+    {"tts": "Kontrol listesini istiyorsan yorumlara video yaz. Di emden göndereyim.", "altyazi": "Kontrol listesini istiyorsan yorumlara VIDEO yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Animasyonlu Reklam _Kontrolü_", "kicker": "Kontrol listesi · Reklam · Meta",
+    "giris": "Meta'nın tek görselden ürettiği videoları yayından önce kontrol etmek ve test etmek için.",
+    "bolumler": [
+      {"ad": "Uygunluk", "renk": "ads", "maddeler": [["Ürün tipi", "Ev, aksesuar uygun; lüks ve teknik üründe dikkat."], ["Görsel kalitesi", "Yüksek çözünürlük, sade arka plan."], ["Metin", "Fiyat ve kampanya tarihi görselde okunur."]]},
+      {"ad": "Kontrol", "renk": "ai", "maddeler": [["Ürün görünümü", "Renk, logo ve şekil değişmemiş."], ["Yerleşimler", "Reels, Stories, akış ayrı ayrı izlendi."], ["Hareket", "Rahatsız edici hızlı hareket yok."], ["Karar kaydı", "Hangi reklamda açık, hangisinde kapalı."]]},
+      {"ad": "Test", "renk": "ecom", "maddeler": [["Aynı bütçe", "Statik ve animasyonlu kreatif yan yana."], ["Ölçü", "Tıklama oranı ve dönüşüm başı maliyet."], ["Süre", "En az 7 gün, değişiklik yapmadan."]]}
+    ]
+  }
+}

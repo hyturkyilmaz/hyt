@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-19-dm-zamanlama",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Kampanya haftasında DM'ler sana yetişmez. Üç araç var, çoğu kişi kullanmıyor.",
+   "altyazi": "Kampanya haftasında DM'ler sana yetişmez. 3 araç var, çoğu kişi kullanmıyor."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Zamanlanmış mesaj, doksan dokuz dilde çeviri ve hazır yanıt.",
+   "altyazi": "Zamanlanmış mesaj, 99 dilde çeviri ve hazır yanıt."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Gönder'e basılı tut, tarih seç. Söz verdiğin hatırlatma zamanında gitsin.",
+   "altyazi": "1. Gönder'e basılı tut, tarih seç. Söz verdiğin hatırlatma zamanında gitsin."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Zamanlama toplu mesaj değildir. Yalnız seninle yazışan kişiye.",
+   "altyazi": "2. Zamanlama toplu mesaj değildir. Yalnız seninle yazışan kişiye."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Sık sorulara hazır yanıt ekle. Cevap on saniyeye iner.",
+   "altyazi": "3. Sık sorulara hazır yanıt ekle. Cevap 10 saniyeye iner."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Haftanın sorularını grupla, kişi bilgilerini özete koyma.",
+   "altyazi": "Haftanın sorularını grupla, kişi bilgilerini özete koyma."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Hazır yanıtları istiyorsan yorumlara mesaj yaz. Di emden göndereyim.",
+   "altyazi": "Hazır yanıtları istiyorsan yorumlara MESAJ yaz. DM'den göndereyim."
+  }
+ ]
+}

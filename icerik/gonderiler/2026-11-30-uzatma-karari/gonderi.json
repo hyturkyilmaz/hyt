@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-30-uzatma-karari",
+  "tarih": "2026-11-30",
+  "gun": "Pazartesi",
+  "sutun": "ads",
+  "anahtar": "UZATMA",
+  "muzik_tohum": 64,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Reklam · Kampanya kapanışı", "baslik": "\"Son gün\" dedin. _Uzatacak mısın?_",
+     "alt": "Bu gece en çok sorulan soru. **Uzatmadan önce 3 soruya cevap ver.**",
+     "zaman": [{"t": "30 Kasım", "s": "Duyurulan bitiş", "renk": "ads"}, {"t": "23.59", "s": "Kapanış", "renk": "ink"}, {"t": "1 Aralık", "s": "Ne yapacaksın?", "renk": "ecom"}, {"t": "Sen", "s": "Söz mü, satış mı?", "renk": "seo"}],
+     "kaynak": "Takvim: Kasım 2026"},
+    {"tip": "matris", "num": "01", "kicker": "Karar", "baslik": "Uzatmadan önce _3 soru_",
+     "basliklar": ["Soru", "Evet ise", "Hayır ise"],
+     "satirlar": [[["ads", "\"Son gün\" dedin mi?"], "Uzatma; güven kaybı", "Değerlendirilebilir"], [["ecom", "Stok fazlası mı var?"], "Ayrı kampanya planla", "Gerek yok"], [["seo", "Tarih metinde yazılı mı?"], "Yeni tarih = yeni metin", "Önce metni düzelt"]],
+     "kaynak": "Hukuki görüş değildir."},
+    {"tip": "oncesonra", "num": "02", "kicker": "İki yol", "baslik": "Uzatma yerine _yeni kampanya_",
+     "once": {"dosya": "gizli_uzatma", "etiket": "Güven kaybı", "basliklar": ["Gün", "Metin"], "satirlar": [["30 Kasım", "Son gün, kaçırma!"], ["1 Aralık", "Talep üzerine uzattık!"], ["2 Aralık", "Son kez uzattık!"]]},
+     "sonra": {"dosya": "durust_kapanis", "etiket": "Güven", "basliklar": ["Gün", "Metin"], "satirlar": [["30 Kasım", "Kampanya bu gece 23.59'da bitiyor"], ["1 Aralık", "Teşekkürler; sipariş durumu"], ["4 Aralık", "Yılbaşı hediye kampanyası, yeni tarih"]]},
+     "kaynak": "Örnek metin"},
+    {"tip": "kural", "num": "03", "kicker": "Kapanış", "baslik": "Kapanışı _kurala_ bağla.",
+     "alt": "Bitiş saatinde fiyat, etiket ve reklam aynı anda döner.",
+     "kod": ["<span class=\"c\"># kapanış kontrolü · 23.59</span>", "<span class=\"k\">FİYAT</span> kampanya öncesi fiyata döner", "<span class=\"k\">ETİKET</span> indirim ifadeleri kalkar", "<span class=\"k\">REKLAM</span> kampanya reklamları durur", "<span class=\"k\">E-POSTA</span> zamanlanmış kampanya iletileri iptal"],
+     "prompt": "Kampanyam bu gece 23.59'da bitiyor. Bitiş anında kontrol etmem gereken her şeyi (fiyat, etiket, reklam, e-posta, banner, pop-up) sorumlu rol ve saatle tablo halinde listele.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "akis", "kicker": "Kapanış gecesi", "renk": "ads", "baslik": "23.59'dan _sonra_",
+     "satirlar": [[{"ad": "23.59", "alt": "Kampanya biter", "ikon": "saat", "renk": "ink"}, {"ad": "Fiyat", "alt": "Eski fiyata döner", "ikon": "etiket", "renk": "ecom"}, {"ad": "Reklam", "alt": "Kampanya reklamı durur", "ikon": "hoparlor", "renk": "ads"}],
+                   [{"ad": "Kontrol", "alt": "10 ürünü elle bak", "ikon": "arama", "renk": "seo"}, {"ad": "Teşekkür", "alt": "1 Aralık sabahı", "ikon": "sohbet", "renk": "ai"}],
+                   [{"ad": "Analiz", "alt": "1 Aralık öğleden sonra", "ikon": "grafik", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [0, 2], [1, 3], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Örnek kapanış akışı"},
+    {"tip": "ekran", "kicker": "Kontrol", "baslik": "Kapanışta _ne açık kaldı?_",
+     "pencere": "Claude · kapanış kontrolü", "istek": "Kapanış kontrol listesini kontrol et.",
+     "yanit": "**2 kalem hâlâ açık.**",
+     "tablo": {"basliklar": ["Kalem", "Durum", "Sorumlu"], "satirlar": [["Fiyatlar", "Döndü", "Operasyon"], ["Ana banner", "Hâlâ yayında", "Tasarım"], ["Meta reklamları", "Durdu", "Reklam"], ["Pop-up", "Hâlâ yayında", "Geliştirici"]], "vurgu_sutun": 1},
+     "evet": "Kapat", "hayir": "Bekle", "aksiyon": "00.15'te son kontrol.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "UZATMA", "vaat": "**Kampanya kapanış kontrol listesini** DM'den göndereyim."}
+  ],
+  "aciklama": "\"Son gün\" dedin ve satışlar iyi gidiyor. Bu gece en çok sorulan soru: uzatalım mı?\n\nUzatmadan önce üç soruya cevap ver. Kampanyayı \"son gün\" diye duyurduysan, ertesi sabah \"uzattık\" demek müşterinin güvenni sarsıyor ve gelecek kampanyalardaki her \"son gün\" ifadesini değersizleştiriyor. Stok fazlan varsa bunu yeni tarihli, ayrı bir kampanyayla planla. Tarih metinde yazılıysa yeni tarih yeni bir metin demek. Bu not hukuki görüş değildir.\n\nKapanış da bir kurala bağlı olsun: 23.59'da fiyatlar kampanya öncesi fiyata dönsün, indirim etiketleri kalksın, kampanya reklamları dursun ve zamanlanmış kampanya e-postaları iptal edilsin. Ana banner ve pop-up en sık unutulan iki kalem.\n\nMüşteri bir sonraki kampanyaya, bu kampanyanın nasıl bittiğine bakarak inanıyor.\n\nKaydırınca karar sorularını, uzatma yerine ne yapılacağını ve kapanış kontrolünü göreceksin.\n\nYorumlara UZATMA yaz, kampanya kapanış kontrol listesini DM'den göndereyim.\n\n#siberpazartesi #eticaret #performanspazarlama #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "güvenni", "dogrusu": "güvenini", "paragraf": 2},
+  "dogrulama": ["Ticaret Bakanlığı Kasım indirim açıklaması (kampanya süresi)", "Ticari Reklam ve Haksız Ticari Uygulamalar Yönetmeliği"],
+  "senaryo": [
+    {"tts": "Son gün dedin ve satışlar iyi gidiyor. Uzatacak mısın?", "altyazi": "\"Son gün\" dedin ve satışlar iyi gidiyor. Uzatacak mısın?"},
+    {"tts": "Uzatmadan önce üç soru: son gün dedin mi, stok fazlası var mı, tarih metinde yazılı mı?", "altyazi": "Uzatmadan önce 3 soru: \"son gün\" dedin mi, stok fazlası var mı, tarih metinde yazılı mı?"},
+    {"tts": "Bir. Son gün dediysen uzatma. Güveni ve sonraki kampanyaları korur.", "altyazi": "1. \"Son gün\" dediysen uzatma. Güveni ve sonraki kampanyaları korur."},
+    {"tts": "İki. Stok fazlası için yeni tarihli, ayrı bir kampanya planla.", "altyazi": "2. Stok fazlası için yeni tarihli, ayrı bir kampanya planla."},
+    {"tts": "Üç. Kapanışı kurala bağla: fiyat, etiket, reklam ve e-posta aynı anda.", "altyazi": "3. Kapanışı kurala bağla: fiyat, etiket, reklam ve e-posta aynı anda."},
+    {"tts": "Banner ve pop-up'ı unutma. Bu hukuki görüş değildir.", "altyazi": "Banner ve pop-up'ı unutma. Hukuki görüş değildir."},
+    {"tts": "Kapanış listesini istiyorsan yorumlara uzatma yaz. Di emden göndereyim.", "altyazi": "Kapanış listesini istiyorsan yorumlara UZATMA yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Kampanya _Kapanış Kontrolü_", "kicker": "Kontrol listesi · Reklam · Kapanış",
+    "giris": "Duyurulan bitiş saatinde her şeyin aynı anda kapanması ve uzatma kararının dürüst verilmesi için. Hukuki görüş değildir.",
+    "bolumler": [
+      {"ad": "Karar", "renk": "ads", "maddeler": [["\"Son gün\" ifadesi", "Kullanıldıysa kampanya uzatılmaz."], ["Stok fazlası", "Yeni tarihli, ayrı kampanya planlanır."], ["Yeni metin", "Yeni tarih için metin yeniden yazılır."]]},
+      {"ad": "23.59", "renk": "ecom", "maddeler": [["Fiyat", "Kampanya öncesi fiyata döner."], ["Etiket", "İndirim ifadeleri kalkar."], ["Reklam", "Kampanya reklamları durur."], ["E-posta", "Zamanlanmış kampanya iletileri iptal edilir."], ["Banner ve pop-up", "En sık unutulan iki kalem."]]},
+      {"ad": "Ertesi gün", "renk": "seo", "maddeler": [["Teşekkür", "Sabah kısa teşekkür ve sipariş durumu."], ["Analiz", "Öğleden sonra kampanya analizi."]]}
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+ "id": "2026-12-06-kasim-dersleri",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Kasım bitti. Notları şimdi yazmazsan gelecek Kasım aynı hataları yaşarsın.",
+   "altyazi": "Kasım bitti. Notları şimdi yazmazsan gelecek Kasım aynı hataları yaşarsın."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Beş ders: rapor kasa değil, operasyon önce, metin denetlenir, yapay zekâ taslak yazar, kâr ciro değil.",
+   "altyazi": "5 ders: rapor kasa değil, operasyon önce, metin denetlenir, AI taslak yazar, kâr ciro değil."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Her ders bir kararla bitsin. Kargo yoğundu değil, yedek firma bir Kasım'da.",
+   "altyazi": "1. Her ders bir kararla bitsin. \"Kargo yoğundu\" değil, \"yedek firma 1 Kasım'da\"."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Kırk beş dakikalık ders toplantısı. Herkes bir ders getirir.",
+   "altyazi": "2. 45 dakikalık ders toplantısı. Herkes bir ders getirir."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Kişiyi değil süreci konuş. Boşluğa bir kural, kurala bir sahip.",
+   "altyazi": "3. Kişiyi değil süreci konuş. Boşluğa bir kural, kurala bir sahip."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Sonuçları kampanya el kitabına topla.",
+   "altyazi": "Sonuçları kampanya el kitabına topla."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "El kitabı şablonunu istiyorsan yorumlara ders yaz. Di emden göndereyim.",
+   "altyazi": "El kitabı şablonunu istiyorsan yorumlara DERS yaz. DM'den göndereyim."
+  }
+ ]
+}

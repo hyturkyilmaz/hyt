@@ -1,0 +1,48 @@
+{
+ "id": "2026-12-10-ajan-rutin",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Her hafta yaptığın üç işi yapay zekâya devret, pazartesi sabahını geri al.",
+   "altyazi": "Her hafta yaptığın 3 işi AI'a devret, pazartesi sabahını geri al."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Haftalık rapor, yorum ve DM özeti, fiyat ve etiket kontrolü.",
+   "altyazi": "Haftalık rapor, yorum ve DM özeti, fiyat ve etiket kontrolü."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Her hafta aynı veri, aynı kayıtlı prompt. Çıktılar karşılaştırılabilir olur.",
+   "altyazi": "1. Her hafta aynı veri, aynı kayıtlı prompt. Çıktılar karşılaştırılabilir olur."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Modele kişisel veri gitmez, veride olmayan sayı istenmez.",
+   "altyazi": "2. Modele kişisel veri gitmez, veride olmayan sayı istenmez."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Yapay zekâ hazırlar, kararı sen verirsin. Hata varsa prompt'u güncelle.",
+   "altyazi": "3. AI hazırlar, kararı sen verirsin. Hata varsa prompt'u güncelle."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Örnek: üç saatlik iş kırk dakikalık okumaya iniyor.",
+   "altyazi": "Örnek: 3 saatlik iş 40 dakikalık okumaya iniyor."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Prompt setini istiyorsan yorumlara rutin yaz. Di emden göndereyim.",
+   "altyazi": "Prompt setini istiyorsan yorumlara RUTİN yaz. DM'den göndereyim."
+  }
+ ]
+}

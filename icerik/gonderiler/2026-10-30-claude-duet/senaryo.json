@@ -1,0 +1,48 @@
+{
+ "id": "2026-10-30-claude-duet",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Klod artık sen yokken de çalışıyor. Ama önce sana soruyor.",
+   "altyazi": "Claude artık sen yokken de çalışıyor. Ama önce sana soruyor."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Bağlı uygulamalardaki önemli işleri buluyor, sabah özet çıkarıyor, yapmadan önce onay istiyor.",
+   "altyazi": "Bağlı uygulamalardaki önemli işleri buluyor, sabah özet çıkarıyor, yapmadan önce onay istiyor."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Mesaj göndermek, ödeme, imza ve silme senin onayın olmadan yapılmıyor.",
+   "altyazi": "Mesaj göndermek, ödeme, imza ve silme senin onayın olmadan yapılmıyor."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Bir. Devredeceğin işi tarif et. Neyin acil olduğunu ajana sen öğret.",
+   "altyazi": "1. Devredeceğin işi tarif et. Neyin acil olduğunu ajana sen öğret."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. Sabah özeti öncelik sırasıyla gelsin, gelen kutusu kalabalığıyla değil.",
+   "altyazi": "2. Sabah özeti öncelik sırasıyla gelsin, gelen kutusu kalabalığıyla değil."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Bir pazarlama ekibi için sabah: üç öncelikli iş, ikisinin taslağı hazır.",
+   "altyazi": "Bir pazarlama ekibi için sabah: 3 öncelikli iş, ikisinin taslağı hazır."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Devir şablonunu istiyorsan yorumlara düet yaz. Di emden göndereyim.",
+   "altyazi": "Devir şablonunu istiyorsan yorumlara DUET yaz. DM'den göndereyim."
+  }
+ ]
+}

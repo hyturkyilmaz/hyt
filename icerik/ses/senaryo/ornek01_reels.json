@@ -1,0 +1,50 @@
+{
+  "id": "ornek01_reels",
+  "baslik": "Amazon satıcı panelini Claude'a açtı",
+  "dil": "tr",
+  "not": "tts alanı seslendirme içindir (okunuşa göre yazıldı). altyazi alanı ekranda görünen metindir.",
+  "bolumler": [
+    {
+      "id": "01",
+      "slayt": "slayt-01",
+      "tts": "Amazon, satıcı panelini Klod'a açtı. Türkiye'de satış yapıyorsan, bu hafta başlaman gereken üç hazırlık var.",
+      "altyazi": "Amazon, satıcı panelini Claude'a açtı. Türkiye'de satış yapıyorsan, bu hafta başlaman gereken 3 hazırlık var."
+    },
+    {
+      "id": "02",
+      "slayt": "slayt-02",
+      "tts": "Artık menü menü gezmiyorsun. Stokta beşin altına düşen ürünleri göster diyorsun, tablo önüne geliyor. Sen onaylamadan hiçbir şey değişmiyor.",
+      "altyazi": "Artık menü menü gezmiyorsun. \"Stokta 5'in altına düşen ürünleri göster\" diyorsun, tablo önüne geliyor. Sen onaylamadan hiçbir şey değişmiyor."
+    },
+    {
+      "id": "03",
+      "slayt": "slayt-03",
+      "tts": "Akış şöyle. Sen yazıyorsun, Klod planlıyor, mağaza verisine bakıyor. Son kararı yine sen veriyorsun.",
+      "altyazi": "Akış şöyle. Sen yazıyorsun, Claude planlıyor, mağaza verisine bakıyor. Son kararı yine sen veriyorsun."
+    },
+    {
+      "id": "04",
+      "slayt": "slayt-04",
+      "tts": "Bir. Ürün verini tek dile çevir. Aynı ürün üç farklı adla kayıtlıysa, ajan onu üç ayrı ürün sanır.",
+      "altyazi": "1. Ürün verini tek dile çevir. Aynı ürün üç farklı adla kayıtlıysa, ajan onu üç ayrı ürün sanır."
+    },
+    {
+      "id": "05",
+      "slayt": "slayt-05",
+      "tts": "İki. Kafandaki kuralı yazıya dök. Ajan sezgiyi değil, kuralı uygular.",
+      "altyazi": "2. Kafandaki kuralı yazıya dök. Ajan sezgiyi değil, kuralı uygular."
+    },
+    {
+      "id": "06",
+      "slayt": "slayt-06",
+      "tts": "Üç. Onay zincirini şimdiden kur. Kim, neyi, hangi sınıra kadar onaylıyor, belli olsun.",
+      "altyazi": "3. Onay zincirini şimdiden kur. Kim, neyi, hangi sınıra kadar onaylıyor, belli olsun."
+    },
+    {
+      "id": "07",
+      "slayt": "slayt-07",
+      "tts": "Kontrol listesini istiyorsan, yorumlara ajan yaz. Di emden göndereyim.",
+      "altyazi": "Kontrol listesini istiyorsan yorumlara AJAN yaz. DM'den göndereyim."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-11-meta-piksel",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Yarından itibaren Meta daha çok satış sayacak. Ama kasana daha çok para girmeyebilir.",
+   "altyazi": "Yarından itibaren Meta daha çok satış sayacak. Ama kasana daha çok para girmeyebilir."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "On iki Kasım'dan itibaren eşleşme telefonda yapılıyor. Ayar varsayılan olarak açık geliyor.",
+   "altyazi": "12 Kasım'dan itibaren eşleşme telefonda yapılıyor. Ayar varsayılan olarak açık geliyor."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Bugün dört rakamı kaydet: Meta satın alma, gerçek sipariş, Ce a dört ve oran.",
+   "altyazi": "1. Bugün 4 rakamı kaydet: Meta satın alma, gerçek sipariş, GA4 ve oran."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Örnek: gerçek sipariş yüz, Meta raporu yetmiş ikiden seksen sekize çıkıyor.",
+   "altyazi": "Örnek: gerçek sipariş 100, Meta raporu 72'den 88'e çıkıyor."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. Ayarı Events Manager'da bul, kararını yaz ve tarihini kaydet.",
+   "altyazi": "2. Ayarı Events Manager'da bul, kararını yaz ve tarihini kaydet."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Oranı her hafta izle, bütçe kararını gerçek siparişe göre ver.",
+   "altyazi": "3. Oranı her hafta izle, bütçe kararını gerçek siparişe göre ver."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Baz çizgisi tablosunu istiyorsan yorumlara piksel yaz. Di emden göndereyim.",
+   "altyazi": "Baz çizgisi tablosunu istiyorsan yorumlara PIKSEL yaz. DM'den göndereyim."
+  }
+ ]
+}

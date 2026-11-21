@@ -1,0 +1,48 @@
+{
+ "id": "2026-12-08-ga4-bakim",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Yeni yıla temiz verilerle gir. Ce a dört'te otuz dakikalık bakım.",
+   "altyazi": "Yeni yıla temiz verilerle gir. GA4'te 30 dakikalık bakım."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Bir. Veri saklama süresini on dört aya çıkar. Değişiklik geçmişe dönük çalışmaz, bugün yap.",
+   "altyazi": "1. Veri saklama süresini 14 aya çıkar. Değişiklik geçmişe dönük çalışmaz, bugün yap."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "İki. Anahtar olayları sadeleştir: satın alma, form, WhatsApp tıklaması.",
+   "altyazi": "2. Anahtar olayları sadeleştir: satın alma, form, WhatsApp tıklaması."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Üç. Yapay zekâ asistan trafiğini ayrı kanalda topla, iç trafiği filtrele.",
+   "altyazi": "3. AI asistan trafiğini ayrı kanalda topla, iç trafiği filtrele."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Meta Pixel baz çizgisini aynı tabloya ekle.",
+   "altyazi": "Meta Pixel baz çizgisini aynı tabloya ekle."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Her değişikliği tarihiyle günlüğe yaz.",
+   "altyazi": "Her değişikliği tarihiyle günlüğe yaz."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Bakım listesini istiyorsan yorumlara ölçüm yaz. Di emden göndereyim.",
+   "altyazi": "Bakım listesini istiyorsan yorumlara ÖLÇÜM yaz. DM'den göndereyim."
+  }
+ ]
+}

@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-20-gorsel-video",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Ürün fotoğrafın artık birkaç dakikada videoya dönüşüyor. Kontrol ise sende kalmalı.",
+   "altyazi": "Ürün fotoğrafın artık birkaç dakikada videoya dönüşüyor. Kontrol ise sende kalmalı."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Meta, tek görselden yakınlaşma ve kaydırmayla kısa video üretiyor.",
+   "altyazi": "Meta, tek görselden yakınlaşma ve kaydırmayla kısa video üretiyor."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Ev ve aksesuarda işe yarar. Lüks ve teknik üründe dikkatli ol.",
+   "altyazi": "1. Ev ve aksesuarda işe yarar. Lüks ve teknik üründe dikkatli ol."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Önizlemeyi her yerleşimde izle. Renk, logo ve fiyat aynı mı?",
+   "altyazi": "2. Önizlemeyi her yerleşimde izle. Renk, logo ve fiyat aynı mı?"
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Tek hata görürsen o reklamda animasyonu kapat.",
+   "altyazi": "3. Tek hata görürsen o reklamda animasyonu kapat."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Statik ve animasyonlu kreatifi aynı bütçeyle test et, sonuca göre karar ver.",
+   "altyazi": "Statik ve animasyonlu kreatifi aynı bütçeyle test et, sonuca göre karar ver."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Kontrol listesini istiyorsan yorumlara video yaz. Di emden göndereyim.",
+   "altyazi": "Kontrol listesini istiyorsan yorumlara VIDEO yaz. DM'den göndereyim."
+  }
+ ]
+}
