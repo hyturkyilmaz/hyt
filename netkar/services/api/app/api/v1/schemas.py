@@ -1,0 +1,246 @@
+"""İstek ve yanıt şemaları."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Annotated
+from uuid import UUID
+
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    EmailStr,
+    Field,
+    SecretStr,
+    StringConstraints,
+)
+
+from app.core.security import PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH
+from app.services.legal import DocType
+
+
+def _normalize_email(value: str) -> str:
+    return value.strip().lower()
+
+
+NormalizedEmail = Annotated[EmailStr, StringConstraints(max_length=254), AfterValidator(_normalize_email)]
+NewPassword = Annotated[
+    str, StringConstraints(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
+]
+LoginPassword = Annotated[str, StringConstraints(min_length=1, max_length=PASSWORD_MAX_LENGTH)]
+
+
+def _must_be_true(value: bool) -> bool:
+    if value is not True:
+        raise ValueError("açık onay (true) gerekli")
+    return value
+
+
+# Yalnız JSON `true` (1, "true" gibi dönüştürülen değerler ve false reddedilir).
+StrictTrue = Annotated[bool, Field(strict=True), AfterValidator(_must_be_true)]
+TotpCode = Annotated[str, StringConstraints(pattern=r"^\d{6}$")]
+
+
+class _Strict(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class RegisterRequest(_Strict):
+    email: NormalizedEmail
+    password: NewPassword
+    tenant_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    # Açık onay kutuları: yalnız `true` kabul edilir (eksik ya da false 422). Kullanım koşulları onayı sözleşme
+    # kabulüdür; aydınlatma "okudum" bilgisidir ve KVKK açık rızası DEĞİLDİR (pazarlama izni ayrı, burada yok).
+    accept_terms: StrictTrue
+    acknowledge_privacy_notice: StrictTrue
+    # Kullanıcının GÖRDÜĞÜ sürümler (GET /v1/legal/current); güncel değilse 409 legal-version-stale.
+    terms_version: Annotated[str, StringConstraints(min_length=1, max_length=64)]
+    privacy_notice_version: Annotated[str, StringConstraints(min_length=1, max_length=64)]
+
+
+class LoginRequest(_Strict):
+    email: NormalizedEmail
+    password: LoginPassword
+
+
+class TotpCodeRequest(_Strict):
+    code: TotpCode
+
+
+# Giriş/yeniden doğrulama kodu: 6 haneli TOTP ya da kurtarma kodu (12 karakter; tire/boşluk serbest).
+LoginCode = Annotated[str, StringConstraints(pattern=r"^(\d{6}|[A-Za-z0-9 \-]{12,20})$")]
+
+
+class LoginCodeRequest(_Strict):
+    code: LoginCode
+
+
+class ReauthRequest(_Strict):
+    """Yeniden kimlik doğrulama: güncel parola (MFA ayarı değişikliği, ASVS V2.5/V7.5)."""
+
+    password: LoginPassword
+
+
+class TotpEnableRequest(_Strict):
+    code: TotpCode
+    password: LoginPassword
+
+
+class TotpReauthRequest(_Strict):
+    """TOTP etkinken MFA değişikliği: güncel parola + güncel TOTP (ya da bir kurtarma) kodu."""
+
+    password: LoginPassword
+    code: LoginCode
+
+
+class RecoveryCodesRegenerateRequest(_Strict):
+    """Kurtarma kodu yenileme: parola + YALNIZ güncel TOTP kodu (kurtarma kodu kabul edilmez)."""
+
+    password: LoginPassword
+    code: TotpCode
+
+
+class RecoveryCodesResponse(BaseModel):
+    # Düz metin kodlar yalnız bu yanıtta, bir kez döner; sunucuda yalnız özeti saklanır.
+    recovery_codes: list[str]
+
+
+class PasswordResetRequest(_Strict):
+    email: NormalizedEmail
+
+
+class PasswordResetConfirm(_Strict):
+    token: Annotated[str, StringConstraints(min_length=20, max_length=200)]
+    new_password: NewPassword
+
+
+class EmailVerifyRequest(_Strict):
+    token: Annotated[str, StringConstraints(min_length=20, max_length=200)]
+
+
+class CsrfResponse(BaseModel):
+    csrf_token: str
+
+
+class StatusResponse(BaseModel):
+    status: str
+
+
+class TenantOut(BaseModel):
+    id: UUID
+    name: str
+    plan: str
+    status: str
+    trial_ends_at: datetime | None
+    currency: str
+    locale: str
+
+
+class LegalDocumentRef(_Strict):
+    """Belge türü + sürüm: kabul isteğinde kullanıcının gördüğü sürüm, yanıtta bekleyen/güncel sürüm."""
+
+    doc_type: DocType
+    version: Annotated[str, StringConstraints(min_length=1, max_length=64)]
+
+
+class LegalAcceptRequest(_Strict):
+    documents: Annotated[list[LegalDocumentRef], Field(min_length=1, max_length=2)]
+
+
+class LegalPendingOut(BaseModel):
+    doc_type: DocType
+    version: str
+    published_at: datetime
+
+
+class LegalStatus(BaseModel):
+    # Kabul edilmemiş güncel belge sürümleri (boşsa güncel).
+    pending: list[LegalPendingOut]
+    # Sunucu kabul edilene kadar yazma uçlarını 403 (terms-acceptance-required) ile kapatıyor mu.
+    enforced: bool
+
+
+class MeResponse(BaseModel):
+    user_id: UUID
+    email: str
+    role: str
+    totp_enabled: bool
+    # E-posta doğrulandı mı (doğrulanana dek mağaza bağlama ve veri yazma kapalıdır).
+    email_verified: bool
+    # Kullanılabilir kurtarma kodu sayısı (TOTP etkin değilse 0).
+    recovery_codes_remaining: int
+    # Belge sürümü yeniden kabul bilgisi (kullanım koşulları, aydınlatma metni).
+    legal: LegalStatus
+    tenant: TenantOut
+
+
+class TotpSetupResponse(BaseModel):
+    secret: str
+    otpauth_uri: str
+
+
+class MemberOut(BaseModel):
+    user_id: UUID
+    role: str
+    created_at: datetime
+
+
+class SessionOut(BaseModel):
+    id: UUID
+    user_id: UUID
+    created_at: datetime
+    last_seen_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+    current: bool
+
+
+class AuditOut(BaseModel):
+    id: int
+    user_id: UUID | None
+    action: str
+    target: str | None
+    created_at: datetime
+    meta: dict[str, object]
+
+
+def _seller_id_to_str(value: object) -> object:
+    """Satıcı kimliği JSON'da sayı olarak da gelebilir (Trendyol panelinde sayı gösterilir)."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    return value
+
+
+SellerId = Annotated[
+    str,
+    BeforeValidator(_seller_id_to_str),
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=18, pattern=r"^[1-9][0-9]*$"),
+]
+# Biçim (ASCII, boşluksuz) TrendyolCredentials içinde doğrulanır; burada yalnız boyut sınırı vardır.
+ApiSecretValue = Annotated[SecretStr, StringConstraints(min_length=8, max_length=256)]
+
+
+class MarketplaceAccountCreate(_Strict):
+    """Pazaryeri bağlantısı ekleme isteği. Sırlar SecretStr'dir: repr ve hata metinlerinde görünmez."""
+
+    seller_id: SellerId
+    api_key: ApiSecretValue
+    api_secret: ApiSecretValue
+
+
+class MarketplaceAccountOut(BaseModel):
+    """Maskeli bağlantı özeti. API anahtarı ve sırrı ASLA döndürülmez; yalnız son 4 hane."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    platform: str
+    seller_id: str
+    status: str
+    api_key_last4: str | None
+    last_validated_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    revoked_at: datetime | None

@@ -1,0 +1,19 @@
+{
+  "page": 0,
+  "size": 10,
+  "totalPages": 1,
+  "totalElements": 1,
+  "content": [
+    {
+      "id": 112360,
+      "status": "PAID",
+      "amount": 8754732.06,
+      "payoutDate": 1736460000000,
+      "paymentType": "PAYMENT",
+      "sellerId": 123456,
+      "regionId": 1,
+      "regionName": "Türkiye",
+      "regionCode": "TR"
+    }
+  ]
+}

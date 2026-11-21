@@ -1,0 +1,554 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { LoginForm } from '@/components/auth/login-form';
+import {
+  PasswordResetConfirmForm,
+  PasswordResetRequestForm,
+} from '@/components/auth/password-reset-forms';
+import { RegisterForm } from '@/components/auth/register-form';
+import { TwoFactorForm } from '@/components/auth/two-factor-form';
+
+const push = vi.fn();
+const replace = vi.fn();
+const refresh = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace, refresh }) }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+function mockFetch(status: number, body: unknown = {}) {
+  const fn = vi.fn(
+    async () => new Response(status === 204 ? null : JSON.stringify(body), { status }),
+  );
+  vi.stubGlobal('fetch', fn);
+  return fn;
+}
+
+const CURRENT_DOCS = [
+  { doc_type: 'privacy_notice', version: 'taslak-2026-11', published_at: '2026-11-01T00:00:00Z' },
+  { doc_type: 'terms', version: 'taslak-2026-11', published_at: '2026-11-01T00:00:00Z' },
+];
+
+/** Kayıt formu: GET /legal/current sürümleri verir, POST /auth/register verilen durumu döner. */
+function mockRegisterApi(status: number, body: unknown = {}, current: unknown = CURRENT_DOCS) {
+  const fn = vi.fn(async (url: string) =>
+    url.endsWith('/legal/current')
+      ? new Response(JSON.stringify(current), { status: 200 })
+      : new Response(status === 204 ? null : JSON.stringify(body), { status }),
+  );
+  vi.stubGlobal('fetch', fn);
+  return fn;
+}
+
+function registerCalls(fn: ReturnType<typeof vi.fn>) {
+  return fn.mock.calls.filter(([url]) => String(url).endsWith('/auth/register'));
+}
+
+function lastRequest(fn: ReturnType<typeof vi.fn>) {
+  const [url, init] = fn.mock.calls.at(-1) as unknown as [string, RequestInit];
+  return { url, init, body: JSON.parse(String(init.body)) as Record<string, unknown> };
+}
+
+beforeEach(() => {
+  push.mockReset();
+  replace.mockReset();
+  refresh.mockReset();
+  document.cookie = '__Host-nk_csrf=tok-test; path=/; Secure';
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  document.cookie = '__Host-nk_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; Secure';
+});
+
+describe('LoginForm', () => {
+  it('boş gönderimde Türkçe hata mesajlarını gösterir ve ağ çağrısı yapmaz', async () => {
+    const fetchMock = mockFetch(200);
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+
+    expect(await screen.findByText('E-posta adresinizi yazın.')).toBeInTheDocument();
+    expect(screen.getByText('Parolanızı yazın.')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('E-posta')).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('etiketler alanlara bağlıdır ve hata açıklaması aria-describedby ile bağlanır', async () => {
+    const user = userEvent.setup();
+    render(<LoginForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'gecersiz');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+    const email = screen.getByLabelText('E-posta');
+    await waitFor(() => expect(email).toHaveAttribute('aria-invalid', 'true'));
+    const describedBy = email.getAttribute('aria-describedby') ?? '';
+    const message = describedBy
+      .split(' ')
+      .map((id) => document.getElementById(id))
+      .find((node) => node?.textContent?.includes('Geçerli bir e-posta'));
+    expect(message).toBeTruthy();
+  });
+
+  it('parolayı göster/gizle düğmesi türü değiştirir', async () => {
+    const user = userEvent.setup();
+    render(<LoginForm />);
+    const input = screen.getByLabelText('Parola');
+    expect(input).toHaveAttribute('type', 'password');
+
+    await user.click(screen.getByRole('button', { name: 'Parolayı göster' }));
+    expect(input).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('button', { name: 'Parolayı gizle' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Parolayı gizle' }));
+    expect(input).toHaveAttribute('type', 'password');
+  });
+
+  it('geçerli girişte /api/v1/auth/login a CSRF başlığıyla gönderir ve panele yönlendirir', async () => {
+    const fetchMock = mockFetch(200, { status: 'ok' });
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.type(screen.getByLabelText('E-posta'), ' ad@ornek.com ');
+    await user.type(screen.getByLabelText('Parola'), 'gizli-parola');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/panel'));
+    expect(refresh).toHaveBeenCalled();
+    const { url, init, body } = lastRequest(fetchMock);
+    expect(url).toBe('/api/v1/auth/login');
+    expect(init.method).toBe('POST');
+    expect((init.headers as Headers).get('X-CSRF-Token')).toBe('tok-test');
+    expect(body).toEqual({ email: 'ad@ornek.com', password: 'gizli-parola' });
+  });
+
+  it('ikinci adım gerekiyorsa /iki-adim a yönlendirir', async () => {
+    mockFetch(200, { status: 'totp_required' });
+    const user = userEvent.setup();
+    render(<LoginForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'gizli-parola');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/iki-adim'));
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('sonra hedefini giriş sonrası kullanır ve ikinci adıma taşır', async () => {
+    mockFetch(200, { status: 'ok' });
+    const user = userEvent.setup();
+    const { unmount } = render(<LoginForm next="/panel/urunler" />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'gizli-parola');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/panel/urunler'));
+    unmount();
+
+    mockFetch(200, { status: 'totp_required' });
+    render(<LoginForm next="/panel/urunler" />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'gizli-parola');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/iki-adim?sonra=%2Fpanel%2Furunler'));
+  });
+
+  it('kayıttan gelindiğinde bilgi notu gösterir', () => {
+    render(<LoginForm registered />);
+    expect(screen.getByRole('status')).toHaveTextContent('Kaydınız alındı');
+  });
+
+  it('yükleniyor durumunda düğmeyi kilitler ve metni değiştirir', async () => {
+    let release: (response: Response) => void = () => {};
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise<Response>((resolve) => (release = resolve))),
+    );
+    const user = userEvent.setup();
+    render(<LoginForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'gizli-parola');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+
+    const busy = await screen.findByRole('button', { name: 'Giriş yapılıyor' });
+    expect(busy).toBeDisabled();
+    release(new Response('{"status":"ok"}', { status: 200 }));
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+  });
+
+  it('401 yanıtında hesap var mı yok mu belli etmeyen tek mesaj gösterir', async () => {
+    mockFetch(401, { detail: 'Kullanıcı bulunamadı' });
+    const user = userEvent.setup();
+    render(<LoginForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'yanlis-parola');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+
+    const alert = await screen.findByText(
+      'E-posta veya parola hatalı. Kontrol edip tekrar deneyin.',
+    );
+    expect(alert.closest('[role="alert"]')).not.toBeNull();
+    expect(screen.queryByText(/bulunamadı/)).toBeNull();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('429 ve ağ hatasında anlaşılır mesaj gösterir', async () => {
+    mockFetch(429);
+    const user = userEvent.setup();
+    const { unmount } = render(<LoginForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'x');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+    expect(await screen.findByText(/Çok fazla deneme/)).toBeInTheDocument();
+    unmount();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Promise.reject(new TypeError('offline'))),
+    );
+    render(<LoginForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'x');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+    expect(await screen.findByText(/Sunucuya ulaşılamadı/)).toBeInTheDocument();
+  });
+});
+
+describe('RegisterForm', () => {
+  it('kısa parola ve koşul onayı eksikliğini bildirir', async () => {
+    const fetchMock = mockRegisterApi(200);
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'kisa');
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+
+    expect(await screen.findByText('Parola en az 12 karakter olmalı.')).toBeInTheDocument();
+    expect(screen.getByText('İşletme veya mağaza adınızı yazın.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Devam etmek için kullanım koşullarını kabul etmelisiniz.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Devam etmek için aydınlatma metnini okuduğunuzu işaretleyin.'),
+    ).toBeInTheDocument();
+    expect(registerCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it('geçerli girdiyi API şemasıyla gönderir ve girişe yönlendirir', async () => {
+    const fetchMock = mockRegisterApi(202, { status: 'accepted' });
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), '  Örnek Mağaza ');
+    await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
+    await user.click(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ }));
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/giris?kayit=1'));
+    const { url, body } = lastRequest(fetchMock);
+    expect(url).toBe('/api/v1/auth/register');
+    // Backend gövdesi extra="forbid": yalnız API'nin bildiği alanlar (iki açık onay dahil) gider.
+    expect(body).toEqual({
+      email: 'ad@ornek.com',
+      password: 'uzun bir parola cümlesi',
+      tenant_name: 'Örnek Mağaza',
+      terms_version: 'taslak-2026-11',
+      privacy_notice_version: 'taslak-2026-11',
+      accept_terms: true,
+      acknowledge_privacy_notice: true,
+    });
+  });
+
+  it('sızmış parola (422 weak-password) için anlaşılır mesaj gösterir', async () => {
+    mockRegisterApi(422, { type: 'urn:netkar:problem:weak-password', status: 422 });
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
+    await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
+    await user.click(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ }));
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+    expect(await screen.findByText(/veri sızıntılarında görülmüş/)).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('iki onay kutusu ayrı, zorunlu ve açıklamalıdır; biri eksikse istek gitmez', async () => {
+    const fetchMock = mockRegisterApi(202, { status: 'accepted' });
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    const terms = screen.getByRole('checkbox', { name: /Kullanım koşullarını/ });
+    const privacy = screen.getByRole('checkbox', { name: /Aydınlatma metnini/ });
+    expect(terms).toHaveAttribute('aria-required', 'true');
+    expect(privacy).toHaveAttribute('aria-required', 'true');
+    // Bağlantılar yeni sekmede açılır ve bu görünür metinle söylenir; sürüm sayfaları var olan yollardır.
+    expect(screen.getByRole('link', { name: 'Kullanım koşullarını' })).toHaveAttribute(
+      'href',
+      '/kullanim-kosullari',
+    );
+    expect(screen.getByRole('link', { name: 'Aydınlatma metnini' })).toHaveAttribute(
+      'href',
+      '/kvkk-aydinlatma-metni',
+    );
+    expect(
+      await screen.findAllByText(/\(yeni sekmede açılır; sürüm taslak-2026-11\)/),
+    ).toHaveLength(2);
+    // Aydınlatma açık rıza değildir: açıklama bunu söyler ve "kabul ediyorum" ifadesi kullanılmaz.
+    expect(screen.getByText(/açık rıza yerine geçmez/)).toBeInTheDocument();
+    expect(privacy.closest('div')).not.toHaveTextContent('kabul ediyorum');
+
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
+    await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
+    await user.click(terms);
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+    expect(
+      await screen.findByText('Devam etmek için aydınlatma metnini okuduğunuzu işaretleyin.'),
+    ).toBeInTheDocument();
+    expect(privacy).toHaveAccessibleDescription(/açık rıza yerine geçmez/);
+    expect(registerCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it('sürüm yarışı: 409 legal-version-stale kutuları sıfırlar, yeni sürümü alır ve yönlendirmez', async () => {
+    const fn = mockRegisterApi(409, {
+      type: 'urn:netkar:problem:legal-version-stale',
+      status: 409,
+    });
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
+    await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
+    await user.click(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ }));
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+
+    expect(await screen.findByText(/güncellendi. Güncel sürümleri okuyup/)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ })).not.toBeChecked();
+    expect(push).not.toHaveBeenCalled();
+    const currentCalls = fn.mock.calls.filter(([url]) =>
+      String(url).endsWith('/legal/current'),
+    ) as unknown as [string, RequestInit | undefined][];
+    expect(currentCalls.length).toBeGreaterThanOrEqual(2); // açılışta ve 409 sonrası yeniden
+    // Bayat tarayıcı önbelleği 409 döngüsü yaratmasın: yeniden çekme no-store ile gider, ilk çekme normal.
+    expect(currentCalls[0]?.[1]?.cache).toBeUndefined();
+    expect(currentCalls.at(-1)?.[1]?.cache).toBe('no-store');
+  });
+
+  it('sürümler alınamazsa kayıt isteği gönderilmez ve neden söylenir', async () => {
+    const fn = mockRegisterApi(202, { status: 'accepted' }, { not: 'list' });
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    expect(await screen.findByText(/Belge sürümleri alınamadı/)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
+    await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
+    await user.click(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ }));
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+    await waitFor(() =>
+      expect(screen.getAllByText(/Belge sürümleri alınamadı/).length).toBeGreaterThan(0),
+    );
+    expect(fn.mock.calls.some(([url]) => String(url).endsWith('/auth/register'))).toBe(false);
+  });
+
+  it('beklenmeyen hatada genel mesaj gösterir', async () => {
+    mockRegisterApi(400);
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('İşletme veya mağaza adı'), 'Örnek Mağaza');
+    await user.type(screen.getByLabelText('Parola'), 'uzun bir parola cümlesi');
+    await user.click(screen.getByRole('checkbox', { name: /Kullanım koşullarını/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Aydınlatma metnini/ }));
+    await user.click(screen.getByRole('button', { name: 'Hesap oluştur' }));
+    expect(await screen.findByText(/Kayıt tamamlanamadı/)).toBeInTheDocument();
+  });
+});
+
+describe('TwoFactorForm', () => {
+  it('rakam dışı kodu reddeder, geçerli kodu gönderir', async () => {
+    const fetchMock = mockFetch(200);
+    const user = userEvent.setup();
+    render(<TwoFactorForm />);
+    const input = screen.getByLabelText('Doğrulama kodu');
+    expect(input).toHaveAttribute('autocomplete', 'one-time-code');
+    expect(input).toHaveAttribute('inputmode', 'numeric');
+
+    await user.type(input, '12ab');
+    await user.click(screen.getByRole('button', { name: 'Doğrula' }));
+    expect(
+      await screen.findByText('Kod 6 haneli olmalı ve yalnız rakam içermeli.'),
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.clear(input);
+    await user.type(input, '123456');
+    await user.click(screen.getByRole('button', { name: 'Doğrula' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/panel'));
+    const { url, body } = lastRequest(fetchMock);
+    expect(url).toBe('/api/v1/auth/totp/verify');
+    expect(body).toEqual({ code: '123456' });
+  });
+
+  it('hatalı kodda mesaj gösterir', async () => {
+    mockFetch(401, { type: 'urn:netkar:problem:invalid-code', status: 401 });
+    const user = userEvent.setup();
+    render(<TwoFactorForm />);
+    await user.type(screen.getByLabelText('Doğrulama kodu'), '000000');
+    await user.click(screen.getByRole('button', { name: 'Doğrula' }));
+    expect(await screen.findByText(/Kod hatalı/)).toBeInTheDocument();
+  });
+
+  it('bekleyen giriş çerezi dolmuşsa (401 unauthorized) girişe dönmeyi söyler', async () => {
+    mockFetch(401, { type: 'urn:netkar:problem:unauthorized', status: 401 });
+    const user = userEvent.setup();
+    render(<TwoFactorForm />);
+    await user.type(screen.getByLabelText('Doğrulama kodu'), '000000');
+    await user.click(screen.getByRole('button', { name: 'Doğrula' }));
+    expect(await screen.findByText(/Doğrulama süresi doldu/)).toBeInTheDocument();
+  });
+
+  it('sonra hedefine yönlendirir', async () => {
+    mockFetch(200, { status: 'ok' });
+    const user = userEvent.setup();
+    render(<TwoFactorForm next="/panel/ayarlar" />);
+    await user.type(screen.getByLabelText('Doğrulama kodu'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Doğrula' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/panel/ayarlar'));
+  });
+});
+
+describe('TwoFactorForm: kurtarma kodu', () => {
+  async function openRecovery(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: 'Kurtarma kodu kullan' }));
+    return screen.getByLabelText('Kurtarma kodu');
+  }
+
+  it('"kurtarma kodu kullan" seçeneği biçimi doğrular ve kodu aynı uca gönderir', async () => {
+    const fetchMock = mockFetch(200, { status: 'ok' });
+    const user = userEvent.setup();
+    render(<TwoFactorForm next="/panel/ayarlar" />);
+    const input = await openRecovery(user);
+    expect(input).toHaveAttribute('autocomplete', 'off');
+    expect(screen.getByRole('heading', { name: 'Kurtarma kodu ile giriş' })).toBeInTheDocument();
+
+    await user.type(input, 'ABCD-12');
+    await user.click(screen.getByRole('button', { name: 'Kodu doğrula' }));
+    expect(await screen.findByText(/Kurtarma kodu 12 karakterdir/)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.clear(input);
+    await user.type(input, 'abcd-efgh-jk2m');
+    await user.click(screen.getByRole('button', { name: 'Kodu doğrula' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/panel/ayarlar'));
+    const { url, body } = lastRequest(fetchMock);
+    expect(url).toBe('/api/v1/auth/totp/verify');
+    expect(body).toEqual({ code: 'abcd-efgh-jk2m' });
+  });
+
+  it('kullanılmış ya da yanlış kodda hata gösterir ve TOTP moduna dönülebilir', async () => {
+    mockFetch(401, { type: 'urn:netkar:problem:invalid-code', status: 401 });
+    const user = userEvent.setup();
+    render(<TwoFactorForm />);
+    const input = await openRecovery(user);
+    await user.type(input, 'ABCD-EFGH-JK2M');
+    await user.click(screen.getByRole('button', { name: 'Kodu doğrula' }));
+    expect(await screen.findByText(/daha önce kullanılmış/)).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Doğrulama uygulaması kodu kullan' }));
+    expect(screen.getByLabelText('Doğrulama kodu')).toBeInTheDocument();
+  });
+
+  it('kilitliyken (429 totp-locked) bekleme süresini söyler', async () => {
+    const fn = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ type: 'urn:netkar:problem:totp-locked', status: 429 }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/problem+json', 'Retry-After': '840' },
+        }),
+    );
+    vi.stubGlobal('fetch', fn);
+    const user = userEvent.setup();
+    render(<TwoFactorForm />);
+    const input = await openRecovery(user);
+    await user.type(input, 'ABCD-EFGH-JK2M');
+    await user.click(screen.getByRole('button', { name: 'Kodu doğrula' }));
+    expect(await screen.findByText(/14 dakika/)).toBeInTheDocument();
+  });
+});
+
+describe('Giriş akışı: adres çubuğundaki token (B)', () => {
+  const next = '/e-posta-dogrula?token=GIZLI_TOKEN_DEGERI_1234567890';
+
+  afterEach(() => window.history.replaceState(null, '', '/'));
+
+  it('LoginForm token taşıyan sonra parametresini adresten siler, hedef korunur', async () => {
+    window.history.pushState(null, '', `/giris?sonra=${encodeURIComponent(next)}`);
+    const fetchMock = mockFetch(200, { status: 'ok' });
+    const user = userEvent.setup();
+    render(<LoginForm next={next} />);
+    await waitFor(() => expect(window.location.href).not.toContain('GIZLI_TOKEN'));
+    expect(window.location.pathname).toBe('/giris');
+
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.type(screen.getByLabelText('Parola'), 'dogru-at-pil-kalem-42');
+    await user.click(screen.getByRole('button', { name: 'Giriş yap' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(next));
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it('TwoFactorForm de aynı şekilde adresi temizler', async () => {
+    window.history.pushState(null, '', `/iki-adim?sonra=${encodeURIComponent(next)}`);
+    render(<TwoFactorForm next={next} />);
+    await waitFor(() => expect(window.location.href).not.toContain('GIZLI_TOKEN'));
+  });
+
+  it('token taşımayan sonra parametresine dokunmaz', async () => {
+    window.history.pushState(null, '', '/giris?sonra=%2Fpanel%2Furunler');
+    render(<LoginForm next="/panel/urunler" />);
+    await waitFor(() => expect(screen.getByLabelText('E-posta')).toBeInTheDocument());
+    expect(window.location.search).toBe('?sonra=%2Fpanel%2Furunler');
+  });
+});
+
+describe('Parola sıfırlama', () => {
+  it('e-posta isteğinden sonra hesap sızdırmayan onay gösterir', async () => {
+    const fetchMock = mockFetch(202);
+    const user = userEvent.setup();
+    render(<PasswordResetRequestForm />);
+    await user.type(screen.getByLabelText('E-posta'), 'ad@ornek.com');
+    await user.click(screen.getByRole('button', { name: 'Bağlantı gönder' }));
+
+    expect(await screen.findByText(/adresi kayıtlıysa/)).toBeInTheDocument();
+    expect(lastRequest(fetchMock).url).toBe('/api/v1/auth/password-reset/request');
+  });
+
+  it('yeni parolayı token ile gönderir ve girişe yönlendirir', async () => {
+    const fetchMock = mockFetch(204);
+    const user = userEvent.setup();
+    render(<PasswordResetConfirmForm token="abcdefghijklmnop1234" />);
+    await user.type(screen.getByLabelText('Yeni parola'), 'yeni uzun parola cümlesi');
+    await user.click(screen.getByRole('button', { name: 'Parolayı güncelle' }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/giris'));
+    const { url, body } = lastRequest(fetchMock);
+    expect(url).toBe('/api/v1/auth/password-reset/confirm');
+    expect(body).toEqual({
+      token: 'abcdefghijklmnop1234',
+      new_password: 'yeni uzun parola cümlesi',
+    });
+  });
+
+  it('süresi dolmuş bağlantıda açıklayıcı mesaj gösterir', async () => {
+    mockFetch(400, { type: 'urn:netkar:problem:invalid-reset-token', status: 400 });
+    const user = userEvent.setup();
+    render(<PasswordResetConfirmForm token="abcdefghijklmnop1234" />);
+    await user.type(screen.getByLabelText('Yeni parola'), 'yeni uzun parola cümlesi');
+    await user.click(screen.getByRole('button', { name: 'Parolayı güncelle' }));
+    expect(await screen.findByText(/süresi dolmuş veya daha önce kullanılmış/)).toBeInTheDocument();
+  });
+});

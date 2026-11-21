@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+# Yerel ortam ve sırlar
+.env
+infra/.env
+services/api/var/
+# Node
+node_modules/
+.next/
+
+# Trendyol resmi doküman sayfalarının yerel kopyası (yalnız geliştirme referansı; repoya alınmaz)
+docs/research/trendyol_docs_ham/

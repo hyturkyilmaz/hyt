@@ -1,0 +1,74 @@
+{
+  "totalElements": 1,
+  "totalPages": 1,
+  "page": 0,
+  "size": 200,
+  "content": [
+    {
+      "id": "f9da2317-876b-4b86-b8f7-0535c3b65731",
+      "claimId": "f9da2317-876b-4b86-b8f7-0535c3b65731",
+      "channelId": 1,
+      "orderNumber": "65745805",
+      "orderDate": 1524826343886,
+      "customerFirstName": "SahteAd",
+      "customerLastName": "SahteSoyad",
+      "claimDate": 1525844162827,
+      "cargoTrackingNumber": 72602420957047272632,
+      "cargoProviderName": "Aras Kargo Marketplace",
+      "orderShipmentPackageId": 3853354,
+      "rejectedPackageInfo": {
+        "packageId": 92248304,
+        "cargoProviderName": "ARAS",
+        "shipmentAddress": {
+          "address1": "SahteMahalle SahteSokak No 1",
+          "address2": "x",
+          "city": "Test",
+          "district": ""
+        }
+      },
+      "items": [
+        {
+          "orderLine": {
+            "id": 28717254,
+            "productName": "Sahte Sandalet",
+            "barcode": "99999999999",
+            "merchantSku": "2083667",
+            "price": 12.95,
+            "vatBaseAmount": 8,
+            "vatRate": 8,
+            "salesCampaignId": 183631,
+            "productCategory": "Sandalet"
+          },
+          "claimItems": [
+            {
+              "id": "b71461e3-d1a0-4c1d-9a6d-18ecbcb5158c",
+              "orderLineItemId": 29815493,
+              "customerClaimItemReason": {
+                "id": "451",
+                "name": "Diğer",
+                "externalReasonId": 23,
+                "code": "UNFIT"
+              },
+              "trendyolClaimItemReason": {
+                "id": "451",
+                "name": "Diğer",
+                "externalReasonId": 23,
+                "code": "UNFIT"
+              },
+              "claimItemStatus": {
+                "name": "Created"
+              },
+              "note": "Satıcı notu SahteNot",
+              "customerNote": "Müşteri notu SahteMusteriNotu 5550001122",
+              "resolved": false,
+              "autoAccepted": false,
+              "acceptedBySeller": true
+            }
+          ]
+        }
+      ],
+      "lastModifiedDate": 1723275767111,
+      "orderOutboundPackageId": 58835111
+    }
+  ]
+}

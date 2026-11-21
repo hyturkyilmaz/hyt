@@ -1,0 +1,153 @@
+{
+  "hasMore": false,
+  "nextCursor": null,
+  "size": 1,
+  "content": [
+    {
+      "shipmentAddress": {
+        "id": 11111111,
+        "firstName": "SahteAd",
+        "lastName": "SahteSoyad",
+        "company": "SahteSirketAdi",
+        "address1": "SahteMahalle SahteSokak No 1",
+        "address2": "SahteDaire 2",
+        "city": "İstanbul",
+        "cityCode": 34,
+        "district": "SahteIlce",
+        "districtId": 54,
+        "postalCode": "00000",
+        "countryCode": "TR",
+        "neighborhoodId": 21111,
+        "neighborhood": "SahteMahalle",
+        "phone": "5550001122",
+        "fullAddress": "SahteMahalle SahteSokak No 1 SahteIlce",
+        "fullName": "SahteAd SahteSoyad",
+        "latitude": "11.111111",
+        "longitude": "22.222222",
+        "taxOffice": "SahteVergiDairesi",
+        "taxNumber": "SahteVergiNo0001"
+      },
+      "orderNumber": "10654411112",
+      "paymentMethod": "Kredi Kartı",
+      "orderCountryCode": "TR",
+      "packageGrossAmount": 498.9,
+      "packageSellerDiscount": 0.0,
+      "packageTyDiscount": 0.0,
+      "packageTotalDiscount": 0.0,
+      "discountDisplays": [
+        {
+          "displayName": "Sepette %20 İndirim",
+          "discountAmount": 100
+        }
+      ],
+      "taxNumber": null,
+      "invoiceAddress": {
+        "id": 11111111,
+        "firstName": "SahteAd",
+        "lastName": "SahteSoyad",
+        "company": "SahteSirketAdi",
+        "address1": "SahteMahalle SahteSokak No 1",
+        "address2": "SahteDaire 2",
+        "city": "İstanbul",
+        "cityCode": 34,
+        "district": "SahteIlce",
+        "districtId": 54,
+        "postalCode": "00000",
+        "countryCode": "TR",
+        "neighborhoodId": 21111,
+        "neighborhood": "SahteMahalle",
+        "phone": "5550001122",
+        "fullAddress": "SahteMahalle SahteSokak No 1 SahteIlce",
+        "fullName": "SahteAd SahteSoyad",
+        "latitude": "11.111111",
+        "longitude": "22.222222",
+        "taxOffice": "SahteVergiDairesi",
+        "taxNumber": "SahteVergiNo0001"
+      },
+      "customerFirstName": "SahteAd",
+      "customerEmail": "sahte.kisi@example.invalid",
+      "customerId": 888888888,
+      "supplierId": 99999999,
+      "customerLastName": "SahteSoyad",
+      "channelId": 1,
+      "shipmentPackageId": 3330111112,
+      "cargoTrackingNumber": 7280027504111111,
+      "cargoTrackingLink": "https://tracking.example.invalid/?id=sahte",
+      "cargoSenderNumber": "210090111111",
+      "cargoProviderName": "Trendyol Express",
+      "lines": [
+        {
+          "quantity": 2,
+          "salesCampaignId": 11,
+          "productSize": "Tek Ebat",
+          "stockCode": "STK-111111",
+          "productName": "Örnek Tepsi Yeşil 49 cm",
+          "contentId": 1239111111,
+          "productOrigin": "TR",
+          "sellerId": 2738,
+          "lineGrossAmount": 249.45,
+          "lineTotalDiscount": 0.0,
+          "lineSellerDiscount": 0.0,
+          "lineTyDiscount": 0.0,
+          "discountDetails": [
+            {
+              "lineItemId": "11111111",
+              "lineItemPrice": 249.45,
+              "lineItemSellerDiscount": 0.0,
+              "lineItemTyDiscount": 0.0
+            },
+            {
+              "lineItemId": "11111112",
+              "lineItemPrice": 249.45,
+              "lineItemSellerDiscount": 0.0,
+              "lineItemTyDiscount": 0.0
+            }
+          ],
+          "currencyCode": "TRY",
+          "productColor": "Yeşil",
+          "lineId": 4765111111,
+          "vatRate": 20.0,
+          "barcode": "8683772071724",
+          "orderLineItemStatusName": "Delivered",
+          "lineUnitPrice": 249.45,
+          "fastDeliveryOptions": [],
+          "productCategoryId": 2710,
+          "commission": 13.5,
+          "businessUnit": "Sports Shoes",
+          "cancelledBy": "",
+          "cancelReason": "",
+          "cancelReasonCode": 0,
+          "defectiveClaimListingInsight": "Sahte uyarı metni"
+        }
+      ],
+      "orderDate": 1762253333685,
+      "identityNumber": "99999999990",
+      "currencyCode": "TRY",
+      "packageHistories": [
+        {
+          "createdDate": 1762242537624,
+          "status": "Created"
+        }
+      ],
+      "shipmentPackageStatus": "Delivered",
+      "status": "Delivered",
+      "whoPays": 1,
+      "deliveryType": "normal",
+      "packageTotalPrice": 498.9,
+      "deliveryAddressType": "Shipment",
+      "lastModifiedDate": 1762865408581,
+      "commercial": false,
+      "invoiceLink": "https://invoice.example.invalid/99999999990",
+      "micro": false,
+      "3pByTrendyol": false,
+      "cargoDeci": 10,
+      "boxQuantity": 4,
+      "deci": 4.4,
+      "isCod": false,
+      "createdBy": "order-creation",
+      "originPackageIds": null,
+      "shipmentNumber": 606404425,
+      "is4P": false
+    }
+  ]
+}
