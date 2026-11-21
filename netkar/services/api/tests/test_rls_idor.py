@@ -9,8 +9,10 @@ from typing import Any
 
 import psycopg
 import pytest
+from psycopg.types.json import Jsonb
 
 from tests.conftest import Api, DatabaseInfo
+from tests.product_cost_helpers import add_account
 
 TENANT_TABLES = ("memberships", "sessions", "audit_log")
 
@@ -260,3 +262,130 @@ def test_auth_gate_functions_are_security_definer_with_fixed_search_path(
     assert admin_conn.execute(
         "SELECT has_function_privilege('public', 'auth_gate.get_session(text)', 'EXECUTE')"
     ).fetchone() == (False,)
+
+
+# --------------------------------------------------------------------------- uyarı API'si (ADR-0009 D6, test 27)
+@dataclass
+class AlertWorld:
+    """İki kiracı, her birinin hesabı ve bir uyarı olayı (olay A'nın, B'nin kendi olayı da var)."""
+
+    a: Tenant
+    b: Tenant
+    account_a: str
+    account_b: str
+    event_a: str
+    event_b: str
+
+
+def _seed_event(conn: psycopg.Connection[Any], tenant: str, account: str, subject: str) -> str:
+    row = conn.execute(
+        "INSERT INTO alert_events (tenant_id, marketplace_account_id, rule, scope, subject, dedupe_key, "
+        "severity, payload, payload_version, data_revision, settings_revision) "
+        "VALUES (%s, %s, 'ZARARINA_SATIS', 'product', %s, md5(%s) || md5(%s), 'high', %s, 1, 0, 0) RETURNING id",
+        (tenant, account, subject, subject, tenant, Jsonb({"loss_line_count": 1})),
+    ).fetchone()
+    assert row is not None
+    return str(row[0])
+
+
+@pytest.fixture
+def alert_world(two_tenants: tuple[Tenant, Tenant], admin_conn: psycopg.Connection[Any]) -> AlertWorld:
+    from uuid import UUID
+
+    a, b = two_tenants
+    account_a = str(add_account(admin_conn, UUID(a.tenant_id), UUID(a.user_id), "2738"))
+    account_b = str(add_account(admin_conn, UUID(b.tenant_id), UUID(b.user_id), "9999"))
+    return AlertWorld(
+        a,
+        b,
+        account_a,
+        account_b,
+        _seed_event(admin_conn, a.tenant_id, account_a, "urun:A-1"),
+        _seed_event(admin_conn, b.tenant_id, account_b, "urun:B-1"),
+    )
+
+
+def test_alert_event_ids_of_other_tenant_or_account_are_404_not_403(alert_world: AlertWorld) -> None:
+    w = alert_world
+    base_a = f"/v1/marketplace-accounts/{w.account_a}"
+    base_b = f"/v1/marketplace-accounts/{w.account_b}"
+    # B oturumu, A'nın hesabı ve olayı üzerinden: her yol 404 (varlık sızmaz; 403 DEĞİL).
+    for r in (
+        w.b.api.get(f"{base_a}/alert-events"),
+        w.b.api.get(f"{base_a}/alert-events/{w.event_a}"),
+        w.b.api.post(f"{base_a}/alert-events/{w.event_a}/transitions", {"to": "read"}),
+        w.b.api.post(f"{base_a}/alert-events/{w.event_a}/transitions", {"to": "muted", "muted_days": 7}),
+        w.b.api.post(f"{base_a}/alert-events/read-all"),
+        w.b.api.get(f"{base_a}/alert-settings"),
+    ):
+        assert r.status_code == 404, r.text
+    # B kendi hesabında A'nın olay kimliğiyle ve tersi: 404.
+    assert w.b.api.get(f"{base_b}/alert-events/{w.event_a}").status_code == 404
+    assert w.b.api.post(f"{base_b}/alert-events/{w.event_a}/transitions", {"to": "read"}).status_code == 404
+    assert w.a.api.get(f"{base_a}/alert-events/{w.event_b}").status_code == 404
+    assert w.a.api.post(f"{base_a}/alert-events/{w.event_b}/transitions", {"to": "read"}).status_code == 404
+    # Listeler yalnız kendi olaylarını gösterir.
+    assert [i["id"] for i in w.a.api.get(f"{base_a}/alert-events").json()["items"]] == [w.event_a]
+    assert [i["id"] for i in w.b.api.get(f"{base_b}/alert-events").json()["items"]] == [w.event_b]
+    # Hiçbir olay değişmedi.
+    assert w.a.api.get(f"{base_a}/alert-events/{w.event_a}").json()["event"]["status"] == "open"
+    assert w.b.api.get(f"{base_b}/alert-events/{w.event_b}").json()["event"]["status"] == "open"
+
+
+def test_alert_tables_are_tenant_isolated_for_direct_sql(
+    alert_world: AlertWorld, database: DatabaseInfo, admin_conn: psycopg.Connection[Any]
+) -> None:
+    w = alert_world
+    with app_tx(database, w.a.tenant_id, w.a.user_id) as conn:
+        assert [str(r[0]) for r in conn.execute("SELECT id FROM alert_events")] == [w.event_a]
+        assert conn.execute("SELECT count(*) FROM alert_events WHERE id = %s", (w.event_b,)).fetchone() == (
+            0,
+        )
+    with app_tx(database, w.b.tenant_id, w.b.user_id) as conn:
+        # B, A'nın olayına geçiş ekleyemez: kendi kiracı kimliğiyle olay görünmez (23503), A'nın kimliğiyle
+        # olay yine görünmez (23503) ya da RLS WITH CHECK reddeder (42501). Defter satırı oluşmaz.
+        with pytest.raises(psycopg.errors.ForeignKeyViolation):
+            conn.execute(
+                "INSERT INTO alert_event_transitions (tenant_id, alert_event_id, to_status, muted_until) "
+                "VALUES (%s, %s, 'read', NULL)",
+                (w.b.tenant_id, w.event_a),
+            )
+    with app_tx(database, w.b.tenant_id, w.b.user_id) as conn:
+        with pytest.raises((psycopg.errors.InsufficientPrivilege, psycopg.errors.ForeignKeyViolation)):
+            conn.execute(
+                "INSERT INTO alert_event_transitions (tenant_id, alert_event_id, to_status, muted_until) "
+                "VALUES (%s, %s, 'read', NULL)",
+                (w.a.tenant_id, w.event_a),
+            )
+    assert admin_conn.execute("SELECT count(*) FROM alert_event_transitions").fetchone() == (0,)
+    # Bağlamsız oturum hiçbir olay görmez.
+    with app_tx(database, None) as conn:
+        assert conn.execute("SELECT count(*) FROM alert_events").fetchone() == (0,)
+
+
+def test_notification_preferences_are_visible_only_to_their_user(
+    alert_world: AlertWorld, database: DatabaseInfo
+) -> None:
+    w = alert_world
+    body = {
+        "matrix": {
+            rule: {"email": "digest", "push": "off"}
+            for rule in ("ZARARINA_SATIS", "REKLAM_KARI_YIYOR", "BEKLENMEYEN_KESINTI", "IADE_ORANI_ARTISI")
+        },
+        "quiet_start": "21:00",
+        "quiet_end": "07:00",
+        "digest_hour": 10,
+        "show_amounts_email": True,
+        "show_amounts_push": False,
+    }
+    assert w.a.api.put("/v1/me/notification-preferences", body).status_code == 200
+    assert w.b.api.get("/v1/me/notification-preferences").json()["quiet_start"] == "22:00"
+    # Doğrudan SQL: A'nın kullanıcı bağlamı olmadan (yalnız kiracı) kullanıcı başına tablolar boş görünür;
+    # B'nin bağlamı A'nın satırını göremez.
+    with app_tx(database, w.a.tenant_id) as conn:
+        assert conn.execute("SELECT count(*) FROM notification_preferences").fetchone() == (0,)
+        assert conn.execute("SELECT count(*) FROM notification_settings").fetchone() == (0,)
+    with app_tx(database, w.b.tenant_id, w.b.user_id) as conn:
+        assert conn.execute("SELECT count(*) FROM notification_preferences").fetchone() == (0,)
+    with app_tx(database, w.a.tenant_id, w.a.user_id) as conn:
+        assert conn.execute("SELECT count(*) FROM notification_preferences").fetchone() == (8,)

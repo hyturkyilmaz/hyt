@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    alerts,
     auth,
     health,
     legal,
@@ -25,3 +26,5 @@ api_router.include_router(marketplace_accounts.router)
 api_router.include_router(product_costs.router)
 api_router.include_router(profit.router)
 api_router.include_router(profit_settings.router)
+api_router.include_router(alerts.router)
+api_router.include_router(alerts.me_router)

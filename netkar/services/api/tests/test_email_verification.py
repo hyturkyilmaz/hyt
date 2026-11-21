@@ -299,7 +299,7 @@ _TOTP_PATHS = (
 )
 _BASE = f"/v1/marketplace-accounts/{_ACC}"
 _PS = f"{_BASE}/profit-settings"
-# Doğrulama kapısı olan 16 uç: 12 yazma ucu + 4 MFA ucu (yöntem, yol, gövde).
+# Doğrulama kapısı olan 19 uç: 15 yazma ucu + 4 MFA ucu (yöntem, yol, gövde).
 _BLOCKED_ENDPOINTS: list[tuple[str, str, Any]] = [
     ("post", "/v1/marketplace-accounts", {"seller_id": "2738", "api_key": "k" * 12, "api_secret": "s" * 12}),
     ("post", f"{_BASE}/revoke", None),
@@ -317,6 +317,9 @@ _BLOCKED_ENDPOINTS: list[tuple[str, str, Any]] = [
     ("put", f"{_PS}/variable-expenses/{_ITEM}", {"name": "x"}),
     ("delete", f"{_PS}/variable-expenses/{_ITEM}", None),
     ("put", f"{_PS}/defaults", {"x": 1}),
+    ("put", f"{_BASE}/alert-settings", {"x": 1}),
+    ("post", f"{_BASE}/alert-events/read-all", None),
+    ("post", f"{_BASE}/alert-events/{{event_id}}/transitions", {"to": "read"}),
     ("post", "/v1/auth/totp/setup", {"password": "x"}),
     ("post", "/v1/auth/totp/enable", {"code": "123456", "password": "x"}),
     ("post", "/v1/auth/totp/disable", {"code": "123456", "password": "x"}),
@@ -339,6 +342,36 @@ def test_unverified_account_is_blocked_on_every_write_and_totp_endpoint(
         response = api.delete(path)
     assert _is_problem(response, 403, "email-not-verified"), response.text
     assert response.json()["status"] == 403 and response.json()["title"]
+
+
+# Doğrulama kapısı DIŞINDA bırakılan yazma uçları (açık muafiyet): kullanıcının yalnız KENDİ bildirim tercihi;
+# kiracı verisi yazmaz, hesap ele geçirme riski taşımaz ve e-posta kanalı doğrulanmamış adrese zaten gitmez.
+_EXEMPT_WRITE_ENDPOINTS = {("put", "/v1/me/notification-preferences")}
+
+
+def test_exempt_write_endpoints_are_explicit_and_work_unverified(api: Api) -> None:
+    schema = api.get("/v1/openapi.json").json()["paths"]
+    me_writes = {
+        (method, path)
+        for path, operations in schema.items()
+        if path.startswith("/v1/me")
+        for method in operations
+        if method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
+    }
+    assert _EXEMPT_WRITE_ENDPOINTS <= me_writes
+    api.signup_and_login("exempt@example.com", verified=False)
+    body = {
+        "matrix": {
+            r: {"email": "off", "push": "off"}
+            for r in ("ZARARINA_SATIS", "REKLAM_KARI_YIYOR", "BEKLENMEYEN_KESINTI", "IADE_ORANI_ARTISI")
+        },
+        "quiet_start": "22:00",
+        "quiet_end": "08:00",
+        "digest_hour": 8,
+        "show_amounts_email": True,
+        "show_amounts_push": False,
+    }
+    assert api.put("/v1/me/notification-preferences", body).status_code == 200
 
 
 def test_write_endpoint_list_covers_every_gated_route(api: Api) -> None:
