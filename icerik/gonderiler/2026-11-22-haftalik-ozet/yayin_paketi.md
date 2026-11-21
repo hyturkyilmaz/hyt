@@ -2,7 +2,7 @@
 
 | Alan | Değer |
 |---|---|
-| Video | `icerik/gonderiler/2026-11-22-haftalik-ozet/medya/reels-altyazili.mp4` (1080×1920, H.264, AAC) |
+| Video | `icerik/gonderiler/2026-11-22-haftalik-ozet/medya/reels-muzikli-altyazisiz.mp4` (altyazısız, kullanıcı tercihi) · altyazılı: `medya/reels-altyazili.mp4` |
 | Anahtar kelime | GÜNDEM (yalnız Instagram DM otomasyonu) |
 | Lead | `lead/2026-11-22-haftalik-ozet.pdf` → WhatsApp Topluluğu'nda aynı gün sabitlenir |
 | Yazım hatası | "madeyi" (doğrusu: maddeyi) Instagram, Facebook, YouTube açıklaması, TikTok, X. LinkedIn'de "Hazırlklarını" (doğrusu: Hazırlıklarını). YouTube başlığı ve sabit yorumlar hatasız. |

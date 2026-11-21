@@ -6,7 +6,7 @@
 | Saat | 20:50 TRT (30 günlük plan) |
 | Anahtar kelime | GÜNDEM |
 | Yazım hatası | "Hazırlklarını" (doğrusu: Hazırlıklarını) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 21 Kasım akşamı: haber içermiyor; haftanın konuları (16-21 Kasım) ve 23 Kasım başlangıcı doğru. Metinde istem dışı hata yok. |
 
 ## Açıklama
 
