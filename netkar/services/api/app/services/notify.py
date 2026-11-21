@@ -10,30 +10,37 @@ H5/K12 Hasan'da): yalnız `EmailSender` arayüzü kullanılır.
    hata, bekleme bitti) satırlar `pending`'e döner. Sıklık sınırı nedeniyle bekleyen satırlar
    (`rate_limited`) bırakılmaz.
 2. Liste: `notify_gate.due_outbox` (yalnız `id`, `tenant_id`). Her satır kendi kiracı işleminde `FOR
-   UPDATE SKIP LOCKED` ile kilitlenir: iki dağıtıcı aynı satırı iki kez göndermez. Kilit gönderim bitene
-   dek tutulur; çökerse işlem geri alınır ve satır `pending` kalır (en az bir kez teslim: sağlayıcı
-   kabul edip commit öncesi çökme nadir bir çift ileti riskidir).
+   UPDATE SKIP LOCKED` ile kilitlenir (aşama 1, aşağıdaki 5 ve 6): iki dağıtıcı aynı satırı iki kez almaz.
 3. Kapılar (yalnız bayrak AÇIKKEN, `instant` e-posta): kullanıcının sessiz saati içindeyse satır `held`
    olur ve `not_before` = sessiz saat bitişi (08:00 İstanbul); kullanıcı ve kanal başına günlük 4 ileti
    ya da iki anlık arası 30 dakika aşılırsa satır `held` + `rate_limited` olur ve sonraki günlük özete
    katlanır (silinmez).
 4. Aynı kullanıcıya bekleyen diğer anlık satırlar tek iletide birleşir (sessiz saat birikimi); birleşen
-   satırlar `skipped` (`merged`) olur.
+   satırlar `skipped` (`merged`) olur. Grup kimliğe göre sıralıdır: idempotency anahtarı sıralı kimliklerin
+   özetidir ve ileti içeriği (token zamanı grubun en eski `created_at`ı) yeniden denemede aynıdır. Anahtar
+   GRUP DEĞİŞMEDİKÇE kararlıdır (yeni satır gelirse ya da bir satır başka çalıştırmaya geçerse grup,
+   anahtar ve içerik değişir; sağlayıcıya yeni ileti olarak gider).
 5. Alıcı adresi YALNIZ burada, `notify_gate.email_for(outbox_id)` ile okunur (yalnız `pending`, `email`,
    zamanı gelmiş ve kiracısı bağlamla eşleşen satır): üyelikten çıkmış ya da e-postası doğrulanmamış
    kullanıcıda NULL döner ve satır `skipped` (`recipient_unavailable`) olur. Adres outbox'a, loga, hata
    metnine ve durum alanlarına YAZILMAZ.
-6. Gönderim: bayrak kapalıysa yerel arka uca yazılır ve satır `suppressed`; açıksa `sender.send` (zaman
-   aşımlı). Başarı `sent`; geçici hata `failed` (deneme + 1, üstel bekleme 4, 16, 64, 256, 1024 sn);
-   kalıcı hata (`EmailPermanentError`) ya da 6. hata `failed_permanent`. `last_error_class` yalnız hata
-   SINIFININ adıdır.
+6. Gönderim İŞLEM DIŞINDADIR, üç aşamalı: (1) işlem: kapılar, alıcı çözümü, ileti kurma ve grubun satırlarını
+   KİRALAMA (`not_before = now() + 10 dk`, veritabanı saati) ve commit; (2) kilitsiz gönderim (`sender.send`,
+   zaman aşımlı, `idempotency_key`; bayrak kapalıysa yerel arka uca yazılır ve satır `suppressed`); (3) sonuç
+   yazımı, YALNIZ kirayı hâlâ tutuyorsak (`not_before = kira`): kira başkasına geçtiyse yazım etkisiz kalır
+   (`lease_lost`). Başarı `sent`; geçici hata `failed` (deneme + 1, üstel bekleme 4, 16, 64, 256, 1024 sn,
+   grubun tüm satırlarında aynı `not_before`); kalıcı hata (`EmailPermanentError`) ya da 6. hata
+   `failed_permanent`.
+   Çökerse satır kiralı `pending` kalır, kira dolunca aynı anahtarla yeniden denenir; beklenmeyen hata grubun
+   TÜM satırlarına ayrı işlemde `attempts + 1` ve `failed` yazar. `last_error_class` yalnız hata SINIFI adı.
 7. Push kanalı D8'in işidir (gönderici yok): push satırları `suppressed` olur (`push_not_available`).
 
 `build_digests`: her saat başı (cron `13 * * * *` UTC) çalışır. Kullanıcının özet saati (varsayılan 08)
 İstanbul saatine eşitse, `digest` modundaki kurallar için son 24 saatte AÇILAN olaylardan ve sıklık
 sınırıyla katlanan bekleyen satırların olaylarından TEK özet satırı (`kind = 'digest'`) yazar; yeni olay
-yoksa ileti yoktur. Bastırma (O-a) özette de geçerlidir: kaynağı bozuk kuralın olayları özete girmez.
-Aynı gün ve saat için ikinci çalıştırma `dedupe_key` ile hiçbir şey yazmaz.
+yoksa ileti yoktur (pencere YARI AÇIK `(tik - 24 sa, tik]`, tik zamanı parametredir; ardışık günlerde
+aynı olay iki özete girmez). Bastırma (O-a) özette de geçerlidir: kaynağı bozuk kuralın olayları
+özete girmez. Aynı gün ve saat için ikinci çalıştırma `dedupe_key` ile hiçbir şey yazmaz.
 
 Log: yalnız sayaçlar ve hata sınıfı. E-posta adresi, barkod, tutar, sipariş numarası YOK (G09). SQL:
 yalnız düz sabit dizge ve bağlı parametre (f-string ve birleştirme yok; test ve semgrep kuralı korur).
@@ -138,12 +145,14 @@ _SQL_RELEASE = text(
     "AND last_error_class IS DISTINCT FROM 'rate_limited' RETURNING id"
 )
 _SQL_LOCK_ROW = text(
-    "SELECT id, user_id, channel, kind, attempts, alert_event_ids, payload FROM notification_outbox "
+    "SELECT id, user_id, channel, kind, attempts, alert_event_ids, payload, created_at "
+    "FROM notification_outbox "
     "WHERE id = :id AND tenant_id = :tenant_id AND status = 'pending' AND not_before <= now() "
     "FOR UPDATE SKIP LOCKED"
 )
 _SQL_SIBLINGS = text(
-    "SELECT id, user_id, channel, kind, attempts, alert_event_ids, payload FROM notification_outbox "
+    "SELECT id, user_id, channel, kind, attempts, alert_event_ids, payload, created_at "
+    "FROM notification_outbox "
     "WHERE tenant_id = :tenant_id AND user_id = :user_id AND channel = 'email' AND kind = 'instant' "
     "AND status = 'pending' AND not_before <= now() AND id <> :id ORDER BY not_before, id LIMIT :limit "
     "FOR UPDATE SKIP LOCKED"
@@ -163,21 +172,25 @@ _SQL_HOLD = text(
 )
 _SQL_CLOSE = text(
     "UPDATE notification_outbox SET status = :status, last_error_class = :error_class "
-    "WHERE id = ANY(:ids) AND tenant_id = :tenant_id AND status = 'pending'"
+    "WHERE id = ANY(:ids) AND tenant_id = :tenant_id AND status = 'pending' "
+    "AND (CAST(:lease AS timestamptz) IS NULL OR not_before = CAST(:lease AS timestamptz)) RETURNING id"
 )
+# Sonuç yazımı kira sahipliğini denetler (`:lease`): kira başkasına geçtiyse etkisiz kalır.
 _SQL_FAIL = text(
     "UPDATE notification_outbox SET status = :status, attempts = attempts + 1, not_before = :not_before, "
-    "last_error_class = :error_class WHERE id = :id AND tenant_id = :tenant_id AND status = 'pending'"
+    "last_error_class = :error_class WHERE id = :id AND tenant_id = :tenant_id AND status = 'pending' "
+    "AND (CAST(:lease AS timestamptz) IS NULL OR not_before = CAST(:lease AS timestamptz)) RETURNING id"
 )
 _SQL_CLAIM = text(
     "UPDATE notification_outbox SET not_before = now() + make_interval(secs => :lease) "
-    "WHERE id = ANY(:ids) AND tenant_id = :tenant_id AND status = 'pending'"
+    "WHERE id = ANY(:ids) AND tenant_id = :tenant_id AND status = 'pending' RETURNING not_before"
 )
 _SQL_FAIL_UNEXPECTED = text(
     "UPDATE notification_outbox SET attempts = attempts + 1, "
     "status = CASE WHEN attempts + 1 >= :max_attempts THEN 'failed_permanent' ELSE 'failed' END, "
     "not_before = now() + make_interval(secs => :wait), last_error_class = :error_class "
-    "WHERE id = :id AND tenant_id = :tenant_id AND status = 'pending'"
+    "WHERE id = ANY(:ids) AND tenant_id = :tenant_id AND status = 'pending' "
+    "AND (CAST(:lease AS timestamptz) IS NULL OR not_before = CAST(:lease AS timestamptz))"
 )
 _SQL_EMAIL_FOR = text("SELECT notify_gate.email_for(:id)")
 _SQL_TITLES = text(
@@ -206,7 +219,8 @@ _SQL_NEW_EVENTS = text(
     "SELECT id, marketplace_account_id, rule, severity, payload, data_revision, settings_revision "
     "FROM alert_events WHERE tenant_id = :tenant_id AND status = 'open' "
     "AND notify_mode IN ('normal', 'digest_only') "
-    "AND first_seen_at >= now() - make_interval(hours => :hours) "
+    "AND first_seen_at > CAST(:at AS timestamptz) - make_interval(hours => :hours) "
+    "AND first_seen_at <= CAST(:at AS timestamptz) "
     "AND rule = ANY(CAST(:rules AS text[])) ORDER BY id"
 )
 _SQL_EVENTS_BY_ID = text(
@@ -246,6 +260,14 @@ def error_class_name(exc: BaseException) -> str:
     return re.sub(r"_+", "_", re.sub(r"[^a-z_]+", "_", snake)).strip("_")[:40] or "error"
 
 
+def group_idempotency_key(ids: Sequence[UUID]) -> str:
+    """Birleşik grubun idempotency anahtarı: SIRALI satır kimliklerinin özeti.
+
+    Yeniden denemede grup aynıysa anahtar ve ileti içeriği aynıdır (sağlayıcı tekilleştirebilir); sıralamadan
+    ve birincil satır seçiminden bağımsızdır."""
+    return hashlib.sha256("|".join(sorted(str(i) for i in ids)).encode("utf-8")).hexdigest()
+
+
 @dataclass(slots=True)
 class Counters:
     """Çalıştırma sayaçları (yalnız sayı; log ve iş kaydı için)."""
@@ -273,6 +295,7 @@ class OutboxRow:
     attempts: int
     alert_event_ids: tuple[UUID, ...]
     payload: dict[str, Any]
+    created_at: datetime
 
 
 def _row(raw: Any) -> OutboxRow:
@@ -284,6 +307,7 @@ def _row(raw: Any) -> OutboxRow:
         int(raw.attempts),
         tuple(raw.alert_event_ids),
         dict(raw.payload),
+        raw.created_at,
     )
 
 
@@ -341,6 +365,10 @@ def digest_dedupe_key(user_id: UUID, local_day: date, hour: int) -> str:
     """Özet tekilleştirme anahtarı: kullanıcı, İstanbul günü ve saat (aynı saatte ikinci kez yazılmaz)."""
     seed = f"{user_id}|email|digest|{local_day.isoformat()}|{hour}"
     return hashlib.sha256(seed.encode("utf-8")).hexdigest()
+
+
+class _LeaseLostError(Exception):
+    """Sonuç yazımı tümü-ya-hiç kuralını sağlamadı (kira kısmen ya da tamamen başkasına geçti)."""
 
 
 class NotificationConfigError(ValueError):
@@ -429,12 +457,16 @@ class NotificationDispatcher:
                     result.bump("budget_exhausted")
                     logger.warning("notify_dispatch_budget_exhausted", extra=dict(result.counts))
                     return result
+                claim: dict[str, Any] = {}
                 try:
-                    progressed |= await self._process(tenant_id, outbox_id, result)
+                    progressed |= await self._process(tenant_id, outbox_id, result, claim)
                 except Exception as exc:
                     result.bump("errors")
                     logger.error("notify_dispatch_row_failed", extra={"error_class": type(exc).__name__})
-                    await self._record_unexpected(tenant_id, outbox_id, exc)
+                    # Kiralanmış grubun TÜM satırları (yoksa yalnız bu satır) ve kira sahipliğiyle kaydedilir.
+                    await self._record_unexpected(
+                        tenant_id, claim.get("ids", [outbox_id]), claim.get("lease"), exc
+                    )
             if not progressed or len(due) < batch:
                 break
         logger.info("notify_dispatch_done", extra=dict(result.counts))
@@ -460,7 +492,9 @@ class NotificationDispatcher:
                 continue
             result.bump("released", len(released))
 
-    async def _record_unexpected(self, tenant_id: UUID, outbox_id: UUID, exc: BaseException) -> None:
+    async def _record_unexpected(
+        self, tenant_id: UUID, ids: Sequence[UUID], lease: datetime | None, exc: BaseException
+    ) -> None:
         """Beklenmeyen hata: satır AYRI işlemde `attempts + 1` ve `failed` olur (6. denemede kalıcı);
         böylece sürekli hata veren satır sınırsız `pending` kalıp her dakika denenmez."""
         try:
@@ -468,7 +502,8 @@ class NotificationDispatcher:
                 await session.execute(
                     _SQL_FAIL_UNEXPECTED,
                     {
-                        "id": outbox_id,
+                        "ids": list(ids),
+                        "lease": lease,
                         "tenant_id": tenant_id,
                         "max_attempts": MAX_ATTEMPTS,
                         "wait": BACKOFF_SECONDS[2],
@@ -478,33 +513,58 @@ class NotificationDispatcher:
         except Exception as inner:
             logger.error("notify_failure_not_recorded", extra={"error_class": type(inner).__name__})
 
-    async def _process(self, tenant_id: UUID, outbox_id: UUID, result: Counters) -> bool:
-        """Üç aşama: (1) işlem: kilitle, kapılar, alıcıyı çöz, iletiyi kur, satırı KİRALA ve commit et;
-        (2) işlem DIŞINDA gönder (`idempotency_key` = outbox kimliği, toplam süre sınırlı);
-        (3) işlem: sonucu yaz. Satır ele alındıysa True."""
+    async def _process(
+        self, tenant_id: UUID, outbox_id: UUID, result: Counters, claim: dict[str, Any] | None = None
+    ) -> bool:
+        """Üç aşama: (1) işlem: kilitle, kapılar, alıcıyı çöz, iletiyi kur, satırları KİRALA ve commit et;
+        (2) işlem DIŞINDA gönder (`idempotency_key` = grup kimliklerinin sıralı özeti, toplam süre sınırlı);
+        (3) işlem: sonucu YALNIZ kirayı hâlâ tutuyorsak yaz (grubun tüm satırlarına).
+        Satır ele alındıysa True.
+
+        `claim`: aşama 1 sonrası kiralanan satır kimlikleri ve kira zamanı (beklenmeyen hatada kaydı için)."""
         handled, outgoing = await self._prepare(tenant_id, outbox_id, result)
         if outgoing is None:
             return handled
-        rows, message = outgoing
+        rows, message, lease = outgoing
+        if claim is not None:
+            claim.update(ids=[r.id for r in rows], lease=lease)
         sender = self._sender
         assert sender is not None  # bayrak açıkken kurucu gerçek göndericiyi şart koşar
         error: Exception | None = None
         try:
-            await asyncio.wait_for(sender.send(message, idempotency_key=str(rows[0].id)), self._send_timeout)
+            await asyncio.wait_for(
+                sender.send(message, idempotency_key=group_idempotency_key([r.id for r in rows])),
+                self._send_timeout,
+            )
         except Exception as exc:
             error = exc
-        async with tenant_transaction(self._sessions, tenant_id) as session:
-            if error is not None:
-                await self._fail(session, tenant_id, rows, error, result)
-            else:
-                await self._close(session, tenant_id, rows[:1], "sent", None, result)
-                if len(rows) > 1:
-                    await self._close(session, tenant_id, rows[1:], "skipped", "merged", result)
+        # Sonuç yazımı TÜMÜ YA DA HİÇ: grubun her satırı kirayla yazılamadıysa (kira kısmen başkasına
+        # geçti) işlem
+        # geri alınır ve grup olduğu gibi kalır (kiralı `pending`; kira dolunca bütün olarak yeniden denenir).
+        outcome = Counters()
+        try:
+            async with tenant_transaction(self._sessions, tenant_id) as session:
+                if error is not None:
+                    written = await self._fail(session, tenant_id, rows, error, outcome, lease)
+                else:
+                    written = await self._close(session, tenant_id, rows[:1], "sent", None, outcome, lease)
+                    if len(rows) > 1:
+                        written += await self._close(
+                            session, tenant_id, rows[1:], "skipped", "merged", outcome, lease
+                        )
+                if written != len(rows):
+                    raise _LeaseLostError
+        except _LeaseLostError:
+            result.bump("lease_lost", len(rows))
+            logger.warning("notify_lease_lost", extra={"rows": len(rows)})
+            return True
+        for key, count in outcome.counts.items():
+            result.bump(key, count)
         return True
 
     async def _prepare(
         self, tenant_id: UUID, outbox_id: UUID, result: Counters
-    ) -> tuple[bool, tuple[list[OutboxRow], EmailMessage] | None]:
+    ) -> tuple[bool, tuple[list[OutboxRow], EmailMessage, datetime] | None]:
         """Gönderim öncesi aşama (tek işlem). (ele alındı, gönderilecek (satırlar, ileti) ya da None)."""
         async with tenant_transaction(self._sessions, tenant_id) as session:
             locked = (await session.execute(_SQL_LOCK_ROW, {"id": outbox_id, "tenant_id": tenant_id})).first()
@@ -527,6 +587,8 @@ class NotificationDispatcher:
                     return True, None
             if row.kind == "instant":
                 group += await self._siblings(session, tenant_id, row)
+            # Belirlenimci grup: kimliğe göre sıralı (anahtar ve içerik yeniden denemede aynı).
+            group.sort(key=lambda r: str(r.id))
             address = (await session.execute(_SQL_EMAIL_FOR, {"id": row.id})).scalar_one_or_none()
             if address is None:
                 await self._close(session, tenant_id, group, "skipped", "recipient_unavailable", result)
@@ -540,11 +602,15 @@ class NotificationDispatcher:
                         logger.warning("notify_dev_copy_failed", extra={"error_class": type(exc).__name__})
                 await self._close(session, tenant_id, group, "suppressed", None, result)
                 return True, None
-            await session.execute(
-                _SQL_CLAIM,
-                {"ids": [r.id for r in group], "tenant_id": tenant_id, "lease": SEND_LEASE_SECONDS},
-            )
-            return True, (group, message)
+            claimed = (
+                await session.execute(
+                    _SQL_CLAIM,
+                    {"ids": [r.id for r in group], "tenant_id": tenant_id, "lease": SEND_LEASE_SECONDS},
+                )
+            ).all()
+            if not claimed:  # kilitliyken kiralanamaması beklenmez; güvenli taraf: gönderme
+                return True, None
+            return True, (group, message, claimed[0][0])
 
     # ------------------------------------------------------------------------------- yardımcılar
     async def _user_settings(self, session: AsyncSession, tenant_id: UUID, user_id: UUID) -> _UserSettings:
@@ -602,19 +668,25 @@ class NotificationDispatcher:
         status: str,
         error_class: str | None,
         result: Counters,
-    ) -> None:
-        await session.execute(
-            _SQL_CLOSE,
-            {
-                "ids": [r.id for r in rows],
-                "tenant_id": tenant_id,
-                "status": status,
-                "error_class": error_class,
-            },
-        )
-        result.bump(status, len(rows))
+        lease: datetime | None = None,
+    ) -> int:
+        """Satırları kapatır; YAZILAN satır sayısını verir (kira sahipliği tutmayan satır yazılmaz)."""
+        written = (
+            await session.execute(
+                _SQL_CLOSE,
+                {
+                    "ids": [r.id for r in rows],
+                    "tenant_id": tenant_id,
+                    "status": status,
+                    "error_class": error_class,
+                    "lease": lease,
+                },
+            )
+        ).all()
+        result.bump(status, len(written))
         if status == "skipped" and error_class == "merged":
-            result.bump("merged", len(rows))
+            result.bump("merged", len(written))
+        return len(written)
 
     async def _fail(
         self,
@@ -623,27 +695,38 @@ class NotificationDispatcher:
         rows: Sequence[OutboxRow],
         exc: BaseException,
         result: Counters,
-    ) -> None:
-        """Gönderim hatası: kalıcı ya da 6. hata `failed_permanent`, aksi halde `failed` + üstel bekleme."""
+        lease: datetime | None = None,
+    ) -> int:
+        """Gönderim hatası: kalıcı ya da 6. hata `failed_permanent`, aksi halde `failed` + üstel bekleme.
+
+        Grubun TÜM satırları aynı `not_before` ile yazılır (en yüksek deneme sayısına göre bekleme): yeniden
+        denemede birlikte bırakılır ve aynı grubu oluşturur."""
         permanent = isinstance(exc, EmailPermanentError)
         error_class = error_class_name(exc)
         now = self._now()
+        top = max(row.attempts for row in rows) + 1
+        not_before = now + timedelta(seconds=BACKOFF_SECONDS[min(top, len(BACKOFF_SECONDS)) - 1])
+        total = 0
         for row in rows:
-            attempts = row.attempts + 1
-            final = permanent or attempts >= MAX_ATTEMPTS
-            wait = BACKOFF_SECONDS[min(attempts, len(BACKOFF_SECONDS)) - 1]
-            await session.execute(
-                _SQL_FAIL,
-                {
-                    "id": row.id,
-                    "tenant_id": tenant_id,
-                    "status": "failed_permanent" if final else "failed",
-                    "not_before": now + timedelta(seconds=wait),
-                    "error_class": error_class,
-                },
-            )
-            result.bump("failed_permanent" if final else "failed")
+            final = permanent or row.attempts + 1 >= MAX_ATTEMPTS
+            written = (
+                await session.execute(
+                    _SQL_FAIL,
+                    {
+                        "id": row.id,
+                        "tenant_id": tenant_id,
+                        "status": "failed_permanent" if final else "failed",
+                        "not_before": not_before,
+                        "error_class": error_class,
+                        "lease": lease,
+                    },
+                )
+            ).all()
+            if written:
+                total += 1
+                result.bump("failed_permanent" if final else "failed")
         logger.warning("notify_send_failed", extra={"error_class": error_class, "permanent": permanent})
+        return total
 
     async def _compose(
         self,
@@ -657,7 +740,7 @@ class NotificationDispatcher:
         primary = group[0]
         payload = group[0].payload if len(group) == 1 else merge_payloads([r.payload for r in group])
         lines, estimated, revision = lines_from_payload(payload)
-        event_ids = list(dict.fromkeys(i for r in group for i in r.alert_event_ids))[:MAX_EVENT_IDS]
+        event_ids = sorted({i for r in group for i in r.alert_event_ids}, key=str)[:MAX_EVENT_IDS]
         titles: list[str] = []
         if event_ids:
             for (raw_title,) in (
@@ -666,7 +749,8 @@ class NotificationDispatcher:
                 title = clean_title(str(raw_title))
                 if title and title not in titles:
                     titles.append(title)
-        now = self._now()
+        # Token zamanı belirlenimcidir (grubun en eski oluşturulma zamanı): içerik yeniden denemede aynı.
+        now = min(r.created_at for r in group)
         links = {
             line.rule: f"{self._base}{UNSUBSCRIBE_PAGE_PATH}?token="
             f"{self._signer.sign(primary.user_id, tenant_id, line.rule, 'email', now)}"
@@ -724,7 +808,7 @@ class NotificationDispatcher:
             by_tenant.setdefault(UUID(str(tenant_id)), {})[UUID(str(account_id))] = frozenset(backfilled)
         for tenant_id, active in by_tenant.items():
             try:
-                await self._digests_for_tenant(tenant_id, active, local, result)
+                await self._digests_for_tenant(tenant_id, active, local, now, result)
             except Exception as exc:
                 result.bump("errors")
                 logger.error("notify_digest_tenant_failed", extra={"error_class": type(exc).__name__})
@@ -736,6 +820,7 @@ class NotificationDispatcher:
         tenant_id: UUID,
         active: Mapping[UUID, frozenset[str]],
         local: datetime,
+        at: datetime,
         result: Counters,
     ) -> None:
         params: dict[str, Any] = {"tenant_id": tenant_id}
@@ -776,7 +861,7 @@ class NotificationDispatcher:
                     for rule in _RULE_VALUES
                     if modes.get((user_id, rule), defaults[rule]["email"]) == "digest"
                 ]
-                await self._digest_for_user(session, tenant_id, user_id, rules, blocked, local, result)
+                await self._digest_for_user(session, tenant_id, user_id, rules, blocked, local, at, result)
 
     async def _digest_for_user(
         self,
@@ -786,6 +871,7 @@ class NotificationDispatcher:
         rules: Sequence[str],
         blocked: Mapping[UUID, frozenset[AlertRule]],
         local: datetime,
+        at: datetime,
         result: Counters,
     ) -> None:
         events: dict[UUID, _Event] = {}
@@ -793,7 +879,7 @@ class NotificationDispatcher:
             fresh = (
                 await session.execute(
                     _SQL_NEW_EVENTS,
-                    {"tenant_id": tenant_id, "hours": DIGEST_WINDOW_HOURS, "rules": list(rules)},
+                    {"tenant_id": tenant_id, "hours": DIGEST_WINDOW_HOURS, "rules": list(rules), "at": at},
                 )
             ).all()
             for r in fresh:

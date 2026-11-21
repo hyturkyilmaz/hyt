@@ -66,7 +66,7 @@ Senkron ve depolama testleri: `tests/test_sync_schema.py` (migrasyon 0006, RLS, 
 | `EMAIL_OUTBOX_MAX_BYTES` | hayır | `262144` | Etkin outbox bu boyutu aşınca döndürülür (`<ad>.<UTC damga>-<sıra>`, 0600). En az 1024. |
 | `EMAIL_OUTBOX_MAX_FILES` | hayır | `5` | 1-50. Tutulan döndürülmüş dosya sayısı; fazlası en eskiden başlayarak silinir. |
 | `EMAIL_OUTBOX_RETENTION_DAYS` | hayır | `7` | 1-30 gün. Döndürülmüş dosyalar bundan eskiyse silinir (açılışta ve her gönderimde). Silme yalnız yapılandırılan dizinde ve adı bu kalıba uyan düz dosyalara dokunur. |
-| `WEB_BASE_URL` | hayır | `http://localhost:3000` | Sıfırlama bağlantılarındaki web adresi. |
+| `WEB_BASE_URL` | hayır | `http://localhost:3000` | E-posta bağlantılarındaki (doğrulama, sıfırlama, bildirim kapatma) web adresi. `staging` ve `prod`'da GERÇEK bir `https://` adresi (boş host olmadan) ZORUNLUDUR, aksi halde uygulama başlamaz. |
 | `ALERT_NOTIFICATIONS_ENABLED` | hayır | `false` | Uyarı e-postalarının GERÇEK gönderimi (ADR-0009 D5). Kapalıyken gerçek arka uç asla çağrılmaz, outbox satırı `suppressed` olur; ileti yalnız yerel arka uca (`file`/`memory`) yazılır. Açmak Hasan onayıdır (H6; gerçek sağlayıcı kararı H5/K12). Aşağıdaki "Bildirim dağıtıcısı" bölümüne bakın. |
 | `NOTIFY_UNSUBSCRIBE_TTL_DAYS` | hayır | `90` | 1-365. Tek tık kapatma bağlantısının ömrü. İmza anahtarı ayrı sır değildir: `DATA_ENCRYPTION_KEY`'den `notify-unsub` amacıyla türetilir. |
 | `RATE_LIMIT_NOTIFY_UNSUBSCRIBE_IP` | hayır | 30 | `POST /v1/notifications/unsubscribe` için IP başına saatlik sınır; yalnız doğrulaması BAŞARISIZ denemelere işler. |

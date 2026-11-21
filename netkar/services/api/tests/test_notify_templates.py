@@ -250,11 +250,46 @@ def test_merge_payloads_sums_counts_and_amounts_and_keeps_the_worst_certainty() 
         ("", "değer"),
         ("X:Y", "değer"),
         ("1Basla", "değer"),
+        ("Bcc", "kotu@example.com"),  # izin listesi dışı (geçerli ad ve değer olsa bile)
+        ("From", "kotu@example.com"),
+        ("Reply-To", "kotu@example.com"),
+        ("List-Unsubscribe", "<https://x>\x0bBcc: y"),
+        ("List-Unsubscribe", "<https://x>\x1cBcc: y"),
+        ("List-Unsubscribe", "<https://x>\u2028Bcc: y"),
+        ("List-Unsubscribe", "<https://x>\u2029y"),
+        ("List-Unsubscribe", "<https://x>\u0085y"),
     ],
 )
 def test_email_message_rejects_header_injection_and_bad_names(name: str, value: str) -> None:
     with pytest.raises(ValueError, match="geçersiz e-posta başlığı"):
         EmailMessage("a@example.com", "k", "g", headers={name: value})
+
+
+def test_every_str_splitlines_separator_is_forbidden_in_every_field() -> None:
+    separators = [
+        chr(c) for c in range(0x110000) if ("a" + chr(c) + "b").splitlines() != ["a" + chr(c) + "b"]
+    ]
+    assert {"\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029", "\r", "\n"} <= set(separators)
+    for char in separators:
+        with pytest.raises(ValueError):
+            EmailMessage("a@example.com", f"k{char}x", "g")
+        with pytest.raises(ValueError):
+            EmailMessage("a@example.com", "k", "g", headers={"List-Unsubscribe": f"<x>{char}y"})
+
+
+def test_duplicate_header_names_differing_only_in_case_are_rejected() -> None:
+    with pytest.raises(ValueError, match="geçersiz e-posta başlığı"):
+        EmailMessage(
+            "a@example.com",
+            "k",
+            "g",
+            headers={"List-Unsubscribe": "<https://a>", "list-unsubscribe": "<https://b>"},
+        )
+
+
+def test_header_allowlist_accepts_only_the_two_unsubscribe_headers_case_insensitively() -> None:
+    ok = {"list-unsubscribe": "<https://x>", "LIST-UNSUBSCRIBE-POST": "List-Unsubscribe=One-Click"}
+    assert dict(EmailMessage("a@example.com", "k", "g", headers=ok).headers) == ok
 
 
 def test_email_message_defaults_keep_the_old_three_field_form_valid() -> None:
@@ -265,6 +300,15 @@ def test_email_message_defaults_keep_the_old_three_field_form_valid() -> None:
 @pytest.mark.parametrize(
     ("to", "subject"),
     [
+        ("a@example.com", "konu\x0bBcc: x"),
+        ("a@example.com", "konu\x0cx"),
+        ("a@example.com", "konu\x1cx"),
+        ("a@example.com", "konu\x1dx"),
+        ("a@example.com", "konu\x1ex"),
+        ("a@example.com", "konu\u2028Bcc: x"),
+        ("a@example.com", "konu\u2029yeni"),
+        ("a@example.com", "konu\u0085yeni"),
+        ("a@example.com\u2028x", "k"),
         ("a@example.com\r\nBcc: kotu@example.com", "k"),
         ("a@example.com\nBcc: x", "k"),
         ("a@example.com", "konu\r\nBcc: kotu@example.com"),

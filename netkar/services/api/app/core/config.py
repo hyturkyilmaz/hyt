@@ -9,6 +9,7 @@ import os
 from functools import lru_cache
 from pathlib import PurePath
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -294,6 +295,20 @@ class Settings(BaseSettings):
         return value
 
     @model_validator(mode="after")
+    def _reject_live_notifications_without_backend(self) -> Settings:
+        """Bayrak açık ama gerçek e-posta arka ucu yok: erken ve güvenli tarafta reddedilir (ADR-0009 §7.1).
+
+        Bugün yalnız yerel (`file`/`memory`) arka uçlar vardır; gerçek sağlayıcı (H5/K12) eklenince bu
+        doğrulayıcı onu tanımalıdır. Worker kurucusu (`NotificationDispatcher`) aynı kuralı ayrıca uygular.
+        """
+        if self.alert_notifications_enabled and self.email_backend in {"file", "memory"}:
+            raise ValueError(
+                "ALERT_NOTIFICATIONS_ENABLED=true için gerçek bir e-posta arka ucu gerekir "
+                "(EMAIL_BACKEND=file/memory yerel kopyadır, gerçek gönderim yapmaz)"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _reject_unsafe_production(self) -> Settings:
         """Üretimde ve staging'de güvensiz varsayılanlar açılışı durdurur (denetim D-08).
 
@@ -315,6 +330,12 @@ class Settings(BaseSettings):
                 problems.append("ENVIRONMENT=staging iken DEBUG açık olamaz")
             if self.trendyol_environment == "live":
                 problems.append("ENVIRONMENT=staging iken TRENDYOL_ENVIRONMENT=live kullanılamaz")
+        # E-postadaki bağlantılar (doğrulama, sıfırlama, kapatma) bu kökten kurulur: sertleşen ortamda https.
+        parsed = urlsplit(self.web_base_url)
+        if self.environment in HARDENED_ENVIRONMENTS and not (
+            parsed.scheme.lower() == "https" and parsed.hostname
+        ):
+            problems.append(f"ENVIRONMENT={self.environment} iken WEB_BASE_URL https:// ile başlamalı")
         # DT-20: sertleşen ortamda outbox yolu mutlak ve ".." içermeyen olmalı (çalışma dizinine bağlı, göreli
         # yol yanlışlıkla paylaşılan bir dizine yazabilir). Yalnız file arka ucu dosya yazar.
         if self.environment in HARDENED_ENVIRONMENTS and self.email_backend == "file":

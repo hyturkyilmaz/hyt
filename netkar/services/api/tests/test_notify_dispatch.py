@@ -43,6 +43,7 @@ from app.services.notify import (
     NotificationDispatcher,
     digest_dedupe_key,
     error_class_name,
+    group_idempotency_key,
 )
 from app.services.notify_unsubscribe import UnsubscribeSigner
 from tests.conftest import DatabaseInfo
@@ -65,6 +66,8 @@ NOW = datetime(2026, 10, 10, 12, 0, tzinfo=UTC)  # İstanbul 15:00
 NIGHT = datetime(2026, 10, 10, 20, 30, tzinfo=UTC)  # İstanbul 23:30 (sessiz saat)
 MORNING = datetime(2026, 10, 11, 5, 1, tzinfo=UTC)  # İstanbul 08:01 (sessiz saat bitti)
 DIGEST_AT = datetime(2026, 10, 10, 5, 13, tzinfo=UTC)  # İstanbul 08:13
+# Olayların ilk görülme zamanı (özet penceresi `[tik - 24 sa, tik]`): tikten 2 saat önce.
+SEEN = datetime(2026, 10, 10, 3, 13, tzinfo=UTC)
 LOSS = "ZARARINA_SATIS"
 DEDUCTION = "BEKLENMEYEN_KESINTI"
 RETURNS = "IADE_ORANI_ARTISI"
@@ -181,6 +184,11 @@ def event(
         ),
     ).fetchone()
     assert row is not None
+    conn.execute("ALTER TABLE alert_events DISABLE TRIGGER alert_events_immutable_guard")
+    try:
+        conn.execute("UPDATE alert_events SET first_seen_at = %s WHERE id = %s", (SEEN, row[0]))
+    finally:
+        conn.execute("ALTER TABLE alert_events ENABLE ALWAYS TRIGGER alert_events_immutable_guard")
     return row[0]  # type: ignore[no-any-return]
 
 
@@ -535,8 +543,10 @@ async def test_pending_rows_of_one_user_merge_into_a_single_email(
     assert len(mine) == 1 and result.get("merged") == 2  # kullanıcı başına tek ileti
     assert "- 3 üründe zararına satış" in mine[0].body and "Toplam zarar: 15,50 TL" in mine[0].body
     assert "- 1 sipariş satırında beklenmeyen kesinti" in mine[0].body
-    assert state(admin_conn, first)["status"] == "sent"
-    for merged in (second, third):
+    # Birincil satır kimliğe göre en küçük kimliktir (grup sıralı); kimlikler rastgele olduğundan test bunu hesaplar.
+    primary = min(first, second, third, key=str)
+    assert state(admin_conn, primary)["status"] == "sent"
+    for merged in (x for x in (first, second, third) if x != primary):
         assert (state(admin_conn, merged)["status"], state(admin_conn, merged)["last_error_class"]) == (
             "skipped",
             "merged",
@@ -616,7 +626,7 @@ async def test_no_new_events_means_no_digest_and_stale_resolved_or_muted_events_
     admin_conn.execute("ALTER TABLE alert_events DISABLE TRIGGER alert_events_immutable_guard")
     try:
         admin_conn.execute(
-            "UPDATE alert_events SET first_seen_at = now() - interval '25 hours' WHERE id = %s", (old,)
+            "UPDATE alert_events SET first_seen_at = %s WHERE id = %s", (SEEN - timedelta(hours=25), old)
         )
     finally:
         admin_conn.execute("ALTER TABLE alert_events ENABLE ALWAYS TRIGGER alert_events_immutable_guard")
@@ -715,8 +725,8 @@ async def test_rate_limited_rows_fold_into_the_next_digest_and_are_closed(
     admin_conn.execute("ALTER TABLE alert_events DISABLE TRIGGER alert_events_immutable_guard")
     try:  # 24 saatten eski: yalnız katlanma yoluyla özete girer
         admin_conn.execute(
-            "UPDATE alert_events SET first_seen_at = now() - interval '30 hours' WHERE id = %s",
-            (folded_event,),
+            "UPDATE alert_events SET first_seen_at = %s WHERE id = %s",
+            (SEEN - timedelta(hours=30), folded_event),
         )
     finally:
         admin_conn.execute("ALTER TABLE alert_events ENABLE ALWAYS TRIGGER alert_events_immutable_guard")
@@ -1040,14 +1050,14 @@ async def test_a_database_failure_after_the_send_is_recorded_as_failed_and_the_r
     real = NotificationDispatcher._close
     box = LiveBox()
 
-    async def broken(self: NotificationDispatcher, *args: Any, **kw: Any) -> None:
+    async def broken(self: NotificationDispatcher, *args: Any, **kw: Any) -> int:
         if args[3] == "sent":
             raise RuntimeError("commit öncesi çökme")
-        await real(self, *args, **kw)
+        return await real(self, *args, **kw)
 
     monkeypatch.setattr(NotificationDispatcher, "_close", broken)
     result = await make(worker_engine, sender=box).dispatch()
-    assert result.get("errors") == 1 and box.keys == [str(outbox_id)]
+    assert result.get("errors") == 1 and box.keys == [group_idempotency_key([outbox_id])]
     # D2: beklenmeyen hata AYRI işlemde attempts + 1 ve failed yazar; satır sınırsız pending kalmaz.
     current = state(admin_conn, outbox_id)
     assert (current["status"], current["attempts"], current["last_error_class"]) == (
@@ -1060,7 +1070,10 @@ async def test_a_database_failure_after_the_send_is_recorded_as_failed_and_the_r
         "UPDATE notification_outbox SET not_before = now() - interval '1 minute' WHERE id = %s", (outbox_id,)
     )
     await make(worker_engine, sender=box).dispatch()  # yeniden deneme: aynı idempotency anahtarı
-    assert box.keys == [str(outbox_id), str(outbox_id)] and state(admin_conn, outbox_id)["status"] == "sent"
+    assert (
+        box.keys == [group_idempotency_key([outbox_id])] * 2
+        and state(admin_conn, outbox_id)["status"] == "sent"
+    )
 
 
 async def test_unexpected_errors_exhaust_the_row_instead_of_retrying_forever(
@@ -1116,7 +1129,10 @@ async def test_send_happens_outside_any_database_transaction_with_a_lease_and_th
     await make(worker_engine, sender=probe).dispatch()
     assert observed["locked"] == (outbox_id,)  # satır kilitli değildi
     assert observed["lease"] == ("pending", True)  # kiralanmıştı: ikinci dağıtıcı onu görmez
-    assert probe.keys == [str(outbox_id)] and state(admin_conn, outbox_id)["status"] == "sent"
+    assert (
+        probe.keys == [group_idempotency_key([outbox_id])]
+        and state(admin_conn, outbox_id)["status"] == "sent"
+    )
 
 
 async def test_a_crash_between_claim_and_result_leaves_a_leased_pending_row_that_is_retried_later(
@@ -1144,7 +1160,9 @@ async def test_a_crash_between_claim_and_result_leaves_a_leased_pending_row_that
     )
     box = LiveBox()
     await make(worker_engine, sender=box).dispatch()  # kira doldu: yeniden denenir, aynı anahtar
-    assert box.keys == [str(outbox_id)] and state(admin_conn, outbox_id)["status"] == "sent"
+    assert (
+        box.keys == [group_idempotency_key([outbox_id])] and state(admin_conn, outbox_id)["status"] == "sent"
+    )
 
 
 async def test_the_total_runtime_budget_stops_the_run_and_leaves_the_rest_for_the_next_tick(
@@ -1189,6 +1207,271 @@ async def test_a_release_failure_for_one_row_does_not_block_the_others(
     result = await make(worker_engine, sender=box).dispatch()
     assert result.get("errors") == 1 and state(admin_conn, bad)["status"] == "held"
     assert state(admin_conn, good)["status"] == "sent" and result.get("released") == 1
+
+
+# ===================================================================================== ORTA-1: kararlı grup
+
+
+async def test_a_result_write_failure_on_a_merged_group_retries_with_the_same_key_and_content(
+    world: World,
+    admin_conn: psycopg.Connection[Any],
+    worker_engine: AsyncEngine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    a = world.a
+    user_settings(admin_conn, a)
+    first = seed(admin_conn, a, payload=payload_of(LOSS, 1, "10.00"), not_before=NOW - timedelta(minutes=3))
+    second = seed(
+        admin_conn, a, payload=payload_of(DEDUCTION, 2, "7.25"), not_before=NOW - timedelta(minutes=2)
+    )
+    key = group_idempotency_key([first, second])
+    assert key == group_idempotency_key([second, first])  # sıralamadan bağımsız
+    real = NotificationDispatcher._close
+    box = LiveBox()
+
+    async def broken(self: NotificationDispatcher, *args: Any, **kw: Any) -> int:
+        if args[3] == "sent":
+            raise RuntimeError("sonuç yazımı hatası")
+        return await real(self, *args, **kw)
+
+    monkeypatch.setattr(NotificationDispatcher, "_close", broken)
+    result = await make(worker_engine, sender=box).dispatch()
+    # Hata grubun TÜM satırlarına yazıldı (yalnız birincil değil): ikisi de failed, deneme 1, aynı not_before.
+    states = [state(admin_conn, i) for i in (first, second)]
+    assert result.get("errors") == 1 and [s_["status"] for s_ in states] == ["failed", "failed"]
+    assert [s_["attempts"] for s_ in states] == [1, 1] and states[0]["not_before"] == states[1]["not_before"]
+    monkeypatch.undo()
+    admin_conn.execute(
+        "UPDATE notification_outbox SET not_before = now() - interval '1 minute' WHERE id = ANY(%s)",
+        ([first, second],),
+    )
+    await make(worker_engine, sender=box).dispatch()
+    # İki gönderim, AYNI anahtar ve AYNI içerik; kardeşler ayrı ayrı gönderilmedi.
+    assert box.keys == [key, key] and box.messages[0] == box.messages[1] and len(box.messages) == 2
+    assert {state(admin_conn, i)["status"] for i in (first, second)} == {"sent", "skipped"}
+    assert sorted(
+        (state(admin_conn, i)["status"], state(admin_conn, i)["last_error_class"]) for i in (first, second)
+    ) == [
+        ("sent", None),
+        ("skipped", "merged"),
+    ]
+
+
+async def test_failure_result_on_a_merged_group_marks_every_row_with_one_backoff(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    user_settings(admin_conn, a)
+    rows_ = [seed(admin_conn, a, not_before=NOW - timedelta(minutes=n)) for n in (3, 2, 1)]
+    admin_conn.execute("UPDATE notification_outbox SET attempts = 2 WHERE id = %s", (rows_[0],))
+    await make(worker_engine, sender=FailingSender()).dispatch()
+    states = [state(admin_conn, i) for i in rows_]
+    assert {s_["status"] for s_ in states} == {"failed"} and len({s_["not_before"] for s_ in states}) == 1
+    assert sorted(s_["attempts"] for s_ in states) == [1, 1, 3]
+    assert states[0]["not_before"] == NOW + timedelta(seconds=BACKOFF_SECONDS[2])  # en yüksek denemeye göre
+
+
+async def test_message_content_is_deterministic_for_a_group_across_retries_at_different_times(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    user_settings(admin_conn, a)
+    first = seed(admin_conn, a, not_before=NOW - timedelta(minutes=3))
+    second = seed(admin_conn, a, not_before=NOW - timedelta(minutes=2))
+
+    class CaptureFail(LiveBox):
+        async def send(self, message: EmailMessage, *, idempotency_key: str | None = None) -> None:
+            await super().send(message, idempotency_key=idempotency_key)
+            raise EmailTransientError("geçici")
+
+    capture = CaptureFail()
+    await make(worker_engine, sender=capture, now=NOW).dispatch()
+    admin_conn.execute(
+        "UPDATE notification_outbox SET not_before = now() - interval '1 minute' WHERE id = ANY(%s)",
+        ([first, second],),
+    )
+    await make(worker_engine, sender=capture, now=NOW + timedelta(days=3)).dispatch()  # çok sonra, başka saat
+    # Token zamanı satırın `created_at`ıdır (şimdiki zaman değil): içerik ve anahtar birebir aynı.
+    assert len(capture.messages) == 2 and capture.messages[0] == capture.messages[1]
+    assert capture.keys[0] == capture.keys[1] == group_idempotency_key([first, second])
+
+
+# ===================================================================================== D-a: kira sahipliği
+
+
+async def test_a_result_write_is_ignored_when_the_lease_moved_to_someone_else(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    user_settings(admin_conn, a)
+    outbox_id = seed(admin_conn, a)
+
+    class Takeover(LiveBox):
+        async def send(self, message: EmailMessage, *, idempotency_key: str | None = None) -> None:
+            # Gönderim sürerken kira (kiralama zamanı) başka bir çalıştırmaya geçti.
+            admin_conn.execute(
+                "UPDATE notification_outbox SET not_before = now() + interval '20 minutes' WHERE id = %s",
+                (outbox_id,),
+            )
+            await super().send(message, idempotency_key=idempotency_key)
+
+    result = await make(worker_engine, sender=Takeover()).dispatch()
+    current = state(admin_conn, outbox_id)
+    assert current["status"] == "pending" and current["attempts"] == 0  # yazım etkisiz kaldı
+    assert result.get("lease_lost") == 1 and result.get("sent") == 0
+
+
+async def test_a_failure_write_is_also_ignored_when_the_lease_moved(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    outbox_id = seed(admin_conn, a)
+
+    class TakeoverFail(FailingSender):
+        async def send(self, message: EmailMessage, *, idempotency_key: str | None = None) -> None:
+            admin_conn.execute(
+                "UPDATE notification_outbox SET not_before = now() + interval '20 minutes' WHERE id = %s",
+                (outbox_id,),
+            )
+            await super().send(message, idempotency_key=idempotency_key)
+
+    result = await make(worker_engine, sender=TakeoverFail()).dispatch()
+    assert state(admin_conn, outbox_id)["status"] == "pending" and result.get("lease_lost") == 1
+
+
+async def test_the_lease_guard_does_not_block_the_normal_result_write(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    outbox_id = seed(admin_conn, a)
+    result = await make(worker_engine, sender=LiveBox()).dispatch()
+    assert state(admin_conn, outbox_id)["status"] == "sent" and result.get("lease_lost") == 0
+
+
+async def test_a_partial_lease_loss_rolls_the_whole_group_result_back(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    user_settings(admin_conn, a)
+    first = seed(admin_conn, a, not_before=NOW - timedelta(minutes=3))
+    second = seed(admin_conn, a, not_before=NOW - timedelta(minutes=2))
+
+    class Partial(LiveBox):
+        async def send(self, message: EmailMessage, *, idempotency_key: str | None = None) -> None:
+            # Yalnız grubun BİR satırının kirası başkasına geçti.
+            admin_conn.execute(
+                "UPDATE notification_outbox SET not_before = now() + interval '20 minutes' WHERE id = %s",
+                (second,),
+            )
+            await super().send(message, idempotency_key=idempotency_key)
+
+    result = await make(worker_engine, sender=Partial()).dispatch()
+    states = [state(admin_conn, i) for i in (first, second)]
+    # Tümü ya hiç: kısmi yazım (biri sent, biri pending) YOK; ikisi de kiralı pending kaldı.
+    assert [s_["status"] for s_ in states] == ["pending", "pending"] and [
+        s_["attempts"] for s_ in states
+    ] == [0, 0]
+    assert result.get("lease_lost") == 2 and result.get("sent") == 0 and result.get("merged") == 0
+
+
+async def test_a_partial_lease_loss_also_rolls_back_a_group_failure_write(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    first = seed(admin_conn, a, not_before=NOW - timedelta(minutes=3))
+    second = seed(admin_conn, a, not_before=NOW - timedelta(minutes=2))
+
+    class PartialFail(FailingSender):
+        async def send(self, message: EmailMessage, *, idempotency_key: str | None = None) -> None:
+            admin_conn.execute(
+                "UPDATE notification_outbox SET not_before = now() + interval '20 minutes' WHERE id = %s",
+                (first,),
+            )
+            await super().send(message, idempotency_key=idempotency_key)
+
+    result = await make(worker_engine, sender=PartialFail()).dispatch()
+    assert {state(admin_conn, i)["status"] for i in (first, second)} == {"pending"} and result.get(
+        "lease_lost"
+    ) == 2
+
+
+async def test_the_unexpected_error_record_respects_lease_ownership(
+    world: World,
+    admin_conn: psycopg.Connection[Any],
+    worker_engine: AsyncEngine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    a = world.a
+    user_settings(admin_conn, a)
+    outbox_id = seed(admin_conn, a)
+    real = NotificationDispatcher._close
+
+    async def broken(self: NotificationDispatcher, *args: Any, **kw: Any) -> int:
+        if args[3] == "sent":
+            raise RuntimeError("sonuç yazımı hatası")
+        return await real(self, *args, **kw)
+
+    class Takeover(LiveBox):
+        async def send(self, message: EmailMessage, *, idempotency_key: str | None = None) -> None:
+            admin_conn.execute(
+                "UPDATE notification_outbox SET not_before = now() + interval '20 minutes' WHERE id = %s",
+                (outbox_id,),
+            )
+            await super().send(message, idempotency_key=idempotency_key)
+
+    monkeypatch.setattr(NotificationDispatcher, "_close", broken)
+    result = await make(worker_engine, sender=Takeover()).dispatch()
+    # Kira başkasına geçtiği için beklenmeyen hata kaydı da ETKİSİZ: satır başkasının, değişmedi.
+    current = state(admin_conn, outbox_id)
+    assert result.get("errors") == 1 and (current["status"], current["attempts"]) == ("pending", 0)
+
+
+async def test_digest_window_is_half_open_so_a_boundary_event_enters_only_one_digest(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    user_settings(admin_conn, a, digest_hour=8)
+    boundary = event(admin_conn, a)  # tam `tik - 24 sa` anında görüldü
+    admin_conn.execute("ALTER TABLE alert_events DISABLE TRIGGER alert_events_immutable_guard")
+    try:
+        admin_conn.execute(
+            "UPDATE alert_events SET first_seen_at = %s WHERE id = %s",
+            (DIGEST_AT - timedelta(hours=24), boundary),
+        )
+    finally:
+        admin_conn.execute("ALTER TABLE alert_events ENABLE ALWAYS TRIGGER alert_events_immutable_guard")
+    # Önceki günün tikinin penceresi (tik - 48 sa, tik - 24 sa] olayı alır; bugünün (tik - 24 sa, tik] almaz.
+    await make(worker_engine, now=DIGEST_AT).build_digests()
+    assert digest_rows(admin_conn, a) == []
+    previous = DIGEST_AT - timedelta(days=1)
+    await make(worker_engine, now=previous).build_digests(at=previous)
+    assert [r["alert_event_ids"] for r in digest_rows(admin_conn, a)] == [[boundary]]
+
+
+# ===================================================================================== D-c: özet penceresi
+
+
+async def test_the_digest_window_ends_at_the_tick_parameter_not_the_database_clock(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    user_settings(admin_conn, a, digest_hour=8)
+    inside = event(admin_conn, a)  # tikten 2 saat önce
+    after = event(admin_conn, a)
+    admin_conn.execute("ALTER TABLE alert_events DISABLE TRIGGER alert_events_immutable_guard")
+    try:  # tikten SONRA görülen olay (pencerenin dışında): sonraki günün özetine kalır
+        admin_conn.execute(
+            "UPDATE alert_events SET first_seen_at = %s WHERE id = %s",
+            (DIGEST_AT + timedelta(minutes=30), after),
+        )
+    finally:
+        admin_conn.execute("ALTER TABLE alert_events ENABLE ALWAYS TRIGGER alert_events_immutable_guard")
+    await make(worker_engine, now=DIGEST_AT).build_digests()
+    assert digest_rows(admin_conn, a)[0]["alert_event_ids"] == [inside]
+    # Ertesi gün aynı saatte tikin penceresi o olayı alır (kayıp ve çift yok).
+    nextday = DIGEST_AT + timedelta(days=1)
+    await make(worker_engine, now=nextday).build_digests(at=nextday)
+    assert digest_rows(admin_conn, a)[-1]["alert_event_ids"] == [after]
 
 
 # ===================================================================================== O1: yapısal güvence

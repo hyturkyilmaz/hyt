@@ -177,3 +177,17 @@ def test_signing_key_is_derived_from_the_master_key_with_its_own_purpose(setting
 @given(st.text(max_size=300))
 def test_arbitrary_text_never_verifies_and_never_raises(garbage: str) -> None:
     assert signer().verify(garbage, NOW) is None
+
+
+def test_non_canonical_encodings_of_a_valid_token_are_rejected() -> None:
+    t = token()
+    body, sig = t.split(".")
+    assert signer().verify(t, NOW) is not None
+    assert signer().verify(f"{body}=.{sig}", NOW) is None  # sonda dolgu
+    assert signer().verify(f"{body}.{sig}=", NOW) is None
+    # Son karakterin kullanılmayan bitleri: aynı baytlara çözülen ama kanonik olmayan imza dizgesi.
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    last = alphabet.index(sig[-1])
+    variant = sig[:-1] + alphabet[last ^ 1]  # 43 karakterli imzada son 2 bit kullanılmaz
+    assert variant != sig
+    assert signer().verify(f"{body}.{variant}", NOW) is None

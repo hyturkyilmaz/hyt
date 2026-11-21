@@ -185,6 +185,8 @@ def test_the_exact_path_is_csrf_exempt_and_neither_reads_nor_writes_cookies(
         ("post", "/v1/notifications/unsubscribe/"),  # sonda eğik çizgi
         ("post", "/v1/notifications/x"),  # önek değil, tam eşleşme
         ("post", "/v1/notifications/unsubscribe/extra"),
+        ("post", "/v1/notifications/unsubscribe%2F"),  # kodlu eğik çizgi: çözülünce sonda `/`
+        ("post", "/v1/notifications%2Funsubscribe/x"),
         ("post", "/v1/Notifications/unsubscribe"),  # büyük/küçük harf
         ("put", "/v1/me/notification-preferences"),  # başka bildirim ucu muaf DEĞİL
         ("put", "/v1/notifications/unsubscribe"),  # yalnız POST muaf
@@ -282,3 +284,212 @@ def test_attempts_are_rate_limited_per_ip(
     api = make_api(rate_limit_notify_unsubscribe_ip=2)
     statuses = [api.post(f"{URL}?token=bozuk.token").status_code for _ in range(4)]
     assert statuses == [400, 400, 429, 429]
+
+
+def test_percent_encoding_is_decoded_before_matching_so_it_reaches_the_same_exempt_endpoint(
+    make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any], settings: Settings
+) -> None:
+    """`unsubscrib%65` yönlendirmeden önce `unsubscribe` olur: aynı uç, aynı muafiyet (başka uca sızmaz)."""
+    anonymous, (user, tenant), _ = two_users(make_api, admin_conn)
+    encoded = anonymous.post(
+        f"/v1/notifications/unsubscrib%65?token={sign(settings, user, tenant)}", csrf=False
+    )
+    assert encoded.status_code == 200 and preferences(admin_conn, user) == {(LOSS, "email"): "off"}
+    other = anonymous.post("/v1/me/notification-preferenc%65s?token=x.y", csrf=False)  # başka uç: muaf DEĞİL
+    assert other.status_code in (403, 404, 405)
+    assert not (other.status_code == 200)
+
+
+def test_a_single_field_multipart_one_click_body_is_accepted_and_others_are_not(
+    make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any], settings: Settings
+) -> None:
+    anonymous, (user, tenant), _ = two_users(make_api, admin_conn)
+    url = f"{URL}?token={sign(settings, user, tenant)}"
+
+    def multipart(*fields: tuple[str, str]) -> dict[str, Any]:
+        boundary = "----netkar"
+        body = "".join(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'
+            for name, value in fields
+        )
+        return {
+            "content": (body + f"--{boundary}--\r\n").encode(),
+            "headers": {"content-type": f"multipart/form-data; boundary={boundary}"},
+        }
+
+    for bad in (
+        multipart(("List-Unsubscribe", "Yes")),
+        multipart(("Baska", "One-Click")),
+        multipart(("List-Unsubscribe", "One-Click"), ("extra", "1")),  # tek alan değil
+        multipart(),
+        {"content": b"--x\r\nbozuk", "headers": {"content-type": "multipart/form-data; boundary=x"}},
+        {
+            "content": b"List-Unsubscribe=One-Click",
+            "headers": {"content-type": "multipart/form-data"},
+        },  # sınır yok
+    ):
+        assert anonymous.post(url, csrf=False, **bad).status_code == 400, bad
+    assert preferences(admin_conn, user) == {}
+    good = anonymous.post(url, csrf=False, **multipart(("List-Unsubscribe", "One-Click")))
+    assert good.status_code == 200 and preferences(admin_conn, user) == {(LOSS, "email"): "off"}
+
+
+@pytest.mark.usefixtures("frozen_ratelimit_clock")
+def test_the_token_counter_key_comes_from_the_verified_claim_not_the_token_text(
+    make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any], settings: Settings
+) -> None:
+    api = make_api(rate_limit_notify_unsubscribe_token=2)
+    _, (user, tenant), _ = two_users(make_api, admin_conn)
+    signer = UnsubscribeSigner.from_settings(settings)
+    first = signer.sign(user, tenant, LOSS, "email", datetime.now(UTC))
+    # Aynı kullanıcı/kiracı/kural/kanal için ÜRETİLEN başka bir token (farklı bitiş zamanı) aynı sayacı paylaşır.
+    second = signer.sign(user, tenant, LOSS, "email", datetime.now(UTC) + timedelta(seconds=7))
+    assert first != second
+    codes = [api.post(f"{URL}?token={t}", csrf=False).status_code for t in (first, second, first, second)]
+    assert codes == [200, 200, 429, 429]
+    # Dolgu ekleyerek biçimsel varyant üretme denemesi imza kontrolünden geçmez (kanonik biçim şartı).
+    assert api.post(f"{URL}?token={first}=", csrf=False).status_code in (400, 429)
+
+
+def _timed_post(api: Api, url: str, **kwargs: Any) -> tuple[int, float]:
+    import time
+
+    started = time.perf_counter()
+    response = api.post(url, csrf=False, **kwargs)
+    return response.status_code, time.perf_counter() - started
+
+
+def test_hostile_bodies_get_400_quickly_never_500_and_are_never_parsed_when_large(
+    make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any], settings: Settings
+) -> None:
+    anonymous, (user, tenant), _ = two_users(make_api, admin_conn)
+    url = f"{URL}?token={sign(settings, user, tenant)}"
+    boundary = "bb"
+    ct = {"content-type": f"multipart/form-data; boundary={boundary}"}
+    many = (
+        b"".join(b'--bb\r\nContent-Disposition: form-data; name="a"\r\n\r\nx\r\n' for _ in range(20_000))
+        + b"--bb--\r\n"
+    )
+    nested = b"".join(b"--bb\r\nContent-Type: multipart/mixed; boundary=bb\r\n\r\n" for _ in range(1000))
+    cases: dict[str, dict[str, Any]] = {
+        "büyük çok parçalı (1 MiB civarı)": {"content": many, "headers": ct},
+        "büyük urlencoded": {
+            "content": b"a=" + b"x" * 1_000_000,
+            "headers": {"content-type": "application/x-www-form-urlencoded"},
+        },
+        "iç içe multipart": {"content": nested, "headers": ct},
+        "bozuk Content-Disposition (0*)": {
+            "content": b"--bb\r\nContent-Disposition: form-data; 0*\r\n\r\nOne-Click\r\n--bb--\r\n",
+            "headers": ct,
+        },
+        "disposition olmayan": {"content": b"--bb\r\nX: y\r\n\r\nOne-Click\r\n--bb--\r\n", "headers": ct},
+        "sınır içeren değer": {
+            "content": b'--bb\r\nContent-Disposition: form-data; name="List-Unsubscribe"\r\n\r\nOne-Click\r\n--bb\r\n--bb--',
+            "headers": ct,
+        },
+        "ikinci başlık": {
+            "content": b'--bb\r\nContent-Disposition: form-data; name="List-Unsubscribe"\r\nX-A: b\r\n\r\nOne-Click\r\n--bb--',
+            "headers": ct,
+        },
+        "ASCII dışı değer": {
+            "content": b'--bb\r\nContent-Disposition: form-data; name="List-Unsubscribe"\r\n\r\n\xff\r\n--bb--',
+            "headers": ct,
+        },
+        "1 KiB'den az ama bozuk": {"content": b"\x00" * 900, "headers": ct},
+    }
+    for name, kwargs in cases.items():
+        status, elapsed = _timed_post(anonymous, url, **kwargs)
+        # 500 değil: ya uç 400 verir ya da genel gövde sınırı ara katmanı (1 MiB üstü) 413 ile keser.
+        assert status in ({400, 413} if "büyük" in name else {400}), name
+        assert elapsed < 1.5, (name, elapsed)  # büyük gövdeler ayrıştırılmadan reddedilir
+    assert preferences(admin_conn, user) == {}
+
+
+def test_the_largest_valid_one_click_bodies_stay_accepted(
+    make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any], settings: Settings
+) -> None:
+    anonymous, (user, tenant), _ = two_users(make_api, admin_conn)
+    url = f"{URL}?token={sign(settings, user, tenant)}"
+    body = b'--b-1\r\nContent-Disposition: form-data; name="List-Unsubscribe"\r\n\r\nOne-Click\r\n--b-1--\r\n'
+    assert len(body) < 1024
+    ok = anonymous.post(
+        url, csrf=False, content=body, headers={"content-type": 'multipart/form-data; boundary="b-1"'}
+    )
+    assert ok.status_code == 200 and preferences(admin_conn, user) == {(LOSS, "email"): "off"}
+
+
+@pytest.mark.usefixtures("frozen_ratelimit_clock")
+def test_invalid_bodies_count_as_failed_attempts_on_the_ip_counter(
+    make_api: Callable[..., Api], admin_conn: psycopg.Connection[Any], settings: Settings
+) -> None:
+    api = make_api(rate_limit_notify_unsubscribe_ip=2)
+    _, (user, tenant), _ = two_users(make_api, admin_conn)
+    url = f"{URL}?token={sign(settings, user, tenant)}"  # token GEÇERLİ; gövde geçersiz
+    bad = {
+        "content": b"List-Unsubscribe=Yes",
+        "headers": {"content-type": "application/x-www-form-urlencoded"},
+    }
+    assert [api.post(url, csrf=False, **bad).status_code for _ in range(4)] == [400, 400, 429, 429]
+    assert preferences(admin_conn, user) == {}
+
+
+def asgi_call(app: Any, method: str, path: str, query: bytes = b"") -> tuple[int, bytes]:
+    """Ham yolu ASGI kapsamına DOĞRUDAN verir (istemci kütüphanesi yolu normalleştirmesin)."""
+    import asyncio
+
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": method,
+        "scheme": "https",
+        "path": path,
+        "raw_path": path.encode(),
+        "root_path": "",
+        "query_string": query,
+        "headers": [(b"host", b"testserver")],
+        "client": ("testclient", 50000),
+        "server": ("testserver", 443),
+    }
+    asyncio.run(app(scope, receive, send))
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    return int(start["status"]), b"".join(
+        m.get("body", b"") for m in sent if m["type"] == "http.response.body"
+    )
+
+
+def test_raw_double_slash_path_reaches_the_csrf_check_and_is_not_exempt() -> None:
+    from app.core.middleware import CSRF_EXEMPT, CsrfMiddleware
+
+    called: list[str] = []
+
+    async def inner(scope: Any, receive: Any, send: Any) -> None:
+        called.append(scope["path"])
+        await send({"type": "http.response.start", "status": 204, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    middleware = CsrfMiddleware(inner)
+    assert asgi_call(middleware, "POST", "/v1/notifications/unsubscribe")[0] == 204  # tam yol: muaf
+    for path in (
+        "//v1/notifications/unsubscribe",
+        "/v1/notifications/unsubscribe/",
+        "/v1/notifications//unsubscribe",
+    ):
+        status, body = asgi_call(middleware, "POST", path)
+        assert status == 403 and b"csrf-failed" in body, path  # ham yol bire bir karşılaştırılır
+    assert called == ["/v1/notifications/unsubscribe"]  # iç uygulama yalnız muaf yolda çağrıldı
+    assert CSRF_EXEMPT == {("POST", "/v1/notifications/unsubscribe")}
+
+
+def test_full_app_rejects_the_raw_double_slash_path_without_csrf(make_app: Callable[..., Any]) -> None:
+    app = make_app()
+    status, body = asgi_call(app, "POST", "//v1/notifications/unsubscribe", b"token=x.y")
+    assert status == 403 and b"csrf-failed" in body

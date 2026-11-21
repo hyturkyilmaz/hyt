@@ -110,6 +110,10 @@ class UnsubscribeSigner:
             given = _unb64(signature)
         except (ValueError, binascii.Error):
             return None
+        # Kanonik biçim: gevşek base64 çözümü aynı baytlara çıkan farklı dizgeleri (sonda dolgu, kullanılmayan
+        # bitler) kabul ederdi; yeniden kodlama birebir aynı olmalı (token başına hız sayacı atlatılamaz).
+        if _b64(payload) != body or _b64(given) != signature:
+            return None
         if not hmac.compare_digest(self._mac(payload), given):
             return None
         try:

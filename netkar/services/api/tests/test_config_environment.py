@@ -20,6 +20,7 @@ def make(**overrides: Any) -> Settings:
         "database_url": "postgresql://u:p@localhost/db",
         "data_encryption_key": KEY,
         "email_backend": "file",
+        "web_base_url": "https://app.example.invalid",
     }
     values.update(overrides)
     return Settings.model_validate(values)
@@ -132,3 +133,49 @@ def test_prod_with_live_trendyol_is_not_blocked_by_the_staging_rule() -> None:
     with pytest.raises(ValidationError) as exc:
         make(environment="prod", trendyol_environment="live", **kek())
     assert "TRENDYOL_ENVIRONMENT" not in str(exc.value)
+
+
+@pytest.mark.parametrize("environment", sorted(HARDENED_ENVIRONMENTS))
+def test_hardened_environments_reject_a_web_base_url_that_is_not_a_real_https_url(environment: str) -> None:
+    # prod'da `file` e-posta arka ucu da reddedilir; doğrulayıcı sorunları BİRLİKTE bildirdiğinden https
+    # iletisi her iki ortamda da aranabilir (staging'de tek sorun budur).
+    extra: dict[str, Any] = {"email_backend": "file", "email_dev_outbox_path": OUTBOX, **kek()}
+    for bad in (
+        "http://app.example.invalid",
+        "ftp://x",
+        "app.example.invalid",
+        "",
+        "https://",
+        "https:///yol",
+        "https://:443",
+    ):
+        with pytest.raises(ValidationError, match="WEB_BASE_URL https"):
+            make(environment=environment, web_base_url=bad, **extra)
+
+
+def test_staging_accepts_an_https_web_base_url_in_any_letter_case() -> None:
+    extra: dict[str, Any] = {"email_backend": "file", "email_dev_outbox_path": OUTBOX, **kek()}
+    for good in (
+        "https://app.example.invalid",
+        "HTTPS://App.Example.Invalid",
+        "https://app.example.invalid:8443/x",
+    ):
+        assert make(environment="staging", web_base_url=good, **extra).environment == "staging"
+
+
+@pytest.mark.parametrize("environment", ["dev", "test"])
+def test_http_web_base_url_stays_allowed_outside_hardened_environments(environment: str) -> None:
+    assert (
+        make(environment=environment, web_base_url="http://localhost:3000").web_base_url
+        == "http://localhost:3000"
+    )
+
+
+@pytest.mark.parametrize("backend", ["file", "memory"])
+@pytest.mark.parametrize("environment", ["dev", "test"])
+def test_live_notifications_flag_is_rejected_without_a_real_email_backend(
+    environment: str, backend: str
+) -> None:
+    with pytest.raises(ValidationError, match="ALERT_NOTIFICATIONS_ENABLED"):
+        make(environment=environment, email_backend=backend, alert_notifications_enabled=True)
+    assert make(environment=environment, email_backend=backend).alert_notifications_enabled is False

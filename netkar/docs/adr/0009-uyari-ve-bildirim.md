@@ -665,7 +665,7 @@ API ve web (D6, D7):
 | H3 | Tutar gösterimi varsayılanları | E-posta açık, push kapalı. |
 | H4 | Sessiz saatler ve özet saati | 22:00-08:00, özet 08:00 İstanbul. |
 | H5 | Gerçek e-posta sağlayıcısı ve gönderen adresi (ADR-0008 K12, staging C13); VAPID `sub` adresi | Resend (maliyet modeli varsayımı) + işlemsel alt alan adı; KVKK m.9 sözleşme yolu avukatla. |
-| H6 | `ALERT_NOTIFICATIONS_ENABLED` ve `WEB_PUSH_ENABLED` ne zaman açılır | Staging'de `file` ile; prod'da beta satıcının yazılı onayı ve H5 sonrası. |
+| H6 | `ALERT_NOTIFICATIONS_ENABLED` ve `WEB_PUSH_ENABLED` ne zaman açılır | Staging'de `file` ile; prod'da beta satıcının yazılı onayı ve H5 sonrası. D5 uygulama notu: `ALERT_NOTIFICATIONS_ENABLED`, gerçek sağlayıcı (H5) gelene dek HİÇBİR ortamda açılamaz (Settings ve dağıtıcı kurucusu `file`/`memory` ile açık bayrağı reddeder); staging'de `file` ile önizleme bayrak KAPALIYKEN yapılır (satır `suppressed`, ileti yerel dosyaya yazılır). |
 | H7 | İYS ve işlemsel ileti ayrımı | Avukat teyidi alınana dek yalnız beta satıcıya ve Hasan'a gönderim. |
 | H8 | Reklam Excel örneği (docs/12 §9 madde 13) | Hasan panelden bir örnek indirir; D9 buna göre kolon eşlemesi yapar. |
 | H9 | Eşik varsayılanları | Zarar 5,00 TL; reklam %100 ve 50,00 TL; kesinti bildirimi 10,00 TL; iade 5 puan; α 0,01 Bonferroni; `H` 21 gün. İlk 4 hafta pilot verisiyle gözden geçirme. |

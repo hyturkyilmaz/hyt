@@ -26,6 +26,10 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 # token'dan
 # gelir, token kullanıcı/kural/kanal bağlı ve yalnız `off` yazar): CSRF'nin koruduğu ortam yetkisi yoktur.
 # Posta istemcisinin POST'u çerezsizdir; bu satır olmadan 403 alırdı. Test: test_notify_unsubscribe_api.py.
+# NOT (root_path): eşleşme `scope["path"]` iledir; uygulama bir önek altında (root_path ya da mount)
+# çalıştırılırsa yol değişir ve bu küme güncellenmelidir (aksi halde uç 403 verir: güvenli yön). `//v1/...` ve
+# sonda `/` muaf değildir; yüzde kodlu karakterler yönlendirmeden ÖNCE çözülür, yani `unsubscrib%65` aynı uca
+# varır (aynı uç, aynı muafiyet).
 CSRF_EXEMPT = frozenset({("POST", "/v1/notifications/unsubscribe")})
 _CSRF_VALID = re.compile(r"^[A-Za-z0-9_\-]{32,128}$")
 

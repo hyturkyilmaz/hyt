@@ -23,7 +23,10 @@ logger = logging.getLogger(__name__)
 # Başlık adı: RFC 5322 alan adı (yalnız ASCII harf, rakam, tire).
 # Değer: satır sonu ve NUL yok (başlık enjeksiyonu).
 _HEADER_NAME = re.compile(r"[A-Za-z][A-Za-z0-9-]{0,63}", re.ASCII)
-_HEADER_FORBIDDEN = re.compile(r"[\r\n\x00]")
+# `str.splitlines` ayırıcılarının tamamı (CR, LF, VT, FF, FS, GS, RS, NEL, LS, PS) ve NUL: satır sonu sayılır.
+_HEADER_FORBIDDEN = re.compile("[\r\n\x00\x0b\x0c\x1c-\x1e\x85\u2028\u2029]")
+# Ek başlık İZİN LİSTESİ (küçük harf): yalnız bildirim kapatma başlıkları (Bcc, From, Reply-To... yok).
+ALLOWED_HEADERS = frozenset({"list-unsubscribe", "list-unsubscribe-post"})
 
 
 class EmailDeliveryError(Exception):
@@ -55,8 +58,15 @@ class EmailMessage:
         # Alıcı ve konu da başlık satırına girer: CR/LF/NUL başlık enjeksiyonudur.
         if _HEADER_FORBIDDEN.search(self.to) or _HEADER_FORBIDDEN.search(self.subject):
             raise ValueError("geçersiz e-posta alanı")
+        lowered = [name.lower() for name in self.headers]
+        if len(set(lowered)) != len(lowered):  # büyük/küçük harf farkıyla yinelenen başlık adı
+            raise ValueError("geçersiz e-posta başlığı")
         for name, value in self.headers.items():
-            if not _HEADER_NAME.fullmatch(name) or _HEADER_FORBIDDEN.search(value):
+            if (
+                not _HEADER_NAME.fullmatch(name)
+                or name.lower() not in ALLOWED_HEADERS
+                or _HEADER_FORBIDDEN.search(value)
+            ):
                 raise ValueError("geçersiz e-posta başlığı")
 
 

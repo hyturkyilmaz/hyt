@@ -14,6 +14,7 @@ import psycopg
 import pytest
 from procrastinate import exceptions as procrastinate_exceptions
 from procrastinate import testing
+from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.core.email import InMemoryOutbox
@@ -133,15 +134,16 @@ async def test_runtime_builds_the_dispatcher_from_settings_and_resets_on_close(s
     assert rt._notifier is None
 
 
-def test_the_real_send_flag_is_off_by_default_and_read_from_the_environment(
+def test_the_real_send_flag_is_off_by_default_and_rejected_without_a_real_backend(
     settings: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     assert settings.alert_notifications_enabled is False
     assert Settings.model_fields["alert_notifications_enabled"].default is False
     monkeypatch.setenv("ALERT_NOTIFICATIONS_ENABLED", "true")
-    fresh = Settings(
-        database_url=settings.database_url,
-        data_encryption_key=settings.data_encryption_key,
-        environment="test",
-    )
-    assert fresh.alert_notifications_enabled is True
+    # Ortamdan okunur; gerçek e-posta arka ucu olmadığından Settings erken ve güvenli tarafta reddeder (D-f).
+    with pytest.raises(ValidationError, match="ALERT_NOTIFICATIONS_ENABLED"):
+        Settings(
+            database_url=settings.database_url,
+            data_encryption_key=settings.data_encryption_key,
+            environment="test",
+        )
