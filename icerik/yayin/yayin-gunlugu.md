@@ -62,3 +62,7 @@ Kaynaklar: 30 günlük plan `icerik/plan/30-gun-2026-11-11.md`, 17:50 kuşağı 
 | 1 Kasım Ekim özeti | Ertelenen Meta bilgisini kesin veriyor |
 | 2 Kasım 11.11'e 9 gün | Tarih geçti |
 | 9 Kasım 11.11 operasyonu | Tarih geçti |
+
+## Not · 21 Kasım
+
+Kullanıcı isteğiyle teyit bekleyen 23 video ve metni yeniden iletildi: `icerik/yayin/bekleyen-videolar-2026-11-21.md` (sıra: Grup A Efsane Cuma öncesi, Grup B her zaman geçerli, Grup C planlı tarihinde). PIKSEL (#4) ve ÖZET (#12) için öneri: paylaşma, bilgi eskidi. Satır durumları kullanıcı teyidiyle güncellenecek.
