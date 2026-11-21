@@ -236,7 +236,11 @@ def _cluster_lock(
     if conn is None:
         yield
         return
-    exclusive = request.node.get_closest_marker("cluster_global") is not None
+    # cluster_global: küme düzeyinde rol değiştiren test. exclusive_cpu: süre/bellek ölçen başarım testi;
+    # paralel işçilerin CPU baskısı altında rapor bütçesini (45 sn) aşıp 503 veriyordu, tek başına koşar.
+    exclusive = any(
+        request.node.get_closest_marker(name) is not None for name in ("cluster_global", "exclusive_cpu")
+    )
     lock, unlock = (
         ("pg_advisory_lock", "pg_advisory_unlock")
         if exclusive

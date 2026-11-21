@@ -22,7 +22,9 @@ import pytest
 from tests.conftest import Api
 from tests.product_cost_helpers import Shop, fixed_today, make_shop_factory  # noqa: F401
 
-pytestmark = pytest.mark.usefixtures("fixed_today")
+# exclusive_cpu: CI paylaşılan kümesinde (-n 4) diğer işçilerin CPU baskısı ve tracemalloc yavaşlığı
+# rapor hesabını 45 sn bütçenin dışına itip 503 üretiyordu (a9bcb3e CI); ölçüm testleri tek başına koşar.
+pytestmark = [pytest.mark.usefixtures("fixed_today"), pytest.mark.exclusive_cpu]
 
 ORDERS = 5_000
 BARCODES = 60  # ilk 50'sinin maliyeti var, 10'u maliyetsiz
