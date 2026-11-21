@@ -19,6 +19,18 @@ Uyarı görevleri (ADR-0009 D4, `alerts` kuyruğu):
   (7 günlük kurallar) ya da finans yazımında `all`. Geçici veritabanı hatası en çok 3 kez, üstel beklemeyle
   yeniden denenir.
 
+Bildirim görevleri (ADR-0009 D5, AYRI `notify` kuyruğu ve ayrı süreç, eşzamanlılık 1; `make worker-notify`):
+
+  - `notify.dispatch`: her dakika; zamanı gelen outbox satırlarını işler (`app.services.notify`). CPU ağır
+    uyarı değerlendirmeleri
+    (`alerts` kuyruğu) dağıtımı geciktirmesin diye ayrı süreçtedir. Gerçek
+    gönderim `ALERT_NOTIFICATIONS_ENABLED` ile KAPALIDIR: kapalıyken satırlar `suppressed` olur, ileti yalnız
+    yerel arka uca (`file`/`memory`) yazılır. Bekleyen tek iş vardır (`queueing_lock`): iş gecikirse
+    dakikalık tikler birikmez.
+  - `notify.build_digests`: saat başı (dakika 13); İstanbul saatine göre özet saati gelen kullanıcılar için
+    özet satırı. Saat, periyodik görevin ZAMANLANMIŞ tik zamanından (`timestamp`) hesaplanır: worker geç
+    çalışsa bile o saatin kullanıcıları kaybolmaz.
+
 Geçici hatada (429, 5xx, ağ) görev `SyncTransientError` ile yeniden denenir (üstel geri çekilme);
 kalıcı hata `sync_runs`'a sınıfıyla yazılır, iş başarısız sayılmaz (yeniden denemek aynı sonucu verir).
 """
@@ -26,6 +38,7 @@ kalıcı hata `sync_runs`'a sınıfıyla yazılır, iş başarısız sayılmaz (
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
 
 import procrastinate
@@ -64,6 +77,11 @@ CRON_ALERTS_DAILY = "47 3 * * *"
 ALERT_TRIGGER_STATUSES = frozenset(("completed", "partial"))
 # Senkron sonrası erteleme penceresi: aynı hesap için pencerede tek değerlendirme (`queueing_lock`).
 ALERT_SYNC_DELAY_MINUTES = 10
+# Bildirim dağıtıcısı her dakika; günlük özet kurucusu saat başı, dakika 13 (ADR-0009 §7.1, §7.3).
+# Bildirim görevleri AYRI kuyruk ve süreçte çalışır (uyarı değerlendirmesi dağıtımı geciktirmesin).
+NOTIFY_QUEUE = "notify"
+CRON_NOTIFY_DISPATCH = "* * * * *"
+CRON_NOTIFY_DIGESTS = "13 * * * *"
 # Takılmış (worker'ı ölmüş) değerlendirme işlerini kurtaran periyodik iş; dakika 0/30 değil.
 CRON_ALERTS_RECOVER = "5-55/10 * * * *"
 # Yalnız geçici veritabanı hataları yeniden denenir (en çok 3 deneme, üstel bekleme).
@@ -209,3 +227,13 @@ def register_tasks(app: procrastinate.App, runtime: WorkerRuntime | None = None)
     @app.task(name="alerts.recover_stalled", queue="alerts")
     async def _recover_stalled_alerts(timestamp: int) -> int:
         return await recover_stalled_alerts(app)
+
+    @app.periodic(cron=CRON_NOTIFY_DISPATCH)
+    @app.task(name="notify.dispatch", queue=NOTIFY_QUEUE, queueing_lock="notify-dispatch", lock="notify")
+    async def _notify_dispatch(timestamp: int) -> dict[str, object]:
+        return (await rt.notifier.dispatch()).summary()
+
+    @app.periodic(cron=CRON_NOTIFY_DIGESTS)
+    @app.task(name="notify.build_digests", queue=NOTIFY_QUEUE, queueing_lock="notify-digests", lock="notify")
+    async def _notify_build_digests(timestamp: int) -> dict[str, object]:
+        return (await rt.notifier.build_digests(at=datetime.fromtimestamp(timestamp, UTC))).summary()

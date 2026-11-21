@@ -84,6 +84,18 @@ class Settings(BaseSettings):
     email_outbox_max_files: int = Field(5, ge=1, le=50)
     email_outbox_retention_days: int = Field(7, ge=1, le=30)
 
+    # Uyarı bildirimi teslimatı (ADR-0009 §7.1, D5). VARSAYILAN KAPALI: kapalıyken gerçek gönderim yapılmaz,
+    # dağıtıcı satırı `suppressed` yapar (geliştirme/staging'de ileti yalnız yerel `file`/`memory`
+    # arka ucuna yazılır).
+    # Açmak Hasan onayıdır (H6, README "e-posta gönderimi Hasan onayıyla"): gerçek sağlayıcı kararı H5/K12.
+    alert_notifications_enabled: bool = False
+    # Tek tık kapatma bağlantısı ömrü (gün) ve IP başına saatlik deneme sınırı (ADR-0009 §7.5). İmza anahtarı
+    # ayrı bir sır DEĞİLDİR: DATA_ENCRYPTION_KEY'den amaç bazlı türetilir (`notify-unsub`).
+    notify_unsubscribe_ttl_days: int = Field(90, ge=1, le=365)
+    rate_limit_notify_unsubscribe_ip: int = Field(30, ge=1)
+    # Geçerli token için token özeti başına saatlik sınır (IP sınırı yalnız başarısız doğrulamalara işler).
+    rate_limit_notify_unsubscribe_token: int = Field(10, ge=1)
+
     # Oturum süreleri (saniye)
     session_idle_seconds: int = 12 * 3600
     session_absolute_seconds: int = Field(

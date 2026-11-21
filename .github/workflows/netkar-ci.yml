@@ -121,11 +121,11 @@ jobs:
       - uses: astral-sh/setup-uv@v6.3.1
         with:
           version: "0.11.32"
-      - name: Semgrep (p/owasp-top-ten, p/python)
+      - name: Semgrep (p/owasp-top-ten, p/python, yerel services/api/semgrep)
         working-directory: netkar
         run: >-
           uvx --from semgrep==1.184.0 semgrep scan
-          --config p/owasp-top-ten --config p/python
+          --config p/owasp-top-ten --config p/python --config services/api/semgrep
           --error --metrics=off --exclude services/api/tests services
 
       - name: pip-audit (kilitli üretim bağımlılıkları)

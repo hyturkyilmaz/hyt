@@ -30,6 +30,10 @@ veri sürümünde, ayar değişiminde ya da ertesi gün olur.
 Reklam kuralı: reklam verisi tablosu yoktur (D9); besleyici `ad_records` vermez. Kural "veri yok" sayılır,
 uyarı üretilmez ve 30 günlük motor çalışması yapılmaz.
 
+Bildirim bastırma (O-a, D5'te daraltıldı): kuralın KENDİ veri kaynağı başarısız ya da yedeklemesi eksikse
+o kuralın bildirimi bastırılır (`RULE_SOURCES`, `blocked_rules`); olay yine açılır. Başka kaynağın hatası
+etkilemez.
+
 Bildirim notu: olay bildirime uygunsa (`notified` sayacı) `last_notified_at` yazılır; alıcı seçen kullanıcı
 yoksa outbox satırı yazılmaz. Günlük özet satırlarını D5 olaylardan kurar, burada yazılmaz.
 
@@ -43,7 +47,7 @@ import hashlib
 import json
 import logging
 import time as monotonic
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -109,6 +113,29 @@ MAX_ATTEMPTS = 3
 
 # ADR-0009 §10.1 (bildirim taşkını): hesap başına günlük en çok bu kadar YENİ olay açılır.
 MAX_NEW_EVENTS_PER_DAY = 500
+
+# O-a (ADR-0009 D4 açık maddesi, D5 ile daraltıldı): bildirim, YALNIZ ilgili kuralın veri kaynağı
+# başarısızsa ya da yedeklemesi (backfill) eksikse bastırılır; başka kaynağın hatası bu kuralın bildirimini
+# engellemez. Olay her durumda açılır, yalnız outbox (anlık bildirim) ve günlük özet bastırılır. Kaynak adları
+# `SOURCE_ORDER` ile (sync_runs.source CHECK'i) aynıdır; her kuralın girdisi besleyici kodundan çıkarılmıştır:
+# - ZARARINA_SATIS: satır kârı (siparişler, ekstre, diğer finansal kayıtlar, kargo faturaları) ve satırın iade
+#   adedi (`claims`: iadeli satır kural dışıdır, iade kaydı eksikse zarar yanlış görünür).
+# - BEKLENMEYEN_KESINTI: tahmin ile gerçekleşen kesinti karşılaştırması: siparişler ve tüm finans kaynakları.
+#   İade kaydı kullanılmaz.
+# - IADE_ORANI_ARTISI: yalnız sipariş satırı kohortu ve iade kayıtları (`alert_inputs`); finans yok.
+# - REKLAM_KARI_YIYOR: reklam verisi senkron kaynağı değildir (D9, Excel/elle giriş): sinyal zaten üretilmez.
+# `products` hiçbir kuralın bastırma girdisi DEĞİLDİR: katalog yalnız varsayılan oran/desi ve başlık verir;
+# eksikliği tahmini etiketler, yanlış olay üretmez.
+RULE_SOURCES: dict[AlertRule, frozenset[str]] = {
+    AlertRule.LOSS_MAKING_SALE: frozenset(
+        {"orders", "claims", "settlements", "other_financials", "cargo_invoices"}
+    ),
+    AlertRule.UNEXPECTED_DEDUCTION: frozenset(
+        {"orders", "settlements", "other_financials", "cargo_invoices"}
+    ),
+    AlertRule.RETURN_RATE_INCREASE: frozenset({"orders", "claims"}),
+    AlertRule.AD_EATS_PROFIT: frozenset(),
+}
 
 # Kural başına bildirim penceresi (outbox yükü, panel metni için).
 WINDOW_DAYS = {
@@ -204,7 +231,7 @@ _SQL_RESOLVE_TENANT = text(
     "SELECT tenant_id, backfilled_sources FROM sync_gate.syncable_accounts(:account_id)"
 )
 _SQL_FAILED_SOURCES = text(
-    "SELECT count(*) FROM (SELECT DISTINCT ON (source) status FROM sync_runs "
+    "SELECT source FROM (SELECT DISTINCT ON (source) source, status FROM sync_runs "
     "WHERE marketplace_account_id = :account_id ORDER BY source, started_at DESC) latest "
     "WHERE status = 'failed'"
 )
@@ -304,6 +331,17 @@ def quiet_until(moment: datetime, start: time, end: time) -> datetime | None:
     if end_at <= local:
         end_at += timedelta(days=1)
     return end_at.astimezone(UTC)
+
+
+def blocked_rules(backfilled: Collection[str], failed: Collection[str]) -> frozenset[AlertRule]:
+    """Bildirimi bastırılacak kurallar (O-a): kaynağı başarısız ya da yedeklemesi eksik olanlar.
+
+    `backfilled`: yedeklemesi tamamlanmış kaynaklar; `failed`: son senkronu başarısız kaynaklar. Bir kural
+    yalnız KENDİ kaynaklarından (`RULE_SOURCES`) biri bozuksa bastırılır; kaynağı olmayan kural (reklam)
+    hiç bastırılmaz.
+    """
+    broken = (set(SOURCE_ORDER) - set(backfilled)) | set(failed)
+    return frozenset(rule for rule, sources in RULE_SOURCES.items() if sources & broken)
 
 
 # --------------------------------------------------------------------------- bastırma kararı
@@ -418,8 +456,8 @@ class _Inputs:
     unmatched_returns: int
     orphan_returns: int
     ambiguous_returns: int
-    # Yedekleme tamamlanmamış ya da son senkronu kısmi hesapta olay açılır ama bildirim (outbox) yazılmaz.
-    notify_allowed: bool
+    # O-a: kaynağı başarısız ya da yedeklemesi eksik kurallarda olay açılır ama bildirim (outbox) yazılmaz.
+    blocked_rules: frozenset[AlertRule]
 
 
 @dataclass(slots=True)
@@ -485,13 +523,13 @@ class AlertEvaluator:
         resolved = await self._resolve_tenant(account_id)
         if resolved is None:
             return EvaluationOutcome(account_id, "inactive")
-        tenant_id, backfill_done = resolved
+        tenant_id, backfilled = resolved
         now = self._now()
         as_of = now.astimezone(ISTANBUL).date()
         key: EvaluationKey | None = None
         attempt = 1
         try:
-            inputs = await self._read_inputs(tenant_id, account_id, as_of, scope, backfill_done)
+            inputs = await self._read_inputs(tenant_id, account_id, as_of, scope, backfilled)
             if isinstance(inputs, str):
                 return self._skipped(account_id, inputs)
             key, attempt = inputs.key, inputs.attempt
@@ -524,7 +562,7 @@ class AlertEvaluator:
                 "unmatched_returns": inputs.unmatched_returns,
                 "orphan_returns": inputs.orphan_returns,
                 "ambiguous_returns": inputs.ambiguous_returns,
-                "notify_allowed": inputs.notify_allowed,
+                "notify_blocked_rules": sorted(rule.value for rule in inputs.blocked_rules),
             },
         )
         return EvaluationOutcome(account_id, "succeeded", counts)
@@ -535,18 +573,18 @@ class AlertEvaluator:
         return EvaluationOutcome(account_id, "skipped", reason=reason)
 
     # --- hesap çözümü --------------------------------------------------------------------------
-    async def _resolve_tenant(self, account_id: UUID) -> tuple[UUID, bool] | None:
-        """Hesabın kiracısı ve tüm kaynakların yedeklemesi tamam mı (yalnız etkin hesaplar; dar işlev)."""
+    async def _resolve_tenant(self, account_id: UUID) -> tuple[UUID, frozenset[str]] | None:
+        """Hesabın kiracısı ve yedeklemesi tamamlanmış kaynaklar (yalnız etkin hesaplar; dar işlev)."""
         async with self._sessions() as session:
             row = (await session.execute(_SQL_RESOLVE_TENANT, {"account_id": account_id})).first()
             await session.rollback()
         if row is None:
             return None
-        return UUID(str(row[0])), set(SOURCE_ORDER) <= set(row[1])
+        return UUID(str(row[0])), frozenset(row[1])
 
     # --- okuma aşaması ---------------------------------------------------------------------------
     async def _read_inputs(
-        self, tenant_id: UUID, account_id: UUID, as_of: date, scope: str, backfill_done: bool
+        self, tenant_id: UUID, account_id: UUID, as_of: date, scope: str, backfilled: frozenset[str]
     ) -> _Inputs | str:
         """Sürümleri ve eşikleri okur; anahtar kapanmışsa atlama nedeni, değilse kuralları çalıştırır."""
         async with self._sessions() as session:
@@ -577,9 +615,9 @@ class AlertEvaluator:
                 await session.rollback()
                 return "exhausted"
             failed_sources = (
-                await session.execute(_SQL_FAILED_SOURCES, {"account_id": account_id})
-            ).scalar_one()
-            notify_allowed = backfill_done and int(failed_sources) == 0
+                (await session.execute(_SQL_FAILED_SOURCES, {"account_id": account_id})).scalars().all()
+            )
+            blocked = blocked_rules(backfilled, failed_sources)
             outcomes: list[RuleOutcome] = []
             if AlertRule.LOSS_MAKING_SALE.value in enabled:
                 losses = await self._period(
@@ -611,7 +649,7 @@ class AlertEvaluator:
             cohorts.unmatched_returns,
             cohorts.orphan_returns,
             cohorts.ambiguous_returns,
-            notify_allowed,
+            blocked,
         )
 
     async def _period(
@@ -807,7 +845,11 @@ async def _apply_outcomes(
                     counters.dropped += 1
                     continue
                 budget -= 1
-                decision = _gate(decide_notification(candidate, None, now, None), None, inputs.notify_allowed)
+                decision = _gate(
+                    decide_notification(candidate, None, now, None),
+                    None,
+                    candidate.rule not in inputs.blocked_rules,
+                )
                 event_id = await _insert_event(session, tenant_id, account_id, key, candidate, decision)
                 counters.opened += 1
             else:
@@ -815,7 +857,7 @@ async def _apply_outcomes(
                 decision = _gate(
                     decide_notification(candidate, current, now, reopened_from),
                     current,
-                    inputs.notify_allowed,
+                    candidate.rule not in inputs.blocked_rules,
                 )
                 event_id = current.id
                 await _update_event(session, tenant_id, key, candidate, current.id, decision)
@@ -920,7 +962,7 @@ async def _transition(session: AsyncSession, tenant_id: UUID, event: ExistingEve
 
 
 def _gate(decision: NotifyDecision, existing: ExistingEvent | None, notify_allowed: bool) -> NotifyDecision:
-    """Bildirim kapalıysa (yedekleme eksik ya da son senkron kısmi) olay açılır ama bildirim işaretlenmez.
+    """Kuralın kaynağı bozuksa (O-a: başarısız son senkron, eksik yedekleme) olay açılır ama bildirim yok.
 
     Bildirim alanları (`last_notified_at`, tutar, bayrak) DEĞİŞMEZ: koşul sürerse veri tamamlanınca
     bildirilir.

@@ -21,6 +21,12 @@ logger = logging.getLogger("netkar.request")
 CSRF_COOKIE = "__Host-nk_csrf"
 CSRF_HEADER = "X-CSRF-Token"
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+# CSRF muafiyeti (RFC 8058 tek tık kapatma): TAM eşleşme (yöntem, `scope["path"]`); önek, sonda eğik çizgi ve
+# büyük/küçük harf farkı muaf DEĞİLDİR. Muaf uç çerez ve oturum OKUMAZ ve YAZMAZ (yetki yalnız imzalı
+# token'dan
+# gelir, token kullanıcı/kural/kanal bağlı ve yalnız `off` yazar): CSRF'nin koruduğu ortam yetkisi yoktur.
+# Posta istemcisinin POST'u çerezsizdir; bu satır olmadan 403 alırdı. Test: test_notify_unsubscribe_api.py.
+CSRF_EXEMPT = frozenset({("POST", "/v1/notifications/unsubscribe")})
 _CSRF_VALID = re.compile(r"^[A-Za-z0-9_\-]{32,128}$")
 
 SECURITY_HEADERS = {
@@ -90,7 +96,11 @@ class CsrfMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http" and scope["method"] not in SAFE_METHODS:
+        if (
+            scope["type"] == "http"
+            and scope["method"] not in SAFE_METHODS
+            and (scope["method"], scope["path"]) not in CSRF_EXEMPT
+        ):
             request = Request(scope)
             cookie = request.cookies.get(CSRF_COOKIE, "")
             header = request.headers.get(CSRF_HEADER, "")

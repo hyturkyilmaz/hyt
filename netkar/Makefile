@@ -7,7 +7,7 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 # infra/.env varsa ortama yükler (yerel çalıştırma için).
 LOAD_ENV := set -a; if [ -f $(CURDIR)/$(ENV_FILE) ]; then . $(CURDIR)/$(ENV_FILE); fi; set +a;
 
-.PHONY: help setup env lint test test-seri test-profit test-alerts dev migrate worker worker-alerts seed-demo mark-non-prod db-up db-down web-lint web-test
+.PHONY: help setup env lint test test-seri test-profit test-alerts dev migrate worker worker-alerts worker-notify seed-demo mark-non-prod db-up db-down web-lint web-test
 
 help:
 	@echo "setup  : Python bağımlılıklarını kurar (uv sync)"
@@ -24,6 +24,7 @@ help:
 	@echo "dev    : uvicorn (--reload)"
 	@echo "worker : procrastinate worker (senkron ve genel kuyruklar; alerts kuyruğunu ALMAZ)"
 	@echo "worker-alerts: ayrı procrastinate süreci, yalnız alerts kuyruğu (uyarı değerlendirmesi)"
+	@echo "worker-notify: ayrı procrastinate süreci, yalnız notify kuyruğu (bildirim dağıtıcısı ve günlük özet)"
 	@echo "web-lint, web-test: apps/web için npm betikleri"
 
 setup:
@@ -89,6 +90,11 @@ worker:
 # Uyarı değerlendirmesi (ADR-0009 D4) CPU işidir (kâr motoru): senkronu bekletmemesi için AYRI süreç ve düşük eşzamanlılık.
 worker-alerts:
 	$(LOAD_ENV) cd $(API) && uv run procrastinate --app=app.worker.app.app worker --queues alerts --concurrency 1
+
+# Bildirim dağıtıcısı ve günlük özet (ADR-0009 D5) AYRI süreçtedir: CPU ağır uyarı değerlendirmesi dakikalık dağıtımı
+# geciktirmesin. Gerçek gönderim ALERT_NOTIFICATIONS_ENABLED=false ile KAPALIDIR (açmak Hasan onayıdır).
+worker-notify:
+	$(LOAD_ENV) cd $(API) && uv run procrastinate --app=app.worker.app.app worker --queues notify --concurrency 1
 
 web-lint:
 	npm --prefix apps/web run lint

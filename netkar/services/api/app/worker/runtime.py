@@ -21,6 +21,7 @@ from app.core.envelope import EnvelopeCipher
 from app.db.session import create_engine
 from app.services.alert_evaluation import AlertEvaluator
 from app.services.marketplace_accounts import TrendyolClientFactory, default_client_factory
+from app.services.notify import NotificationDispatcher
 from app.services.sync.runner import SyncPolicy, SyncRunner
 from app.services.sync.sources import SOURCE_ORDER
 
@@ -60,6 +61,7 @@ class WorkerRuntime:
         self._policy = policy
         self._runner: SyncRunner | None = None
         self._alert_evaluator: AlertEvaluator | None = None
+        self._notifier: NotificationDispatcher | None = None
 
     @property
     def settings(self) -> Settings:
@@ -95,6 +97,13 @@ class WorkerRuntime:
             self._alert_evaluator = AlertEvaluator(self.engine, now=self._now)
         return self._alert_evaluator
 
+    @property
+    def notifier(self) -> NotificationDispatcher:
+        """Bildirim dağıtıcısı (ADR-0009 D5): kopya yerel arka uçta; gerçek gönderim bayrakla KAPALI."""
+        if self._notifier is None:
+            self._notifier = NotificationDispatcher.from_settings(self.engine, self.settings, now=self._now)
+        return self._notifier
+
     async def list_accounts(self) -> list[PlannedAccount]:
         """Etkin hesaplar (kiracı bağlamsız dar işlev). Yalnız kimlik, kiracı ve backfill durumu döner."""
         sessions: async_sessionmaker[AsyncSession] = async_sessionmaker(self.engine, expire_on_commit=False)
@@ -116,6 +125,7 @@ class WorkerRuntime:
             self._engine = None
             self._runner = None
             self._alert_evaluator = None
+            self._notifier = None
 
 
 def sources_to_plan(account: PlannedAccount, wanted: Sequence[str]) -> list[str]:

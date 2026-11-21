@@ -10,27 +10,63 @@ import os
 import re
 import stat
 import time
-from dataclasses import asdict, dataclass
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
+from app.core.config import HARDENED_ENVIRONMENTS, Settings
+
 logger = logging.getLogger(__name__)
+
+# Başlık adı: RFC 5322 alan adı (yalnız ASCII harf, rakam, tire).
+# Değer: satır sonu ve NUL yok (başlık enjeksiyonu).
+_HEADER_NAME = re.compile(r"[A-Za-z][A-Za-z0-9-]{0,63}", re.ASCII)
+_HEADER_FORBIDDEN = re.compile(r"[\r\n\x00]")
+
+
+class EmailDeliveryError(Exception):
+    """Gönderim hatası. İleti METNİ taşımaz: alıcı adresi ve gövde hata metnine girmez (G09)."""
+
+
+class EmailTransientError(EmailDeliveryError):
+    """Geçici hata (zaman aşımı, sağlayıcı yoğun): yeniden denenir."""
+
+
+class EmailPermanentError(EmailDeliveryError):
+    """Kalıcı hata (adres geçersiz, sağlayıcı reddetti): yeniden denenmez."""
 
 
 @dataclass(frozen=True)
 class EmailMessage:
-    """Gönderilecek e-posta."""
+    """Gönderilecek e-posta. `html` verilirse çok parçalı (düz metin + HTML) gönderilir; `headers` ek başlık.
+
+    Ek başlıklar (ör. `List-Unsubscribe`) ad ve değer denetiminden geçer: satır sonu içeren değer reddedilir.
+    """
 
     to: str
     subject: str
     body: str
+    html: str | None = None
+    headers: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Alıcı ve konu da başlık satırına girer: CR/LF/NUL başlık enjeksiyonudur.
+        if _HEADER_FORBIDDEN.search(self.to) or _HEADER_FORBIDDEN.search(self.subject):
+            raise ValueError("geçersiz e-posta alanı")
+        for name, value in self.headers.items():
+            if not _HEADER_NAME.fullmatch(name) or _HEADER_FORBIDDEN.search(value):
+                raise ValueError("geçersiz e-posta başlığı")
 
 
 class EmailSender(Protocol):
     """E-posta gönderici arayüzü (ileride Resend/SES uygulaması bunu sağlar)."""
 
-    async def send(self, message: EmailMessage) -> None: ...
+    async def send(self, message: EmailMessage, *, idempotency_key: str | None = None) -> None:
+        """İleti gönderir. `idempotency_key` verilirse (outbox satır kimliği) sağlayıcı aynı anahtarla gelen
+        tekrarı tek ileti sayar (commit öncesi çökme sonrası yeniden denemede çift ileti olmasın)."""
+        ...
 
 
 class InMemoryOutbox:
@@ -39,7 +75,7 @@ class InMemoryOutbox:
     def __init__(self) -> None:
         self.messages: list[EmailMessage] = []
 
-    async def send(self, message: EmailMessage) -> None:
+    async def send(self, message: EmailMessage, *, idempotency_key: str | None = None) -> None:
         self.messages.append(message)
 
     def to(self, address: str) -> list[EmailMessage]:
@@ -91,9 +127,13 @@ class FileEmailSender:
         # Boşta kalmış eski kayıtlar yeniden başlatmada da süresi dolunca silinsin.
         self._prune()
 
-    async def send(self, message: EmailMessage) -> None:
+    async def send(self, message: EmailMessage, *, idempotency_key: str | None = None) -> None:
+        # Boş `html`, `headers` ve anahtar yazılmaz: eski iletilerin satır biçimi değişmez.
+        record = {k: v for k, v in asdict(message).items() if k in ("to", "subject", "body") or v}
+        if idempotency_key:
+            record["idempotency_key"] = idempotency_key
         async with self._lock:
-            self._write_line(json.dumps(asdict(message), ensure_ascii=False) + "\n")
+            self._write_line(json.dumps(record, ensure_ascii=False) + "\n")
         # Log'a yalnız meta yazılır: gövde ve token yok.
         logger.info("dev e-postası dosyaya yazıldı", extra={"subject": message.subject})
 
@@ -219,3 +259,24 @@ class FileEmailSender:
                 victim.unlink(missing_ok=True)
         except OSError:
             logger.warning("outbox eski dosya temizliği yapılamadı")
+
+
+def is_local_sender(sender: object) -> bool:
+    """Yalnız yerel arka uçlar (`InMemoryOutbox`, `FileEmailSender`) ağa çıkmaz; diğerleri "canlı" sayılır."""
+    return isinstance(sender, InMemoryOutbox | FileEmailSender)
+
+
+def build_local_email_sender(settings: Settings) -> InMemoryOutbox | FileEmailSender:
+    """Ayara göre YEREL gönderici (`memory` ya da `file`; ikisi de ağa çıkmaz): geliştirme kopyası içindir.
+
+    Gerçek sağlayıcı arka ucu (Resend/SES) bilerek YOKTUR: karar H5/K12 Hasan'dadır (ADR-0009 §13).
+    """
+    if settings.email_backend == "memory":
+        return InMemoryOutbox()
+    return FileEmailSender(
+        settings.email_dev_outbox_path,
+        max_bytes=settings.email_outbox_max_bytes,
+        max_files=settings.email_outbox_max_files,
+        retention_days=settings.email_outbox_retention_days,
+        hardened=settings.environment in HARDENED_ENVIRONMENTS,
+    )

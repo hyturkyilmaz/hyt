@@ -28,3 +28,8 @@ api_router.include_router(profit.router)
 api_router.include_router(profit_settings.router)
 api_router.include_router(alerts.router)
 api_router.include_router(alerts.me_router)
+
+# D5: tek tık bildirim kapatma ucu (D6'nın import bloğuyla çakışmamak için dosyanın sonunda).
+from app.api.v1.notify_unsubscribe import router as notify_unsubscribe_router  # noqa: E402
+
+api_router.include_router(notify_unsubscribe_router)

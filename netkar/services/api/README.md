@@ -67,6 +67,10 @@ Senkron ve depolama testleri: `tests/test_sync_schema.py` (migrasyon 0006, RLS, 
 | `EMAIL_OUTBOX_MAX_FILES` | hayır | `5` | 1-50. Tutulan döndürülmüş dosya sayısı; fazlası en eskiden başlayarak silinir. |
 | `EMAIL_OUTBOX_RETENTION_DAYS` | hayır | `7` | 1-30 gün. Döndürülmüş dosyalar bundan eskiyse silinir (açılışta ve her gönderimde). Silme yalnız yapılandırılan dizinde ve adı bu kalıba uyan düz dosyalara dokunur. |
 | `WEB_BASE_URL` | hayır | `http://localhost:3000` | Sıfırlama bağlantılarındaki web adresi. |
+| `ALERT_NOTIFICATIONS_ENABLED` | hayır | `false` | Uyarı e-postalarının GERÇEK gönderimi (ADR-0009 D5). Kapalıyken gerçek arka uç asla çağrılmaz, outbox satırı `suppressed` olur; ileti yalnız yerel arka uca (`file`/`memory`) yazılır. Açmak Hasan onayıdır (H6; gerçek sağlayıcı kararı H5/K12). Aşağıdaki "Bildirim dağıtıcısı" bölümüne bakın. |
+| `NOTIFY_UNSUBSCRIBE_TTL_DAYS` | hayır | `90` | 1-365. Tek tık kapatma bağlantısının ömrü. İmza anahtarı ayrı sır değildir: `DATA_ENCRYPTION_KEY`'den `notify-unsub` amacıyla türetilir. |
+| `RATE_LIMIT_NOTIFY_UNSUBSCRIBE_IP` | hayır | 30 | `POST /v1/notifications/unsubscribe` için IP başına saatlik sınır; yalnız doğrulaması BAŞARISIZ denemelere işler. |
+| `RATE_LIMIT_NOTIFY_UNSUBSCRIBE_TOKEN` | hayır | 10 | Aynı (geçerli) token için saatlik sınır (token özeti başına). |
 | `RATE_LIMIT_LOGIN_IP` / `_LOGIN_EMAIL` | hayır | 30 / 10 | 15 dakikalık pencerede giriş denemesi sınırı. |
 | `RATE_LIMIT_REGISTER_IP` | hayır | 10 | 1 saatte kayıt sınırı (IP). |
 | `RATE_LIMIT_RESET_IP` / `_RESET_EMAIL` | hayır | 10 / 3 | 1 saatte sıfırlama isteği sınırı. |
@@ -233,6 +237,42 @@ Kurallar:
 - **Bağlantı doğrulama.** `verify_connection`: stok ve fiyat odaklı onaylı ürün v2, `size=1` (gerekçe ADR-0003 §4).
 - **Anahtar saklama.** `marketplace_accounts.api_key_encrypted` ve `api_secret_encrypted`: zarf şifreleme (`EnvelopeCipher`, ADR-0004): kayıt başına rastgele DEK (AES-256-GCM), DEK KEK ile sarılı; biçim `v2:<kid>:<sarılı_dek>:<veri>`; AAD kiracı + platform + satıcı + hesap + alan adıdır (başka kiracıya/satıcıya/satıra taşınan değer çözülemez). Eski `v1:` değerler `python -m app.tools.migrate_envelope` ile dönüştürülür; KEK döndürme `python -m app.tools.rewrap_keys` ile (ikisi de varsayılan kuru çalıştırma, idempotent; ortam: `DATABASE_ADMIN_URL`). Listelemede ve `find_live_account`'ta şifreli sütunlar okunmaz (`deferred`). `netkar_app` yalnız gerekli sütunlarda UPDATE yapabilir (migrasyon 0005) ve şifreli sütunları SELECT EDEMEZ (migrasyon 0006, ADR-0005 §6): bunları yalnız `netkar_worker` okur. İptalde (`revoke`) iki alan da NULL olur, satır silinmez. Satıcı, anahtarı Trendyol panelinden de silmelidir.
 - **Yeni zorunlu testler** (hepsi sahte taşımayla): `tests/test_trendyol_basics.py` (User-Agent, token bucket, pencere bölme), `tests/test_trendyol_client.py` (429 geri çekilme ve deneme sayısı, 401/403'te yeniden deneme yok, uç nokta sözleşmeleri), `tests/test_trendyol_models_pii.py` (PII hiçbir nesnede ve log'da yok), `tests/test_marketplace_accounts.py` (anahtarlar DB'de şifreli, RLS izolasyonu, iptal sonrası alanlar boş).
+
+## Bildirim dağıtıcısı (ADR-0009 D5)
+
+AYRI `notify` kuyruğunda ve ayrı süreçte (`make worker-notify`, compose `worker-notify`, eşzamanlılık 1; CPU ağır uyarı
+değerlendirmesi dakikalık dağıtımı geciktirmesin) iki görev çalışır: `notify.dispatch` (her dakika) outbox
+satırlarını işler, `notify.build_digests` (saat başı, dakika 13) İstanbul saatine göre özet saati gelen kullanıcılar için
+günlük özet satırı yazar (saat, periyodik görevin ZAMANLANMIŞ tik `timestamp`ından hesaplanır: geç uyanan worker o
+saatin kullanıcılarını kaçırmaz). Özet alıcıları kiracının doğrulanmış ÜYELERİdir (rol `memberships`'ten,
+`notify_gate.tenant_recipients`; varsayılan matris D6'nın `default_matrix(role)` işlevidir: viewer e-posta off,
+owner/admin günlük özet). Gerçek gönderim `ALERT_NOTIFICATIONS_ENABLED=false` ile KAPALIDIR: kapalıyken satır `suppressed`
+olur ve ileti yalnız yerel `file`/`memory` arka ucuna yazılır (ağa çıkmaz). Gerçek e-posta sağlayıcısı entegrasyonu yoktur
+(karar H5/K12 Hasan'da); yalnız `EmailSender` arayüzü vardır. Yapısal güvence: geliştirme kopyası
+`build_local_email_sender` ile (file/memory) kurulur, kurucu yerel olmayan `dev_sender`'ı ve gerçek arka uçsuz açık
+bayrağı (ya da yerel göndericiyle açık bayrağı: staging'de sahte `sent` olmasın) reddeder. Gönderim işlem DIŞINDADIR:
+satır önce 10 dk kiralanır ve commit edilir, sonra gönderilir (`idempotency_key` = outbox kimliği, 30 sn zaman aşımı,
+çalıştırma başına 50 sn toplam süre sınırı), sonra sonuç yazılır. Beklenmeyen hata ayrı işlemde `attempts + 1` ve
+`failed` yazar. **H5 öncesi açık:** gerçek sağlayıcı seçilince `idempotency_key`'in sağlayıcıda gerçekten tekilleştirdiği
+doğrulanmalı.
+
+- Alıcı adresi yalnız gönderim anında `notify_gate.email_for(outbox_id)` ile okunur; outbox'a, loga ve hata metnine
+  yazılmaz. Üyelikten çıkmış ya da e-postası doğrulanmamış kullanıcıya ileti gitmez (`skipped`).
+- Sıklık sınırı (kullanıcı ve kanal başına günde 4 anlık e-posta, iki anlık arası 30 dk) aşılırsa satır `held` olur ve
+  sonraki günlük özete katlanır; sessiz saatte (22:00-08:00 İstanbul) `not_before` 08:00 olur ve bitişte tek iletide
+  birleşir. Geçici hata `failed` + üstel bekleme (4, 16, 64, 256, 1024 sn), kalıcı hata ya da 6. hata `failed_permanent`.
+- Bastırma (O-a): bir kuralın bildirimi yalnız KENDİ veri kaynağı başarısız ya da yedeklemesi eksikse bastırılır
+  (`app/services/alert_evaluation.py` `RULE_SOURCES`); olay yine açılır.
+- Tek tık kapatma: `POST /v1/notifications/unsubscribe?token=...` (imzalı, süreli, kullanıcı ve kural bağlı, yalnız `off`,
+  üyelik denetimli). `CsrfMiddleware` bu TAM yolu (`CSRF_EXEMPT`: yöntem + `scope["path"]`, önek ve eğik çizgi
+  yok) muaf tutar; uç çerez/oturum okumaz ve yazmaz; gövde varsa yalnız `application/x-www-form-urlencoded` ve
+  `List-Unsubscribe=One-Click`. Hız sınırı: IP yalnız başarısız doğrulamalara, geçerli token için token başına
+  (`RATE_LIMIT_NOTIFY_UNSUBSCRIBE_TOKEN`). Anlık iletinin `List-Unsubscribe` başlığı yalnız o kuralı kapatır (çok
+  kurallı anlık iletide başlık yoktur); `*` yalnız özette.
+- Token iptali yalnız ANAHTAR DÖNDÜRMEYLE (`DATA_ENCRYPTION_KEY`) olur (tüm bekleyen bağlantılar geçersizleşir). Sorgu
+  dizesi token taşır: ters vekil/CDN erişim loglarında `/v1/notifications/unsubscribe` ve `/bildirim-kapat` sorgu
+  dizesi MASKELENMELİDİR (uygulama logu zaten yalnız yolu yazar).
+- `text()` içinde f-string yoktur: `semgrep/sql-text-literal.yml` (yerel kural) ve `tests/test_notify_sql_rules.py` korur.
 
 ## Kiracı bağlamı kuralı
 

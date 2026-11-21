@@ -933,9 +933,14 @@ async def test_losing_the_insert_race_for_the_evaluation_key_writes_nothing(
     real = AlertEvaluator._read_inputs
 
     async def raced(
-        self: AlertEvaluator, tenant_id: UUID, account_id: UUID, as_of: Any, scope: str, backfill_done: bool
+        self: AlertEvaluator,
+        tenant_id: UUID,
+        account_id: UUID,
+        as_of: Any,
+        scope: str,
+        backfilled: frozenset[str],
     ) -> Any:
-        inputs = await real(self, tenant_id, account_id, as_of, scope, backfill_done)
+        inputs = await real(self, tenant_id, account_id, as_of, scope, backfilled)
         assert isinstance(inputs, ae._Inputs)
         # Başka bir çalıştırma okuma ile yazma arasında aynı anahtarı kapattı.
         admin_conn.execute(

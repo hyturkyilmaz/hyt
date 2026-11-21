@@ -492,12 +492,12 @@ def test_privilege_matrix_for_app_worker_auth_public_and_notify_gate(
         for table in NEW_TABLES:
             for priv in ("SELECT", "INSERT", "UPDATE"):
                 assert not col_privs(admin_conn, role, table, priv), (role, table, priv)
-    # netkar_notify_gate: yalnız outbox'ta beş sütun SELECT; yeni tablolarda başka yetki yok.
+    # netkar_notify_gate: yalnız outbox'ta altı sütun SELECT (+ `last_error_class`, migrasyon 0027); başka yetki yok.
     for table in NEW_TABLES:
         for priv in ("INSERT", "UPDATE"):
             assert not col_privs(admin_conn, "netkar_notify_gate", table, priv)
         expected_select = (
-            {"id", "tenant_id", "user_id", "status", "channel", "not_before"}
+            {"id", "tenant_id", "user_id", "status", "channel", "not_before", "last_error_class"}
             if table == "notification_outbox"
             else set()
         )
@@ -507,7 +507,11 @@ def test_privilege_matrix_for_app_worker_auth_public_and_notify_gate(
         "email",
         "email_verified_at",
     }
-    assert col_privs(admin_conn, "netkar_notify_gate", "memberships", "SELECT") == {"user_id", "tenant_id"}
+    assert col_privs(admin_conn, "netkar_notify_gate", "memberships", "SELECT") == {
+        "user_id",
+        "tenant_id",
+        "role",  # migrasyon 0027: özet alıcı rolü (`notify_gate.tenant_recipients`)
+    }
     for table in ("users", "memberships"):
         for priv in ("INSERT", "UPDATE"):
             assert not col_privs(admin_conn, "netkar_notify_gate", table, priv)
