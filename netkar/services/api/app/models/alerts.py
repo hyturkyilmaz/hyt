@@ -207,6 +207,8 @@ class AlertEvaluation(_AccountScoped, Base):
     data_revision: Mapped[int] = mapped_column(BigInteger)
     settings_revision: Mapped[int] = mapped_column(BigInteger)
     rules_version: Mapped[int] = mapped_column(Integer)
+    # Yeniden deneme sırası (1-3; migrasyon 0026): `failed` anahtar 3 denemeye kadar yeni satırla denenir.
+    attempt: Mapped[int] = mapped_column(SmallInteger, server_default="1")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
     finished_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=FetchedValue()

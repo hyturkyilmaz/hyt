@@ -8,6 +8,17 @@ Senkron görevleri (ADR-0005 §3-§4):
   - Periyodik planlayıcılar: sipariş ve iade 15 dakikada bir, ekstre günde 2, ürünler günde 1.
     Backfill'i eksik hesaba backfill, tamamlanmış kaynaklara artımlı iş eklenir.
 
+Uyarı görevleri (ADR-0009 D4, `alerts` kuyruğu):
+
+  - `alerts.evaluate(account_id)`: hesap başına idempotent değerlendirme (`app.services.alert_evaluation`).
+    Senkron görevi yeni kayıt yazınca, API kâr ayarı ya da maliyet yazımından sonra ve günlük planlayıcıdan
+    eklenir.
+  - `alerts.plan_daily`: günde bir, etkin her hesap için değerlendirme ekler (worker içi periyodik iş).
+  - `alerts.recover_stalled`: 10 dakikada bir, worker'ı ölmüş takılı değerlendirme işlerini kuyruğa alır.
+  Senkron sonrası değerlendirme 10 dakika ertelenir ve hesap başına tek bekleyen iş olur; kapsam `fast`
+  (7 günlük kurallar) ya da finans yazımında `all`. Geçici veritabanı hatası en çok 3 kez, üstel beklemeyle
+  yeniden denenir.
+
 Geçici hatada (429, 5xx, ağ) görev `SyncTransientError` ile yeniden denenir (üstel geri çekilme);
 kalıcı hata `sync_runs`'a sınıfıyla yazılır, iş başarısız sayılmaz (yeniden denemek aynı sonucu verir).
 """
@@ -21,8 +32,10 @@ import procrastinate
 from procrastinate import RetryStrategy
 from sqlalchemy import text
 
+from app.services.alert_evaluation import SCOPE_ALL, SCOPE_FAST, AlertEvaluationTransient
 from app.services.sync.errors import SyncTransientError
-from app.worker.queue import defer_backfill, defer_incremental
+from app.services.sync.runner import SyncOutcome
+from app.worker.queue import defer_alert_evaluation, defer_backfill, defer_incremental
 from app.worker.runtime import WorkerRuntime, sources_to_plan
 
 logger = logging.getLogger("netkar.worker")
@@ -43,6 +56,18 @@ PLANNED_SOURCES = frozenset((*ORDER_CLAIM_SOURCES, *FINANCE_SOURCES, *PRODUCT_SO
 CRON_ORDERS_CLAIMS = "*/15 * * * *"
 CRON_FINANCE = "7 3,15 * * *"
 CRON_PRODUCTS = "23 1 * * *"
+# Günlük uyarı değerlendirmesi: 06:47 İstanbul (03:47 UTC). Pencere günü kaydığı için veri değişmese de
+# gerekir.
+CRON_ALERTS_DAILY = "47 3 * * *"
+# Senkron sonrası erteleme için "başarılı" sayılan durumlar (invalid, credentials_error, inactive, locked
+# değil).
+ALERT_TRIGGER_STATUSES = frozenset(("completed", "partial"))
+# Senkron sonrası erteleme penceresi: aynı hesap için pencerede tek değerlendirme (`queueing_lock`).
+ALERT_SYNC_DELAY_MINUTES = 10
+# Takılmış (worker'ı ölmüş) değerlendirme işlerini kurtaran periyodik iş; dakika 0/30 değil.
+CRON_ALERTS_RECOVER = "5-55/10 * * * *"
+# Yalnız geçici veritabanı hataları yeniden denenir (en çok 3 deneme, üstel bekleme).
+ALERT_RETRY = RetryStrategy(max_attempts=3, exponential_wait=4, retry_exceptions=[AlertEvaluationTransient])
 
 
 async def heartbeat() -> str:
@@ -76,6 +101,51 @@ async def plan_sync(
     return {"backfill": backfills, "incremental": incrementals}
 
 
+async def plan_alert_evaluations(app: procrastinate.App, runtime: WorkerRuntime) -> dict[str, int]:
+    """Etkin her hesap için günlük uyarı değerlendirmesi ekler (bekleyen iş varsa eklenmez)."""
+    deferred = 0
+    for account in await runtime.list_accounts():
+        if await defer_alert_evaluation(app, account.account_id):
+            deferred += 1
+    return {"deferred": deferred}
+
+
+async def defer_alerts_after_sync(app: procrastinate.App, outcome: SyncOutcome) -> bool:
+    """Senkron yeni kayıt yazdıysa ERTELENMİŞ uyarı değerlendirmesi ekler (en iyi çaba: hata senkronu bozmaz).
+
+    Durum `invalid`, `credentials_error`, `inactive` ya da `locked` ise ya da hiçbir kaynakta `upserted > 0`
+    değilse eklenmez. Kapsam: finans kaynağı (ekstre, diğer finansal, kargo faturası) yazdıysa `all`
+    (92 günlük kesinti kuralı dahil), yalnız sipariş, iade ya da ürün yazdıysa `fast` (7 günlük kurallar).
+    """
+    written = {s.source for s in outcome.sources if s.upserted > 0}
+    if outcome.status not in ALERT_TRIGGER_STATUSES or not written:
+        return False
+    scope = SCOPE_ALL if written & set(FINANCE_SOURCES) else SCOPE_FAST
+    try:
+        return await defer_alert_evaluation(
+            app, outcome.account_id, scope=scope, delay_minutes=ALERT_SYNC_DELAY_MINUTES
+        )
+    except Exception as exc:
+        logger.warning(
+            "uyarı değerlendirmesi ertelenemedi",
+            extra={"account_id": str(outcome.account_id), "error_class": type(exc).__name__},
+        )
+        return False
+
+
+async def recover_stalled_alerts(app: procrastinate.App) -> int:
+    """Worker'ı ölmüş (heartbeat'i kesilmiş) `alerts.evaluate` işlerini yeniden kuyruğa alır; sayıyı verir.
+
+    Yazma aşaması hesap başına danışma kilidiyle ve tek işlemle yapıldığı için kurtarılan işin eski kopyasıyla
+    çakışması güvenlidir.
+    """
+    recovered = 0
+    for job in await app.job_manager.get_stalled_jobs(queue="alerts", task_name="alerts.evaluate"):
+        await app.job_manager.retry_job(job)
+        recovered += 1
+    return recovered
+
+
 def register_tasks(app: procrastinate.App, runtime: WorkerRuntime | None = None) -> None:
     """Görevleri ve periyodik zamanlamaları App'e kaydeder.
 
@@ -97,6 +167,7 @@ def register_tasks(app: procrastinate.App, runtime: WorkerRuntime | None = None)
     @app.task(name="sync.backfill", queue="sync", retry=SYNC_RETRY)
     async def _backfill(account_id: str, force: bool = False) -> dict[str, object]:
         outcome = await rt.runner.run(UUID(account_id), "backfill", force=force)
+        await defer_alerts_after_sync(app, outcome)
         if outcome.retryable:
             raise SyncTransientError("geçici hata: yeniden denenecek")
         return outcome.summary()
@@ -104,6 +175,7 @@ def register_tasks(app: procrastinate.App, runtime: WorkerRuntime | None = None)
     @app.task(name="sync.incremental", queue="sync", retry=SYNC_RETRY)
     async def _incremental(account_id: str, sources: list[str] | None = None) -> dict[str, object]:
         outcome = await rt.runner.run(UUID(account_id), "incremental", sources=sources)
+        await defer_alerts_after_sync(app, outcome)
         if outcome.retryable:
             raise SyncTransientError("geçici hata: yeniden denenecek")
         return outcome.summary()
@@ -122,3 +194,18 @@ def register_tasks(app: procrastinate.App, runtime: WorkerRuntime | None = None)
     @app.task(name="sync.plan_products", queue="sync")
     async def _plan_products(timestamp: int) -> dict[str, int]:
         return await plan_sync(app, rt, PRODUCT_SOURCES)
+
+    @app.task(name="alerts.evaluate", queue="alerts", retry=ALERT_RETRY)
+    async def _evaluate_alerts(account_id: str, scope: str = SCOPE_ALL) -> dict[str, object]:
+        outcome = await rt.alert_evaluator.evaluate(UUID(account_id), scope)
+        return outcome.summary()
+
+    @app.periodic(cron=CRON_ALERTS_DAILY)
+    @app.task(name="alerts.plan_daily", queue="alerts")
+    async def _plan_alerts_daily(timestamp: int) -> dict[str, int]:
+        return await plan_alert_evaluations(app, rt)
+
+    @app.periodic(cron=CRON_ALERTS_RECOVER)
+    @app.task(name="alerts.recover_stalled", queue="alerts")
+    async def _recover_stalled_alerts(timestamp: int) -> int:
+        return await recover_stalled_alerts(app)

@@ -449,12 +449,18 @@ class RecordingJobQueue:
 
     def __init__(self) -> None:
         self.backfills: list[UUID] = []
+        self.alert_evaluations: list[UUID] = []
         self.fail = False
 
     async def enqueue_backfill(self, account_id: UUID) -> None:
         if self.fail:
             raise RuntimeError("kuyruk erişilemez")
         self.backfills.append(account_id)
+
+    async def enqueue_alert_evaluation(self, account_id: UUID) -> None:
+        if self.fail:
+            raise RuntimeError("kuyruk erişilemez")
+        self.alert_evaluations.append(account_id)
 
 
 @pytest.fixture

@@ -65,6 +65,7 @@ from app.services import profit_settings as ps
 from app.services import profit_views as views
 from app.services.audit import record_audit
 from app.services.auth import AuthContext
+from app.worker.queue import request_alert_evaluation
 
 router = APIRouter(prefix="/marketplace-accounts/{account_id}/profit-settings", tags=["profit-settings"])
 
@@ -419,6 +420,8 @@ async def _write[T](
     target = outcome.record.id if outcome.record is not None else ticket.row.id  # desi: hesap ayar satırı
     await _audit(db, ctx, request, settings, action, target, meta)
     await db.commit()
+    # Kâr ayarı değişti: uyarılar yeniden değerlendirilir (en iyi çaba; kuyruk hatası yanıtı etkilemez).
+    await request_alert_evaluation(request.app.state.job_queue, account_id)
     return out
 
 

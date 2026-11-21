@@ -13,10 +13,13 @@ make env        # infra/.env üretir (rastgele parolalar ve DATA_ENCRYPTION_KEY)
 make db-up      # PostgreSQL 16 (roller 01-roles.sh ile kurulur)
 make migrate    # alembic upgrade head (netkar_owner rolüyle)
 make dev        # http://127.0.0.1:8000  (OpenAPI: /v1/openapi.json, prod'da kapalı; uvicorn --no-proxy-headers)
-make worker     # procrastinate worker (senkron işleri, planlayıcılar, rate limit temizliği); WORKER_DATABASE_URL ister
+make worker     # procrastinate worker (`sync` ve `default` kuyrukları: senkron işleri, planlayıcılar, rate limit temizliği; `alerts` kuyruğunu ALMAZ); WORKER_DATABASE_URL ister
+make worker-alerts  # AYRI procrastinate süreci, yalnız `alerts` kuyruğu (uyarı değerlendirmesi, ADR-0009 D4)
 ```
 
-Tüm yığın (api, worker, migrate, postgres) için: `docker compose -f infra/docker-compose.yml up --build`. Web servisi `--profile web` ile eklenir (apps/web hazır olunca).
+Uyarı değerlendirmesi kâr motorunu çalıştırır (CPU işi); senkronu bekletmesin diye ayrı süreçte (`worker-alerts`, eşzamanlılık 1) koşar. İki worker da çalışmazsa değerlendirme ya da senkron durur: `docker compose` her ikisini de başlatır, yerelde iki terminal (`make worker`, `make worker-alerts`) gerekir.
+
+Tüm yığın (api, worker, worker-alerts, migrate, postgres) için: `docker compose -f infra/docker-compose.yml up --build`. Web servisi `--profile web` ile eklenir (apps/web hazır olunca).
 
 `make dev` e-postaları `var/outbox.jsonl` dosyasına yazar (gövdede sıfırlama bağlantısı olur, log'a token yazılmaz).
 

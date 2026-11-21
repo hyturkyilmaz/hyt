@@ -43,6 +43,7 @@ from app.services.cost_import import (
     build_template_csv,
     parse_import,
 )
+from app.worker.queue import request_alert_evaluation
 
 router = APIRouter(prefix="/marketplace-accounts/{account_id}", tags=["product-costs"])
 
@@ -162,6 +163,8 @@ async def upsert_cost(
         meta={"barcode": barcode, "valid_from": body.valid_from.isoformat()},
     )
     await db.commit()
+    # Maliyet değişti: uyarılar yeniden değerlendirilir (en iyi çaba; kuyruk hatası yanıtı etkilemez).
+    await request_alert_evaluation(request.app.state.job_queue, account_id)
     return CostUpsertOut(
         barcode=barcode,
         product_known=known,
@@ -332,6 +335,8 @@ async def _store_import(
         },
     )
     await db.commit()
+    # Maliyetler yazıldı: uyarılar yeniden değerlendirilir (en iyi çaba; kuyruk hatası yanıtı etkilemez).
+    await request_alert_evaluation(request.app.state.job_queue, account_id)
     return _report(parsed, dry_run=False, committed=True, unknown=unknown, created=created, updated=updated)
 
 

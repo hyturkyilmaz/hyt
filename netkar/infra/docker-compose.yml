@@ -92,7 +92,24 @@ services:
     build:
       context: ../services/api
     restart: unless-stopped
-    command: ["procrastinate", "--app=app.worker.app.app", "worker", "--concurrency", "4"]
+    # `alerts` kuyruğunu almaz: uyarı değerlendirmesi ayrı süreçtedir (worker-alerts).
+    command: ["procrastinate", "--app=app.worker.app.app", "worker", "--queues", "sync,default", "--concurrency", "4"]
+    # Worker ayrı DB rolüyle bağlanır (netkar_worker, ADR-0005 §6): şifreli sütunları okuyabilen tek rol.
+    # API ise netkar_app ile bağlanır ve şifreli sütunları okuyamaz. Rol parolaları ayrıdır.
+    environment:
+      <<: *api-environment
+      WORKER_DATABASE_URL: postgresql://netkar_worker:${NETKAR_WORKER_PASSWORD:?NETKAR_WORKER_PASSWORD gerekli}@postgres:5432/${POSTGRES_DB:-netkar}
+    <<: *api-hardening
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Uyarı değerlendirmesi (ADR-0009 D4): kâr motoru CPU işidir; senkronu bekletmemesi için ayrı süreç.
+  worker-alerts:
+    build:
+      context: ../services/api
+    restart: unless-stopped
+    command: ["procrastinate", "--app=app.worker.app.app", "worker", "--queues", "alerts", "--concurrency", "1"]
     # Worker ayrı DB rolüyle bağlanır (netkar_worker, ADR-0005 §6): şifreli sütunları okuyabilen tek rol.
     # API ise netkar_app ile bağlanır ve şifreli sütunları okuyamaz. Rol parolaları ayrıdır.
     environment:

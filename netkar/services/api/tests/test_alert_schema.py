@@ -466,6 +466,7 @@ def test_privilege_matrix_for_app_worker_auth_public_and_notify_gate(
                 "data_revision",
                 "settings_revision",
                 "rules_version",
+                "attempt",  # migrasyon 0026
             },
             "update": {"status", "counts"},
         },

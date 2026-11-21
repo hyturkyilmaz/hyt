@@ -21,6 +21,7 @@ logger = logging.getLogger("netkar.worker")
 
 BACKFILL_TASK = "sync.backfill"
 INCREMENTAL_TASK = "sync.incremental"
+ALERT_EVALUATE_TASK = "alerts.evaluate"
 
 
 def account_lock_name(account_id: UUID | str) -> str:
@@ -55,10 +56,53 @@ async def defer_incremental(
     return True
 
 
+def alert_lock_name(account_id: UUID | str) -> str:
+    """Aynı hesabın değerlendirmelerini sıraya sokan kilit adı (senkron kilidinden ayrı)."""
+    return f"alerts:{account_id}"
+
+
+async def defer_alert_evaluation(
+    app: procrastinate.App, account_id: UUID | str, *, scope: str = "all", delay_minutes: int = 0
+) -> bool:
+    """Uyarı değerlendirmesini kuyruğa ekler (hesap ve kapsam başına en çok bir bekleyen iş).
+
+    `delay_minutes` > 0 ise iş o kadar sonra çalışır: bekleyen (zamanlanmış) iş `queueing_lock` ile aynı
+    hesap için
+    pencerede tek iş olmasını sağlar; senkron sonrası art arda tetiklemeler tek değerlendirmeye birleşir.
+    Bekleyen iş varsa eklemez (False döner).
+    """
+    task = app.tasks[ALERT_EVALUATE_TASK].configure(
+        lock=alert_lock_name(account_id),
+        queueing_lock=f"alerts-eval:{account_id}:{scope}",
+        schedule_in={"minutes": delay_minutes} if delay_minutes > 0 else None,
+    )
+    try:
+        await task.defer_async(account_id=str(account_id), scope=scope)
+    except procrastinate_exceptions.AlreadyEnqueued:
+        return False
+    return True
+
+
 class JobQueue(Protocol):
     """API tarafının iş ekleme arayüzü (testlerde sahte uygulama verilir)."""
 
     async def enqueue_backfill(self, account_id: UUID) -> None: ...
+
+    async def enqueue_alert_evaluation(self, account_id: UUID) -> None: ...
+
+
+async def request_alert_evaluation(queue: JobQueue, account_id: UUID) -> None:
+    """Kâr ayarı ya da maliyet yazımı commit edildikten SONRA uyarı değerlendirmesi ister (en iyi çaba).
+
+    Kuyruk hatası yanıtı etkilemez (günlük periyodik iş telafi eder); hata ayrıntısı loglanmaz, yalnız sınıfı.
+    """
+    try:
+        await queue.enqueue_alert_evaluation(account_id)
+    except Exception as exc:
+        logger.warning(
+            "uyarı değerlendirmesi kuyruğa eklenemedi",
+            extra={"account_id": str(account_id), "error_class": type(exc).__name__},
+        )
 
 
 class ProcrastinateJobQueue:
@@ -85,3 +129,9 @@ class ProcrastinateJobQueue:
             self._app = self._build()
         async with self._app.open_async():
             await defer_backfill(self._app, account_id)
+
+    async def enqueue_alert_evaluation(self, account_id: UUID) -> None:
+        if self._app is None:
+            self._app = self._build()
+        async with self._app.open_async():
+            await defer_alert_evaluation(self._app, account_id)

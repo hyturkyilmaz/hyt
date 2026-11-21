@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.core.config import Settings, get_settings
 from app.core.envelope import EnvelopeCipher
 from app.db.session import create_engine
+from app.services.alert_evaluation import AlertEvaluator
 from app.services.marketplace_accounts import TrendyolClientFactory, default_client_factory
 from app.services.sync.runner import SyncPolicy, SyncRunner
 from app.services.sync.sources import SOURCE_ORDER
@@ -58,6 +59,7 @@ class WorkerRuntime:
         self._now = now or (lambda: datetime.now(UTC))
         self._policy = policy
         self._runner: SyncRunner | None = None
+        self._alert_evaluator: AlertEvaluator | None = None
 
     @property
     def settings(self) -> Settings:
@@ -86,6 +88,13 @@ class WorkerRuntime:
             )
         return self._runner
 
+    @property
+    def alert_evaluator(self) -> AlertEvaluator:
+        """Uyarı değerlendiricisi (ADR-0009 D4): aynı `netkar_worker` motoru ve saat."""
+        if self._alert_evaluator is None:
+            self._alert_evaluator = AlertEvaluator(self.engine, now=self._now)
+        return self._alert_evaluator
+
     async def list_accounts(self) -> list[PlannedAccount]:
         """Etkin hesaplar (kiracı bağlamsız dar işlev). Yalnız kimlik, kiracı ve backfill durumu döner."""
         sessions: async_sessionmaker[AsyncSession] = async_sessionmaker(self.engine, expire_on_commit=False)
@@ -106,6 +115,7 @@ class WorkerRuntime:
             await self._engine.dispose()
             self._engine = None
             self._runner = None
+            self._alert_evaluator = None
 
 
 def sources_to_plan(account: PlannedAccount, wanted: Sequence[str]) -> list[str]:

@@ -7,7 +7,7 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 # infra/.env varsa ortama yükler (yerel çalıştırma için).
 LOAD_ENV := set -a; if [ -f $(CURDIR)/$(ENV_FILE) ]; then . $(CURDIR)/$(ENV_FILE); fi; set +a;
 
-.PHONY: help setup env lint test test-seri test-profit test-alerts dev migrate worker seed-demo mark-non-prod db-up db-down web-lint web-test
+.PHONY: help setup env lint test test-seri test-profit test-alerts dev migrate worker worker-alerts seed-demo mark-non-prod db-up db-down web-lint web-test
 
 help:
 	@echo "setup  : Python bağımlılıklarını kurar (uv sync)"
@@ -22,7 +22,8 @@ help:
 	@echo "seed-demo: uydurma demo veri + doğru cevap kartı (NETKAR_ENV=local|test|staging ve SEED_ARGS ile; üretimde reddeder)"
 	@echo "mark-non-prod: veritabanına 'üretim değil' işareti (ayrı provisioning adımı; DATABASE_ADMIN_URL, NETKAR_ENV ve MARK_ARGS=\"--confirm db@instance_id\" ile)"
 	@echo "dev    : uvicorn (--reload)"
-	@echo "worker : procrastinate worker"
+	@echo "worker : procrastinate worker (senkron ve genel kuyruklar; alerts kuyruğunu ALMAZ)"
+	@echo "worker-alerts: ayrı procrastinate süreci, yalnız alerts kuyruğu (uyarı değerlendirmesi)"
 	@echo "web-lint, web-test: apps/web için npm betikleri"
 
 setup:
@@ -83,7 +84,11 @@ mark-non-prod:
 	$(LOAD_ENV) cd $(API) && uv run python -m app.tools.seed_demo mark-non-prod $(MARK_ARGS)
 
 worker:
-	$(LOAD_ENV) cd $(API) && uv run procrastinate --app=app.worker.app.app worker --concurrency 4
+	$(LOAD_ENV) cd $(API) && uv run procrastinate --app=app.worker.app.app worker --queues sync,default --concurrency 4
+
+# Uyarı değerlendirmesi (ADR-0009 D4) CPU işidir (kâr motoru): senkronu bekletmemesi için AYRI süreç ve düşük eşzamanlılık.
+worker-alerts:
+	$(LOAD_ENV) cd $(API) && uv run procrastinate --app=app.worker.app.app worker --queues alerts --concurrency 1
 
 web-lint:
 	npm --prefix apps/web run lint
