@@ -394,6 +394,8 @@ Ayrıntı §7.
   toplamlarına girmez. Kısmi iptalde paket bölünür, yeni `shipmentPackageId` gelir; motor `lineId` ile çalışır.
 - **Örnek:** G38. **Kaynak:** [PKG] (`createdBy`: "cancel", `originPackageIds`), [API] §2.4a.
 - **Güven:** Yüksek (statü), Doğrulanmadı (gönderim sonrası iptalde kargo faturası gelip gelmediği).
+- **Bölünen paket:** `UnPacked` eski paket ve yeni paketler aynı `lineId` ile birlikte veritabanında durur;
+  besleyici motora mantıksal satırı tekilleştirerek verir (K45).
 
 ### K27 · Eşleştirme anahtarları
 - **Kural:** Ekstre satırı -> sipariş satırı: `orderNumber` eşit **ve** `barcode` eşit **ve**
@@ -637,6 +639,7 @@ G43 hizmet bedeli tanımsız, G44-G45 sürümlü ayarlarla çalışır.
 | K42 | Ayar kayıtlarının değişmezliği ve tarihçesi | Yüksek (iç kural) |
 | K43 | Geçmişi etkileyen ayar değişikliği: etki tarihi ve onay | Yüksek (iç kural) / Doğrulanmadı (müşavir beklentisi, §9 madde 24) |
 | K44 | Rapor ayar damgası ve yeniden üretilebilirlik | Yüksek (iç kural) |
+| K45 | Bölünen pakette mantıksal satır tekilleştirme (UnPacked) | Yüksek (iç kural) / Doğrulanmadı (`lineId` taşınması) |
 
 K29 ile K32 v1 altın testlerinde yoktur; pilot verisi ve §9 cevapları geldikten sonra senaryo eklenecek.
 
@@ -1233,3 +1236,49 @@ değişmez, altın senaryo eklenmez; kabul testleri ADR-0007 §8'dedir.
   tamlığı aynı demetten hesaplanır. (b) Başlıksız hesapta damga 0 yalnız "hiç ayar satırı yok" demektir: taşıma
   satırı olan hesaba başlığı `revision = 1` ile oluşturur, etkin satırı olup damgası 0 olan hesap oluşamaz.
 - **Güven:** Yüksek (iç kural).
+
+### K45 · Bölünen pakette mantıksal satır tekilleştirme (P0)
+- **Sorun:** `splitShipmentPackage` eski paketi `UnPacked` yapar ve aynı sipariş numarası altında yeni
+  `shipmentPackageId` doğurur. Senkron (`store.py`) `removed_at` işaretini yalnız aynı paketin payload'da
+  artık olmayan satırlarına yazar; eski paket ve satırları yeni paketlerle birlikte `orders`/`order_lines`
+  içinde kalır. Süzgeç olmasa besleyici aynı (`order_number`, `lineId`) için iki satır üretir, gelir, gider ve
+  maliyet iki kez sayılırdı.
+- **Kural (besleyici, `profit_feed._dedupe_logical_lines`):** (1) `UnPacked` kayıt (paket ya da satır durumu)
+  asla kazanmaz; (2) iptal kayıt (`Cancelled`/`UnSupplied`) yalnız canlı kayıt yoksa seçilir. 1. ve 2. adım
+  `alert_inputs` ile AYNIDIR (sabit: `constants.UNPACKED_STATUS`; iade eşlemesi farklıdır, ADR-0009 D3). 3. adım
+  FARKLIDIR: `alert_inputs` mantıksal satırı en son değişen tek pakete indirger; besleyici adetle bölünen canlı
+  parçaları tutar: saklanan GERÇEK `items[].id` kümeleri KESİŞENler aynı parçanın kopyasıdır, en son değişeni
+  (`last_modified_at`, yoksa `ordered_at`, sonra büyük `shipmentPackageId`) kalır; kümeleri AYRIK olanların hepsi
+  tutulur. Kısmi kesişen parçalar (P2 {a,b}, P3 {b,c}) tek grupta birleşir ve `split_conflicts` artar.
+- **Adetle bölme:** `splitMultiPackageByQuantity` aynı `orderLineId`'yi birden çok canlı pakete dağıtır (örn.
+  `UnPacked` P1 adet 4, P2 adet 2, P3 adet 2); ayrık kalem kimlikli parçaların hepsi tutulur, gelir ve maliyet 4
+  adet sayılır. Kalem kırılımı boşsa ya da yalnız yedek kimlik taşıyorsa (eşleştirici kimlik gelmezse `line-{id}-{i}`
+  türetir ve bu kimlik her pakette aynıdır) parçalar ayırt edilemez: `line-` önekli kimlikler kesişim hesabında
+  yok sayılır, bu kayıtlar kendi grubunu kurar (en son değişen tutulur) ve `split_ambiguous` artar (eksik sayım
+  olasılığı). Gerçek kimlikli kayıtlar ayrıca gruplanır.
+- **Kural `lineId` taşınmasına bağlı değildir:** `UnPacked` kayıt `lineId` yeni pakette sürse de sürmese de asla
+  kazanmaz; yalnız ardıl kayıtların varlığı satırın sayılıp sayılmadığını belirler.
+- **Sayaçlar (`FeedNotes`, rapor `feed_notes`, hepsi `total`'a girer):** `split_conflicts` (canlı ve iptal kayıt
+  çakışması: kural korunur, canlı seçilir; örn. eski `Picking` + yeni `UnSupplied`; gerçek durum doğrulanamaz;
+  ayrıca kısmi kesişen parçalar),
+  `split_ambiguous` (yukarıda) ve `lines_awaiting_split` (yalnız `UnPacked` kaydı var ve ardılı yok; satır
+  motora verilmez). Ardıl: aynı siparişte `UnPacked` olmayan pakette gerçek (yedek olmayan) kalem kimliğini
+  paylaşan satır, `lineId` değişse bile; kalem kimliği bilinmiyorsa aynı siparişte `UnPacked` olmayan herhangi
+  bir paket. `lines_awaiting_split` `total`'a katılır çünkü satır gelir ve maliyetten geçici olarak
+  eksiktir, kâr rakamı tam değildir ve rapor bunu görünür kılmalıdır; ardıl gelince kendiliğinden kapanır. Tüm
+  satırları bu süzgeçle düşen paket sessizce atlanır (`orders_without_lines` sayılmaz).
+- **Neden besleyici:** motor saf kalır ve K26 iptal kümesi değişmez. `UnPacked` motorda iptal sayılmaz: iptal
+  gelir, gider ve maliyeti sıfırlar, oysa bölünen satırın gerçek kaydı yeni pakettedir.
+- **Sınırlar ve doğrulanmadı:** (a) `orderLineId`'nin yeni pakete aynen taşındığı belgede açık değildir. (b) Belge
+  kendi içinde çelişir: bölme sayfası "yeni paketler UnPacked statüsünde oluşur" der (satır 9), akış şeması ise
+  "mevcut paket UnPacked olarak güncellenir" der (G düğümü); hangisinin `UnPacked` olduğu Doğrulanmadı. Kural her
+  iki yorumda da güvenli kalacak biçimde yazıldı: `UnPacked` kayıt asla kazanmaz, ardıl kayıt varsa o sayılır.
+  (c) Motor satır durumunu değil paket durumunu okur; satır durumu yalnız seçimde kullanılır. (d)
+  `originPackageIds` ve `createdBy` şu an saklanmıyor; saklansaydı kopya/parça ayrımı belge kaydıyla yapılırdı
+  (ayrı iş). (e) Ekstre satırının `shipmentPackageId`'si eski pakete işaret ediyorsa K27 eşlemesi yeni pakete
+  oturmayabilir (D6, ayrı iş). (f) Bayat paket + yeni kimlik çakışması: eski bir canlı paket (senkronlanmamış ya da geç gelen `UnPacked`
+  güncellemesi) yeni paketle aynı satırı farklı kalem kimlikleriyle taşıyorsa ayrık parça sanılıp iki kez
+  sayılabilir; senkron güncel kalırsa oluşmaz, ayrı kontrol işi. (g) `profit_settings` kargo firması kullanım sayımı `UnPacked` satırları da sayar
+  (yalnız öneri adedi; kâr değil).
+- **Kaynak:** [PKG] (`splitShipmentPackage`, `originPackageIds`). **Güven:** Yüksek (iç kural), Doğrulanmadı
+  (`lineId` taşınması, hangi paketin `UnPacked` olduğu).

@@ -40,6 +40,7 @@ from app.models import (
     ProductCost,
     Return,
 )
+from app.profit.constants import CANCELLED_STATUSES, UNPACKED_STATUS
 from app.profit.inputs import (
     CargoInvoice,
     CargoInvoiceItem,
@@ -63,7 +64,11 @@ _ONE_MS = timedelta(milliseconds=1)
 
 @dataclass(slots=True)
 class FeedNotes:
-    """Motora verilmeyen kayıtların sayacı (sessiz veri kaybı olmasın)."""
+    """Motora verilmeyen kayıtların ve veri kalitesi uyarılarının sayacı (sessiz veri kaybı olmasın).
+
+    `total` yalnız "kâr rakamı eksik ya da belirsiz olabilir" uyarılarının toplamıdır: motora verilmeyen
+    kayıtlar ve bölünen paket belirsizlikleri (K45: `split_*`, `lines_awaiting_split`).
+    """
 
     # Oranı (KDV veya komisyon) ne satırda ne üründe olan satır sayısı.
     lines_missing_rates: int = 0
@@ -77,6 +82,14 @@ class FeedNotes:
     cargo_items_unmatched: int = 0
     # Sipariş numarası veya kalem kimliği olmayan iade kalemi sayısı.
     claim_items_unmatched: int = 0
+    # K45: canlı ve iptal kayıt ya da kısmi kesişen parçalar aynı mantıksal satırda çakıştı (kural uygulandı).
+    split_conflicts: int = 0
+    # K45: kalem kırılımı boş ya da yalnız yedek kimlikli, birden çok canlı paket aynı satırı taşıyor; ayırt
+    # edilemedi, sonuncu seçildi.
+    split_ambiguous: int = 0
+    # K45: yalnız UnPacked kaydı var ve aynı siparişte ardılı yok (yeni paket henüz senkronlanmadı); satır
+    # motora verilmedi (geçici eksik).
+    lines_awaiting_split: int = 0
 
     @property
     def total(self) -> int:
@@ -87,6 +100,9 @@ class FeedNotes:
             + self.settlements_unmatched
             + self.cargo_items_unmatched
             + self.claim_items_unmatched
+            + self.split_conflicts
+            + self.split_ambiguous
+            + self.lines_awaiting_split
         )
 
 
@@ -174,6 +190,131 @@ def _select_financial(tenant_id: UUID, account_id: UUID, source: str) -> Select[
         FinancialTransaction.marketplace_account_id == account_id,
         FinancialTransaction.source == source,
     )
+
+
+# Eşleştirici (`sync/mappers.py`) kalem kimliği gelmezse `line-{line_id}-{index}` türetir; bu kimlik her
+# pakette aynıdır, parça ayırt etmeye yaramaz.
+_FALLBACK_ITEM_PREFIX = "line-"
+
+
+def _real_item_ids(line: OrderLine) -> frozenset[str]:
+    """Trendyol'dan gelen gerçek kalem kimlikleri (yedek `line-...` kimlikleri ve boş kırılım yok sayılır)."""
+    return frozenset(
+        str(i["id"]) for i in (line.items or []) if not str(i["id"]).startswith(_FALLBACK_ITEM_PREFIX)
+    )
+
+
+def _is_unpacked(order: Order, line: OrderLine) -> bool:
+    return order.status == UNPACKED_STATUS or line.status == UNPACKED_STATUS
+
+
+def _is_cancelled(order: Order, line: OrderLine) -> bool:
+    return order.status in CANCELLED_STATUSES or line.status in CANCELLED_STATUSES
+
+
+def _latest(records: list[tuple[Order, OrderLine]]) -> OrderLine:
+    """En son değişen paketin satırı (`last_modified_at`, yoksa `ordered_at`, sonra büyük paket kimliği)."""
+    return max(records, key=lambda r: (r[0].last_modified_at or r[0].ordered_at, r[0].shipment_package_id))[1]
+
+
+def _split_groups(
+    records: list[tuple[Order, OrderLine]], notes: FeedNotes
+) -> list[list[tuple[Order, OrderLine]]]:
+    """Aynı mantıksal satırı taşıyan canlı kayıtları, gerçek kalem kimlikleri kesişenlere göre gruplar.
+
+    Adetle bölmede (aynı `orderLineId` birden çok canlı pakete dağılır) kalem kimlikleri ayrıktır: her grup
+    ayrı parçadır, hepsi tutulur. Kimlikler kesişiyorsa aynı parçanın kopyasıdır; kesişim tam eşitlik değilse
+    (kısmi kesişim) `split_conflicts` artar. Gerçek kimliği olmayan kayıt (kırılım boş ya da yalnız yedek
+    kimlik) ayırt edilemez: kendi grubunu kurar (en sonuncusu kalır) ve `split_ambiguous` artar.
+    """
+    ambiguous = [r for r in records if not _real_item_ids(r[1])]
+    groups: list[tuple[set[str], list[tuple[Order, OrderLine]]]] = []
+    for record in records:
+        if record in ambiguous:
+            continue
+        merged_ids = set(_real_item_ids(record[1]))
+        merged = [record]
+        rest: list[tuple[set[str], list[tuple[Order, OrderLine]]]] = []
+        for group_ids, members in groups:
+            if group_ids & merged_ids:
+                merged_ids |= group_ids
+                merged = merged + members
+            else:
+                rest.append((group_ids, members))
+        groups = [*rest, (merged_ids, merged)]
+    result = [members for _, members in groups]
+    if any(_real_item_ids(line) != ids for ids, members in groups for _, line in members if len(members) > 1):
+        notes.split_conflicts += 1
+    if ambiguous:
+        notes.split_ambiguous += 1
+        result.append(ambiguous)
+    return result
+
+
+def _has_successor(
+    unpacked: list[tuple[Order, OrderLine]], packed_orders: list[Order], lines: dict[UUID, list[OrderLine]]
+) -> bool:
+    """Yalnız `UnPacked` kaydı olan satırın aynı siparişte ardılı var mı (satır numarası değişmiş olabilir).
+
+    Ardıl: aynı siparişte `UnPacked` olmayan pakette gerçek kalem kimliğini paylaşan satır. Kalem kimliği
+    bilinmiyorsa (kırılım boş ya da yedek kimlik) aynı siparişte `UnPacked` olmayan herhangi bir paket.
+    """
+    if not packed_orders:
+        return False
+    live_ids = {i for o in packed_orders for ln in lines.get(o.id, []) for i in _real_item_ids(ln)}
+    for _, line in unpacked:
+        ids = _real_item_ids(line)
+        if not ids or ids & live_ids:
+            return True
+    return False
+
+
+def _dedupe_logical_lines(
+    orders: Sequence[Order], lines: dict[UUID, list[OrderLine]], notes: FeedNotes
+) -> tuple[dict[UUID, list[OrderLine]], set[UUID]]:
+    """Mantıksal satır (`order_number`, `line_id`) başına çift kaydı eler (docs/12 K45).
+
+    Paket bölününce eski paket `UnPacked` olur ve satırı veritabanında kalır; süzülmezse gelir, gider ve
+    maliyet iki kez yazılırdı. Seçim sırası `constants.UNPACKED_STATUS` açıklamasındaki ile aynıdır:
+    `UnPacked` kayıt asla kazanmaz; iptal kayıt (paket ya da satır durumu `Cancelled`/`UnSupplied`)
+    yalnız canlı kayıt yoksa seçilir; adetle bölmede kalem kimlikleri ayrık canlı kayıtların HEPSİ
+    tutulur, kesişenlerden en son değişen kalır. Canlı ile iptal çakışması ve kısmi kesişen parçalar
+    `split_conflicts`, ayırt edilemeyen bölme (boş ya da yedek kalem kimliği) `split_ambiguous`, ardılı
+    (`_has_successor`) olmayan `UnPacked` satır `lines_awaiting_split` sayacına yazılır.
+    Döner: süzülmüş satırlar ve tüm satırları düşen paketler (veri sorunu değil, ayrıca not düşülmez).
+    """
+    by_key: dict[tuple[str, int], list[tuple[Order, OrderLine]]] = defaultdict(list)
+    live_orders: dict[str, list[Order]] = defaultdict(list)
+    for order in orders:
+        if order.status != UNPACKED_STATUS:
+            live_orders[order.order_number].append(order)
+        for line in lines.get(order.id, []):
+            by_key[(order.order_number, line.line_id)].append((order, line))
+    winners: set[int] = set()
+    for records in by_key.values():
+        packed = [r for r in records if not _is_unpacked(*r)]
+        if not packed:
+            if not _has_successor(records, live_orders.get(records[0][0].order_number, []), lines):
+                notes.lines_awaiting_split += 1
+            continue
+        live = [r for r in packed if not _is_cancelled(*r)]
+        if live and len(live) < len(packed):
+            notes.split_conflicts += 1
+        candidates = live or packed
+        if len(candidates) == 1:
+            winners.add(id(candidates[0][1]))
+            continue
+        for group in _split_groups(candidates, notes):
+            winners.add(id(_latest(group)))
+    kept: dict[UUID, list[OrderLine]] = {}
+    superseded: set[UUID] = set()
+    for order_id, order_lines in lines.items():
+        chosen = [line for line in order_lines if id(line) in winners]
+        if chosen:
+            kept[order_id] = chosen
+        elif order_lines:
+            superseded.add(order_id)
+    return kept, superseded
 
 
 # --- eşlemeler -----------------------------------------------------------------------------------
@@ -273,7 +414,8 @@ async def build_profit_input(
     """
     lower, upper = period_bounds(start, end)
     notes = FeedNotes()
-    orders, lines_by_order = await _load_orders(db, tenant_id, account_id, lower, upper)
+    orders, loaded_lines = await _load_orders(db, tenant_id, account_id, lower, upper)
+    lines_by_order, superseded = _dedupe_logical_lines(orders, loaded_lines, notes)
 
     products = {
         p.barcode: p
@@ -288,7 +430,8 @@ async def build_profit_input(
     engine_orders = [
         engine_order
         for order in orders
-        if (engine_order := _engine_order(order, lines_by_order.get(order.id, []), products, notes))
+        if order.id not in superseded
+        and (engine_order := _engine_order(order, lines_by_order.get(order.id, []), products, notes))
         is not None
     ]
 

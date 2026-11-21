@@ -89,5 +89,13 @@ CATEGORY_EARLY_PAYMENT_FEE = "erken_odeme_bedeli"
 # K26: iptal sayılan sipariş durumları.
 CANCELLED_STATUSES = frozenset({"Cancelled", "UnSupplied"})
 
+# K45: paket bölününce (splitShipmentPackage) eski paketin durumu. Mantıksal satır seçiminde besleyici
+# (`profit_feed`, Python) ve uyarı sorgusu (`alert_inputs`, SQL) 1. ve 2. adımda aynıdır:
+# (1) UnPacked kayıt asla kazanmaz, (2) iptal kayıt yalnız canlı kayıt yoksa seçilir.
+# 3. adım farklıdır: uyarı sorgusu mantıksal satırı en son değişen tek pakete indirger
+# (`last_modified_at`, yoksa `ordered_at`, sonra büyük paket kimliği); besleyici adetle bölünen (ayrık
+# kalem kimlikli) canlı parçaların hepsini tutar, yalnız kesişenlerden en sonuncuyu bırakır.
+UNPACKED_STATUS = "UnPacked"
+
 # K08: whoPays=1 satıcı anlaşmalı kargo.
 SELLER_PAYS_CARGO = 1

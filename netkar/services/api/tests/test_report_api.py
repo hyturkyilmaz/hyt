@@ -117,6 +117,9 @@ def test_summary_returns_engine_totals_status_counts_and_feed_notes(shop: Shop) 
         "settlements_unmatched": 0,
         "cargo_items_unmatched": 0,
         "claim_items_unmatched": 0,
+        "split_conflicts": 0,
+        "split_ambiguous": 0,
+        "lines_awaiting_split": 0,
         "total": 0,
     }
 

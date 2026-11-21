@@ -68,7 +68,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.alerts.rules import ReturnCohort
 from app.alerts.stats import HORIZON_DAYS, cohort_windows
 from app.db.rls import set_rls_context
-from app.profit.constants import CANCELLED_STATUSES
+from app.profit.constants import CANCELLED_STATUSES, UNPACKED_STATUS
 from app.profit.costs import ACCEPTED_CLAIM_STATUS
 from app.profit.schema_v1 import ISTANBUL
 
@@ -80,7 +80,6 @@ COUNTED_RETURN_STATUSES: tuple[str, ...] = (ACCEPTED_CLAIM_STATUS,)
 
 # Dışlanan sipariş/satır durumları: iptal (K26) ve bölünmüş eski paket. `UnDelivered` kasıtlı olarak dışarıda
 # bırakılmaz (modül docstring'i).
-UNPACKED_STATUS = "UnPacked"
 EXCLUDED_ORDER_STATUSES: tuple[str, ...] = (*sorted(CANCELLED_STATUSES), UNPACKED_STATUS)
 
 # Neden kodu sayısı (yüke en çok ilk 3 girer, ADR-0009 §3.4 "Yük").

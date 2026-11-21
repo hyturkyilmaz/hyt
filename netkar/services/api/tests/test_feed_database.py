@@ -47,11 +47,13 @@ def add_order(
     ordered: datetime = datetime(2026, 10, 5, 11, 30, tzinfo=UTC),
     status: str = "Delivered",
     lines: list[dict[str, Any]] | None = None,
+    modified: datetime | None = None,
 ) -> UUID:
     row = conn.execute(
         "INSERT INTO orders (tenant_id, marketplace_account_id, order_number, shipment_package_id, ordered_at, "
-        "status, carrier, cargo_deci) VALUES (%s, %s, %s, %s, %s, %s, 'Trendyol Express', 2) RETURNING id",
-        (seller.tenant_id, seller.account_id, number, package_id, ordered, status),
+        "status, carrier, cargo_deci, last_modified_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, 'Trendyol Express', 2, %s) RETURNING id",
+        (seller.tenant_id, seller.account_id, number, package_id, ordered, status, modified),
     ).fetchone()
     assert row is not None
     order_id: UUID = row[0]
@@ -73,6 +75,7 @@ def add_line(
     items: list[dict[str, str]] | None = None,
     removed: bool = False,
     seller_discount: str = "0",
+    status: str | None = None,
 ) -> None:
     if items is None:
         items = [
@@ -81,8 +84,8 @@ def add_line(
         ]
     conn.execute(
         "INSERT INTO order_lines (tenant_id, marketplace_account_id, order_id, line_id, barcode, quantity, "
-        "line_gross_amount, line_seller_discount, vat_rate, commission_rate, items, removed_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "line_gross_amount, line_seller_discount, vat_rate, commission_rate, items, removed_at, status) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             seller.tenant_id,
             seller.account_id,
@@ -96,6 +99,7 @@ def add_line(
             commission,
             json.dumps(items),
             datetime(2026, 10, 6, tzinfo=UTC) if removed else None,
+            status,
         ),
     )
 
@@ -267,6 +271,232 @@ async def test_removed_lines_are_excluded_and_bad_item_breakdowns_are_noted(
         "line-4-1",
     ]  # sıfır indirimli kalemler kurulur
     assert result.notes.lines_bad_items == 2
+
+
+# --- bölünen paket: mantıksal satır tekilleştirme (K26) --------------------------------------------------------
+
+_SETTINGS = ProfitSettings(service_fee_estimates=(DatedAmount(D("0")),))
+
+
+def add_cost(conn: psycopg.Connection[Any], seller: Seller, barcode: str = B1, unit: str = "50") -> None:
+    conn.execute(
+        "INSERT INTO product_costs (tenant_id, marketplace_account_id, barcode, valid_from, unit_cost_excl_vat, "
+        "vat_rate, entered_by) VALUES (%s, %s, %s, '2026-01-01', %s, 20, %s)",
+        (seller.tenant_id, seller.account_id, barcode, unit, seller.user_id),
+    )
+
+
+async def period_report(sessions: async_sessionmaker[AsyncSession], seller: Seller) -> Any:
+    async with tenant_transaction(sessions, seller.tenant_id) as session:
+        return await period_profit(
+            session, seller.tenant_id, seller.account_id, date(2026, 10, 1), date(2026, 10, 31), _SETTINGS
+        )
+
+
+def ids(*names: str) -> list[dict[str, str]]:
+    """Belirli kalem kimlikli (indirimsiz) kalem kırılımı."""
+    return [{"id": n, "seller_discount": "0", "ty_discount": "0"} for n in names]
+
+
+async def test_split_package_counts_the_logical_line_once_in_feed_and_profit(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """Altın senaryo: UnPacked paket1 + Delivered paket2 aynı (sipariş, lineId); gelir ve gider bir kez."""
+    add_cost(admin_conn, seller)
+    # Eski paket: SON değişen olsa bile UnPacked yenilir. Satır 11 yalnız eski pakette (yenisi gelmemiş).
+    add_order(admin_conn, seller, "1001", 3001, status="UnPacked", modified=datetime(2026, 10, 9, tzinfo=UTC),
+              lines=[{"line_id": 10, "gross": "120.00"}, {"line_id": 11, "gross": "60.00"}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3002, status="Delivered", modified=datetime(2026, 10, 7, tzinfo=UTC),
+              lines=[{"line_id": 10, "gross": "120.00"}])  # fmt: skip
+    result = await feed(sessions, seller)
+    (order,) = result.profit_input.orders
+    assert order.package_id == 3002 and [ln.line_id for ln in order.lines] == [10]
+    # Satır 11'in ardılı yok: görünür sayaç, başka sayaç yok.
+    assert result.notes.lines_awaiting_split == 1 and result.notes.total == 1
+    report = await period_report(sessions, seller)
+    assert report.totals.order_count == 1
+    assert report.totals.net_sales_excl_vat == D("100.00") and report.totals.product_cost == D("50.00")
+    assert report.notes.lines_awaiting_split == 1
+    # Bölünmemiş tek paketli eşdeğer sipariş aynı toplamı verir.
+    admin_conn.execute(
+        "DELETE FROM order_lines WHERE order_id IN (SELECT id FROM orders WHERE order_number = '1001')"
+    )
+    admin_conn.execute("DELETE FROM orders WHERE order_number = '1001'")
+    add_order(admin_conn, seller, "1001", 3002, lines=[{"line_id": 10, "gross": "120.00"}])
+    assert (await period_report(sessions, seller)).totals == report.totals
+
+
+async def test_split_package_with_only_the_unpacked_record_is_awaiting_not_fed(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    add_order(admin_conn, seller, "1001", 3001, status="UnPacked")
+    result = await feed(sessions, seller)
+    assert result.profit_input.orders == ()
+    assert result.notes.lines_awaiting_split == 1 and result.notes.orders_without_lines == 0
+
+
+async def test_unpacked_line_status_is_excluded_like_an_unpacked_package(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """Satır durumu UnPacked ise (paket durumu değil) kayıt yine kazanmaz."""
+    add_order(admin_conn, seller, "1001", 3001, modified=datetime(2026, 10, 9, tzinfo=UTC),
+              lines=[{"line_id": 10, "status": "UnPacked"}])  # fmt: skip
+    add_order(
+        admin_conn, seller, "1001", 3002, modified=datetime(2026, 10, 7, tzinfo=UTC), lines=[{"line_id": 10}]
+    )
+    (order,) = (await feed(sessions, seller)).profit_input.orders
+    assert order.package_id == 3002
+
+
+async def test_quantity_split_keeps_every_live_package_with_disjoint_items(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """Adetle bölme: UnPacked P1 (4 adet) + canlı P2 (2) + P3 (2), aynı lineId, ayrık kalem kimliği."""
+    add_cost(admin_conn, seller)
+    all_items = ids("a", "b", "c", "d")
+    add_order(admin_conn, seller, "1001", 3001, status="UnPacked", modified=datetime(2026, 10, 9, tzinfo=UTC),
+              lines=[{"line_id": 10, "quantity": 4, "gross": "120.00", "items": all_items}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3002, modified=datetime(2026, 10, 7, tzinfo=UTC),
+              lines=[{"line_id": 10, "quantity": 2, "gross": "120.00", "items": ids("a", "b")}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3003, modified=datetime(2026, 10, 8, tzinfo=UTC),
+              lines=[{"line_id": 10, "quantity": 2, "gross": "120.00", "items": ids("c", "d")}])  # fmt: skip
+    result = await feed(sessions, seller)
+    assert sorted(o.package_id for o in result.profit_input.orders) == [3002, 3003]
+    assert result.notes.total == 0
+    report = await period_report(sessions, seller)
+    # 4 adet x 100,00 KDV hariç gelir ve 4 x 50,00 maliyet (yalnız tek paket tutulsaydı 2 adet olurdu).
+    assert report.totals.net_sales_excl_vat == D("400.00") and report.totals.product_cost == D("200.00")
+
+
+async def test_overlapping_item_ids_are_copies_of_one_part_and_count_once(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    add_order(admin_conn, seller, "1001", 3001, modified=datetime(2026, 10, 7, tzinfo=UTC),
+              lines=[{"line_id": 10, "quantity": 2, "items": ids("a", "b")}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3002, modified=datetime(2026, 10, 8, tzinfo=UTC),
+              lines=[{"line_id": 10, "quantity": 2, "items": ids("b", "c")}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3003, modified=datetime(2026, 10, 6, tzinfo=UTC),
+              lines=[{"line_id": 10, "quantity": 1, "items": ids("z")}])  # fmt: skip
+    result = await feed(sessions, seller)
+    # P1 ve P2 kısmen kesişir (en son değişen P2 kalır, çakışma sayılır); P3 ayrık parçadır, tutulur.
+    assert sorted(o.package_id for o in result.profit_input.orders) == [3002, 3003]
+    assert result.notes.split_conflicts == 1 and result.notes.total == 1
+
+
+async def test_empty_item_breakdown_cannot_be_told_apart_and_is_counted_ambiguous(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    add_order(admin_conn, seller, "1001", 3001, modified=datetime(2026, 10, 7, tzinfo=UTC),
+              lines=[{"line_id": 10, "items": []}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3002, modified=datetime(2026, 10, 8, tzinfo=UTC),
+              lines=[{"line_id": 10, "items": []}])  # fmt: skip
+    result = await feed(sessions, seller)
+    (order,) = result.profit_input.orders
+    assert order.package_id == 3002
+    assert result.notes.split_ambiguous == 1 and result.notes.total == 1
+
+
+async def test_fallback_item_ids_of_a_quantity_split_are_ambiguous_not_silently_dropped(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """Yedek kimlikler (`line-{id}-{i}`) her pakette aynıdır: kesişim sayılmaz, belirsizlik sayılır."""
+    add_order(admin_conn, seller, "1001", 3001, modified=datetime(2026, 10, 7, tzinfo=UTC),
+              lines=[{"line_id": 10, "quantity": 2, "items": ids("line-10-0", "line-10-1")}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3002, modified=datetime(2026, 10, 8, tzinfo=UTC),
+              lines=[{"line_id": 10, "quantity": 2, "items": ids("line-10-0", "line-10-1")}])  # fmt: skip
+    # Gerçek kimlikli üçüncü parça kendi grubunda kalır.
+    add_order(admin_conn, seller, "1001", 3003, modified=datetime(2026, 10, 6, tzinfo=UTC),
+              lines=[{"line_id": 10, "quantity": 1, "items": ids("z")}])  # fmt: skip
+    result = await feed(sessions, seller)
+    assert sorted(o.package_id for o in result.profit_input.orders) == [3002, 3003]
+    assert result.notes.split_ambiguous == 1 and result.notes.total == 1
+
+
+async def test_unpacked_line_with_a_successor_under_a_new_line_id_is_not_awaiting(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """lineId değişen bölme: gerçek kalem kimliği yeni paketteki satırla paylaşılıyorsa ardıl var."""
+    add_order(admin_conn, seller, "1001", 3001, status="UnPacked",
+              lines=[{"line_id": 10, "items": ids("a")}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3002, lines=[{"line_id": 20, "items": ids("a")}])
+    result = await feed(sessions, seller)
+    assert [o.package_id for o in result.profit_input.orders] == [3002]
+    assert result.notes.lines_awaiting_split == 0 and result.notes.total == 0
+
+
+async def test_unpacked_line_without_real_item_ids_has_a_successor_if_any_live_package_exists(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    add_order(admin_conn, seller, "1001", 3001, status="UnPacked",
+              lines=[{"line_id": 10, "items": ids("line-10-0")}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3002, lines=[{"line_id": 20}])
+    add_order(admin_conn, seller, "1002", 3003, status="UnPacked",
+              lines=[{"line_id": 10, "items": ids("line-10-0")}])  # fmt: skip
+    result = await feed(sessions, seller)
+    # 1001: aynı siparişte canlı paket var (ardıl); 1002: yok (bekleniyor).
+    assert [o.package_id for o in result.profit_input.orders] == [3002]
+    assert result.notes.lines_awaiting_split == 1
+
+
+async def test_unpacked_line_with_real_ids_unrelated_to_live_packages_is_still_awaiting(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    add_order(admin_conn, seller, "1001", 3001, status="UnPacked",
+              lines=[{"line_id": 10, "items": ids("a")}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3002, lines=[{"line_id": 20, "items": ids("q")}])
+    assert (await feed(sessions, seller)).notes.lines_awaiting_split == 1
+
+
+async def test_live_and_cancelled_conflict_keeps_the_live_record_and_warns(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    """Eski Picking (canlı) + yeni UnSupplied aynı lineId: canlı kalır, çakışma sayılır ve rapora yansır."""
+    add_cost(admin_conn, seller)
+    add_order(admin_conn, seller, "1001", 3001, status="Picking", modified=datetime(2026, 10, 7, tzinfo=UTC),
+              lines=[{"line_id": 10, "gross": "120.00"}])  # fmt: skip
+    add_order(admin_conn, seller, "1001", 3002, status="UnSupplied", modified=datetime(2026, 10, 9, tzinfo=UTC),
+              lines=[{"line_id": 10, "gross": "120.00"}])  # fmt: skip
+    result = await feed(sessions, seller)
+    (order,) = result.profit_input.orders
+    assert order.package_id == 3001 and order.status == "Picking"
+    assert result.notes.split_conflicts == 1 and result.notes.total == 1
+    report = await period_report(sessions, seller)
+    assert report.totals.order_count == 1 and report.totals.net_sales_excl_vat == D("100.00")
+    assert report.notes.split_conflicts == 1
+
+
+async def test_all_cancelled_records_feed_a_single_cancelled_line_with_zero_profit(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    add_cost(admin_conn, seller)
+    add_order(admin_conn, seller, "1001", 3001, status="Cancelled", lines=[{"line_id": 10}])
+    add_order(admin_conn, seller, "1001", 3002, status="UnSupplied", lines=[{"line_id": 10}])
+    add_order(admin_conn, seller, "1001", 3003, status="UnPacked", lines=[{"line_id": 10}])
+    result = await feed(sessions, seller)
+    (order,) = result.profit_input.orders
+    assert order.is_cancelled and order.package_id == 3002 and len(order.lines) == 1
+    assert result.notes.total == 0
+    report = await period_report(sessions, seller)
+    assert report.totals.net_sales_excl_vat == D("0.00") and report.totals.product_cost == D("0.00")
+
+
+async def test_latest_modified_package_wins_when_both_records_are_live(
+    sessions: async_sessionmaker[AsyncSession], seller: Seller, admin_conn: psycopg.Connection[Any]
+) -> None:
+    add_order(
+        admin_conn, seller, "1001", 3001, modified=datetime(2026, 10, 7, tzinfo=UTC), lines=[{"line_id": 10}]
+    )
+    add_order(
+        admin_conn, seller, "1001", 3002, modified=datetime(2026, 10, 8, tzinfo=UTC), lines=[{"line_id": 10}]
+    )
+    add_order(
+        admin_conn, seller, "1002", 3003, lines=[{"line_id": 10}]
+    )  # başka sipariş: aynı lineId çakışmaz
+    result = await feed(sessions, seller)
+    assert sorted((o.order_number, o.package_id) for o in result.profit_input.orders) == [
+        ("1001", 3002),
+        ("1002", 3003),
+    ]
 
 
 async def test_costs_and_catalog_flow_into_the_engine_input(
@@ -501,6 +731,6 @@ def test_financial_classification_rules() -> None:
 
 
 def test_feed_notes_total_sums_every_counter() -> None:
-    notes = FeedNotes(1, 2, 3, 4, 5, 6)
-    assert notes.total == 21
+    notes = FeedNotes(1, 2, 3, 4, 5, 6, 7, 8, 9)
+    assert notes.total == 45
     assert uuid4() != uuid4()  # (uuid içe aktarması: kimlikler testlerde rastgele üretilir)

@@ -322,6 +322,9 @@ class FeedNotesOut(ApiModel):
     settlements_unmatched: int
     cargo_items_unmatched: int
     claim_items_unmatched: int
+    split_conflicts: int
+    split_ambiguous: int
+    lines_awaiting_split: int
     total: int
 
 
