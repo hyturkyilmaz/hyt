@@ -33,7 +33,7 @@ Kaynaklar: 30 günlük plan `icerik/plan/30-gun-2026-11-11.md`, 17:50 kuşağı 
 | 25 | 22 Kas | Paz | 17:50 | GA4 raporunu 3 karara indir. | RAPOR | Dosya iletildi 10-11 Kas |
 | 26 | 22 Kas | Paz | 20:50 | Efsane hafta yarın başlıyor. | GÜNDEM | Dosya iletildi 21 Kas |
 | 27 | 23 Kas | Pzt | 17:50 | AI asistanlar seni öneriyor mu? | GEO | Dosya iletildi 10-11 Kas |
-| 28 | 23 Kas | Pzt | 20:50 | Efsane hafta başladı. Sitende her şey çalışıyor mu? | HAZIR | Akşam önce iletilecek |
+| 28 | 23 Kas | Pzt | 20:50 | Efsane hafta başladı. Sitende her şey çalışıyor mu? | HAZIR | Dosya iletildi 22 Kas |
 | 29 | 24 Kas | Sal | 17:50 | Takipçini topluluğa çevir. | TOPLULUK | Dosya iletildi 10-11 Kas |
 | 30 | 24 Kas | Sal | 20:50 | Bütçenin hepsini cumaya yığma. | BÜTÇE | Akşam önce iletilecek |
 | 31 | 25 Kas | Çar | 17:50 | Terk edilen sepete izinle dön. | TERK | Dosya iletildi 10-11 Kas |

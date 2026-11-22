@@ -6,7 +6,7 @@
 | Saat | 20:50 TRT (30 günlük plan) |
 | Anahtar kelime | HAZIR |
 | Yazım hatası | "ödmeyi" (doğrusu: ödemeyi) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 22 Kasım akşamı bakıldı: Efsane Cuma 27 Kasım 2026, efsane hafta 23-29 Kasım (Yeni Asır, Milli Gazete). Metinde tek hata: ödmeyi. |
 
 ## Açıklama
 
