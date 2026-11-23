@@ -1,0 +1,856 @@
+diff --git a/netkar/services/api/app/services/report_cache.py b/netkar/services/api/app/services/report_cache.py
+index 8436d89..c62ff40 100644
+--- a/netkar/services/api/app/services/report_cache.py
++++ b/netkar/services/api/app/services/report_cache.py
+@@ -70,8 +70,12 @@ async def report_data_version(db: AsyncSession, tenant_id: UUID, account_id: UUI
+ 
+     Sayacı uygulama kodu değil VERİTABANI artırır (denetim 2026-11-12 OS-03, OS-04): motor girdisini besleyen
+     sekiz tablonun (orders, order_lines, returns, financial_transactions, cargo_invoice_items, products,
+-    product_costs, sync_cursors) her satır yazımında, işlem COMMIT edilirken, "ertelenmiş kısıt tetikleyicisi"
+-    hesabın sayacını işlem başına bir kez `revision + 1` yapar (migrasyon 0012). Sonuçlar:
++    product_costs, sync_cursors) her GERÇEK satır değişikliğinde, işlem COMMIT edilirken, "ertelenmiş kısıt
++    tetikleyicisi" hesabın sayacını işlem başına bir kez `revision + 1` yapar (migrasyon 0012). Senkron
++    değişmeyen satırı güncellemez (`ON CONFLICT DO UPDATE ... WHERE ... IS DISTINCT FROM`), bu yüzden aynı
++    veriyle ikinci senkron sayacı artırmaz. `sync_cursors` yalnız INSERT, DELETE ve `backfill_completed_at`
++    değişiminde artırır (migrasyon 0028): imleç ilerlemesi (`watermark`, `last_window_start`) saymaz.
++    Sonuçlar:
+ 
+     - Yazım yolu unutulamaz: yeni bir yazan kod da, elle SQL de sayacı artırır.
+     - Okuma hesabın tek satırıdır (tablo taraması yok): isabet maliyeti geçmiş veri hacminden bağımsızdır.
+diff --git a/netkar/services/api/app/services/sync/runner.py b/netkar/services/api/app/services/sync/runner.py
+index f72e453..10089a0 100644
+--- a/netkar/services/api/app/services/sync/runner.py
++++ b/netkar/services/api/app/services/sync/runner.py
+@@ -72,6 +72,9 @@ class SourceOutcome:
+     upserted: int = 0
+     skipped: int = 0
+     windows_done: int = 0
++    # Kaynağın bir önceki çalışması `failed` idi (bu tur başarılıysa "düzeldi"): veri değişmese de uyarı
++    # bastırma girdisi (`failed_sources`) değiştiği için senkron sonrası değerlendirme ertelenir.
++    recovered: bool = False
+ 
+ 
+ @dataclass(slots=True)
+@@ -325,6 +328,7 @@ class SyncRunner:
+     ) -> SourceOutcome:
+         dated = spec.span is not None
+         async with tenant_transaction(self._sessions, tenant_id) as session:
++            recovered = await store.previous_run_failed(session, account_id, spec.name)
+             run_id = await store.start_run(
+                 session,
+                 tenant_id=tenant_id,
+@@ -336,7 +340,7 @@ class SyncRunner:
+                 window_end=windows[-1][1] if dated and windows else None,
+                 windows_total=len(windows),
+             )
+-        outcome = SourceOutcome(spec.name, "succeeded")
++        outcome = SourceOutcome(spec.name, "succeeded", recovered=recovered)
+         for window_start, window_end in windows:
+             try:
+                 batch = await spec.fetch(client, window_start, window_end)
+@@ -432,6 +436,7 @@ class SyncRunner:
+                     )
+                 ).all()
+             ]
++            recovered = await store.previous_run_failed(session, account_id, "cargo_invoices")
+             run_id = await store.start_run(
+                 session,
+                 tenant_id=tenant_id,
+@@ -443,7 +448,7 @@ class SyncRunner:
+                 window_end=None,
+                 windows_total=len(serials),
+             )
+-        outcome = SourceOutcome("cargo_invoices", "succeeded")
++        outcome = SourceOutcome("cargo_invoices", "succeeded", recovered=recovered)
+         for serial in serials:
+             try:
+                 items = [item async for item in client.iter_cargo_invoice_items(serial)]
+diff --git a/netkar/services/api/app/services/sync/store.py b/netkar/services/api/app/services/sync/store.py
+index fe344de..09ee562 100644
+--- a/netkar/services/api/app/services/sync/store.py
++++ b/netkar/services/api/app/services/sync/store.py
+@@ -3,6 +3,15 @@
+ Her işlev çağıranın açtığı bir işlem içinde (kiracı bağlamı `app.tenant_id` ayarlı) çalışır; RLS
+ `WITH CHECK` kiracı tutarlılığını ayrıca zorlar. Upsert'ler doğal anahtarla `ON CONFLICT DO UPDATE`
+ yapar: aynı veri tekrar yazılırsa sonuç değişmez (yeniden deneme ve pencere örtüşmesi güvenlidir).
++
++Değişmeyen satır GÜNCELLENMEZ: `DO UPDATE ... WHERE (içerik sütunları) IS DISTINCT FROM (excluded ...)`.
++İçerik sütunu = güncelleme kümesindeki, yani API'den gelen her sütun (`updated_at` ve anahtarlar hariç;
++`updated_at` her yazımda değişir, karşılaştırmaya girerse hiçbir satır "aynı" sayılmazdı). Böylece
++aynı veriyle ikinci senkron satıra dokunmaz: satır tetikleyicisi çalışmaz, rapor veri sürümü
++(`report_data_revisions`) artmaz, rapor önbelleği boşuna geçersizleşmez. `IS DISTINCT FROM` NULL'dan değere
++ve değerden NULL'a geçişi de değişiklik sayar (`=`/`<>` bunu kaçırırdı). Dönen sayaçlar yalnız GERÇEKTEN
++eklenen ya da değişen satırları sayar (`RETURNING`); senkron sonrası uyarı ertelemesi (`upserted > 0`)
++bu sayıya dayanır.
+ Kullanıcıya ait sütunlar (`returns.returned_to_stock`, `products.unit_desi`, `orders.customer_key`)
+ güncelleme kümesine girmez: senkron onların üzerine yazmaz.
+ """
+@@ -14,7 +23,7 @@ from datetime import datetime
+ from typing import Any, cast
+ from uuid import UUID
+ 
+-from sqlalchemy import Table, func, text, update
++from sqlalchemy import CursorResult, Table, func, or_, select, text, update
+ from sqlalchemy.dialects.postgresql import insert as pg_insert
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+@@ -54,6 +63,11 @@ def _chunks(rows: list[dict[str, Any]]) -> Iterable[list[dict[str, Any]]]:
+         yield rows[start : start + size]
+ 
+ 
++def _changed_condition(table: Table, stmt: Any, content_columns: Sequence[str]) -> Any:
++    """`DO UPDATE ... WHERE`: içerik sütunlarından biri hedefte `excluded`'dan farklıysa (NULL güvenli)."""
++    return or_(*[table.c[c].is_distinct_from(stmt.excluded[c]) for c in content_columns])
++
++
+ async def upsert_rows(
+     session: AsyncSession,
+     model: type[Any],
+@@ -64,7 +78,11 @@ async def upsert_rows(
+     conflict: Sequence[str],
+     exclude_from_update: Sequence[str] = (),
+ ) -> int:
+-    """Satırları doğal anahtarla upsert eder; etkilenen (eklenen + güncellenen) satır sayısını döndürür."""
++    """Satırları doğal anahtarla upsert eder; GERÇEKTEN eklenen ya da değişen satır sayısını döndürür.
++
++    Değişmeyen satır güncellenmez (bkz. modül açıklaması); `RETURNING` yalnız eklenen ve güncellenen satırı
++    döndürdüğünden sayı doğrudan ölçülür (çok satırlı INSERT'te `rowcount` güvenilir değildir).
++    """
+     table = cast(Table, model.__table__)
+     keyed = dedupe(rows, [c for c in conflict if c not in ("marketplace_account_id",)])
+     affected = 0
+@@ -72,13 +90,19 @@ async def upsert_rows(
+         values = [{**row, "tenant_id": tenant_id, "marketplace_account_id": account_id} for row in chunk]
+         stmt = pg_insert(table).values(values)
+         skip = {*conflict, *exclude_from_update, "tenant_id", "marketplace_account_id"}
+-        update_columns: dict[str, Any] = {c: stmt.excluded[c] for c in chunk[0] if c not in skip}
++        content = [c for c in chunk[0] if c not in skip]
++        update_columns: dict[str, Any] = {c: stmt.excluded[c] for c in content}
+         update_columns["updated_at"] = func.now()
+-        stmt = stmt.on_conflict_do_update(index_elements=list(conflict), set_=update_columns)
+-        await session.execute(stmt)
+-        # ON CONFLICT DO UPDATE her satırı tam bir kez etkiler (ekler veya günceller); rowcount çok satırlı
+-        # INSERT'te güvenilir değildir (-1), bu yüzden etkilenen sayı gönderilen satır sayısıdır.
+-        affected += len(chunk)
++        if content:
++            stmt = stmt.on_conflict_do_update(
++                index_elements=list(conflict),
++                set_=update_columns,
++                where=_changed_condition(table, stmt, content),
++            )
++        else:
++            stmt = stmt.on_conflict_do_nothing(index_elements=list(conflict))
++        result = await session.execute(stmt.returning(table.c.id))
++        affected += len(result.all())
+     return affected
+ 
+ 
+@@ -105,7 +129,9 @@ async def upsert_orders(
+ ) -> tuple[int, int]:
+     """Paketleri ve satırlarını yazar; payload'da artık olmayan satırları `removed_at` ile işaretler.
+ 
+-    Döner: (yazılan paket sayısı, yazılan satır sayısı). `customer_key` güncelleme kümesinde yoktur.
++    Döner: (eklenen ya da değişen paket sayısı, eklenen ya da değişen satır sayısı; `removed_at` ile
++    işaretlenenler dahil). `customer_key` güncelleme kümesinde yoktur. Değişmeyen paket güncellenmez,
++    bu yüzden `RETURNING` onun kimliğini vermez: kimlikler ayrıca okunur (satırlar `order_id` ister).
+     """
+     unique_packages = {int(order["shipment_package_id"]): (order, lines) for order, lines in packages}
+     if not unique_packages:
+@@ -113,18 +139,39 @@ async def upsert_orders(
+     order_rows = [order for order, _ in unique_packages.values()]
+     table = cast(Table, Order.__table__)
+     ids: dict[int, UUID] = {}
++    changed_orders = 0
+     for chunk in _chunks(order_rows):
+         values = [{**row, "tenant_id": tenant_id, "marketplace_account_id": account_id} for row in chunk]
+         insert_stmt = pg_insert(table).values(values)
+         skip = {"marketplace_account_id", "shipment_package_id", "tenant_id"}
+-        set_: dict[str, Any] = {c: insert_stmt.excluded[c] for c in chunk[0] if c not in skip}
++        content = [c for c in chunk[0] if c not in skip]
++        set_: dict[str, Any] = {c: insert_stmt.excluded[c] for c in content}
+         set_["updated_at"] = func.now()
+         upsert_stmt = insert_stmt.on_conflict_do_update(
+-            index_elements=["marketplace_account_id", "shipment_package_id"], set_=set_
++            index_elements=["marketplace_account_id", "shipment_package_id"],
++            set_=set_,
++            where=_changed_condition(table, insert_stmt, content),
+         ).returning(table.c.id, table.c.shipment_package_id)
+         for row_id, package_id in (await session.execute(upsert_stmt)).all():
+             ids[int(package_id)] = row_id
++            changed_orders += 1
++    # Değişmeyen paketlerin kimlikleri: satır upsert'i ve kalkan satır işareti için gerekir.
++    missing = [package_id for package_id in unique_packages if package_id not in ids]
++    for start in range(0, len(missing), _MAX_PARAMS):
++        found = await session.execute(
++            select(table.c.id, table.c.shipment_package_id).where(
++                table.c.tenant_id == tenant_id,
++                table.c.marketplace_account_id == account_id,
++                table.c.shipment_package_id.in_(missing[start : start + _MAX_PARAMS]),
++            )
++        )
++        for row_id, package_id in found.all():
++            ids[int(package_id)] = row_id
+ 
++    unresolved = [package_id for package_id in unique_packages if package_id not in ids]
++    if unresolved:
++        # Upsert'ten sonra her paketin satırı olmalı; olmaması bir tutarsızlıktır (KeyError yerine açık hata).
++        raise LookupError(f"senkron: {len(unresolved)} paketin sipariş kimliği çözülemedi")
+     line_rows: list[dict[str, Any]] = []
+     for package_id, (_, lines) in unique_packages.items():
+         line_rows.extend({**line, "order_id": ids[package_id]} for line in lines)
+@@ -138,7 +185,7 @@ async def upsert_orders(
+     )
+     # Payload'da olmayan etkin satırları işaretle (silme yok): paket bölündüyse veya satır kalktıysa.
+     keys = dedupe(line_rows, ("order_id", "line_id"))
+-    await session.execute(
++    flagged = await session.execute(
+         text(
+             "UPDATE order_lines l SET removed_at = now(), updated_at = now() "
+             "WHERE l.order_id = ANY(:order_ids) AND l.removed_at IS NULL AND NOT EXISTS ("
+@@ -152,7 +199,7 @@ async def upsert_orders(
+             "pair_lines": [k["line_id"] for k in keys],
+         },
+     )
+-    return len(ids), written_lines
++    return changed_orders, written_lines + int(cast(CursorResult[Any], flagged).rowcount)
+ 
+ 
+ async def upsert_returns(
+@@ -238,6 +285,19 @@ async def advance_cursor(
+     )
+ 
+ 
++async def previous_run_failed(session: AsyncSession, account_id: UUID, source: str) -> bool:
++    """Kaynağın en son çalışması `failed` mı (yeni çalışma açılmadan ÖNCE çağrılır)."""
++    status = (
++        await session.execute(
++            select(SyncRun.status)
++            .where(SyncRun.marketplace_account_id == account_id, SyncRun.source == source)
++            .order_by(SyncRun.started_at.desc())
++            .limit(1)
++        )
++    ).scalar_one_or_none()
++    return status == "failed"
++
++
+ async def start_run(
+     session: AsyncSession,
+     *,
+diff --git a/netkar/services/api/app/worker/tasks.py b/netkar/services/api/app/worker/tasks.py
+index 60d2d57..e96b29e 100644
+--- a/netkar/services/api/app/worker/tasks.py
++++ b/netkar/services/api/app/worker/tasks.py
+@@ -129,13 +129,19 @@ async def plan_alert_evaluations(app: procrastinate.App, runtime: WorkerRuntime)
+ 
+ 
+ async def defer_alerts_after_sync(app: procrastinate.App, outcome: SyncOutcome) -> bool:
+-    """Senkron yeni kayıt yazdıysa ERTELENMİŞ uyarı değerlendirmesi ekler (en iyi çaba: hata senkronu bozmaz).
+-
+-    Durum `invalid`, `credentials_error`, `inactive` ya da `locked` ise ya da hiçbir kaynakta `upserted > 0`
+-    değilse eklenmez. Kapsam: finans kaynağı (ekstre, diğer finansal, kargo faturası) yazdıysa `all`
++    """Senkron yeni kayıt yazdıysa ya da bir kaynak hatadan düzeldiyse ERTELENMİŞ uyarı değerlendirmesi ekler.
++
++    En iyi çaba: hata senkronu bozmaz. Durum `invalid`, `credentials_error`, `inactive` ya da `locked` ise ya
++    da hiçbir kaynakta `upserted > 0` ve hiçbir kaynakta "düzelme" (önceki çalışma `failed`, bu tur
++    `succeeded`) yoksa eklenmez. Düzelme veri sürümünü değiştirmez ama bildirim bastırma girdisini
++    (`failed_sources`) değiştirir ve değerlendirme anahtarı bunu içerir: ertelenmezse bastırılmış bildirim
++    ertesi güne kadar gecikirdi.
++    Kapsam: finans kaynağı (ekstre, diğer finansal, kargo faturası) yazdıysa `all`
+     (92 günlük kesinti kuralı dahil), yalnız sipariş, iade ya da ürün yazdıysa `fast` (7 günlük kurallar).
+     """
+-    written = {s.source for s in outcome.sources if s.upserted > 0}
++    written = {
++        s.source for s in outcome.sources if s.upserted > 0 or (s.recovered and s.status == "succeeded")
++    }
+     if outcome.status not in ALERT_TRIGGER_STATUSES or not written:
+         return False
+     scope = SCOPE_ALL if written & set(FINANCE_SOURCES) else SCOPE_FAST
+diff --git a/netkar/services/api/migrations/versions/0028_cursor_revision_narrowing.py b/netkar/services/api/migrations/versions/0028_cursor_revision_narrowing.py
+new file mode 100644
+index 0000000..45d879a
+--- /dev/null
++++ b/netkar/services/api/migrations/versions/0028_cursor_revision_narrowing.py
+@@ -0,0 +1,74 @@
++"""Rapor veri sürümü: imleç ilerlemesi sayacı artırmasın (senkron gereksiz önbellek geçersizleştirmesi).
++
++Sorun: 0012, `sync_cursors` tablosuna da `INSERT OR UPDATE OR DELETE ... FOR EACH ROW` sürüm tetikleyicisi
++koymuştu. Senkron her pencerede ve her kaynak tamamlanışında imleci ilerletir (`watermark = pencere sonu ya da
++şimdi`, `last_window_start`, `updated_at`: her turda DEĞİŞİR). Bu yüzden veri hiç değişmese bile her senkron
++turu hesabın sayacını artırıyor, rapor önbelleği boşuna geçersizleşiyor ve uyarı değerlendirme anahtarı
++(hesap, gün, VERİ SÜRÜMÜ, ayar sürümü, kural sürümü) her turda yeniden doğuyordu. İmleç değerlerini rapor ya da
++uyarı motoru okumaz (`profit_feed`, `alert_inputs`, `profit_settings` imleç tablosuna hiç dokunmaz); imleç yalnız
++senkronun "nereden devam" bilgisidir.
++
++Bu migrasyon (geri alınabilir): `sync_cursors` için tek tetikleyici ikiye ayrılır; öteki yedi tablo ve işlev
++(`bump_report_data_revision`) AYNEN kalır.
++
++- `bump_rdr_cursor_insert_delete`: `AFTER INSERT OR DELETE ... FOR EACH ROW` (ertelenmiş kısıt tetikleyicisi).
++  İmleç satırının doğması ya da silinmesi kaynağın kapsamının değiştiğini gösterir; sayar.
++- `bump_rdr_cursor_update`: `AFTER UPDATE ... FOR EACH ROW WHEN (OLD.backfill_completed_at IS DISTINCT FROM
++  NEW.backfill_completed_at)`. Yalnız backfill tamamlanma işareti değişince sayar; `watermark`,
++  `last_window_start` ve `updated_at` ilerlemesi saymaz. (`WHEN` içinde `OLD` yalnız UPDATE tetikleyicisinde
++  geçerlidir; bu yüzden iki tetikleyici gerekir.)
++
++Etki: aynı veriyle yapılan senkron turu sayacı artırmaz. Veri yazan tablolar (orders, order_lines, returns,
++financial_transactions, cargo_invoice_items, products, product_costs) değişmedi: onlar gerçek değişiklikte
++sayar. Tetikleyici adları `trg_` ile BAŞLAMAZ (o önek 0012'nin tetikleyicisine ayrılmıştır).
++
++Not (uyarı değerlendirmesi): sayaç artık yalnız gerçek değişiklikte arttığından, kaynak hatadan düzelince
++veri sürümü değişmez. Uyarı anahtarı bastırma girdisini (bastırılan kural kümesi) ayrıca içerir ve senkron
++sonrası erteleme "kaynak düzeldi" geçişinde de tetiklenir (`SourceOutcome.recovered`).
++
++Geri alma: iki yeni tetikleyici düşer, 0012'nin `trg_bump_report_data_revision` tetikleyicisi `sync_cursors`
++üzerine geri konur. Veri ve sayaç değerleri değişmez, hiçbir satır silinmez ya da yazılmaz.
++
++Revision ID: 0028
++Revises: 0027
++"""
++
++from alembic import op
++
++revision = "0028"
++down_revision = "0027"
++branch_labels = None
++depends_on = None
++
++FUNCTION = "bump_report_data_revision"
++OLD_TRIGGER = "trg_bump_report_data_revision"
++TABLE = "sync_cursors"
++INSERT_DELETE_TRIGGER = "bump_rdr_cursor_insert_delete"
++UPDATE_TRIGGER = "bump_rdr_cursor_update"
++
++UPGRADE_SQL = [
++    f"DROP TRIGGER {OLD_TRIGGER} ON {TABLE}",
++    f"CREATE CONSTRAINT TRIGGER {INSERT_DELETE_TRIGGER} AFTER INSERT OR DELETE ON {TABLE} "
++    f"DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.{FUNCTION}()",
++    f"CREATE CONSTRAINT TRIGGER {UPDATE_TRIGGER} AFTER UPDATE ON {TABLE} "
++    f"DEFERRABLE INITIALLY DEFERRED FOR EACH ROW "
++    f"WHEN (OLD.backfill_completed_at IS DISTINCT FROM NEW.backfill_completed_at) "
++    f"EXECUTE FUNCTION public.{FUNCTION}()",
++]
++
++DOWNGRADE_SQL = [
++    f"DROP TRIGGER IF EXISTS {UPDATE_TRIGGER} ON {TABLE}",
++    f"DROP TRIGGER IF EXISTS {INSERT_DELETE_TRIGGER} ON {TABLE}",
++    f"CREATE CONSTRAINT TRIGGER {OLD_TRIGGER} AFTER INSERT OR UPDATE OR DELETE ON {TABLE} "
++    f"DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.{FUNCTION}()",
++]
++
++
++def upgrade() -> None:
++    for statement in UPGRADE_SQL:
++        op.execute(statement)
++
++
++def downgrade() -> None:
++    for statement in DOWNGRADE_SQL:
++        op.execute(statement)
+diff --git a/netkar/services/api/tests/test_report_data_revision.py b/netkar/services/api/tests/test_report_data_revision.py
+index 1a357b4..b45f238 100644
+--- a/netkar/services/api/tests/test_report_data_revision.py
++++ b/netkar/services/api/tests/test_report_data_revision.py
+@@ -86,11 +86,17 @@ def test_every_engine_input_table_has_the_deferred_counter_trigger_and_new_table
+         WHERE t.tgname = 'trg_bump_report_data_revision' AND NOT t.tgisinternal OR t.tgconstraint <> 0
+         """
+     ).fetchall()
+-    bump = {r[0]: r for r in rows if r[4] == "bump_report_data_revision"}
+-    assert set(bump) == VERSIONED
+-    for name, deferrable, initially_deferred, enabled, _, secdef, per_row, ins, dele, upd in bump.values():
++    bump = [r for r in rows if r[4] == "bump_report_data_revision"]
++    assert {r[0] for r in bump} == VERSIONED
++    events: dict[str, set[str]] = {}
++    for name, deferrable, initially_deferred, enabled, _, secdef, per_row, ins, dele, upd in bump:
+         assert deferrable and initially_deferred and enabled == "O" and secdef, name
+-        assert per_row and ins and dele and upd, name  # INSERT, UPDATE ve DELETE
++        assert per_row, name  # satır tetikleyicisi: 0 satır etkileyen ifade sayacı artırmaz
++        events.setdefault(name, set()).update(
++            e for e, on in (("insert", ins), ("delete", dele), ("update", upd)) if on
++        )
++    # Her tablo INSERT, UPDATE ve DELETE'i kapsar; imleç (0028) bunu iki tetikleyiciyle yapar.
++    assert all(v == {"insert", "update", "delete"} for v in events.values()), events
+     # Hesaba bağlı (tenant_id + marketplace_account_id) her yeni tablo ya sürümlü olmalı ya da bilinçle muaf.
+     scoped = {
+         r[0]
+@@ -182,7 +188,8 @@ async def test_every_sync_write_path_bumps_the_revision_removed_flag_and_cursor_
+     after_removed = revision(env.conn, account)
+     assert after_removed > after_backfill
+ 
+-    # Yalnız imleç yazımı (sync_cursors): başka hiçbir tabloya dokunmadan.
++    # Yalnız imleç ilerlemesi (sync_cursors): başka hiçbir tabloya dokunmadan. 0028'den beri sayaç artmaz
++    # (watermark ve last_window_start her turda değişir, rapor motoru okumaz); backfill işareti artırır.
+     sessions = async_sessionmaker(worker_engine, expire_on_commit=False)
+     async with sessions.begin() as session:
+         await session.execute(
+@@ -197,6 +204,10 @@ async def test_every_sync_write_path_bumps_the_revision_removed_flag_and_cursor_
+             watermark=NOW,
+             window_start=None,
+         )
++    assert revision(env.conn, account) == after_removed
++    env.conn.execute(
++        "UPDATE sync_cursors SET backfill_completed_at = NULL WHERE marketplace_account_id = %s", (account,)
++    )
+     assert revision(env.conn, account) == after_removed + 1
+ 
+ 
+@@ -208,8 +219,10 @@ async def test_raw_update_insert_and_delete_on_each_engine_input_table_bump_the_
+     account = env.seller.account_id
+     await env.runner.run(account, "backfill")
+     before = revision(env.conn, account)
++    # İmleç tablosunda yalnız backfill_completed_at değişimi sayar (0028); öbürlerinde updated_at yeter.
++    change = "backfill_completed_at = NULL" if table == "sync_cursors" else "updated_at = now()"
+     updated = env.conn.execute(
+-        f"UPDATE {table} SET updated_at = now() WHERE marketplace_account_id = %s", (account,)
++        f"UPDATE {table} SET {change} WHERE marketplace_account_id = %s", (account,)
+     ).rowcount
+     assert updated > 0, table
+     assert revision(env.conn, account) == before + 1, table
+@@ -435,13 +448,13 @@ def test_migration_0012_downgrades_cleanly_and_upgrades_again(
+         assert table is not None and triggers is not None and func is not None
+         return table[0] is not None, int(triggers[0]), func[0] is not None
+ 
+-    assert present() == (True, 8, True)
++    assert present() == (True, 7, True)
+     command.downgrade(alembic_cfg, "0011")
+     assert present() == (False, 0, False)
+     # Veri tabloları ve içerikleri 0012'den önceki hâliyle çalışır (tetikleyici yokken yazım hata vermez).
+     assert admin_conn.execute("SELECT count(*) FROM orders").fetchone() is not None
+     command.upgrade(alembic_cfg, "head")
+-    assert present() == (True, 8, True)
++    assert present() == (True, 7, True)
+     assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == _head(alembic_cfg)
+ 
+ 
+diff --git a/netkar/services/api/tests/test_sync_unchanged_rows.py b/netkar/services/api/tests/test_sync_unchanged_rows.py
+new file mode 100644
+index 0000000..fe70871
+--- /dev/null
++++ b/netkar/services/api/tests/test_sync_unchanged_rows.py
+@@ -0,0 +1,428 @@
++"""Değişmeyen satır güncellenmez: senkron upsert'leri, veri sürüm sayacı ve uyarı ertelemesi.
++
++Eskiden `ON CONFLICT DO UPDATE` her satırı güncelliyordu; satır tetikleyicisi her güncellemede çalıştığından
++aynı veriyle ikinci senkron bile `report_data_revisions.revision` değerini artırıyor (rapor önbelleği boşuna
++geçersizleşiyor) ve `upserted > 0` sayıldığı için uyarı değerlendirmesi gereksiz ertelenebiliyordu. Ayrıca
++`sync_cursors` tetikleyicisi her imleç ilerlemesinde (`watermark`, `last_window_start`: her turda değişir)
++sayacı artırıyordu (migrasyon 0028 bunu daraltır). Bu dosya: aynı veriyle ikinci senkron (sürüm, sayaç,
++`updated_at`, uyarı ertelemesi), tek alan değişince tek artış, NULL geçişleri (`IS DISTINCT FROM`), 0 satır
++etkileyen ifadenin sayacı artırmaması (satır tetikleyicisi) ve 0028 yükseltme/geri alma/yükseltme.
++"""
++
++from __future__ import annotations
++
++from datetime import timedelta
++from decimal import Decimal
++from typing import Any
++from uuid import UUID
++
++import procrastinate
++import psycopg
++import pytest
++from alembic import command
++from alembic.config import Config
++from procrastinate import testing
++from sqlalchemy import text
++from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
++
++from app.models import OrderLine
++from app.services.sync import store
++from app.services.sync.runner import SyncRunner
++from app.worker.tasks import defer_alerts_after_sync, register_tasks
++from tests.sync_fixtures import Env
++from tests.sync_helpers import NOW, client_factory, envelope_for_tests
++
++ACCOUNT_TABLES = (
++    "products",
++    "orders",
++    "order_lines",
++    "returns",
++    "financial_transactions",
++    "cargo_invoice_items",
++)
++
++
++def revision(conn: psycopg.Connection[Any], account_id: UUID) -> int:
++    row = conn.execute(
++        "SELECT revision FROM report_data_revisions WHERE marketplace_account_id = %s", (account_id,)
++    ).fetchone()
++    return 0 if row is None else int(row[0])
++
++
++def stamps(conn: psycopg.Connection[Any]) -> dict[str, list[Any]]:
++    """Her veri tablosunun `updated_at` değerleri (satır güncellendiyse değişir)."""
++    return {t: conn.execute(f"SELECT updated_at FROM {t} ORDER BY id").fetchall() for t in ACCOUNT_TABLES}
++
++
++def alert_app() -> procrastinate.App:
++    app = procrastinate.App(connector=testing.InMemoryConnector())
++    register_tasks(app)
++    app.periodic_registry.periodic_tasks.clear()
++    return app
++
++
++def alert_jobs(app: procrastinate.App) -> list[dict[str, Any]]:
++    connector = app.connector
++    assert isinstance(connector, testing.InMemoryConnector)
++    return [j for j in connector.jobs.values() if j["task_name"] == "alerts.evaluate"]
++
++
++@pytest.fixture
++def sessions(worker_engine: Any) -> async_sessionmaker[AsyncSession]:
++    return async_sessionmaker(worker_engine, expire_on_commit=False)
++
++
++async def write_products(
++    sessions: async_sessionmaker[AsyncSession], env: Env, rows: list[dict[str, Any]]
++) -> int:
++    async with sessions.begin() as session:
++        await session.execute(
++            text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(env.seller.tenant_id)}
++        )
++        return await store.upsert_products(
++            session, rows, tenant_id=env.seller.tenant_id, account_id=env.seller.account_id
++        )
++
++
++# ===================================================================== aynı veriyle ikinci senkron
++
++
++async def test_second_sync_with_identical_data_changes_nothing_and_defers_no_alert(env: Env) -> None:
++    account = env.seller.account_id
++    app = alert_app()
++    first = await env.runner.run(account, "backfill")
++    assert all(s.upserted > 0 for s in first.sources if s.status == "succeeded")
++    after_first = revision(env.conn, account)
++    assert after_first >= 1
++    before = stamps(env.conn)
++    app_open = app.open_async()
++    async with app_open:
++        assert await defer_alerts_after_sync(app, first) is True  # ilk yazım: uyarı ertelenir
++        assert len(alert_jobs(app)) == 1
++
++        # Zorlanmış backfill: aynı veri baştan yazılır.
++        forced = await env.runner.run(account, "backfill", force=True)
++        assert [s.upserted for s in forced.sources] == [0] * len(forced.sources)
++        assert revision(env.conn, account) == after_first
++        assert stamps(env.conn) == before  # hiçbir satırın updated_at değeri değişmedi
++
++        # Artımlı senkron: imleç ilerler (watermark, last_window_start) ama veri aynıdır.
++        later = NOW + timedelta(minutes=15)
++        runner = SyncRunner(
++            env.runner._engine, client_factory(env.api), envelope_for_tests(), now=lambda: later
++        )
++        incremental = await runner.run(account, "incremental")
++        assert incremental.status == "completed"
++        assert [s.upserted for s in incremental.sources] == [0] * len(incremental.sources)
++        assert revision(env.conn, account) == after_first  # imleç ilerlemesi sürümü artırmaz (0028)
++        assert stamps(env.conn) == before
++        mark = env.conn.execute("SELECT watermark FROM sync_cursors WHERE source = 'orders'").fetchone()
++        assert mark == (later,)  # imleç gerçekten ilerledi
++
++        # Uyarı ertelemesi: hiçbir kaynakta upserted > 0 yok, iş eklenmez.
++        assert await defer_alerts_after_sync(app, forced) is False
++        assert await defer_alerts_after_sync(app, incremental) is False
++    assert len(alert_jobs(app)) == 1
++
++
++async def test_one_changed_field_bumps_the_revision_exactly_once(env: Env) -> None:
++    account = env.seller.account_id
++    await env.runner.run(account, "backfill")
++    before = revision(env.conn, account)
++    stamps_before = stamps(env.conn)
++
++    env.api.orders = [{**env.api.orders[0], "packageGrossAmount": 9999.5}]
++    changed = await env.runner.run(account, "backfill", sources=["orders"], force=True)
++    (orders,) = changed.sources
++    assert orders.upserted == 1  # yalnız paket satırı (iki satır kalemi değişmedi)
++    assert revision(env.conn, account) == before + 1
++    stamps_after = stamps(env.conn)
++    assert stamps_after["orders"] != stamps_before["orders"]
++    assert {t: v for t, v in stamps_after.items() if t != "orders"} == {
++        t: v for t, v in stamps_before.items() if t != "orders"
++    }
++    # Aynı değerle yeniden: artık değişiklik yok.
++    again = await env.runner.run(account, "backfill", sources=["orders"], force=True)
++    assert again.sources[0].upserted == 0
++    assert revision(env.conn, account) == before + 1
++
++
++async def test_a_changed_order_line_counts_once_and_unchanged_packages_still_resolve_their_lines(
++    env: Env,
++) -> None:
++    account = env.seller.account_id
++    await env.runner.run(account, "backfill", sources=["orders"])
++    before = revision(env.conn, account)
++    first = env.api.orders[0]
++    lines = [{**first["lines"][0], "quantity": 3}, first["lines"][1]]
++    env.api.orders = [{**first, "lines": lines}]
++    outcome = await env.runner.run(account, "backfill", sources=["orders"], force=True)
++    assert outcome.sources[0].upserted == 1  # paket aynı, yalnız bir satır değişti
++    assert revision(env.conn, account) == before + 1
++    quantities = env.conn.execute("SELECT quantity FROM order_lines ORDER BY line_id").fetchall()
++    assert quantities == [(3,), (1,)]
++
++
++async def test_a_line_removed_from_the_payload_counts_as_a_change(env: Env) -> None:
++    account = env.seller.account_id
++    await env.runner.run(account, "backfill", sources=["orders"])
++    before = revision(env.conn, account)
++    first = env.api.orders[0]
++    env.api.orders = [{**first, "lines": [first["lines"][0]]}]
++    outcome = await env.runner.run(account, "backfill", sources=["orders"], force=True)
++    assert outcome.sources[0].upserted == 1  # kalkan satır `removed_at` ile işaretlendi
++    assert revision(env.conn, account) == before + 1
++    again = await env.runner.run(account, "backfill", sources=["orders"], force=True)
++    assert again.sources[0].upserted == 0  # işaretli satır yeniden saymaz
++    assert revision(env.conn, account) == before + 1
++
++
++async def test_a_revived_line_returns_to_active_and_counts_as_a_change(env: Env) -> None:
++    account = env.seller.account_id
++    await env.runner.run(account, "backfill", sources=["orders"])
++    first = env.api.orders[0]
++    env.api.orders = [{**first, "lines": [first["lines"][0]]}]
++    await env.runner.run(account, "backfill", sources=["orders"], force=True)
++    assert env.conn.execute("SELECT count(*) FROM order_lines WHERE removed_at IS NOT NULL").fetchone() == (
++        1,
++    )
++    before = revision(env.conn, account)
++    env.api.orders = [first]  # satır geri geldi
++    revived = await env.runner.run(account, "backfill", sources=["orders"], force=True)
++    assert revived.sources[0].upserted == 1
++    assert revision(env.conn, account) == before + 1
++    assert env.conn.execute("SELECT count(*) FROM order_lines WHERE removed_at IS NOT NULL").fetchone() == (
++        0,
++    )
++
++
++async def test_items_jsonb_content_change_bumps_but_key_order_alone_does_not(
++    env: Env, sessions: async_sessionmaker[AsyncSession]
++) -> None:
++    account = env.seller.account_id
++    await env.runner.run(account, "backfill", sources=["orders"])
++    first_line = env.conn.execute("SELECT order_id, line_id FROM order_lines ORDER BY line_id").fetchone()
++    assert first_line is not None
++    order_id, line_id = first_line
++    base = {
++        "order_id": order_id,
++        "line_id": line_id,
++        "barcode": "8681000000011",
++        "quantity": 1,
++        "line_gross_amount": Decimal("299.90"),
++        "removed_at": None,
++    }
++
++    async def write(items: list[dict[str, str]]) -> int:
++        async with sessions.begin() as session:
++            await session.execute(
++                text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(env.seller.tenant_id)}
++            )
++            return await store.upsert_rows(
++                session,
++                OrderLine,
++                [{**base, "items": items}],
++                tenant_id=env.seller.tenant_id,
++                account_id=account,
++                conflict=("order_id", "line_id"),
++            )
++
++    assert await write([{"id": "1", "seller_discount": "0.00", "ty_discount": "0.00"}]) == 1
++    before = revision(env.conn, account)
++    # Yalnız anahtar sırası farklı: jsonb eşit sayılır.
++    assert await write([{"ty_discount": "0.00", "seller_discount": "0.00", "id": "1"}]) == 0
++    assert revision(env.conn, account) == before
++    # İçerik değişti.
++    assert await write([{"id": "1", "seller_discount": "5.00", "ty_discount": "0.00"}]) == 1
++    assert revision(env.conn, account) == before + 1
++
++
++# ============================================================================== NULL geçişleri
++
++
++async def test_null_to_value_and_value_to_null_are_detected_and_equal_values_are_not(
++    env: Env, sessions: async_sessionmaker[AsyncSession]
++) -> None:
++    account = env.seller.account_id
++    key = {"barcode": "8689999000001"}
++    assert revision(env.conn, account) == 0
++    assert await write_products(sessions, env, [{**key, "title": None, "vat_rate": None}]) == 1
++    assert revision(env.conn, account) == 1
++    # NULL -> NULL: değişiklik yok.
++    assert await write_products(sessions, env, [{**key, "title": None, "vat_rate": None}]) == 0
++    assert revision(env.conn, account) == 1
++    # NULL -> değer.
++    assert await write_products(sessions, env, [{**key, "title": "Tişört", "vat_rate": Decimal("20")}]) == 1
++    assert revision(env.conn, account) == 2
++    # değer -> aynı değer (sayısal olarak eşit: 20 ile 20.0).
++    assert await write_products(sessions, env, [{**key, "title": "Tişört", "vat_rate": Decimal("20.0")}]) == 0
++    assert revision(env.conn, account) == 2
++    # değer -> NULL (yalnız bir sütun).
++    assert await write_products(sessions, env, [{**key, "title": "Tişört", "vat_rate": None}]) == 1
++    assert revision(env.conn, account) == 3
++    assert await write_products(sessions, env, [{**key, "title": None, "vat_rate": None}]) == 1
++    assert revision(env.conn, account) == 4
++    row = env.conn.execute("SELECT title, vat_rate FROM products WHERE barcode = %s", (key["barcode"],))
++    assert row.fetchone() == (None, None)
++
++
++async def test_mixed_batch_counts_only_new_and_changed_rows_and_bumps_once(
++    env: Env, sessions: async_sessionmaker[AsyncSession]
++) -> None:
++    account = env.seller.account_id
++    rows = [{"barcode": f"869000000{n}", "title": f"Ürün {n}"} for n in range(4)]
++    assert await write_products(sessions, env, rows) == 4
++    before = revision(env.conn, account)
++    rows[1] = {**rows[1], "title": "Yeni ad"}
++    rows.append({"barcode": "8690000099", "title": "Yeni ürün"})
++    assert await write_products(sessions, env, rows) == 2  # bir değişen + bir yeni
++    assert revision(env.conn, account) == before + 1  # tek işlemde tek artış
++
++
++async def test_user_owned_columns_survive_and_do_not_count_as_changes(
++    env: Env, sessions: async_sessionmaker[AsyncSession]
++) -> None:
++    account = env.seller.account_id
++    await env.runner.run(account, "backfill")
++    env.conn.execute("UPDATE products SET unit_desi = 7.5")
++    env.conn.execute("UPDATE returns SET returned_to_stock = false")
++    before = revision(env.conn, account)
++    forced = await env.runner.run(account, "backfill", force=True)
++    assert [s.upserted for s in forced.sources] == [0] * len(forced.sources)
++    assert revision(env.conn, account) == before
++    assert env.conn.execute("SELECT DISTINCT unit_desi FROM products").fetchall() == [(Decimal("7.5"),)]
++    assert env.conn.execute("SELECT DISTINCT returned_to_stock FROM returns").fetchall() == [(False,)]
++
++
++# ======================================================== 0 satır etkileyen ifade sayacı artırmaz
++
++
++async def test_statements_that_touch_zero_rows_never_bump_the_revision(
++    env: Env,
++) -> None:
++    """Tetikleyici FOR EACH ROW'dur (STATEMENT değil): etkilenen satır yoksa hiç çalışmaz."""
++    account = env.seller.account_id
++    await env.runner.run(account, "backfill")
++    before = revision(env.conn, account)
++    for table in ACCOUNT_TABLES:
++        done = env.conn.execute(f"UPDATE {table} SET updated_at = now() WHERE false")
++        assert done.rowcount == 0
++        assert env.conn.execute(f"DELETE FROM {table} WHERE false").rowcount == 0
++    # Çakışan ama WHERE koşulu yanlış olan upsert: satır güncellenmez, tetikleyici çalışmaz.
++    done = env.conn.execute(
++        "INSERT INTO products (tenant_id, marketplace_account_id, barcode) "
++        "SELECT tenant_id, marketplace_account_id, barcode FROM products "
++        "ON CONFLICT (marketplace_account_id, barcode) DO UPDATE SET updated_at = now() WHERE false"
++    )
++    assert done.rowcount == 0
++    assert revision(env.conn, account) == before
++
++
++# ============================================================= kaynak düzelmesi ve uyarı ertelemesi
++
++
++async def test_recovery_after_a_failed_run_defers_alerts_even_when_nothing_was_written(env: Env) -> None:
++    account = env.seller.account_id
++    app = alert_app()
++    await env.runner.run(account, "backfill")
++    env.api.fail_after["/orders/stream"] = (0, 500)
++    failed = await env.runner.run(account, "backfill", sources=["orders"], force=True)
++    assert failed.sources[0].status == "failed" and failed.sources[0].recovered is False
++    env.api.fail_after.clear()
++    before = revision(env.conn, account)
++    healed = await env.runner.run(account, "backfill", sources=["orders"], force=True)
++    assert healed.sources[0].status == "succeeded" and healed.sources[0].upserted == 0
++    assert healed.sources[0].recovered is True  # önceki çalışma failed
++    assert revision(env.conn, account) == before  # veri sürümü değişmedi
++    async with app.open_async():
++        assert await defer_alerts_after_sync(app, healed) is True  # yine de değerlendirme ertelenir
++        # Düzelme tekrar etmez: sonraki başarılı tur ertelemez.
++        again = await env.runner.run(account, "backfill", sources=["orders"], force=True)
++        assert again.sources[0].recovered is False
++        assert await defer_alerts_after_sync(app, again) is False
++
++
++# ================================================================================ imleç (0028)
++
++
++def test_cursor_progress_does_not_bump_but_backfill_completion_insert_and_delete_do(
++    env: Env,
++) -> None:
++    account = env.seller.account_id
++    conn = env.conn
++    conn.execute(
++        "INSERT INTO sync_cursors (tenant_id, marketplace_account_id, source, watermark) "
++        "VALUES (%s, %s, 'orders', %s)",
++        (env.seller.tenant_id, account, NOW),
++    )
++    assert revision(conn, account) == 1  # ilk imleç satırı (ekleme) sayar
++    conn.execute(
++        "UPDATE sync_cursors SET watermark = %s, last_window_start = %s, updated_at = now() "
++        "WHERE marketplace_account_id = %s",
++        (NOW + timedelta(hours=1), NOW, account),
++    )
++    assert revision(conn, account) == 1  # yalnız ilerleme: sayaç artmaz
++    conn.execute(
++        "UPDATE sync_cursors SET backfill_completed_at = %s WHERE marketplace_account_id = %s", (NOW, account)
++    )
++    assert revision(conn, account) == 2  # backfill tamamlandı: sayar
++    conn.execute(
++        "UPDATE sync_cursors SET backfill_completed_at = %s WHERE marketplace_account_id = %s", (NOW, account)
++    )
++    assert revision(conn, account) == 2  # aynı değer: sayar değil
++    conn.execute("DELETE FROM sync_cursors WHERE marketplace_account_id = %s", (account,))
++    assert revision(conn, account) == 3
++
++
++# ==================================================================================== migrasyon
++
++
++CURSOR_TRIGGERS = (
++    "SELECT t.tgname, (t.tgtype & 1) = 1, t.tgdeferrable AND t.tginitdeferred, t.tgqual IS NOT NULL "
++    "FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid "
++    "WHERE c.relname = 'sync_cursors' AND NOT t.tgisinternal ORDER BY t.tgname"
++)
++
++
++def test_migration_0028_upgrade_downgrade_upgrade_keeps_data_and_restores_each_state(
++    alembic_cfg: Config, env: Env
++) -> None:
++    conn = env.conn
++    account = env.seller.account_id
++    conn.execute(
++        "INSERT INTO sync_cursors (tenant_id, marketplace_account_id, source, watermark) "
++        "VALUES (%s, %s, 'orders', %s)",
++        (env.seller.tenant_id, account, NOW),
++    )
++    revision_before = revision(conn, account)
++
++    def progress_bumps() -> bool:
++        before = revision(conn, account)
++        conn.execute("UPDATE sync_cursors SET watermark = watermark + interval '1 minute'")
++        return revision(conn, account) == before + 1
++
++    upgraded = conn.execute(CURSOR_TRIGGERS).fetchall()
++    assert upgraded == [
++        ("bump_rdr_cursor_insert_delete", True, True, False),
++        ("bump_rdr_cursor_update", True, True, True),
++    ]
++    assert not any(name.startswith("trg_") for name, *_ in upgraded)  # `trg_` öneki bu migrasyona ait değil
++    assert progress_bumps() is False
++
++    command.downgrade(alembic_cfg, "0027")
++    assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0027",)
++    assert conn.execute(CURSOR_TRIGGERS).fetchall() == [("trg_bump_report_data_revision", True, True, False)]
++    assert conn.execute("SELECT count(*) FROM sync_cursors").fetchone() == (1,)  # veri kaybı yok
++    assert revision(conn, account) >= revision_before
++    assert progress_bumps() is True  # 0027 davranışı: her ilerleme sayar
++
++    command.upgrade(alembic_cfg, "head")
++    assert conn.execute(CURSOR_TRIGGERS).fetchall() == upgraded
++    assert conn.execute("SELECT count(*) FROM sync_cursors").fetchone() == (1,)
++    assert progress_bumps() is False
++    # Diğer yedi tablonun tetikleyicisine dokunulmadı.
++    others = conn.execute(
++        "SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid "
++        "WHERE t.tgname = 'trg_bump_report_data_revision' AND c.relname <> 'sync_cursors'"
++    ).fetchone()
++    assert others == (7,)
