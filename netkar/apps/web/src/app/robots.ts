@@ -10,7 +10,14 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/panel', '/api/', '/iki-adim', '/sifre-sifirla', '/e-posta-dogrula'],
+      disallow: [
+        '/panel',
+        '/api/',
+        '/iki-adim',
+        '/sifre-sifirla',
+        '/e-posta-dogrula',
+        '/bildirim-kapat',
+      ],
     },
     sitemap: `${getEnv().NEXT_PUBLIC_SITE_URL}/sitemap.xml`,
   };

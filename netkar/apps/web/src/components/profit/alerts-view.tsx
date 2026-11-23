@@ -4,7 +4,6 @@ import {
   CircleCheck,
   CircleHelp,
   Info,
-  Store,
   TrendingDown,
   TriangleAlert,
   type LucideIcon,
@@ -14,7 +13,6 @@ import { useSearchParams } from 'next/navigation';
 import { useId, useState } from 'react';
 
 import { EmptyState } from '@/components/panel/empty-state';
-import { PageHeader } from '@/components/panel/page-header';
 import {
   Money,
   RangeSwitcher,
@@ -39,7 +37,6 @@ import { describeReportError } from '@/lib/profit/errors';
 import { periodLabel } from '@/lib/profit/present';
 import { isValidOrderSearch, ordersHref, parseRange } from '@/lib/profit/query';
 import { retryOnceOnRateLimit } from '@/lib/profit/rate-limit-retry';
-import { useReportAccount } from '@/lib/profit/use-account';
 import { usePagedList } from '@/lib/profit/use-paged-list';
 import { useIsViewer } from '@/lib/profit/use-viewer';
 import { useReportQuery } from '@/lib/profit/use-report-query';
@@ -68,36 +65,19 @@ const TONE_TEXT: Record<AlertTone, string> = {
   neutral: 'text-muted-foreground',
 };
 
-export function AlertsScreen() {
+/**
+ * Dönem dökümü (eski rapor tabanlı uyarılar, GET /profit/alerts): "Dönem dökümü" sekmesinin içeriğidir.
+ * Hesap, sayfa kapsayıcısından gelir; başlık ve sekmeler kapsayıcıdadır (components/alerts/alerts-screen.tsx).
+ */
+export function PeriodAlerts({ accountId }: { accountId: string }) {
   const range = parseRange(useSearchParams().get('range'));
-  const { state: account, retry: retryAccount } = useReportAccount();
-
   return (
     <>
-      <PageHeader
-        title="Uyarılar"
-        description="Bu dönemde dikkat etmeniz gerekenler: önce para kaybettirenler, sonra eksik kurulum."
+      <RangeSwitcher
+        range={range}
+        hrefFor={(value) => `/panel/uyarilar?sekme=donem&range=${value}`}
       />
-      <RangeSwitcher range={range} hrefFor={(value) => `/panel/uyarilar?range=${value}`} />
-      {account.status === 'loading' ? <ReportSkeleton rows={4} /> : null}
-      {account.status === 'error' ? (
-        <ReportError
-          title="Uyarılar yüklenemedi"
-          message={describeReportError(account.error)}
-          onRetry={retryAccount}
-        />
-      ) : null}
-      {account.status === 'none' ? (
-        <EmptyState
-          Icon={Store}
-          title="Trendyol mağazanızı bağlayın"
-          description="Mağaza bağlandığında zarar, eksik kurulum ve beklenmeyen kesintiler burada listelenir."
-          action={{ href: '/panel/ayarlar', label: 'Bağlantıya başla' }}
-        />
-      ) : null}
-      {account.status === 'ready' ? (
-        <AlertsBody accountId={account.accountId} range={range} />
-      ) : null}
+      <AlertsBody accountId={accountId} range={range} />
     </>
   );
 }

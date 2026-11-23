@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AlertsScreen } from '@/components/profit/alerts-view';
+import { AlertsScreen } from '@/components/alerts/alerts-screen';
 import { mockFetch, problem } from '@/test/api-mock';
 import { ACCOUNT_ID, makeAccounts, makeAlertItem, makeAlerts } from '@/lib/profit/test-fixtures';
 
@@ -29,7 +29,7 @@ const MANY = [
 ];
 
 beforeEach(() => {
-  navigation.search = '';
+  navigation.search = 'sekme=donem';
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -92,7 +92,7 @@ describe('Uyarılar ekranı', () => {
   });
 
   it('çok kodlu durum: gruplar sırayla, kartlarda sayı, cümle ve tek eylem', async () => {
-    navigation.search = 'range=7d';
+    navigation.search = 'sekme=donem&range=7d';
     const { calls } = mockFetch(accounts, (url) =>
       url.pathname === alertsPath ? { body: makeAlerts(MANY) } : undefined,
     );
@@ -246,7 +246,7 @@ describe('Uyarılar ekranı', () => {
   });
 
   it('SU-10: etkilenen siparişten sipariş listesine arama bağlantısı verilir', async () => {
-    navigation.search = 'range=7d';
+    navigation.search = 'sekme=donem&range=7d';
     mockFetch(accounts, (url) => {
       if (url.pathname !== alertsPath) return undefined;
       return url.searchParams.get('code') === 'BEKLENMEYEN_KESINTI'

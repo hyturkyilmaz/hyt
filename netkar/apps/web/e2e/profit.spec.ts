@@ -196,7 +196,7 @@ for (const scheme of ['light', 'dark'] as const) {
       // UX-08: uyarılar ekranı var; bağlantı dönemi taşır, sayı kartların toplamıdır
       await expect(page.getByRole('link', { name: 'Tüm uyarılar (2 tür)' })).toHaveAttribute(
         'href',
-        '/panel/uyarilar?range=7d',
+        '/panel/uyarilar?sekme=donem&range=7d',
       );
       // UX-03 ve UX-04: en büyük zarar üstte; net kârı null kesin zarar (-12) da listede, "en az" ile
       const losses = page.getByRole('region', { name: 'Zarar ettiren ürünler' });
@@ -704,7 +704,7 @@ for (const scheme of ['light', 'dark'] as const) {
               }
             : { body: makeAlerts(MANY_CODES, { not_yet_available: NOT_YET }) },
       });
-      await page.goto('/panel/uyarilar?range=7d');
+      await page.goto('/panel/uyarilar?sekme=donem&range=7d');
       await expect(page.getByRole('heading', { level: 1, name: 'Uyarılar' })).toBeVisible();
       await expect(
         page.getByRole('heading', { level: 2, name: 'Para kaybettirenler' }),
@@ -755,7 +755,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await mockApi(page, {
         alerts: () => ({ body: makeAlerts([], { not_yet_available: NOT_YET }) }),
       });
-      await page.goto('/panel/uyarilar');
+      await page.goto('/panel/uyarilar?sekme=donem');
       await expect(
         page.getByRole('heading', { level: 2, name: 'Bu dönemde uyarı yok' }),
       ).toBeVisible();
@@ -770,7 +770,7 @@ for (const scheme of ['light', 'dark'] as const) {
           body: { type: 'urn:netkar:problem:internal-error', title: 'Sunucu hatası', status: 500 },
         }),
       });
-      await page.goto('/panel/uyarilar');
+      await page.goto('/panel/uyarilar?sekme=donem');
       const alert = page.getByRole('alert').filter({ hasText: 'Uyarılar yüklenemedi' });
       await expect(alert).toBeVisible();
       await expect(alert).not.toContainText('internal-error');
@@ -789,7 +789,7 @@ for (const scheme of ['light', 'dark'] as const) {
           ]),
         }),
       });
-      await page.goto('/panel/uyarilar');
+      await page.goto('/panel/uyarilar?sekme=donem');
       const other = page.getByRole('region', { name: 'Diğer uyarılar' });
       await expect(
         other.getByRole('heading', { level: 3, name: 'Tanınmayan uyarı' }),
@@ -806,7 +806,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await mockApi(page, {
         alerts: () => ({ body: makeAlerts(MANY_CODES), delayMs: 1500 }),
       });
-      await page.goto('/panel/uyarilar');
+      await page.goto('/panel/uyarilar?sekme=donem');
       await expect(page.getByRole('status').filter({ hasText: 'Yükleniyor' })).toBeVisible();
       await expect(page.getByRole('heading', { level: 1, name: 'Uyarılar' })).toBeVisible();
       await checkPage(page, 'panel-uyarilar-yukleniyor', testInfo.project.name, scheme);
@@ -824,13 +824,13 @@ test.describe('uyarılar ekranı, davranış', () => {
 
   test('dönem seçici range parametresiyle uyarıları yeniden ister', async ({ page }) => {
     await mockApi(page, { alerts: () => ({ body: makeAlerts(MANY_CODES) }) });
-    await page.goto('/panel/uyarilar');
+    await page.goto('/panel/uyarilar?sekme=donem');
     await expect(page.getByRole('heading', { level: 2, name: 'Kurulum' })).toBeVisible();
     await page
       .getByRole('navigation', { name: 'Dönem' })
       .getByRole('link', { name: '7 gün' })
       .click();
-    await expect(page).toHaveURL(/\/panel\/uyarilar\?range=7d$/);
+    await expect(page).toHaveURL(/\/panel\/uyarilar\?sekme=donem&range=7d$/);
     await expect
       .poll(() =>
         requests.some(
@@ -844,7 +844,7 @@ test.describe('uyarılar ekranı, davranış', () => {
     await mockApi(page, { alerts: () => ({ body: makeAlerts(MANY_CODES) }) });
     await page.goto('/panel?range=7d');
     await page.getByRole('link', { name: /^Tüm uyarılar \(7 tür\)$/ }).click();
-    await expect(page).toHaveURL(/\/panel\/uyarilar\?range=7d$/);
+    await expect(page).toHaveURL(/\/panel\/uyarilar\?sekme=donem&range=7d$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Uyarılar' })).toBeVisible();
     await expect(
       page.getByRole('heading', { level: 2, name: 'Para kaybettirenler' }),
@@ -1188,7 +1188,7 @@ test.describe('siparişler ekranı, davranış', () => {
           ? { body: makeOrderList([ORDER_ITEMS[3]!], { q: '10004' }) }
           : ordersOk(),
     });
-    await page.goto('/panel/uyarilar?range=7d');
+    await page.goto('/panel/uyarilar?sekme=donem&range=7d');
     await page.getByRole('button', { name: 'Etkilenen siparişleri göster' }).click();
     await page.getByRole('link', { name: 'Siparişi gör: 10004' }).click();
     await expect(page).toHaveURL(/\/panel\/siparisler\?range=7d&q=10004$/);

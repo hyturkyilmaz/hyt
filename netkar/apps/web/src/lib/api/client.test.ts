@@ -6,6 +6,7 @@ import {
   apiFetch,
   describeApiError,
   ensureCsrfToken,
+  postUnsubscribe,
 } from '@/lib/api/client';
 import { readCookie, readCsrfToken } from '@/lib/api/csrf';
 
@@ -41,6 +42,52 @@ describe('csrf çerez okuma', () => {
   it('belge çerezinden okur', () => {
     setCookie('__Host-nk_csrf=tok123; path=/; Secure');
     expect(readCsrfToken()).toBe('tok123');
+  });
+});
+
+describe('apiFetch: If-Match ve postUnsubscribe', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setCookie('__Host-nk_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; Secure');
+  });
+
+  it('If-Match başlığını iletir; Accept ve CSRF başlığı yine kendi değerindedir', async () => {
+    setCookie('__Host-nk_csrf=tok123; path=/; Secure');
+    const fetchMock = mockFetch(new Response('{}', { status: 200 }));
+    await apiFetch('/x', { method: 'PUT', body: {}, headers: { 'If-Match': '"e-1"' } });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const headers = new Headers(init.headers);
+    expect(headers.get('If-Match')).toBe('"e-1"');
+    expect(headers.get('Accept')).toBe('application/json');
+    expect(headers.get('X-CSRF-Token')).toBe('tok123');
+  });
+
+  it('postUnsubscribe: çerezsiz, CSRF başlıksız, token yalnız sorguda; /auth/csrf çağrılmaz', async () => {
+    const fetchMock = mockFetch(new Response('{"rules":[],"channel":"email","mode":"off"}'));
+    await postUnsubscribe('a.b', undefined);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/v1/notifications/unsubscribe?token=a.b');
+    expect(init.method).toBe('POST');
+    expect(init.credentials).toBe('omit');
+    expect(new Headers(init.headers).has('X-CSRF-Token')).toBe(false);
+    expect(init.body).toBeUndefined();
+  });
+
+  it('postUnsubscribe: hata ApiError (durum, kod, Retry-After), ağ kopması NetworkError', async () => {
+    mockFetch(
+      new Response(JSON.stringify({ type: 'urn:netkar:problem:invalid-unsubscribe-token' }), {
+        status: 400,
+        headers: { 'Retry-After': '30' },
+      }),
+    );
+    await expect(postUnsubscribe('x.y')).rejects.toMatchObject({
+      status: 400,
+      code: 'invalid-unsubscribe-token',
+      retryAfterSeconds: 30,
+    });
+    mockFetch(new TypeError('ağ'));
+    await expect(postUnsubscribe('x.y')).rejects.toBeInstanceOf(NetworkError);
   });
 });
 

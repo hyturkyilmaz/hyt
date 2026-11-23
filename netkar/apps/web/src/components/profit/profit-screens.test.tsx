@@ -430,7 +430,7 @@ describe('Özet ekranı', () => {
     render(<SummaryScreen />);
     await screen.findByText(/Zararına satış/);
     const link = screen.getByRole('link', { name: 'Tüm uyarılar (2 tür)' });
-    expect(link).toHaveAttribute('href', '/panel/uyarilar?range=7d');
+    expect(link).toHaveAttribute('href', '/panel/uyarilar?sekme=donem&range=7d');
   });
 
   it('uyarı yoksa "Tüm uyarılar" bağlantısı çıkmaz', async () => {

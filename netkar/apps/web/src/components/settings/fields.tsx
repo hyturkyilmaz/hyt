@@ -1,25 +1,11 @@
 'use client';
 
-import { CheckCircle2, Info, TriangleAlert, X } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 
-import {
-  useSettingsWriter,
-  type SettingsNotice,
-  type SettingsScope,
-} from '@/components/settings/settings-writer';
-import { cn } from '@/lib/utils';
+import { NoticeBox } from '@/components/panel/notice-box';
+import { useSettingsWriter, type SettingsScope } from '@/components/settings/settings-writer';
 
-/** Yerel `<select>` görünümü (ürün listesindeki sıralama seçicisiyle aynı) */
-export const SELECT_CLASS =
-  'min-h-touch w-full rounded-md border border-input-border bg-surface px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-2 aria-[invalid=true]:border-loss';
-
-const NOTICE_TONES = {
-  success: { Icon: CheckCircle2, className: 'bg-profit-soft text-profit' },
-  info: { Icon: Info, className: 'bg-info-soft text-info' },
-  warning: { Icon: TriangleAlert, className: 'bg-warning-soft text-warning' },
-  error: { Icon: TriangleAlert, className: 'bg-loss-soft text-loss' },
-} as const;
+export { SELECT_CLASS } from '@/components/ui/select-class';
 
 /**
  * Bölüme bağlı satır içi bildirim (yalnız toast değil, UX §8.1). Hata ve uyarı `role="alert"`, başarı ve bilgi
@@ -41,32 +27,6 @@ export function SectionNotice({ scope }: { scope: SettingsScope }) {
       </div>
       {urgent ? <div role="alert">{box}</div> : null}
     </>
-  );
-}
-
-function NoticeBox({
-  tone,
-  text,
-  onDismiss,
-}: {
-  tone: SettingsNotice['tone'];
-  text: string;
-  onDismiss: () => void;
-}) {
-  const { Icon, className } = NOTICE_TONES[tone];
-  return (
-    <div className={cn('flex items-start gap-2 rounded-lg p-3 text-sm font-medium', className)}>
-      <Icon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      <p className="flex-1">{text}</p>
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="-m-2 inline-flex size-touch shrink-0 items-center justify-center rounded-md hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <X className="size-4" aria-hidden="true" />
-        <span className="sr-only">Bildirimi kapat</span>
-      </button>
-    </div>
   );
 }
 

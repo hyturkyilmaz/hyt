@@ -22,6 +22,8 @@ const securityHeaders = [
 export const tokenPageHeaders = [
   { key: 'Referrer-Policy', value: 'no-referrer' },
   { key: 'Cache-Control', value: 'no-store' },
+  // Token taşıyan sayfa arama sonuçlarına girmez (meta robots'a ek, HTTP başlığı)
+  { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
 ];
 
 // Rapor zaman aşımı zinciri (içten dışa): PostgreSQL statement_timeout 40 sn, API rapor hesap sınırı 45 sn
@@ -68,6 +70,8 @@ const nextConfig: NextConfig = {
       // E-posta doğrulama bağlantısı token taşır: kaynak bilgisi gönderilmez, yanıt önbelleğe alınmaz.
       // Genel kuraldan SONRA gelir; aynı başlık anahtarında bu kural geçerli olur.
       { source: '/e-posta-dogrula', headers: tokenPageHeaders },
+      // Bildirim kapatma bağlantısı da token taşır (oturumsuz): aynı kural.
+      { source: '/bildirim-kapat', headers: tokenPageHeaders },
     ];
   },
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import { Link2, ShieldCheck, Store, Truck } from 'lucide-react';
+import { Bell, Link2, ShieldCheck, Store, Truck } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 
@@ -110,6 +110,23 @@ export function SettingsContent() {
         <CardContent>
           <Button asChild variant="secondary">
             <Link href="/panel/guvenlik">Güvenlik ayarlarına git</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card id="bildirimler">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="size-5 text-primary" aria-hidden="true" />
+            Bildirimler
+          </CardTitle>
+          <CardDescription>
+            Uyarıların e-postayla ne zaman geleceğini ve hesap eşiklerini ayarlayın.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="secondary">
+            <Link href="/panel/ayarlar/bildirimler">Bildirim ayarlarına git</Link>
           </Button>
         </CardContent>
       </Card>

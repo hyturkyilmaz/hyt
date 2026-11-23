@@ -467,7 +467,7 @@ function AlertsCard({ accountId, range }: { accountId: string; range: RangeName 
         {/* UX-08: uyarılar ekranı artık var; sayı uyarı TÜRÜ (kart) sayısıdır; satır sayıları toplanmaz (SU-08). */}
         {alerts.state.status === 'ready' && alerts.state.data.counts.length > 0 ? (
           <Link
-            href={`/panel/uyarilar?range=${range}`}
+            href={`/panel/uyarilar?sekme=donem&range=${range}`}
             className="num inline-flex min-h-touch items-center text-base text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {`Tüm uyarılar (${alertKindCount(alerts.state.data.counts)} tür)`}

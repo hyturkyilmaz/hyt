@@ -87,6 +87,8 @@ export interface ApiRequestInit {
   signal?: AbortSignal;
   /** Tarayıcı HTTP önbelleğini atlatır (ör. bayat kalmış herkese açık liste yeniden çekilirken). */
   cache?: RequestCache;
+  /** Yalnız izin listesindeki ek başlıklar: `If-Match` (eşzamanlılık önkoşulu, ör. uyarı eşikleri PUT'u). */
+  headers?: { 'If-Match'?: string };
 }
 
 function parseFieldErrors(value: unknown): ApiFieldError[] | undefined {
@@ -205,6 +207,8 @@ export async function ensureCsrfToken(signal?: AbortSignal): Promise<string> {
 async function send(path: string, init: ApiRequestInit): Promise<Response> {
   const method = init.method ?? 'GET';
   const headers = new Headers({ Accept: 'application/json' });
+  const ifMatch = init.headers?.['If-Match'];
+  if (ifMatch !== undefined) headers.set('If-Match', ifMatch);
 
   if (init.body !== undefined && init.formData === undefined) {
     headers.set('Content-Type', 'application/json');
@@ -284,4 +288,34 @@ export function describeApiError(error: unknown, fallback: string): string {
     }
   }
   return fallback;
+}
+
+/**
+ * Bildirim kapatma bağlantısı (oturumsuz): `POST /notifications/unsubscribe?token=`. Yetki YALNIZ imzalı token'dan
+ * gelir; sunucuda bu yol CSRF'den muaftır ve çerez okumaz. Bu yüzden çerez gönderilmez (`credentials: 'omit'`),
+ * CSRF başlığı eklenmez ve `GET /auth/csrf` çağrılmaz. Token yalnız sorgu dizesine konur; hata iletisine, günlüğe
+ * ve arayüze yazılmaz. Hatalar diğer çağrılarla aynı `ApiError` / `NetworkError` olarak atılır.
+ */
+export async function postUnsubscribe<T>(token: string, signal?: AbortSignal): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${API_PREFIX}/notifications/unsubscribe?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        credentials: 'omit',
+        signal,
+      },
+    );
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    throw new NetworkError();
+  }
+  if (!response.ok) throw new ApiError(await readProblem(response));
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError({ status: response.status });
+  }
 }

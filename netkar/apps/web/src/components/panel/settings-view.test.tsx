@@ -26,6 +26,15 @@ describe('Ayarlar içeriği (UX-02)', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('bildirim ayarlarına bağlantı verir (mağaza durumundan bağımsız)', async () => {
+    mockFetch((url) => (url.pathname === accountsPath ? { body: [] } : undefined));
+    render(<SettingsContent />);
+    expect(await screen.findByRole('link', { name: 'Bildirim ayarlarına git' })).toHaveAttribute(
+      'href',
+      '/panel/ayarlar/bildirimler',
+    );
+  });
+
   it('bağlı mağaza yoksa "Bağlı değil" ve bağlantı düğmesi', async () => {
     mockFetch((url) => (url.pathname === accountsPath ? { body: [] } : undefined));
     render(<SettingsContent />);

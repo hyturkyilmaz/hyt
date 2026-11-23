@@ -29,6 +29,19 @@ describe('next.config', () => {
       expect.arrayContaining([
         { key: 'Referrer-Policy', value: 'no-referrer' },
         { key: 'Cache-Control', value: 'no-store' },
+        { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+      ]),
+    );
+  });
+
+  it('bildirim kapatma yolu no-referrer ve no-store başlıkları taşır', async () => {
+    const rules = (await nextConfig.headers?.()) ?? [];
+    const rule = rules.find((r) => r.source === '/bildirim-kapat');
+    expect(rule?.headers).toEqual(
+      expect.arrayContaining([
+        { key: 'Referrer-Policy', value: 'no-referrer' },
+        { key: 'Cache-Control', value: 'no-store' },
+        { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
       ]),
     );
   });

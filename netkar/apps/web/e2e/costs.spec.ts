@@ -110,7 +110,7 @@ test.describe('ürün maliyetleri', () => {
       }),
     );
     await signIn(page.context(), sessionFor(testInfo, 'uyari'));
-    await page.goto('/panel/uyarilar');
+    await page.goto('/panel/uyarilar?sekme=donem');
     await page.getByRole('link', { name: 'Maliyeti eksik ürünleri gör' }).click();
     await expect(page).toHaveURL(/\/panel\/maliyetler\?filtre=eksik$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Ürün maliyetleri' })).toBeVisible();
