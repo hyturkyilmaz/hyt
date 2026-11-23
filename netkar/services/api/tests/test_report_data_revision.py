@@ -86,11 +86,17 @@ def test_every_engine_input_table_has_the_deferred_counter_trigger_and_new_table
         WHERE t.tgname = 'trg_bump_report_data_revision' AND NOT t.tgisinternal OR t.tgconstraint <> 0
         """
     ).fetchall()
-    bump = {r[0]: r for r in rows if r[4] == "bump_report_data_revision"}
-    assert set(bump) == VERSIONED
-    for name, deferrable, initially_deferred, enabled, _, secdef, per_row, ins, dele, upd in bump.values():
+    bump = [r for r in rows if r[4] == "bump_report_data_revision"]
+    assert {r[0] for r in bump} == VERSIONED
+    events: dict[str, set[str]] = {}
+    for name, deferrable, initially_deferred, enabled, _, secdef, per_row, ins, dele, upd in bump:
         assert deferrable and initially_deferred and enabled == "O" and secdef, name
-        assert per_row and ins and dele and upd, name  # INSERT, UPDATE ve DELETE
+        assert per_row, name  # satır tetikleyicisi: 0 satır etkileyen ifade sayacı artırmaz
+        events.setdefault(name, set()).update(
+            e for e, on in (("insert", ins), ("delete", dele), ("update", upd)) if on
+        )
+    # Her tablo INSERT, UPDATE ve DELETE'i kapsar; imleç (0028) bunu iki tetikleyiciyle yapar.
+    assert all(v == {"insert", "update", "delete"} for v in events.values()), events
     # Hesaba bağlı (tenant_id + marketplace_account_id) her yeni tablo ya sürümlü olmalı ya da bilinçle muaf.
     scoped = {
         r[0]
@@ -182,7 +188,8 @@ async def test_every_sync_write_path_bumps_the_revision_removed_flag_and_cursor_
     after_removed = revision(env.conn, account)
     assert after_removed > after_backfill
 
-    # Yalnız imleç yazımı (sync_cursors): başka hiçbir tabloya dokunmadan.
+    # Yalnız imleç ilerlemesi (sync_cursors): başka hiçbir tabloya dokunmadan. 0028'den beri sayaç artmaz
+    # (watermark ve last_window_start her turda değişir, rapor motoru okumaz); backfill işareti artırır.
     sessions = async_sessionmaker(worker_engine, expire_on_commit=False)
     async with sessions.begin() as session:
         await session.execute(
@@ -197,6 +204,10 @@ async def test_every_sync_write_path_bumps_the_revision_removed_flag_and_cursor_
             watermark=NOW,
             window_start=None,
         )
+    assert revision(env.conn, account) == after_removed
+    env.conn.execute(
+        "UPDATE sync_cursors SET backfill_completed_at = NULL WHERE marketplace_account_id = %s", (account,)
+    )
     assert revision(env.conn, account) == after_removed + 1
 
 
@@ -208,8 +219,10 @@ async def test_raw_update_insert_and_delete_on_each_engine_input_table_bump_the_
     account = env.seller.account_id
     await env.runner.run(account, "backfill")
     before = revision(env.conn, account)
+    # İmleç tablosunda yalnız backfill_completed_at değişimi sayar (0028); öbürlerinde updated_at yeter.
+    change = "backfill_completed_at = NULL" if table == "sync_cursors" else "updated_at = now()"
     updated = env.conn.execute(
-        f"UPDATE {table} SET updated_at = now() WHERE marketplace_account_id = %s", (account,)
+        f"UPDATE {table} SET {change} WHERE marketplace_account_id = %s", (account,)
     ).rowcount
     assert updated > 0, table
     assert revision(env.conn, account) == before + 1, table
@@ -435,13 +448,13 @@ def test_migration_0012_downgrades_cleanly_and_upgrades_again(
         assert table is not None and triggers is not None and func is not None
         return table[0] is not None, int(triggers[0]), func[0] is not None
 
-    assert present() == (True, 8, True)
+    assert present() == (True, 7, True)
     command.downgrade(alembic_cfg, "0011")
     assert present() == (False, 0, False)
     # Veri tabloları ve içerikleri 0012'den önceki hâliyle çalışır (tetikleyici yokken yazım hata vermez).
     assert admin_conn.execute("SELECT count(*) FROM orders").fetchone() is not None
     command.upgrade(alembic_cfg, "head")
-    assert present() == (True, 8, True)
+    assert present() == (True, 7, True)
     assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == _head(alembic_cfg)
 
 

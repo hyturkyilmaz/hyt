@@ -751,8 +751,12 @@ class NotificationDispatcher:
                     titles.append(title)
         # Token zamanı belirlenimcidir (grubun en eski oluşturulma zamanı): içerik yeniden denemede aynı.
         now = min(r.created_at for r in group)
+        # Sayfa bağlantısında token URL parçasındadır (`#token=`): tarayıcı parçayı sunucuya
+        # göndermez, böylece token erişim loglarına, Next ilk RSC verisine ve Referer'a girmez (K-N13).
+        # Web sayfası hem `#` hem eski `?token=` biçimini okur. Tek tık API bağlantısı
+        # (List-Unsubscribe) sorgu dizesinde kalır: RFC 8058 POST'u sunucuya gitmek zorundadır.
         links = {
-            line.rule: f"{self._base}{UNSUBSCRIBE_PAGE_PATH}?token="
+            line.rule: f"{self._base}{UNSUBSCRIBE_PAGE_PATH}#token="
             f"{self._signer.sign(primary.user_id, tenant_id, line.rule, 'email', now)}"
             for line in lines
         }

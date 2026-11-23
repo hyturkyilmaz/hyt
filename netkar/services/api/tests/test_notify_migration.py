@@ -16,6 +16,7 @@ import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 from tests.conftest import DatabaseInfo
 from tests.test_alert_evaluation import mark_synced
@@ -241,6 +242,7 @@ def test_migration_0027_downgrade_in_prod_stops_while_held_or_failed_rows_exist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     a = world.a
+    head = ScriptDirectory.from_config(alembic_cfg).get_current_head()
     held = add_outbox(
         admin_conn,
         a,
@@ -255,6 +257,8 @@ def test_migration_0027_downgrade_in_prod_stops_while_held_or_failed_rows_exist(
             RuntimeError, match="ENVIRONMENT=prod iken notification_outbox içinde 1 held/failed"
         ):
             command.downgrade(alembic_cfg, "0026")
+        # Reddedilen 0027 geri alması sürümü 0027'de bırakır (sonraki migrasyonlar varsa onlar önce geri alınmış
+        # olur; Alembic her adımı ayrı işler).
         assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0027",)
         assert admin_conn.execute(
             "SELECT count(*) FROM pg_proc WHERE proname = 'releasable_outbox'"
@@ -275,7 +279,7 @@ def test_migration_0027_downgrade_in_prod_stops_while_held_or_failed_rows_exist(
     finally:
         monkeypatch.setenv("ENVIRONMENT", "test")
         command.upgrade(alembic_cfg, "head")
-    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("0027",)
+    assert admin_conn.execute("SELECT version_num FROM alembic_version").fetchone() == (head,)
 
 
 def test_tenant_recipients_lists_verified_members_with_roles_and_checks_the_context(

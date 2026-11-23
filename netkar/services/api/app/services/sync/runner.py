@@ -72,6 +72,9 @@ class SourceOutcome:
     upserted: int = 0
     skipped: int = 0
     windows_done: int = 0
+    # Kaynağın bir önceki çalışması `failed` idi (bu tur başarılıysa "düzeldi"): veri değişmese de uyarı
+    # bastırma girdisi (`failed_sources`) değiştiği için senkron sonrası değerlendirme ertelenir.
+    recovered: bool = False
 
 
 @dataclass(slots=True)
@@ -325,6 +328,7 @@ class SyncRunner:
     ) -> SourceOutcome:
         dated = spec.span is not None
         async with tenant_transaction(self._sessions, tenant_id) as session:
+            recovered = await store.previous_run_failed(session, account_id, spec.name)
             run_id = await store.start_run(
                 session,
                 tenant_id=tenant_id,
@@ -336,7 +340,7 @@ class SyncRunner:
                 window_end=windows[-1][1] if dated and windows else None,
                 windows_total=len(windows),
             )
-        outcome = SourceOutcome(spec.name, "succeeded")
+        outcome = SourceOutcome(spec.name, "succeeded", recovered=recovered)
         for window_start, window_end in windows:
             try:
                 batch = await spec.fetch(client, window_start, window_end)
@@ -432,6 +436,7 @@ class SyncRunner:
                     )
                 ).all()
             ]
+            recovered = await store.previous_run_failed(session, account_id, "cargo_invoices")
             run_id = await store.start_run(
                 session,
                 tenant_id=tenant_id,
@@ -443,7 +448,7 @@ class SyncRunner:
                 window_end=None,
                 windows_total=len(serials),
             )
-        outcome = SourceOutcome("cargo_invoices", "succeeded")
+        outcome = SourceOutcome("cargo_invoices", "succeeded", recovered=recovered)
         for serial in serials:
             try:
                 items = [item async for item in client.iter_cargo_invoice_items(serial)]

@@ -70,8 +70,12 @@ async def report_data_version(db: AsyncSession, tenant_id: UUID, account_id: UUI
 
     Sayacı uygulama kodu değil VERİTABANI artırır (denetim 2026-11-12 OS-03, OS-04): motor girdisini besleyen
     sekiz tablonun (orders, order_lines, returns, financial_transactions, cargo_invoice_items, products,
-    product_costs, sync_cursors) her satır yazımında, işlem COMMIT edilirken, "ertelenmiş kısıt tetikleyicisi"
-    hesabın sayacını işlem başına bir kez `revision + 1` yapar (migrasyon 0012). Sonuçlar:
+    product_costs, sync_cursors) her GERÇEK satır değişikliğinde, işlem COMMIT edilirken, "ertelenmiş kısıt
+    tetikleyicisi" hesabın sayacını işlem başına bir kez `revision + 1` yapar (migrasyon 0012). Senkron
+    değişmeyen satırı güncellemez (`ON CONFLICT DO UPDATE ... WHERE ... IS DISTINCT FROM`), bu yüzden aynı
+    veriyle ikinci senkron sayacı artırmaz. `sync_cursors` yalnız INSERT, DELETE ve `backfill_completed_at`
+    değişiminde artırır (migrasyon 0028): imleç ilerlemesi (`watermark`, `last_window_start`) saymaz.
+    Sonuçlar:
 
     - Yazım yolu unutulamaz: yeni bir yazan kod da, elle SQL de sayacı artırır.
     - Okuma hesabın tek satırıdır (tablo taraması yok): isabet maliyeti geçmiş veri hacminden bağımsızdır.

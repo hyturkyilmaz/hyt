@@ -874,6 +874,11 @@ async def test_message_carries_verifiable_one_click_headers_and_per_rule_links(
     assert claim is not None and (claim.user_id, claim.tenant_id) == (a.user_id, a.tenant_id)
     assert claim.rule == LOSS and claim.channel == "email"  # tek kurallı anlık ileti: yalnız o kural (D1)
     link = next(ln for ln in message.body.splitlines() if ln.startswith("- Zararına satış: "))
+    # Sayfa bağlantısı token'ı URL parçasında taşır; sorgu dizesinde token yok (sunucuya gitmez, K-N13).
+    page_url = link.removeprefix("- Zararına satış: ")
+    assert page_url.startswith("https://app.test.invalid/bildirim-kapat#token=")
+    assert "?token=" not in page_url
+    assert message.html is not None and "/bildirim-kapat?token=" not in message.html
     rule_claim = signer.verify(link.split("token=", 1)[1], NOW)
     assert rule_claim is not None and rule_claim.rule == LOSS and rule_claim.user_id == a.user_id
     assert "https://app.test.invalid/panel/uyarilar" in message.body

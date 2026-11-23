@@ -39,6 +39,7 @@ from app.services.alert_evaluation import (
     AlertEvaluator,
     EvaluationKey,
     ExistingEvent,
+    blocked_digest,
     composite_settings_revision,
     decide_notification,
     is_transient,
@@ -257,6 +258,28 @@ def test_thresholds_digest_is_content_based_and_zero_without_a_row() -> None:
     assert one != thresholds_digest({**base, "loss_min_amount": Decimal("6.00")}, ["A", "B"])
     assert one != thresholds_digest(base, ["A"])
     assert thresholds_digest({}, None) == thresholds_digest({}, None)
+
+
+def test_blocked_digest_is_identity_when_empty_and_stable_distinct_otherwise() -> None:
+    loss_rule, return_rule = AlertRule.LOSS_MAKING_SALE, AlertRule.RETURN_RATE_INCREASE
+    base = thresholds_digest({"loss_min_amount": Decimal("5.00")}, None)
+    assert (
+        blocked_digest(base, frozenset()) == base and blocked_digest(0, []) == 0
+    )  # eski anahtarlarla uyumlu
+    both = blocked_digest(base, [loss_rule, return_rule])
+    assert both != base
+    assert (
+        both
+        == blocked_digest(base, [return_rule, loss_rule])
+        == blocked_digest(base, {loss_rule, return_rule})
+    )
+    assert both == blocked_digest(base, [loss_rule, return_rule])  # çağrılar arasında kararlı
+    one = blocked_digest(base, {loss_rule})
+    other = blocked_digest(base, {return_rule})
+    assert len({base, both, one, other}) == 4
+    assert blocked_digest(base + 1, {loss_rule}) != one  # eşik özeti de katılır
+    for value in (both, one, other, blocked_digest(2**31 - 1, {loss_rule})):
+        assert 0 <= value < 2**31
 
 
 def test_quiet_until_handles_overnight_same_day_and_empty_windows() -> None:
@@ -1035,6 +1058,81 @@ async def test_notifications_are_suppressed_until_backfill_is_complete_and_the_l
     assert (out.counts["updated"], out.counts["notified"], out.counts["outbox_rows"]) == (1, 1, 1)
     assert events(admin_conn, seller)[0]["last_notified_at"] == NOW  # bildirim kaybolmadı, ertelendi
     assert len(outbox(admin_conn, seller)) == 1
+
+
+async def test_source_recovery_with_unchanged_data_opens_a_new_key_and_sends_the_suppressed_notification(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    add_loss_sale(admin_conn, a)
+    add_push(admin_conn, a)
+    add_sync_run(admin_conn, a, "orders", "failed", "2026-10-09")
+    ev = evaluator(worker_engine)
+
+    first = await ev.evaluate(a.account_id)  # kaynak başarısız: bildirim bastırılır
+    assert first.status == "succeeded"
+    assert (first.counts["opened"], first.counts["notified"], first.counts["outbox_rows"]) == (1, 0, 0)
+    assert outbox(admin_conn, a) == [] and events(admin_conn, a)[0]["last_notified_at"] is None
+    revision = data_revision(admin_conn, a)
+
+    add_sync_run(admin_conn, a, "orders", "succeeded", "2026-10-10")  # kaynak düzeldi, satır değişmedi
+    assert data_revision(admin_conn, a) == revision
+    second = await ev.evaluate(a.account_id)
+    assert second.status == "succeeded"
+    assert (second.counts["notified"], second.counts["outbox_rows"]) == (1, 1)
+    assert len(outbox(admin_conn, a)) == 1 and events(admin_conn, a)[0]["last_notified_at"] == NOW
+    rows = evaluations(admin_conn, a)
+    assert [e["status"] for e in rows] == ["succeeded", "succeeded"]
+    assert rows[0]["data_revision"] == rows[1]["data_revision"]
+    assert rows[0]["settings_revision"] != rows[1]["settings_revision"]  # fark yalnız bastırma özetinden
+    assert data_revision(admin_conn, a) == revision  # döngü yok
+
+
+async def test_unchanged_blocked_set_keeps_the_key_so_the_second_call_is_completed(
+    world: World, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    a = world.a
+    add_loss_sale(admin_conn, a)
+    add_push(admin_conn, a)
+    add_sync_run(admin_conn, a, "orders", "failed", "2026-10-09")
+    ev = evaluator(worker_engine)
+
+    assert (await ev.evaluate(a.account_id)).status == "succeeded"
+    before = table_counts(admin_conn, a)
+    again = await ev.evaluate(a.account_id)
+    assert (again.status, again.reason) == ("skipped", "completed")
+    assert table_counts(admin_conn, a) == before and outbox(admin_conn, a) == []
+
+
+async def test_exhausted_key_during_a_source_failure_is_re_evaluated_after_recovery(
+    world: World,
+    admin_conn: psycopg.Connection[Any],
+    worker_engine: AsyncEngine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    a = world.a
+    add_loss_sale(admin_conn, a)
+    add_push(admin_conn, a)
+    add_sync_run(admin_conn, a, "orders", "failed", "2026-10-09")
+
+    async def boom(*args: Any, **kwargs: Any) -> int:
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(ae, "_write_outbox", boom)
+    for _ in range(3):
+        with pytest.raises(AlertEvaluationFailed):
+            await evaluator(worker_engine).evaluate(a.account_id)
+    monkeypatch.undo()
+    stuck = await evaluator(worker_engine).evaluate(a.account_id)  # kaynak hâlâ bozuk: anahtar tükenmiş
+    assert (stuck.status, stuck.reason) == ("skipped", "exhausted") and events(admin_conn, a) == []
+
+    add_sync_run(
+        admin_conn, a, "orders", "succeeded", "2026-10-10"
+    )  # veri sürümü aynı, bastırma kümesi değişti
+    out = await evaluator(worker_engine).evaluate(a.account_id)
+    assert out.status == "succeeded" and (out.counts["notified"], out.counts["outbox_rows"]) == (1, 1)
+    assert [e["status"] for e in evaluations(admin_conn, a)] == ["failed"] * 3 + ["succeeded"]
+    assert len(outbox(admin_conn, a)) == 1
 
 
 async def test_more_than_500_notifications_are_split_into_chunks_without_loss(

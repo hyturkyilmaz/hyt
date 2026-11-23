@@ -129,16 +129,24 @@ async def plan_alert_evaluations(app: procrastinate.App, runtime: WorkerRuntime)
 
 
 async def defer_alerts_after_sync(app: procrastinate.App, outcome: SyncOutcome) -> bool:
-    """Senkron yeni kayıt yazdıysa ERTELENMİŞ uyarı değerlendirmesi ekler (en iyi çaba: hata senkronu bozmaz).
+    """Senkron yeni kayıt yazdıysa ya da bir kaynak hatadan düzeldiyse ERTELENMİŞ uyarı değerlendirmesi ekler.
 
-    Durum `invalid`, `credentials_error`, `inactive` ya da `locked` ise ya da hiçbir kaynakta `upserted > 0`
-    değilse eklenmez. Kapsam: finans kaynağı (ekstre, diğer finansal, kargo faturası) yazdıysa `all`
-    (92 günlük kesinti kuralı dahil), yalnız sipariş, iade ya da ürün yazdıysa `fast` (7 günlük kurallar).
+    En iyi çaba: hata senkronu bozmaz. Durum `invalid`, `credentials_error`, `inactive` ya da `locked` ise ya
+    da hiçbir kaynakta `upserted > 0` ve hiçbir kaynakta "düzelme" (önceki çalışma `failed`, bu tur
+    `succeeded`) yoksa eklenmez. Düzelme veri sürümünü değiştirmez ama bildirim bastırma girdisini
+    (`failed_sources`) değiştirir ve değerlendirme anahtarı bunu içerir: ertelenmezse bastırılmış bildirim
+    ertesi güne kadar gecikirdi.
+    Kapsam: finans kaynağı (ekstre, diğer finansal, kargo faturası) yazdıysa ya da HERHANGİ bir
+    kaynak düzeldiyse `all` (92 günlük kesinti kuralı dahil); yalnız sipariş, iade ya da ürün yazdıysa
+    `fast` (7 günlük kurallar). Düzelmede `all` seçilir: düzelen kaynak (ör. sipariş) kesinti kuralının
+    da bastırma kaynağı olabilir (`RULE_SOURCES`); `fast` kapsam o kuralı çalıştırmaz ve bildirimi
+    günlük işe kadar geciktirirdi. Düzelme seyrek olduğundan maliyet önemsizdir.
     """
-    written = {s.source for s in outcome.sources if s.upserted > 0}
+    recovered = {s.source for s in outcome.sources if s.recovered and s.status == "succeeded"}
+    written = {s.source for s in outcome.sources if s.upserted > 0} | recovered
     if outcome.status not in ALERT_TRIGGER_STATUSES or not written:
         return False
-    scope = SCOPE_ALL if written & set(FINANCE_SOURCES) else SCOPE_FAST
+    scope = SCOPE_ALL if (written & set(FINANCE_SOURCES)) or recovered else SCOPE_FAST
     try:
         return await defer_alert_evaluation(
             app, outcome.account_id, scope=scope, delay_minutes=ALERT_SYNC_DELAY_MINUTES

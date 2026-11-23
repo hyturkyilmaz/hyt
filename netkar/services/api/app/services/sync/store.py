@@ -3,6 +3,15 @@
 Her işlev çağıranın açtığı bir işlem içinde (kiracı bağlamı `app.tenant_id` ayarlı) çalışır; RLS
 `WITH CHECK` kiracı tutarlılığını ayrıca zorlar. Upsert'ler doğal anahtarla `ON CONFLICT DO UPDATE`
 yapar: aynı veri tekrar yazılırsa sonuç değişmez (yeniden deneme ve pencere örtüşmesi güvenlidir).
+
+Değişmeyen satır GÜNCELLENMEZ: `DO UPDATE ... WHERE (içerik sütunları) IS DISTINCT FROM (excluded ...)`.
+İçerik sütunu = güncelleme kümesindeki, yani API'den gelen her sütun (`updated_at` ve anahtarlar hariç;
+`updated_at` her yazımda değişir, karşılaştırmaya girerse hiçbir satır "aynı" sayılmazdı). Böylece
+aynı veriyle ikinci senkron satıra dokunmaz: satır tetikleyicisi çalışmaz, rapor veri sürümü
+(`report_data_revisions`) artmaz, rapor önbelleği boşuna geçersizleşmez. `IS DISTINCT FROM` NULL'dan değere
+ve değerden NULL'a geçişi de değişiklik sayar (`=`/`<>` bunu kaçırırdı). Dönen sayaçlar yalnız GERÇEKTEN
+eklenen ya da değişen satırları sayar (`RETURNING`); senkron sonrası uyarı ertelemesi (`upserted > 0`)
+bu sayıya dayanır.
 Kullanıcıya ait sütunlar (`returns.returned_to_stock`, `products.unit_desi`, `orders.customer_key`)
 güncelleme kümesine girmez: senkron onların üzerine yazmaz.
 """
@@ -14,7 +23,7 @@ from datetime import datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import Table, func, text, update
+from sqlalchemy import CursorResult, Table, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,6 +63,11 @@ def _chunks(rows: list[dict[str, Any]]) -> Iterable[list[dict[str, Any]]]:
         yield rows[start : start + size]
 
 
+def _changed_condition(table: Table, stmt: Any, content_columns: Sequence[str]) -> Any:
+    """`DO UPDATE ... WHERE`: içerik sütunlarından biri hedefte `excluded`'dan farklıysa (NULL güvenli)."""
+    return or_(*[table.c[c].is_distinct_from(stmt.excluded[c]) for c in content_columns])
+
+
 async def upsert_rows(
     session: AsyncSession,
     model: type[Any],
@@ -64,7 +78,11 @@ async def upsert_rows(
     conflict: Sequence[str],
     exclude_from_update: Sequence[str] = (),
 ) -> int:
-    """Satırları doğal anahtarla upsert eder; etkilenen (eklenen + güncellenen) satır sayısını döndürür."""
+    """Satırları doğal anahtarla upsert eder; GERÇEKTEN eklenen ya da değişen satır sayısını döndürür.
+
+    Değişmeyen satır güncellenmez (bkz. modül açıklaması); `RETURNING` yalnız eklenen ve güncellenen satırı
+    döndürdüğünden sayı doğrudan ölçülür (çok satırlı INSERT'te `rowcount` güvenilir değildir).
+    """
     table = cast(Table, model.__table__)
     keyed = dedupe(rows, [c for c in conflict if c not in ("marketplace_account_id",)])
     affected = 0
@@ -72,13 +90,19 @@ async def upsert_rows(
         values = [{**row, "tenant_id": tenant_id, "marketplace_account_id": account_id} for row in chunk]
         stmt = pg_insert(table).values(values)
         skip = {*conflict, *exclude_from_update, "tenant_id", "marketplace_account_id"}
-        update_columns: dict[str, Any] = {c: stmt.excluded[c] for c in chunk[0] if c not in skip}
+        content = [c for c in chunk[0] if c not in skip]
+        update_columns: dict[str, Any] = {c: stmt.excluded[c] for c in content}
         update_columns["updated_at"] = func.now()
-        stmt = stmt.on_conflict_do_update(index_elements=list(conflict), set_=update_columns)
-        await session.execute(stmt)
-        # ON CONFLICT DO UPDATE her satırı tam bir kez etkiler (ekler veya günceller); rowcount çok satırlı
-        # INSERT'te güvenilir değildir (-1), bu yüzden etkilenen sayı gönderilen satır sayısıdır.
-        affected += len(chunk)
+        if content:
+            stmt = stmt.on_conflict_do_update(
+                index_elements=list(conflict),
+                set_=update_columns,
+                where=_changed_condition(table, stmt, content),
+            )
+        else:
+            stmt = stmt.on_conflict_do_nothing(index_elements=list(conflict))
+        result = await session.execute(stmt.returning(table.c.id))
+        affected += len(result.all())
     return affected
 
 
@@ -105,7 +129,9 @@ async def upsert_orders(
 ) -> tuple[int, int]:
     """Paketleri ve satırlarını yazar; payload'da artık olmayan satırları `removed_at` ile işaretler.
 
-    Döner: (yazılan paket sayısı, yazılan satır sayısı). `customer_key` güncelleme kümesinde yoktur.
+    Döner: (eklenen ya da değişen paket sayısı, eklenen ya da değişen satır sayısı; `removed_at` ile
+    işaretlenenler dahil). `customer_key` güncelleme kümesinde yoktur. Değişmeyen paket güncellenmez,
+    bu yüzden `RETURNING` onun kimliğini vermez: kimlikler ayrıca okunur (satırlar `order_id` ister).
     """
     unique_packages = {int(order["shipment_package_id"]): (order, lines) for order, lines in packages}
     if not unique_packages:
@@ -113,18 +139,39 @@ async def upsert_orders(
     order_rows = [order for order, _ in unique_packages.values()]
     table = cast(Table, Order.__table__)
     ids: dict[int, UUID] = {}
+    changed_orders = 0
     for chunk in _chunks(order_rows):
         values = [{**row, "tenant_id": tenant_id, "marketplace_account_id": account_id} for row in chunk]
         insert_stmt = pg_insert(table).values(values)
         skip = {"marketplace_account_id", "shipment_package_id", "tenant_id"}
-        set_: dict[str, Any] = {c: insert_stmt.excluded[c] for c in chunk[0] if c not in skip}
+        content = [c for c in chunk[0] if c not in skip]
+        set_: dict[str, Any] = {c: insert_stmt.excluded[c] for c in content}
         set_["updated_at"] = func.now()
         upsert_stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["marketplace_account_id", "shipment_package_id"], set_=set_
+            index_elements=["marketplace_account_id", "shipment_package_id"],
+            set_=set_,
+            where=_changed_condition(table, insert_stmt, content),
         ).returning(table.c.id, table.c.shipment_package_id)
         for row_id, package_id in (await session.execute(upsert_stmt)).all():
             ids[int(package_id)] = row_id
+            changed_orders += 1
+    # Değişmeyen paketlerin kimlikleri: satır upsert'i ve kalkan satır işareti için gerekir.
+    missing = [package_id for package_id in unique_packages if package_id not in ids]
+    for start in range(0, len(missing), _MAX_PARAMS):
+        found = await session.execute(
+            select(table.c.id, table.c.shipment_package_id).where(
+                table.c.tenant_id == tenant_id,
+                table.c.marketplace_account_id == account_id,
+                table.c.shipment_package_id.in_(missing[start : start + _MAX_PARAMS]),
+            )
+        )
+        for row_id, package_id in found.all():
+            ids[int(package_id)] = row_id
 
+    unresolved = [package_id for package_id in unique_packages if package_id not in ids]
+    if unresolved:
+        # Upsert'ten sonra her paketin satırı olmalı; olmaması bir tutarsızlıktır (KeyError yerine açık hata).
+        raise LookupError(f"senkron: {len(unresolved)} paketin sipariş kimliği çözülemedi")
     line_rows: list[dict[str, Any]] = []
     for package_id, (_, lines) in unique_packages.items():
         line_rows.extend({**line, "order_id": ids[package_id]} for line in lines)
@@ -138,7 +185,7 @@ async def upsert_orders(
     )
     # Payload'da olmayan etkin satırları işaretle (silme yok): paket bölündüyse veya satır kalktıysa.
     keys = dedupe(line_rows, ("order_id", "line_id"))
-    await session.execute(
+    flagged = await session.execute(
         text(
             "UPDATE order_lines l SET removed_at = now(), updated_at = now() "
             "WHERE l.order_id = ANY(:order_ids) AND l.removed_at IS NULL AND NOT EXISTS ("
@@ -152,7 +199,7 @@ async def upsert_orders(
             "pair_lines": [k["line_id"] for k in keys],
         },
     )
-    return len(ids), written_lines
+    return changed_orders, written_lines + int(cast(CursorResult[Any], flagged).rowcount)
 
 
 async def upsert_returns(
@@ -236,6 +283,19 @@ async def advance_cursor(
     await session.execute(
         stmt.on_conflict_do_update(index_elements=["marketplace_account_id", "source"], set_=set_)
     )
+
+
+async def previous_run_failed(session: AsyncSession, account_id: UUID, source: str) -> bool:
+    """Kaynağın en son çalışması `failed` mı (yeni çalışma açılmadan ÖNCE çağrılır)."""
+    status = (
+        await session.execute(
+            select(SyncRun.status)
+            .where(SyncRun.marketplace_account_id == account_id, SyncRun.source == source)
+            .order_by(SyncRun.started_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return status == "failed"
 
 
 async def start_run(

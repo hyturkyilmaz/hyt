@@ -25,7 +25,9 @@ sürümüdür (e-posta özeti ve panel için).
 
 Kapanış kuralı (bilinen sınır): `failed` ile kapanmış bir anahtar aynı anahtarla yeniden denenemez (tablo
 kapanmış satırı değiştirmez ve `UNIQUE` anahtar yeniden eklemeyi engeller). Yeniden değerlendirme sonraki
-veri sürümünde, ayar değişiminde ya da ertesi gün olur.
+veri sürümünde, ayar değişiminde, bastırma kümesi değişiminde ya da ertesi gün olur. Veri sürümü yalnız
+gerçekten değişen satırda artar; bu yüzden bastırılan kural kümesi de anahtara katılır (`blocked_digest`,
+K-N13): kaynak hatası düzelince veri aynı olsa da yeni anahtar doğar ve bastırılan bildirim gider.
 
 Reklam kuralı: reklam verisi tablosu yoktur (D9); besleyici `ad_records` vermez. Kural "veri yok" sayılır,
 uyarı üretilmez ve 30 günlük motor çalışması yapılmaz.
@@ -284,6 +286,20 @@ def thresholds_digest(
     parts.append("stamp=" + ("" if stamp is None else stamp.astimezone(UTC).isoformat()))
     digest = hashlib.sha256("|".join(parts).encode("utf-8")).digest()
     return int.from_bytes(digest[:4], "big") & 0x7FFFFFFF
+
+
+def blocked_digest(digest: int, blocked: Collection[AlertRule]) -> int:
+    """Eşik özetine bastırılan kural kümesini katar (K-N13); küme boşsa özet aynen döner.
+
+    Bastırma girdileri (kaynak hatası, eksik yedekleme) veri sürümünü değiştirmez. Kümeyi anahtara katmak,
+    kaynak düzelince aynı gün ve aynı veriyle yeni bir değerlendirme açar; küme değişmedikçe anahtar aynı
+    kalır (gereksiz yeniden değerlendirme yok). Boş kümede özetin değişmemesi mevcut anahtarlarla uyumludur.
+    """
+    if not blocked:
+        return digest
+    rules = ",".join(sorted(rule.value for rule in blocked))
+    raw = hashlib.sha256(f"digest={digest}|blocked={rules}".encode()).digest()
+    return int.from_bytes(raw[:4], "big") & 0x7FFFFFFF
 
 
 def _json_value(value: Any) -> Any:
@@ -594,7 +610,13 @@ class AlertEvaluator:
             data_revision = await report_data_version(session, tenant_id, account_id)
             loaded = await load_profit_settings(session, tenant_id, account_id)
             thresholds, enabled, digest = await self._load_thresholds(session, tenant_id, account_id, scope)
-            key = EvaluationKey(as_of, data_revision, loaded.revision, digest)
+            # Bastırma girdileri anahtardan ÖNCE okunur ve anahtara katılır (K-N13): kaynak hatası düzelince
+            # (veri aynı olsa da) bastırma kümesi değişir, yeni anahtar doğar ve bastırılan bildirim gider.
+            failed_sources = (
+                (await session.execute(_SQL_FAILED_SOURCES, {"account_id": account_id})).scalars().all()
+            )
+            blocked = blocked_rules(backfilled, failed_sources)
+            key = EvaluationKey(as_of, data_revision, loaded.revision, blocked_digest(digest, blocked))
             previous = (
                 await session.execute(
                     _SQL_EVALUATION_ATTEMPTS,
@@ -614,10 +636,6 @@ class AlertEvaluator:
             if attempt > MAX_ATTEMPTS:
                 await session.rollback()
                 return "exhausted"
-            failed_sources = (
-                (await session.execute(_SQL_FAILED_SOURCES, {"account_id": account_id})).scalars().all()
-            )
-            blocked = blocked_rules(backfilled, failed_sources)
             outcomes: list[RuleOutcome] = []
             if AlertRule.LOSS_MAKING_SALE.value in enabled:
                 losses = await self._period(
