@@ -67,6 +67,7 @@ from app.db.rls import set_rls_context
 from app.models import User
 from app.services import auth as auth_service
 from app.services import legal as legal_service
+from app.services import push as push_service
 from app.services.audit import record_audit
 from app.services.auth import AuthContext
 
@@ -817,6 +818,8 @@ async def password_reset_confirm(
     if tenant_id is not None:
         await set_rls_context(db, tenant_id, user_id)
         ip_hash = ip_hash_for(request, settings)
+        # H11 (ADR-0009): tüm oturumlar kapandı, kullanıcının push abonelikleri de iptal edilir.
+        await push_service.revoke_all_for_user(db, user_id)
         await record_audit(
             db,
             tenant_id,

@@ -35,7 +35,7 @@ export function mockRequests(...routes: Route[]) {
       if (reply) {
         const status = reply.status ?? 200;
         return Promise.resolve(
-          new Response(JSON.stringify(reply.body ?? {}), {
+          new Response(status === 204 ? null : JSON.stringify(reply.body ?? {}), {
             status,
             headers: {
               'Content-Type': status >= 400 ? 'application/problem+json' : 'application/json',

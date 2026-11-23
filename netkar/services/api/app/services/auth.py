@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.security import PasswordWorker, generate_token, hash_token
 from app.models import Role, SessionRecord, User
+from app.services import push as push_service
 
 # last_seen_at her istekte yazılmaz; bu kadar saniyeden eskiyse tazelenir.
 TOUCH_INTERVAL_SECONDS = 60
@@ -152,6 +153,8 @@ async def revoke_session(db: AsyncSession, session_id: UUID) -> None:
         .where(SessionRecord.id == session_id, SessionRecord.revoked_at.is_(None))
         .values(revoked_at=func.now())
     )
+    # H11 (ADR-0009): açık çıkışta bu oturumda açılan push abonelikleri de iptal edilir (RLS bağlamı kurulu).
+    await push_service.revoke_for_session(db, session_id)
 
 
 async def create_password_reset(db: AsyncSession, email: str, ttl_minutes: int) -> tuple[UUID, str] | None:
@@ -376,10 +379,13 @@ async def count_recovery_codes(db: AsyncSession, user_id: UUID) -> int:
 
 async def revoke_other_sessions(db: AsyncSession, user_id: UUID, keep_session_id: UUID) -> int:
     """Geçerli oturum dışındaki tüm oturumları iptal eder (auth_gate; RLS bağlamı ayarlı olmalı)."""
-    return int(
+    revoked = int(
         (
             await db.execute(
                 text("SELECT auth_gate.revoke_other_sessions(:u, :k)"), {"u": user_id, "k": keep_session_id}
             )
         ).scalar_one()
     )
+    # H11 (ADR-0009): "diğer oturumları kapat" bu oturum dışında açılan push aboneliklerini de iptal eder.
+    await push_service.revoke_for_other_sessions(db, user_id, keep_session_id)
+    return revoked

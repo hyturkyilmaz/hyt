@@ -11,6 +11,8 @@ from pathlib import PurePath
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
@@ -29,6 +31,39 @@ HARDENED_ENVIRONMENTS = frozenset({"staging", "prod"})
 # (migrasyon 0024) aynı sabiti içerir ve süreyi bu değerle sınırlar; ayar kısaltabilir, uzatamaz
 # (testle eşitlik doğrulanır).
 SESSION_ABSOLUTE_MAX_SECONDS = 30 * 24 * 3600
+
+
+def _b64url_decode(value: str) -> bytes | None:
+    """Dolgusuz base64url çözer; biçim bozuksa None (VAPID anahtarları dolgusuzdur)."""
+    if not value or "=" in value:
+        return None
+    try:
+        return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    except (binascii.Error, ValueError):
+        return None
+
+
+def _is_p256_point(raw: bytes) -> bool:
+    """65 baytlık sıkıştırılmamış nokta mı ve eğri üzerinde mi."""
+    if len(raw) != 65 or raw[0] != 4:
+        return False
+    try:
+        ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), raw)
+    except ValueError:
+        return False
+    return True
+
+
+def _keys_match(private_raw: bytes, public_raw: bytes) -> bool:
+    """Özel anahtardan türetilen genel nokta verilenle aynı mı."""
+    try:
+        derived = ec.derive_private_key(int.from_bytes(private_raw, "big"), ec.SECP256R1()).public_key()
+    except ValueError:
+        return False
+    return (
+        derived.public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+        == public_raw
+    )
 
 
 class Settings(BaseSettings):
@@ -90,6 +125,16 @@ class Settings(BaseSettings):
     # arka ucuna yazılır).
     # Açmak Hasan onayıdır (H6, README "e-posta gönderimi Hasan onayıyla"): gerçek sağlayıcı kararı H5/K12.
     alert_notifications_enabled: bool = False
+    # Web push (ADR-0009 §7.2, D8). VARSAYILAN KAPALI. Bu aşamada yalnız ABONELİK altyapısı vardır; gönderim
+    # (ikinci yarı) bağlanana dek hiçbir ortamda ağa push çıkmaz. VAPID özel anahtarı (P-256) SIRDIR: yalnız
+    # ortam
+    # değişkeninden (WEB_PUSH_VAPID_PRIVATE_KEY) okunur, repoya, DB'ye ve loga girmez. Genel anahtar ve `sub`
+    # (mailto: ya da https://, H5) gizli değildir. Biçim: anahtarlar base64url (dolgusuz); genel 65 bayt
+    # sıkıştırılmamış nokta, özel 32 bayt.
+    web_push_enabled: bool = False
+    web_push_vapid_public_key: str | None = None
+    web_push_vapid_private_key: SecretStr | None = None
+    web_push_vapid_subject: str | None = None
     # Tek tık kapatma bağlantısı ömrü (gün) ve IP başına saatlik deneme sınırı (ADR-0009 §7.5). İmza anahtarı
     # ayrı bir sır DEĞİLDİR: DATA_ENCRYPTION_KEY'den amaç bazlı türetilir (`notify-unsub`).
     notify_unsubscribe_ttl_days: int = Field(90, ge=1, le=365)
@@ -306,6 +351,46 @@ class Settings(BaseSettings):
                 "ALERT_NOTIFICATIONS_ENABLED=true için gerçek bir e-posta arka ucu gerekir "
                 "(EMAIL_BACKEND=file/memory yerel kopyadır, gerçek gönderim yapmaz)"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_web_push(self) -> Settings:
+        """VAPID ayarları biçimce geçerli olmalı; sertleşen ortamda bayrak açıksa üçü zorunlu (ADR-0009 §7.2).
+
+        İleti anahtar değerini yazmaz. Özel anahtar verilmişse genel anahtarın onunla eşleştiği doğrulanır.
+        """
+        subject = self.web_push_vapid_subject
+        if subject is not None and not (subject.startswith("mailto:") or subject.startswith("https://")):
+            raise ValueError("WEB_PUSH_VAPID_SUBJECT mailto: ya da https:// ile başlamalı")
+        private_raw: bytes | None = None
+        if self.web_push_vapid_private_key is not None:
+            private_raw = _b64url_decode(self.web_push_vapid_private_key.get_secret_value())
+            if private_raw is None or len(private_raw) != 32:
+                raise ValueError("WEB_PUSH_VAPID_PRIVATE_KEY base64url ve 32 bayt olmalı")
+        public_raw: bytes | None = None
+        if self.web_push_vapid_public_key is not None:
+            public_raw = _b64url_decode(self.web_push_vapid_public_key)
+            if public_raw is None or not _is_p256_point(public_raw):
+                raise ValueError(
+                    "WEB_PUSH_VAPID_PUBLIC_KEY base64url ve geçerli P-256 noktası (65 bayt) olmalı"
+                )
+        if private_raw is not None and public_raw is not None and not _keys_match(private_raw, public_raw):
+            raise ValueError("WEB_PUSH_VAPID_PUBLIC_KEY, özel anahtarla eşleşmiyor")
+        if self.web_push_enabled and self.environment in HARDENED_ENVIRONMENTS:
+            missing = [
+                name
+                for name, value in (
+                    ("WEB_PUSH_VAPID_PUBLIC_KEY", self.web_push_vapid_public_key),
+                    ("WEB_PUSH_VAPID_PRIVATE_KEY", self.web_push_vapid_private_key),
+                    ("WEB_PUSH_VAPID_SUBJECT", self.web_push_vapid_subject),
+                )
+                if value is None
+            ]
+            if missing:
+                names = ", ".join(missing)
+                raise ValueError(
+                    f"ENVIRONMENT={self.environment} iken WEB_PUSH_ENABLED=true için {names} zorunludur"
+                )
         return self
 
     @model_validator(mode="after")

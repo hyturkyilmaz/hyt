@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { AccessErrorNote, VerifyNote } from '@/components/alerts/verify-note';
 import { PreferencesForm } from '@/components/notifications/preferences-form';
+import { PushToggle } from '@/components/notifications/push-toggle';
 import {
   THRESHOLD_FIELDS,
   ThresholdsForm,
@@ -78,7 +79,7 @@ export function NotificationSettings() {
   );
 }
 
-/** Kanallar: e-posta adresi ve doğrulama durumu (GET /v1/me); web push henüz yok. */
+/** Kanallar: e-posta adresi ve doğrulama durumu (GET /v1/me) ve bu tarayıcıda web push (bayrak kapalıyken "Yakında"). */
 function ChannelsSection({ access }: { access: AlertAccess }) {
   return (
     <Card as="section" aria-labelledby="kanallar-baslik">
@@ -105,7 +106,7 @@ function ChannelsSection({ access }: { access: AlertAccess }) {
           <div className="flex flex-col gap-1">
             <dt className="text-sm text-muted-foreground">Anlık bildirim (bu cihaz)</dt>
             <dd>
-              <Badge variant="neutral">Yakında</Badge>
+              <PushToggle />
             </dd>
           </div>
         </dl>
