@@ -6,7 +6,7 @@
 | Saat | 20:50 TRT (30 günlük plan) |
 | Anahtar kelime | BÜTÇE |
 | Yazım hatası | "artrmak" (doğrusu: artırmak) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 23 Kasım akşamı bakıldı: haber içermiyor; faz tarihleri Efsane Cuma 27 Kasım 2026 ile uyumlu (22 Kasım doğrulaması). Metinde tek hata: artrmak. |
 
 ## Açıklama
 
