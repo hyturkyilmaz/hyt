@@ -37,7 +37,7 @@ describe('sw.js statik kurallar', () => {
 
   it('openWindow yalnız doğrulanmış yoldan üretilen hedefle çağrılır', () => {
     const calls = [...code.matchAll(/openWindow\(([^)]*)\)/g)].map((m) => m[1]);
-    expect(calls).toEqual(['target']);
+    expect(calls).toEqual(['target', 'target']);
     expect(source).toMatch(
       /var target = new URL\(safePath\(raw\), self\.location\.origin\)\.href;/,
     );
@@ -56,12 +56,12 @@ interface Harness {
   navigated: string[];
   fetches: { url: string; init?: RequestInit }[];
   subscribeCalls: unknown[];
-  windows: { url: string }[];
+  windows: { url: string; rejectNavigate?: boolean }[];
 }
 
 function load(
   opts: {
-    windows?: { url: string }[];
+    windows?: { url: string; rejectNavigate?: boolean }[];
     fetchImpl?: (url: string, init?: RequestInit) => Promise<Response>;
   } = {},
 ): Harness {
@@ -75,14 +75,14 @@ function load(
     subscribeCalls: [],
     windows: opts.windows ?? [],
   };
-  const clientFor = (w: { url: string }) => ({
+  const clientFor = (w: { url: string; rejectNavigate?: boolean }) => ({
     url: w.url,
     focus: () => {
       h.focused.push(w.url);
       return Promise.resolve({
         navigate: (target: string) => {
           h.navigated.push(target);
-          return Promise.resolve();
+          return w.rejectNavigate ? Promise.reject(new Error('reddedildi')) : Promise.resolve();
         },
       });
     },
@@ -263,6 +263,12 @@ describe('sw.js notificationclick olayı', () => {
     expect(h.opened).toEqual([]);
   });
 
+  it('navigate reddedilirse aynı hedefle yeni pencere açar', async () => {
+    const h = load({ windows: [{ url: `${ORIGIN}/panel/kar`, rejectNavigate: true }] });
+    await dispatch(h, 'notificationclick', clickEvent('/panel/uyarilar/o3'));
+    expect(h.opened).toEqual([`${ORIGIN}/panel/uyarilar/o3`]);
+  });
+
   it('başka kökenli sekmeyi kullanmaz', async () => {
     const h = load({ windows: [{ url: 'https://evil.example/' }] });
     await dispatch(h, 'notificationclick', clickEvent('/panel/uyarilar'));
@@ -273,18 +279,29 @@ describe('sw.js notificationclick olayı', () => {
 
 describe('sw.js pushsubscriptionchange olayı', () => {
   const okJson = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+  const OLD = { endpoint: 'https://fcm.googleapis.com/fcm/send/eski' };
+  // check: sahiplik yanıtı (204 sahibi, 404 değil); csrf: token; vapid: genel anahtar.
+  const routes =
+    (check: number, vapid: unknown = { enabled: true, public_key: 'AQID', key_id: 'k' }) =>
+    (url: string) =>
+      Promise.resolve(
+        url.endsWith('/push-subscriptions/check')
+          ? new Response(null, { status: check })
+          : url.endsWith('/push/vapid-public-key')
+            ? okJson(vapid)
+            : url.endsWith('/auth/csrf')
+              ? okJson({ csrf_token: 'tok-1' })
+              : okJson({}, 201),
+      );
 
-  it('eski seçeneklerle yeniden abone olur ve sunucuya bildirir (CSRF dahil)', async () => {
-    const h = load({
-      fetchImpl: (url) =>
-        Promise.resolve(
-          url.endsWith('/auth/csrf') ? okJson({ csrf_token: 'tok-1' }) : okJson({}, 201),
-        ),
-    });
+  it('sahiplik onaylanınca eski seçeneklerle yeniden abone olur ve bildirir (CSRF dahil)', async () => {
+    const h = load({ fetchImpl: routes(204) });
     const key = new Uint8Array([1, 2, 3]);
     await dispatch(h, 'pushsubscriptionchange', {
-      oldSubscription: { options: { applicationServerKey: key } },
+      oldSubscription: { ...OLD, options: { applicationServerKey: key } },
     });
+    const check = h.fetches.find((f) => f.url.endsWith('/push-subscriptions/check'))!;
+    expect(JSON.parse(check.init!.body as string)).toEqual({ endpoint: OLD.endpoint });
     expect(h.subscribeCalls).toEqual([{ userVisibleOnly: true, applicationServerKey: key }]);
     const post = h.fetches.find((f) => f.url === '/api/v1/me/push-subscriptions')!;
     expect(post.init?.method).toBe('POST');
@@ -299,29 +316,36 @@ describe('sw.js pushsubscriptionchange olayı', () => {
   });
 
   it('eski seçenek yoksa genel anahtarı sunucudan alır', async () => {
-    const h = load({
-      fetchImpl: (url) =>
-        Promise.resolve(
-          url.endsWith('/push/vapid-public-key')
-            ? okJson({ enabled: true, public_key: 'AQID', key_id: 'k' })
-            : url.endsWith('/auth/csrf')
-              ? okJson({ csrf_token: 't' })
-              : okJson({}, 201),
-        ),
-    });
-    await dispatch(h, 'pushsubscriptionchange', { oldSubscription: null });
+    const h = load({ fetchImpl: routes(204) });
+    await dispatch(h, 'pushsubscriptionchange', { oldSubscription: OLD });
     expect(h.subscribeCalls).toHaveLength(1);
     const options = h.subscribeCalls[0] as { applicationServerKey: Uint8Array };
     expect(Array.from(options.applicationServerKey)).toEqual([1, 2, 3]);
   });
 
+  it('önceki abonelik yoksa hiçbir şey yapmaz (ağ çağrısı bile yok)', async () => {
+    const h = load({ fetchImpl: routes(204) });
+    await dispatch(h, 'pushsubscriptionchange', { oldSubscription: null });
+    expect(h.subscribeCalls).toEqual([]);
+    expect(h.fetches).toEqual([]);
+  });
+
+  it('sunucu sahipliği onaylamazsa (başka kullanıcı ya da oturum yok) abone olmaz ve kayıt yazmaz', async () => {
+    for (const status of [404, 401, 403, 500]) {
+      const h = load({ fetchImpl: routes(status) });
+      await dispatch(h, 'pushsubscriptionchange', { oldSubscription: OLD });
+      expect(h.subscribeCalls).toEqual([]);
+      expect(h.fetches.some((f) => f.url === '/api/v1/me/push-subscriptions')).toBe(false);
+    }
+  });
+
   it('push kapalıysa (enabled false) ya da ağ hatasında sessizce vazgeçer', async () => {
-    const closed = load({ fetchImpl: () => Promise.resolve(okJson({ enabled: false })) });
-    await dispatch(closed, 'pushsubscriptionchange', { oldSubscription: null });
+    const closed = load({ fetchImpl: routes(204, { enabled: false }) });
+    await dispatch(closed, 'pushsubscriptionchange', { oldSubscription: OLD });
     expect(closed.subscribeCalls).toEqual([]);
     const broken = load({ fetchImpl: () => Promise.reject(new Error('ağ yok')) });
     await expect(
-      dispatch(broken, 'pushsubscriptionchange', { oldSubscription: null }),
+      dispatch(broken, 'pushsubscriptionchange', { oldSubscription: OLD }),
     ).resolves.toBeUndefined();
   });
 });

@@ -51,10 +51,24 @@ class PushSubscriptionIn(_Strict):
     @classmethod
     def _check_endpoint(cls, value: str) -> str:
         try:
-            push_service.validate_endpoint(value)
+            # Kanonik biçim saklanır ve özetlenir (büyük harf, :443 ve benzeri varyantlar aynı satıra düşer).
+            return push_service.canonical_endpoint(value)[0]
         except push_service.PushValidationError as exc:
             raise PydanticCustomError(exc.code, "Uç nokta geçersiz ya da desteklenmiyor.") from None
-        return value
+
+
+class PushEndpointIn(_Strict):
+    """Yalnız uç nokta (sahiplik denetimi). Kanonikleştirme `PushSubscriptionIn` ile aynıdır."""
+
+    endpoint: str = Field(min_length=1, max_length=push_service.MAX_ENDPOINT_LENGTH)
+
+    @field_validator("endpoint")
+    @classmethod
+    def _check_endpoint(cls, value: str) -> str:
+        try:
+            return push_service.canonical_endpoint(value)[0]
+        except push_service.PushValidationError as exc:
+            raise PydanticCustomError(exc.code, "Uç nokta geçersiz ya da desteklenmiyor.") from None
 
 
 class VapidKeyOut(_Strict):

@@ -405,6 +405,12 @@ bekletmez.
   `suppressed`.
 - Kütüphane: Python tarafında web push imzalama ve şifreleme için bir bağımlılık gerekir (ör. `pywebpush`); seçim
   D8'de `pip-audit` ve bakım durumu denetimiyle yapılır.
+- D8a uygulama notu (abonelik altyapısı): `WEB_PUSH_ENABLED=false` iken `POST /v1/me/push-subscriptions` 409
+  `push-disabled` döner; yukarıdaki "kapalıyken abonelik kaydı çalışır" cümlesinden bilerek sapar. Gerekçe: veri
+  minimizasyonu (kullanılmayan cihaz tanımlayıcısı saklanmaz) ve `vapid_key_id` (genel anahtar yokken üretilemez).
+  GET ve DELETE bayrağa bağlı değildir. Uç nokta kanonik biçimde (küçük harfli ana bilgisayar, :443 atılmış, parça
+  yok) özetlenir ve saklanır; aynı cihaz yeni oturumda yeniden abone olursa eski satır iptal edilip yenisi o oturuma
+  bağlanır (H11).
 
 ### 7.3 Sıklık sınırı, sessiz saatler, günlük özet
 

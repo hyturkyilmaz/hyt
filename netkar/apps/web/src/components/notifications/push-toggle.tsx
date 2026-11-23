@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ApiError, describeApiError } from '@/lib/api/client';
 import { pushApi, type VapidKey } from '@/lib/api/push';
+import { releasePushSubscription } from '@/lib/push/release';
 import {
   SERVICE_WORKER_URL,
   currentSubscription,
@@ -108,14 +109,10 @@ export function PushToggle() {
   }, []);
 
   const disable = useCallback(async (vapid: VapidKey) => {
-    const subscription = await currentSubscription();
-    if (subscription) {
-      // Aynı uç noktayla tekrar abonelik idempotenttir ve mevcut kimliği verir; böylece kimlik saklamak gerekmez.
-      const existing = await pushApi.subscribe(toSubscriptionBody(subscription));
-      await pushApi.unsubscribe(existing.id);
-      await subscription.unsubscribe();
-    }
+    // Sunucu hatası olsa da tarayıcı aboneliği bırakılır; hata ayrıca gösterilir.
+    const { error } = await releasePushSubscription();
     setPhase({ kind: 'ready', vapid, subscribed: false });
+    if (error !== undefined) throw error;
     setMessage('Bu tarayıcıda anlık bildirim kapatıldı.');
   }, []);
 

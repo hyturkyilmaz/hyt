@@ -9,7 +9,9 @@ Gizlilik: uç nokta URL'si ve anahtarlar cihaz tanımlayıcısıdır. Veritaban�
 HMAC özetli yazılır; log'a, `audit_log`'a ve hata iletilerine GİRMEZ (yalnız ana bilgisayar adı, izin listesi
 yüzünden zaten bilinen bir değerdir). Bu modülün hiçbir hata iletisi girdi değerini yansıtmaz.
 
-TODO(D8 ikinci yarı): gerçek gönderici için RFC 8291/8292 imzalama ve şifreleme gerekir. Öneri: `pywebpush`
+TODO(D8 ikinci yarı): gerçek gönderici için RFC 8291/8292 imzalama ve şifreleme gerekir. Gerçek gönderici
+yönlendirmeyi (redirect) İZLEMEZ ve DNS çözümünden sonra özel/yerel IP'yi reddeder (ADR §10.1, SSRF);
+saklanan uç nokta izin listesi yalnız ilk savunmadır. Öneri: `pywebpush`
 (bağımlılık seçimi `pip-audit` ve bakım durumu denetimiyle yapılır, ADR §7.2); bu yarıda bağımlılık EKLENMEDİ.
 Gerçek gönderici `PushSender` arayüzünü uygular, dış çağrıyı yalnız `WEB_PUSH_ENABLED=true` iken yapar ve
 yanıt kodunu `apply_delivery_result` ile işler.
@@ -24,11 +26,11 @@ import re
 from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Literal, Protocol
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
 from cryptography.hazmat.primitives.asymmetric import ec
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,7 +61,7 @@ class PushValidationError(ValueError):
 
 
 def validate_endpoint(endpoint: str) -> str:
-    """Uç noktayı doğrular ve küçük harfli ana bilgisayarı döndürür.
+    """Uç noktayı doğrular ve küçük harfli ana bilgisayarı döndürür (kanonik biçim: `canonical_endpoint`).
 
     Kurallar: yalnız `https`, kullanıcı bilgisi yok, port yok ya da 443, ana bilgisayar izin listesinde. IP
     değişmezleri, sondaki nokta ve büyük/küçük harf oyunları izin listesini geçemez.
@@ -73,6 +75,8 @@ def validate_endpoint(endpoint: str) -> str:
         raise PushValidationError("endpoint_invalid", "Uç nokta geçersiz.") from None
     if parts.scheme != "https":
         raise PushValidationError("endpoint_scheme", "Uç nokta https olmalıdır.")
+    if parts.fragment or "#" in endpoint:
+        raise PushValidationError("endpoint_fragment", "Uç nokta parça (#) içeremez.")
     if parts.username is not None or parts.password is not None or "@" in parts.netloc:
         raise PushValidationError("endpoint_invalid", "Uç nokta geçersiz.")
     if port is not None and port != 443:
@@ -84,6 +88,17 @@ def validate_endpoint(endpoint: str) -> str:
     if host not in ALLOWED_EXACT_HOSTS and not host.endswith(ALLOWED_HOST_SUFFIXES):
         raise PushValidationError("endpoint_host_not_allowed", "Bu push servisi desteklenmiyor.")
     return host
+
+
+def canonical_endpoint(endpoint: str) -> tuple[str, str]:
+    """(kanonik uç nokta, ana bilgisayar). Doğrulanır, sonra kanonik biçime çevrilir.
+
+    Kanonik biçim: `https`, küçük harfli ana bilgisayar, varsayılan port (443) atılmış, yol ve sorgu aynen,
+    parça yok. Özet ve saklanan değer BU biçimden üretilir (büyük harf, `:443` aynı satıra düşer).
+    """
+    host = validate_endpoint(endpoint)
+    parts = urlsplit(endpoint)
+    return urlunsplit(("https", host, parts.path, parts.query, "")), host
 
 
 def _decode_b64url(value: str) -> bytes | None:
@@ -137,6 +152,17 @@ def push_aad(tenant_id: UUID, user_id: UUID, field_name: str) -> bytes:
 
 
 # --------------------------------------------------------------------------- saklama (uygulama rolü, RLS)
+async def lock_user_subscriptions(db: AsyncSession, tenant_id: UUID, user_id: UUID) -> None:
+    """Abonelik sınırı sayımından önce kullanıcı başına işlem kilidi (eşzamanlı POST sınırı aşamasın).
+
+    Desen: `alert_evaluation.py` (`pg_advisory_xact_lock(hashtext('<ad>:' || <kimlik>))`).
+    """
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('push-subs:' || CAST(:k AS text)))"),
+        {"k": f"{tenant_id}:{user_id}"},
+    )
+
+
 async def count_active(db: AsyncSession, tenant_id: UUID, user_id: UUID) -> int:
     return int(
         (
@@ -355,7 +381,10 @@ class SendResult:
 
 
 class PushSender(Protocol):
-    """Gönderici sözleşmesi. Gerçek gerçekleme (pywebpush) ikinci yarıdadır."""
+    """Gönderici sözleşmesi. Gerçek gerçekleme (pywebpush) ikinci yarıdadır.
+
+    Gerçekleme şartı: yönlendirme izlenmez, DNS çözümünden sonra özel IP reddedilir (ADR §10.1).
+    """
 
     async def send(
         self, target: PushTarget, payload: PushPayload, *, ttl: int, urgency: str, topic: str | None
@@ -377,7 +406,7 @@ class FakePushSender:
         return SendResult(self.status_by_subscription.get(target.subscription_id, self.default_status))
 
 
-DeliveryOutcome = Literal["sent", "revoked", "failed"]
+DeliveryOutcome = Literal["sent", "revoked", "failed", "ignored"]
 
 
 async def apply_delivery_result(db: AsyncSession, subscription_id: UUID, status_code: int) -> DeliveryOutcome:
@@ -388,6 +417,7 @@ async def apply_delivery_result(db: AsyncSession, subscription_id: UUID, status_
     180 gün başarısız aboneliğin iptali ADR §7.2, ikinci yarıdaki süpürme işinde).
     """
     active = PushSubscription.id == subscription_id, PushSubscription.revoked_at.is_(None)
+    # Satır yok, başka kiracıya ait ya da zaten iptal: hiçbir şey yazılmaz ve "sent" denmez.
     if status_code in (404, 410):
         values: dict[str, object] = {"revoked_at": func.now()}
         outcome: DeliveryOutcome = "revoked"
@@ -397,7 +427,9 @@ async def apply_delivery_result(db: AsyncSession, subscription_id: UUID, status_
     else:
         values = {"failure_count": PushSubscription.failure_count + 1}
         outcome = "failed"
-    await db.execute(
+    result = await db.execute(
         update(PushSubscription).where(*active).values(**values).execution_options(synchronize_session=False)
     )
+    if int(result.rowcount) == 0:  # type: ignore[attr-defined]
+        return "ignored"
     return outcome

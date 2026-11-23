@@ -195,4 +195,17 @@ describe('PushToggle', () => {
       ).toBeEnabled(),
     );
   });
+  it('kapatırken sunucu hatası olsa da tarayıcı aboneliği bırakılır ve hata gösterilir', async () => {
+    stubBrowser({ existing: true });
+    mockRequests(vapid(true), csrf, subscribeOk, (r) =>
+      r.method === 'DELETE' ? problemReply(500, 'server-error') : undefined,
+    );
+    render(<PushToggle />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Bu tarayıcıda anlık bildirimi kapat' }),
+    );
+    expect(await screen.findByText(/Sunucuya ulaşılamadı|Bir sorun oluştu/)).toBeVisible();
+    expect(BROWSER_SUB.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Bu tarayıcıda anlık bildirimi aç' })).toBeEnabled();
+  });
 });

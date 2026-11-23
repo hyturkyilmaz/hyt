@@ -60,7 +60,11 @@ self.addEventListener('notificationclick', function (event) {
         // Yalnız aynı kökenli açık sekme yeniden kullanılır; dışarıdaki bir sekmeye gidilmez.
         if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
           return client.focus().then(function (focused) {
-            return focused && 'navigate' in focused ? focused.navigate(target) : undefined;
+            if (!focused || !('navigate' in focused)) return undefined;
+            // navigate reddedilirse (ör. kontrol edilmeyen istemci) yeni pencereyle aynı hedefe gidilir.
+            return focused.navigate(target).catch(function () {
+              return self.clients.openWindow(target);
+            });
           });
         }
       }
@@ -82,8 +86,29 @@ function toBase64Url(buffer) {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// CSRF çift gönderim: SW çerez okuyamaz; token uç noktasından alınır (çerezi de set eder). Yanıt ya da null.
+async function post(path, payload) {
+  var csrf = await fetch('/api/v1/auth/csrf', { credentials: 'same-origin' });
+  if (!csrf.ok) return null;
+  var token = (await csrf.json()).csrf_token;
+  return fetch(path, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+    body: JSON.stringify(payload),
+  });
+}
+
 async function resubscribe(event) {
   try {
+    // Rızasız kayıt olmasın: önceki abonelik yoksa, izin verilmemişse ya da sunucu bu uç noktanın GEÇERLİ
+    // oturumdaki kullanıcıya ait olduğunu onaylamıyorsa (204 değilse) hiçbir şey yapılmaz. Paylaşılan tarayıcıda
+    // başka kullanıcının oturumu açıkken eski kullanıcının aboneliği yeniden kaydedilmez.
+    var old = event.oldSubscription;
+    if (!old || !old.endpoint) return;
+    if (self.Notification && self.Notification.permission !== 'granted') return;
+    var owner = await post('/api/v1/me/push-subscriptions/check', { endpoint: old.endpoint });
+    if (!owner || owner.status !== 204) return;
     var subscription = event.newSubscription;
     if (!subscription) {
       var options = event.oldSubscription && event.oldSubscription.options;
@@ -108,18 +133,9 @@ async function resubscribe(event) {
     var p256dh = subscription.getKey('p256dh');
     var auth = subscription.getKey('auth');
     if (!p256dh || !auth) return;
-    // CSRF çift gönderim: SW çerez okuyamaz; token uç noktasından alınır (çerezi de set eder).
-    var csrf = await fetch('/api/v1/auth/csrf', { credentials: 'same-origin' });
-    if (!csrf.ok) return;
-    var token = (await csrf.json()).csrf_token;
-    await fetch('/api/v1/me/push-subscriptions', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
-      body: JSON.stringify({
-        endpoint: subscription.endpoint,
-        keys: { p256dh: toBase64Url(p256dh), auth: toBase64Url(auth) },
-      }),
+    await post('/api/v1/me/push-subscriptions', {
+      endpoint: subscription.endpoint,
+      keys: { p256dh: toBase64Url(p256dh), auth: toBase64Url(auth) },
     });
   } catch {
     // Sessiz: bir sonraki panel açılışında istemci `vapid_key_id` / abonelik farkını görüp yeniden abone olur.

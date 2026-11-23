@@ -32,6 +32,7 @@ from fastapi import APIRouter, Depends, Request, Response
 
 from app.api.deps import DbDep, EnvelopeDep, RateLimiterDep, SettingsDep, ip_hash_for, require_role
 from app.api.v1.push_schemas import (
+    PushEndpointIn,
     PushSubscriptionIn,
     PushSubscriptionListOut,
     PushSubscriptionOut,
@@ -116,10 +117,16 @@ async def subscribe(
             "Anlık bildirim şu an etkin değil; abonelik kaydedilmedi.",
         )
     digest_value = svc.endpoint_digest(settings.master_key, body.endpoint)
+    # Sınır sayımı ve ekleme kullanıcı başına sıralanır (eşzamanlı POST sınırı aşamaz).
+    await svc.lock_user_subscriptions(db, ctx.tenant_id, ctx.user_id)
     existing = await svc.find_active_by_digest(db, ctx.tenant_id, ctx.user_id, digest_value)
     if existing is not None:
-        response.status_code = 200
-        return _out(existing)
+        if existing.created_session_id == ctx.session_id:
+            response.status_code = 200
+            return _out(existing)
+        # Aynı cihaz, başka (eski) oturumda açılmış: eski satır iptal edilir, yenisi bu oturuma bağlanır (H11:
+        # çıkış yalnız o oturumda açılan abonelikleri iptal eder).
+        await svc.revoke_own(db, ctx.tenant_id, ctx.user_id, existing.id)
     if await svc.count_active(db, ctx.tenant_id, ctx.user_id) >= svc.MAX_ACTIVE_PER_USER:
         raise ProblemError(
             409,
@@ -170,6 +177,22 @@ async def subscribe(
     await db.commit()
     response.status_code = 201
     return created
+
+
+@router.post("/me/push-subscriptions/check", status_code=204)
+async def check_subscription(
+    body: PushEndpointIn, ctx: AnyRoleDep, db: DbDep, settings: SettingsDep, limiter: RateLimiterDep
+) -> Response:
+    """Bu uç noktada KENDİ etkin aboneliğim var mı: 204 evet, 404 hayır (başkasınınki de 404; varlık sızmaz).
+
+    Servis çalışanı `pushsubscriptionchange`'de, başka kullanıcının oturumunda rızasız yeniden kayıt
+    yapmamak için bunu sorar.
+    """
+    await _limit(limiter, settings, ctx, "push-check", _SUBSCRIBE_PER_HOUR, _HOURLY)
+    digest_value = svc.endpoint_digest(settings.master_key, body.endpoint)
+    if await svc.find_active_by_digest(db, ctx.tenant_id, ctx.user_id, digest_value) is None:
+        raise _not_found()
+    return Response(status_code=204)
 
 
 @router.get("/me/push-subscriptions", response_model=PushSubscriptionListOut)

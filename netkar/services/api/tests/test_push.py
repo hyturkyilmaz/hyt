@@ -130,6 +130,8 @@ def test_allowed_hosts_are_accepted(endpoint: str, host: str) -> None:
         ("https://fcm.googleapis.com@evil.com/x", "endpoint_invalid"),
         ("https://user:pw@fcm.googleapis.com/x", "endpoint_invalid"),
         ("https://evil.com\\@fcm.googleapis.com/x", "endpoint_invalid"),
+        ("https://fcm.googleapis.com/x#parca", "endpoint_fragment"),
+        ("https://fcm.googleapis.com/x#", "endpoint_fragment"),
         ("https://fcm.googleapis.com/x y", "endpoint_invalid"),
         ("https://fcm.googleapis.com/\nx", "endpoint_invalid"),
         ("https://fcm.googleapis.com/çx", "endpoint_invalid"),
@@ -566,7 +568,7 @@ async def test_gone_response_sets_revoked_at_and_clears_secrets(
     assert fails == 0 and ok is None
     # İptal edilmiş satır sonraki sonuçlarla yeniden açılmaz ve sayaç değişmez.
     async with tenant_transaction(sessions, tenant) as db:
-        assert await push_service.apply_delivery_result(db, sid, 201) == "sent"
+        assert await push_service.apply_delivery_result(db, sid, 201) == "ignored"
     assert rows(admin_conn)[0][8] == revoked and rows(admin_conn)[0][10] is None
 
 
@@ -709,3 +711,125 @@ def test_vapid_values_are_validated_when_given() -> None:
         assert needle in str(raised.value)
         assert private not in str(raised.value)
     assert _settings(web_push_vapid_public_key=public, web_push_vapid_private_key=private)
+
+
+# --------------------------------------------------------------------------- kanonikleştirme (M2)
+def test_canonical_endpoint_unit() -> None:
+    expected = ("https://fcm.googleapis.com/fcm/send/AbC?x=1", "fcm.googleapis.com")
+    for variant in (
+        "https://fcm.googleapis.com/fcm/send/AbC?x=1",
+        "https://FCM.GoogleAPIs.com/fcm/send/AbC?x=1".replace("GoogleAPIs", "googleapis"),
+        "https://fcm.googleapis.com:443/fcm/send/AbC?x=1",
+        "https://FCM.googleapis.com:443/fcm/send/AbC?x=1",
+    ):
+        assert push_service.canonical_endpoint(variant) == expected
+    # Yol büyük/küçük harf duyarlıdır, sorgu aynen korunur.
+    assert (
+        push_service.canonical_endpoint("https://fcm.googleapis.com/a/B")[0]
+        != (push_service.canonical_endpoint("https://fcm.googleapis.com/a/b")[0])
+    )
+    with pytest.raises(PushValidationError) as raised:
+        push_service.canonical_endpoint("https://fcm.googleapis.com/x#f")
+    assert raised.value.code == "endpoint_fragment"
+
+
+def test_endpoint_variants_land_on_the_same_row_and_fragment_is_422(
+    papi: Api, admin_conn: psycopg.Connection[Any]
+) -> None:
+    keys = make_client_keys()
+    base = "fcm.googleapis.com/fcm/send/VARYANT-GIZLI?k=1"
+    first = papi.post(SUBS, {"endpoint": f"https://{base}", "keys": keys})
+    upper = papi.post(
+        SUBS,
+        {
+            "endpoint": f"https://{base}".replace("fcm.googleapis", "FCM.GOOGLEAPIS").replace(
+                "GOOGLEAPIS", "googleapis"
+            ),
+            "keys": keys,
+        },
+    )
+    port = papi.post(SUBS, {"endpoint": f"https://{base}".replace(".com/", ".com:443/"), "keys": keys})
+    assert (first.status_code, upper.status_code, port.status_code) == (201, 200, 200)
+    assert first.json()["id"] == upper.json()["id"] == port.json()["id"]
+    assert len(rows(admin_conn)) == 1
+    frag = papi.post(SUBS, {"endpoint": f"https://{base}#f", "keys": keys})
+    assert frag.status_code == 422 and frag.json()["errors"][0]["code"] == "endpoint_fragment"
+    assert len(rows(admin_conn)) == 1
+
+
+def test_stored_value_is_the_canonical_form_and_aad_binds_it(
+    papi: Api, admin_conn: psycopg.Connection[Any], settings: Settings
+) -> None:
+    from app.core.crypto import DecryptionError
+    from app.core.envelope import EnvelopeCipher
+
+    keys = make_client_keys()
+    papi.post(
+        SUBS,
+        {"endpoint": "https://FCM.googleapis.com:443/fcm/send/KANONIK".replace("FCM", "fcm"), "keys": keys},
+    )
+    ((tenant, user, enc, p256dh_enc),) = admin_conn.execute(
+        "SELECT tenant_id, user_id, endpoint_enc, p256dh_enc FROM push_subscriptions"
+    ).fetchall()
+    envelope = EnvelopeCipher(settings.key_ring)
+    assert envelope.decrypt(enc, push_service.push_aad(tenant, user, "endpoint")) == (
+        "https://fcm.googleapis.com/fcm/send/KANONIK"
+    )
+    assert envelope.decrypt(p256dh_enc, push_service.push_aad(tenant, user, "p256dh")) == keys["p256dh"]
+    # Başka alan, başka kullanıcı ya da başka kiracı bağlamıyla çözülemez.
+    for aad in (
+        push_service.push_aad(tenant, user, "auth"),
+        push_service.push_aad(tenant, UUID(int=5), "endpoint"),
+        push_service.push_aad(UUID(int=5), user, "endpoint"),
+    ):
+        with pytest.raises(DecryptionError):
+            envelope.decrypt(enc, aad)
+
+
+# --------------------------------------------------------------------------- oturum bağlama (M1) ve sahiplik denetimi
+def test_resubscribe_from_a_new_session_rebinds_so_logout_revokes(
+    make_api: Callable[..., Api], push_settings: dict[str, Any], admin_conn: psycopg.Connection[Any]
+) -> None:
+    """S1'de abone ol, S1 süresi dolsun, aynı cihazda S2 aç: aynı uç noktaya POST satırı S2'ye bağlar; S2 çıkışı iptal eder."""
+    s1 = make_api(**push_settings)
+    s1.signup_and_login("oturum@example.com")
+    payload = body("cihaz")
+    first = s1.post(SUBS, payload)
+    assert first.status_code == 201
+    admin_conn.execute("UPDATE sessions SET expires_at = now() - interval '1 minute'")
+    s2 = make_api(**push_settings)
+    assert s2.login("oturum@example.com").status_code == 200
+    again = s2.post(SUBS, payload)  # çıkış düğmesinin kimlik bulma çağrısı
+    assert again.status_code == 201 and again.json()["id"] != first.json()["id"]
+    states = [(str(r[0]), r[8] is not None) for r in rows(admin_conn)]
+    assert states == [(first.json()["id"], True), (again.json()["id"], False)]
+    assert s2.post(SUBS, payload).status_code == 200  # aynı oturumda idempotent
+    assert s2.post("/v1/auth/logout").status_code == 204
+    assert all(r[8] is not None for r in rows(admin_conn))
+
+
+def test_check_endpoint_confirms_only_own_active_subscription(
+    papi: Api, make_api: Callable[..., Api], push_settings: dict[str, Any]
+) -> None:
+    payload = body("sahip-mi")
+    check = f"{SUBS}/check"
+    assert papi.post(check, {"endpoint": payload["endpoint"]}).status_code == 404
+    sub = papi.post(SUBS, payload).json()
+    assert papi.post(check, {"endpoint": payload["endpoint"]}).status_code == 204
+    other = make_api(**push_settings)
+    other.signup_and_login("yabanci2@example.com", tenant="Mağaza Y")
+    assert other.post(check, {"endpoint": payload["endpoint"]}).status_code == 404
+    assert papi.post(check, {"endpoint": "https://evil.example.com/x"}).status_code == 422
+    assert papi.post(check, {"endpoint": payload["endpoint"], "x": 1}).status_code == 422
+    papi.delete(f"{SUBS}/{sub['id']}")
+    assert papi.post(check, {"endpoint": payload["endpoint"]}).status_code == 404
+
+
+async def test_apply_delivery_result_ignores_missing_rows(
+    papi: Api, admin_conn: psycopg.Connection[Any], worker_engine: AsyncEngine
+) -> None:
+    _, tenant = await _seed_subscription(papi, admin_conn, "yok")
+    sessions = async_sessionmaker(worker_engine, expire_on_commit=False)
+    async with tenant_transaction(sessions, tenant) as db:
+        assert await push_service.apply_delivery_result(db, UUID(int=99), 410) == "ignored"
+        assert await push_service.apply_delivery_result(db, UUID(int=99), 500) == "ignored"

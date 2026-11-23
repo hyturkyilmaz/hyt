@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { describeApiError } from '@/lib/api/client';
 import { authApi } from '@/lib/api/endpoints';
+import { releasePushSubscription } from '@/lib/push/release';
 import { cn } from '@/lib/utils';
 
 /**
@@ -27,6 +28,12 @@ export function LogoutButton({
 
   async function onClick() {
     setPending(true);
+    // H11: çıkıştan ÖNCE (oturum çerezi hâlâ geçerliyken) bu tarayıcının push aboneliği en iyi çabayla bırakılır.
+    // Hata ya da yavaşlık çıkışı engellemez.
+    await Promise.race([
+      releasePushSubscription().catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]);
     try {
       await authApi.logout();
       router.replace('/giris');
