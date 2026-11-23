@@ -17,6 +17,7 @@ import hashlib
 import itertools
 import json
 import logging
+import re
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -847,7 +848,10 @@ async def test_amounts_are_absent_when_the_users_preference_is_off(
     shown = by_user[email_of(admin_conn, world.admin_id)]
     assert hidden.html is not None and shown.html is not None
     for part in (hidden.subject, hidden.body, hidden.html):
-        assert "425" not in part and "TL" not in part
+        # Kapatma bağlantısındaki rastgele token (base64url) "TL" ya da "425" içerebilir; tutar denetimi
+        # yalnız insan okunur metne yapılır, token değeri denetimden önce çıkarılır.
+        text_only = re.sub(r"token=[A-Za-z0-9_\-.]+", "token=", part)
+        assert "425" not in text_only and "TL" not in text_only
     assert "425,00 TL" in shown.body and "425,00 TL" in shown.html
 
 
