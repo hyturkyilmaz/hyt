@@ -37,7 +37,7 @@ Kaynaklar: 30 günlük plan `icerik/plan/30-gun-2026-11-11.md`, 17:50 kuşağı 
 | 29 | 24 Kas | Sal | 17:50 | Takipçini topluluğa çevir. | TOPLULUK | Dosya iletildi 10-11 Kas |
 | 30 | 24 Kas | Sal | 20:50 | Bütçenin hepsini cumaya yığma. | BÜTÇE | Yayında 24 Kas (kullanıcı: 'paylaşıyorum az sonra') |
 | 31 | 25 Kas | Çar | 17:50 | Terk edilen sepete izinle dön. | TERK | Dosya iletildi 10-11 Kas |
-| 32 | 25 Kas | Çar | 20:50 | AI yanıtı yazsın, insan göndersin. | DESTEK | Akşam önce iletilecek |
+| 32 | 25 Kas | Çar | 20:50 | AI yanıtı yazsın, insan göndersin. | DESTEK | Dosya iletildi 24 Kas |
 | 33 | 26 Kas | Per | 08:50 | Efsane Cuma'da markanı taklit eden site çıkabilir. | GÜVEN | Akşam önce iletilecek |
 | 34 | 27 Kas | Cum | 21:20 | Bugün 5 rakama bak, gerisini kapat. | CANLI | Akşam önce iletilecek |
 | 35 | 28 Kas | Cmt | 21:20 | Gecikmeyi müşteri senden duysun. | KARGO | Akşam önce iletilecek |

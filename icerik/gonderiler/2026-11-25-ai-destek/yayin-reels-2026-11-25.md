@@ -6,7 +6,7 @@
 | Saat | 20:50 TRT (30 günlük plan) |
 | Anahtar kelime | DESTEK |
 | Yazım hatası | "müşterilrin" (doğrusu: müşterilerin) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 24 Kasım akşamı bakıldı: haber içermiyor, yöntem anlatımı; KVKK kuralı (kişisel veri modele gitmez) metinde. Metinde tek hata: müşterilrin. |
 
 ## Açıklama
 
