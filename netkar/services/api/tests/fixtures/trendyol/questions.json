@@ -1,0 +1,35 @@
+{
+  "content": [
+    {
+      "answer": {
+        "creationDate": 1760000000000,
+        "hasPrivateInfo": false,
+        "id": 1,
+        "reason": "x",
+        "text": "Stokta var, yarın kargoda."
+      },
+      "answeredDateMessage": "1 saat içinde",
+      "creationDate": 1759990000000,
+      "customerId": 888888888,
+      "id": 77001,
+      "imageUrl": "https://img.example.invalid/a.jpg",
+      "productName": "Örnek Tepsi",
+      "public": true,
+      "reason": "",
+      "rejectedAnswer": null,
+      "rejectedDate": 0,
+      "reportReason": "",
+      "reportedDate": 0,
+      "showUserName": true,
+      "status": "ANSWERED",
+      "text": "Bu ürün stokta var mı?",
+      "userName": "SahteKullaniciAdi",
+      "webUrl": "https://shop.example.invalid/p/1",
+      "productMainId": "12613876842A60"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}

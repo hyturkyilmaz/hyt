@@ -1,0 +1,16 @@
+# Gitleaks yapılandırması: varsayılan kurallar aynen geçerli.
+# Yalnız test dosyalarındaki bilinçli sahte parola/token değerleri muaf tutulur
+# (ör. "dogru-at-pil-kalem-42", "abcdefghijklmnop1234"). Üretim kodu, altyapı
+# ve doküman dosyaları taranmaya devam eder. Gerçek sır test dosyasına da yazılmaz.
+title = "hyt gitleaks yapılandırması"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "NetKâr test fixture'ları (sahte kimlik bilgileri)"
+paths = [
+  '''^netkar/services/api/tests/''',
+  '''^netkar/apps/web/e2e/''',
+  '''^netkar/apps/web/src/.*\.test\.tsx?$''',
+]

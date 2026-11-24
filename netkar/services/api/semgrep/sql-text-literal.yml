@@ -1,0 +1,32 @@
+# NetKâr yerel Semgrep kuralı (ADR-0009 D5, §12 test 20-24 ve 26 ile birlikte): SQLAlchemy `text()` YALNIZ düz dizge
+# sabiti alır. f-string, `+` birleştirme, `%` ve `.format` yasaktır: değerler bağlı parametre (`:ad`) ile verilir.
+# Çalıştırma (ağsız, yalnız bu kural):
+#   uvx --from semgrep==1.184.0 semgrep scan --config services/api/semgrep --error --metrics=off services/api/app
+# (CI: .github/workflows/netkar-ci.yml semgrep adımı bu dizini de `--config` olarak alır.)
+# Testi: tests/test_notify_sql_rules.py (AST kontrolü her zaman koşar; semgrep kuruluysa bu kural da koşar).
+rules:
+  - id: netkar-sqlalchemy-text-must-be-literal
+    languages: [python]
+    severity: ERROR
+    message: >-
+      SQLAlchemy text() düz dizge sabiti almalı; f-string, birleştirme, % ve .format kullanmayın. Değerleri bağlı
+      parametre (:ad) ile verin (SQL enjeksiyonu, ASVS V1.2.4).
+    pattern-either:
+      - pattern: text(f"...")
+      - pattern: sqlalchemy.text(f"...")
+      - pattern: text($A + $B)
+      - pattern: sqlalchemy.text($A + $B)
+      - pattern: text($A % $B)
+      - pattern: sqlalchemy.text($A % $B)
+      - pattern: text($A.format(...))
+      - pattern: sqlalchemy.text($A.format(...))
+      # Değişken ya da herhangi bir ifade (literal olmayan her şey): `text(query)`.
+      - patterns:
+          - pattern-either:
+              - pattern: text($X)
+              - pattern: sqlalchemy.text($X)
+          - pattern-not: text("...")
+          - pattern-not: sqlalchemy.text("...")
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command"
