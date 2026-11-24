@@ -35,7 +35,7 @@ Kaynaklar: 30 günlük plan `icerik/plan/30-gun-2026-11-11.md`, 17:50 kuşağı 
 | 27 | 23 Kas | Pzt | 17:50 | AI asistanlar seni öneriyor mu? | GEO | Dosya iletildi 10-11 Kas |
 | 28 | 23 Kas | Pzt | 20:50 | Efsane hafta başladı. Sitende her şey çalışıyor mu? | HAZIR | Yayında (kullanıcı bildirdi) |
 | 29 | 24 Kas | Sal | 17:50 | Takipçini topluluğa çevir. | TOPLULUK | Dosya iletildi 10-11 Kas |
-| 30 | 24 Kas | Sal | 20:50 | Bütçenin hepsini cumaya yığma. | BÜTÇE | Dosya iletildi 23 Kas |
+| 30 | 24 Kas | Sal | 20:50 | Bütçenin hepsini cumaya yığma. | BÜTÇE | Yayında 24 Kas (kullanıcı: 'paylaşıyorum az sonra') |
 | 31 | 25 Kas | Çar | 17:50 | Terk edilen sepete izinle dön. | TERK | Dosya iletildi 10-11 Kas |
 | 32 | 25 Kas | Çar | 20:50 | AI yanıtı yazsın, insan göndersin. | DESTEK | Akşam önce iletilecek |
 | 33 | 26 Kas | Per | 08:50 | Efsane Cuma'da markanı taklit eden site çıkabilir. | GÜVEN | Akşam önce iletilecek |
