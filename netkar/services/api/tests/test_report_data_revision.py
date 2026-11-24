@@ -79,24 +79,39 @@ def test_every_engine_input_table_has_the_deferred_counter_trigger_and_new_table
 ) -> None:
     rows = admin_conn.execute(
         """
-        SELECT c.relname, t.tgdeferrable, t.tginitdeferred, t.tgenabled, p.proname, p.prosecdef,
+        SELECT c.relname, t.tgname, t.tgdeferrable, t.tginitdeferred, t.tgenabled, p.proname, p.prosecdef,
                (t.tgtype & 1) = 1 AS per_row, (t.tgtype & 4) = 4 AS on_insert,
-               (t.tgtype & 8) = 8 AS on_delete, (t.tgtype & 16) = 16 AS on_update
+               (t.tgtype & 8) = 8 AS on_delete, (t.tgtype & 16) = 16 AS on_update,
+               t.tgqual IS NULL AS unconditional, pg_get_triggerdef(t.oid) AS definition
         FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid
-        WHERE t.tgname = 'trg_bump_report_data_revision' AND NOT t.tgisinternal OR t.tgconstraint <> 0
+        WHERE NOT t.tgisinternal AND p.proname = 'bump_report_data_revision'
         """
     ).fetchall()
-    bump = [r for r in rows if r[4] == "bump_report_data_revision"]
-    assert {r[0] for r in bump} == VERSIONED
-    events: dict[str, set[str]] = {}
-    for name, deferrable, initially_deferred, enabled, _, secdef, per_row, ins, dele, upd in bump:
+    assert {r[0] for r in rows} == VERSIONED
+    by_table: dict[str, list[tuple[Any, ...]]] = {}
+    for row in rows:
+        _, name, deferrable, initially_deferred, enabled, _, secdef, per_row, *_rest = row
         assert deferrable and initially_deferred and enabled == "O" and secdef, name
         assert per_row, name  # satır tetikleyicisi: 0 satır etkileyen ifade sayacı artırmaz
-        events.setdefault(name, set()).update(
-            e for e, on in (("insert", ins), ("delete", dele), ("update", upd)) if on
-        )
-    # Her tablo INSERT, UPDATE ve DELETE'i kapsar; imleç (0028) bunu iki tetikleyiciyle yapar.
-    assert all(v == {"insert", "update", "delete"} for v in events.values()), events
+        by_table.setdefault(row[0], []).append(row)
+    for table, trigs in by_table.items():
+        if table == "sync_cursors":
+            continue
+        # Imleç dışındaki her tablo: tam bir tetikleyici, koşulsuz, üç olayı da tek başına kapsar.
+        assert len(trigs) == 1, (table, [t[1] for t in trigs])
+        (_, _, _, _, _, _, _, _, ins, dele, upd, unconditional, _) = trigs[0]
+        assert unconditional, table  # tgqual IS NULL: WHEN koşulu yok
+        assert (ins, upd, dele) == (True, True, True), table
+    # İmleç (0028): iki tetikleyici; ekleme/silme koşulsuz, güncelleme yalnız backfill işareti değişince.
+    cursor = {t[1]: t for t in by_table["sync_cursors"]}
+    assert set(cursor) == {"bump_rdr_cursor_insert_delete", "bump_rdr_cursor_update"}, set(cursor)
+    insert_delete = cursor["bump_rdr_cursor_insert_delete"]
+    assert (insert_delete[8], insert_delete[9], insert_delete[10]) == (True, True, False)
+    assert insert_delete[11] is True  # koşulsuz
+    update = cursor["bump_rdr_cursor_update"]
+    assert (update[8], update[9], update[10]) == (False, False, True)
+    assert update[11] is False  # WHEN koşulu var
+    assert "backfill_completed_at IS DISTINCT FROM" in update[12], update[12]
     # Hesaba bağlı (tenant_id + marketplace_account_id) her yeni tablo ya sürümlü olmalı ya da bilinçle muaf.
     scoped = {
         r[0]

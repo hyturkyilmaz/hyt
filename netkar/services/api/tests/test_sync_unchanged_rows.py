@@ -30,7 +30,7 @@ from app.services.sync import store
 from app.services.sync.runner import SyncRunner
 from app.worker.tasks import defer_alerts_after_sync, register_tasks
 from tests.sync_fixtures import Env
-from tests.sync_helpers import NOW, client_factory, envelope_for_tests
+from tests.sync_helpers import NOW, client_factory, envelope_for_tests, ms, status_response
 
 ACCOUNT_TABLES = (
     "products",
@@ -120,8 +120,18 @@ async def test_second_sync_with_identical_data_changes_nothing_and_defers_no_ale
         assert mark == (later,)  # imleç gerçekten ilerledi
 
         # Uyarı ertelemesi: hiçbir kaynakta upserted > 0 yok, iş eklenmez.
+        # False dönüşü "değişiklik yok"tan mı, bekleyen işin AlreadyEnqueued olmasından mı? Bekleyen iş
+        # (ilk yazımdan) hâlâ kuyrukta: bu yüzden iş sayısının değişmediği de ayrıca doğrulanır.
+        jobs_before = len(alert_jobs(app))
         assert await defer_alerts_after_sync(app, forced) is False
         assert await defer_alerts_after_sync(app, incremental) is False
+        assert len(alert_jobs(app)) == jobs_before
+        # Yeni (boş kuyruklu) uygulamada da erteleme olmaz: False gerçekten "yazım yok" nedeniyle.
+        fresh = alert_app()
+        async with fresh.open_async():
+            assert await defer_alerts_after_sync(fresh, forced) is False
+            assert await defer_alerts_after_sync(fresh, incremental) is False
+            assert alert_jobs(fresh) == []
     assert len(alert_jobs(app)) == 1
 
 
@@ -342,7 +352,47 @@ async def test_recovery_after_a_failed_run_defers_alerts_even_when_nothing_was_w
         # Düzelme tekrar etmez: sonraki başarılı tur ertelemez.
         again = await env.runner.run(account, "backfill", sources=["orders"], force=True)
         assert again.sources[0].recovered is False
+        jobs_before = len(alert_jobs(app))
         assert await defer_alerts_after_sync(app, again) is False
+        assert len(alert_jobs(app)) == jobs_before  # bekleyen iş yüzünden değil, gerçekten ertelenmedi
+        fresh = alert_app()
+        async with fresh.open_async():
+            assert await defer_alerts_after_sync(fresh, again) is False
+            assert alert_jobs(fresh) == []
+
+
+async def test_cargo_invoice_source_recovery_defers_alerts_with_scope_all_and_keeps_the_revision(
+    env: Env,
+) -> None:
+    account = env.seller.account_id
+    app = alert_app()
+    # Kalemi olmayan ikinci fatura: her turda denenir (kalemli KRG1 yeniden çekilmez), boş sayfa yazım yapmaz.
+    env.api.other[("DeductionInvoices", "")].append(
+        {
+            "id": "KRG2",
+            "transactionDate": ms(NOW - timedelta(days=9)),
+            "transactionType": "Kargo Faturası",
+            "debt": "1",
+            "credit": "0",
+            "paymentOrderId": 7001,
+        }
+    )
+    first = await env.runner.run(account, "backfill")
+    assert next(s for s in first.sources if s.source == "cargo_invoices").status == "succeeded"
+    env.api.overrides["/cargo-invoice/KRG2/"] = status_response(502)
+    failed = await env.runner.run(account, "backfill", sources=["cargo_invoices"], force=True)
+    assert failed.sources[0].status == "failed" and failed.sources[0].recovered is False
+    env.api.overrides.clear()
+    before = revision(env.conn, account)
+    healed = await env.runner.run(account, "backfill", sources=["cargo_invoices"], force=True)
+    assert healed.sources[0].status == "succeeded" and healed.sources[0].upserted == 0
+    assert healed.sources[0].recovered is True  # önceki çalışma failed
+    assert revision(env.conn, account) == before  # veri sürümü değişmedi
+    async with app.open_async():
+        assert alert_jobs(app) == []
+        assert await defer_alerts_after_sync(app, healed) is True
+        (job,) = alert_jobs(app)
+        assert job["args"]["scope"] == "all"  # kargo kesintisi bastırma girdisidir: `fast` yetmez
 
 
 # ================================================================================ imleç (0028)
