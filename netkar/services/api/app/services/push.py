@@ -50,6 +50,11 @@ _HOST_LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 _BASE64URL = re.compile(r"[A-Za-z0-9_-]+")
 # Uç nokta yalnız görünür ASCII: boşluk, denetim karakteri ve ters eğik çizgi (ayrıştırıcı farkı) reddedilir.
 _ENDPOINT_CHARS = re.compile(r"[\x21-\x7e]+")
+# Yüzde kodlaması: `%` yalnız iki onaltılık hane ile gelebilir (RFC 3986 §2.1).
+_PCT_BAD = re.compile(r"%(?![0-9A-Fa-f]{2})")
+_PCT_TRIPLET = re.compile(r"%([0-9A-Fa-f]{2})")
+# Ayrılmamış karakterler (RFC 3986 §2.3): bunların kodlu ve kodsuz biçimi AYNI kaynaktır.
+_UNRESERVED = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 
 
 class PushValidationError(ValueError):
@@ -58,6 +63,30 @@ class PushValidationError(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+def _canonical_path(path: str) -> str:
+    """Yolu eşdeğer biçimleri tek forma indirerek döndürür (RFC 3986 §6.2.2).
+
+    - `%` yalnız iki onaltılık hane ile gelebilir, aksi halde reddedilir.
+    - Ayrılmamış karakterlerin yüzde kodlaması çözülür (`%61` ile `a` aynı kaynaktır); geri kalan üçlüler
+      büyük harfli hex'e çevrilir (`%2f` ile `%2F`). Ayrılmış karakterler (`%2F`, `%3D` ...) KODLU kalır:
+      çözmek anlamı değiştirirdi.
+    - `.` ya da `..` segmenti (kodlu biçimleri dahil) reddedilir: yol normalleştiren ara katmanlar uç noktayı
+      başka bir kaynağa götürebilir; gerçek tarayıcı uç noktalarında böyle segment yoktur.
+    Sorgu bu dönüşüme GİRMEZ (WNS `token=...%3d` gibi değerler aynen korunur).
+    """
+    if _PCT_BAD.search(path):
+        raise PushValidationError("endpoint_invalid", "Uç nokta geçersiz.")
+
+    def _fix(match: re.Match[str]) -> str:
+        char = chr(int(match.group(1), 16))
+        return char if char in _UNRESERVED else "%" + match.group(1).upper()
+
+    normalized = _PCT_TRIPLET.sub(_fix, path)
+    if any(segment in (".", "..") for segment in normalized.split("/")):
+        raise PushValidationError("endpoint_path", "Uç nokta yolu geçersiz.")
+    return normalized
 
 
 def validate_endpoint(endpoint: str) -> str:
@@ -81,6 +110,7 @@ def validate_endpoint(endpoint: str) -> str:
         raise PushValidationError("endpoint_invalid", "Uç nokta geçersiz.")
     if port is not None and port != 443:
         raise PushValidationError("endpoint_port", "Uç nokta portu desteklenmiyor.")
+    _canonical_path(parts.path)
     host = (parts.hostname or "").lower()
     labels = host.split(".")
     if not host or any(not _HOST_LABEL.fullmatch(label) for label in labels):
@@ -93,12 +123,13 @@ def validate_endpoint(endpoint: str) -> str:
 def canonical_endpoint(endpoint: str) -> tuple[str, str]:
     """(kanonik uç nokta, ana bilgisayar). Doğrulanır, sonra kanonik biçime çevrilir.
 
-    Kanonik biçim: `https`, küçük harfli ana bilgisayar, varsayılan port (443) atılmış, yol ve sorgu aynen,
-    parça yok. Özet ve saklanan değer BU biçimden üretilir (büyük harf, `:443` aynı satıra düşer).
+    Kanonik biçim: `https`, küçük harfli ana bilgisayar, varsayılan port (443) atılmış, yol `_canonical_path`
+    ile normalleştirilmiş, sorgu aynen, parça yok. Özet ve saklanan değer BU biçimden üretilir
+    (büyük harf, `:443`, yüzde kodlu ayrılmamış karakter aynı satıra düşer).
     """
     host = validate_endpoint(endpoint)
     parts = urlsplit(endpoint)
-    return urlunsplit(("https", host, parts.path, parts.query, "")), host
+    return urlunsplit(("https", host, _canonical_path(parts.path), parts.query, "")), host
 
 
 def _decode_b64url(value: str) -> bytes | None:

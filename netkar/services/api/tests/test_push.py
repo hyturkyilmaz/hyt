@@ -833,3 +833,225 @@ async def test_apply_delivery_result_ignores_missing_rows(
     async with tenant_transaction(sessions, tenant) as db:
         assert await push_service.apply_delivery_result(db, UUID(int=99), 410) == "ignored"
         assert await push_service.apply_delivery_result(db, UUID(int=99), 500) == "ignored"
+
+
+# --------------------------------------------------------------------------- N1: yol eşdeğerlikleri
+@pytest.mark.parametrize(
+    "path",
+    ["/a/./b", "/a/../b", "/..", "/.", "/a/b/..", "/a/%2e/b", "/a/%2E%2e/b", "/a/.%2E/b", "/%2e%2e/%2e%2e"],
+)
+def test_dot_segments_in_path_are_rejected(path: str) -> None:
+    with pytest.raises(PushValidationError) as raised:
+        push_service.canonical_endpoint(f"https://fcm.googleapis.com{path}")
+    assert raised.value.code == "endpoint_path"
+
+
+@pytest.mark.parametrize("path", ["/a/%", "/a/%z1", "/a/%4", "/a%/b"])
+def test_malformed_percent_encoding_is_rejected(path: str) -> None:
+    with pytest.raises(PushValidationError) as raised:
+        push_service.canonical_endpoint(f"https://fcm.googleapis.com{path}")
+    assert raised.value.code == "endpoint_invalid"
+
+
+def test_percent_encoding_is_reduced_to_one_canonical_form() -> None:
+    canonical = "https://fcm.googleapis.com/fcm/send/aB-_~9"
+    for variant in (
+        "https://fcm.googleapis.com/fcm/send/aB-_~9",
+        "https://fcm.googleapis.com/fcm/send/%61%42%2d%5f%7e%39",  # hepsi ayrılmamış karakter: çözülür
+        "https://fcm.googleapis.com/fcm/%73end/aB-_~9",
+    ):
+        assert push_service.canonical_endpoint(variant)[0] == canonical
+    # Ayrılmış karakterler kodlu kalır, yalnız hex büyük harfe döner; `%2f` ve `/` AYRI kaynaklardır.
+    assert push_service.canonical_endpoint("https://fcm.googleapis.com/a%2fb%3d")[0] == (
+        "https://fcm.googleapis.com/a%2Fb%3D"
+    )
+    assert (
+        push_service.canonical_endpoint("https://fcm.googleapis.com/a%2Fb")[0]
+        != (push_service.canonical_endpoint("https://fcm.googleapis.com/a/b")[0])
+    )
+    # Sorgu dokunulmaz (WNS belirteçleri `%3d` taşır).
+    wns = "https://wns2-par02p.notify.windows.com/?token=AbC%2bd%3d"
+    assert push_service.canonical_endpoint(wns)[0] == wns
+
+
+def test_api_dedupes_percent_variants_and_rejects_dot_segments(
+    papi: Api, admin_conn: psycopg.Connection[Any]
+) -> None:
+    keys = make_client_keys()
+    plain = papi.post(SUBS, {"endpoint": f"{FCM}tokenA9", "keys": keys})
+    encoded = papi.post(SUBS, {"endpoint": f"{FCM}token%41%39", "keys": keys})
+    assert (plain.status_code, encoded.status_code) == (201, 200)
+    assert plain.json()["id"] == encoded.json()["id"] and len(rows(admin_conn)) == 1
+    for bad in (f"{FCM}../x", f"{FCM}%2e%2E/x", f"{FCM}./x"):
+        response = papi.post(SUBS, {"endpoint": bad, "keys": keys})
+        assert response.status_code == 422 and response.json()["errors"][0]["code"] == "endpoint_path"
+    assert len(rows(admin_conn)) == 1
+
+
+# --------------------------------------------------------------------------- N2: uç noktayla bırakma
+RELEASE = f"{SUBS}/release"
+
+
+def _push_audits(conn: psycopg.Connection[Any]) -> list[tuple[str, Any]]:
+    return [
+        (a, m)
+        for a, m in conn.execute(
+            "SELECT action, meta FROM audit_log WHERE action LIKE 'push.%' ORDER BY id"
+        ).fetchall()
+    ]
+
+
+def test_release_revokes_own_subscription_audits_once_and_is_repeatable(
+    papi: Api, admin_conn: psycopg.Connection[Any]
+) -> None:
+    payload = body("birak")
+    assert papi.post(SUBS, payload).status_code == 201
+    # Kanonik eşleşme: büyük harfli ana bilgisayar ve :443 varyantı da aynı satırı bırakır.
+    variant = payload["endpoint"].replace("https://fcm.googleapis.com/", "https://FCM.GOOGLEAPIS.COM:443/")
+    assert papi.post(RELEASE, {"endpoint": variant}).status_code == 204
+    ((_, _, _, endpoint_enc, p256dh_enc, auth_enc, _, _, revoked, *_),) = rows(admin_conn)
+    assert revoked is not None and endpoint_enc is None and p256dh_enc is None and auth_enc is None
+    assert papi.get(SUBS).json() == {"items": []}
+    assert papi.post(RELEASE, {"endpoint": payload["endpoint"]}).status_code == 204  # tekrar: yine 204
+    assert _push_audits(admin_conn) == [
+        ("push.subscribe", {"endpoint_host": "fcm.googleapis.com"}),
+        ("push.unsubscribe", {"endpoint_host": "fcm.googleapis.com"}),
+    ]
+    assert payload["endpoint"] not in json.dumps(_push_audits(admin_conn))
+
+
+def test_release_of_unknown_endpoint_is_204_without_audit_or_write(
+    papi: Api, admin_conn: psycopg.Connection[Any]
+) -> None:
+    assert papi.post(RELEASE, {"endpoint": f"{FCM}hic-abone-olmadi"}).status_code == 204
+    assert rows(admin_conn) == [] and _push_audits(admin_conn) == []
+    assert papi.post(RELEASE, {"endpoint": "https://evil.example.com/x"}).status_code == 422
+    assert papi.post(RELEASE, {"endpoint": f"{FCM}x", "keys": {}}).status_code == 422
+
+
+def test_release_never_touches_other_users_or_tenants_subscription(
+    papi: Api,
+    make_api: Callable[..., Api],
+    push_settings: dict[str, Any],
+    admin_conn: psycopg.Connection[Any],
+) -> None:
+    payload = body("yabanci-birak")
+    assert papi.post(SUBS, payload).status_code == 201
+    other = make_api(**push_settings)
+    other.signup_and_login("kiraci2@example.com", tenant="Mağaza Z")
+    assert other.post(RELEASE, {"endpoint": payload["endpoint"]}).status_code == 204  # varlık sızmaz
+    # Aynı kiracıdaki başka kullanıcı.
+    row = admin_conn.execute("SELECT tenant_id FROM push_subscriptions").fetchone()
+    assert row is not None
+    colleague = admin_conn.execute(
+        "INSERT INTO users (email, password_hash, email_verified_at) "
+        "SELECT 'meslektas@example.com', password_hash, now() FROM users WHERE email = 'a@example.com' "
+        "RETURNING id"
+    ).fetchone()
+    assert colleague is not None
+    admin_conn.execute(
+        "INSERT INTO memberships (user_id, tenant_id, role) VALUES (%s, %s, 'viewer')", (colleague[0], row[0])
+    )
+    mate = make_api(**push_settings)
+    assert mate.login("meslektas@example.com").status_code == 200
+    assert mate.post(RELEASE, {"endpoint": payload["endpoint"]}).status_code == 204
+    assert _revoked(admin_conn) == [False]
+    assert [a for a, _ in _push_audits(admin_conn)] == ["push.subscribe"]
+
+
+def test_release_has_its_own_rate_limit_and_spares_subscribe_quota(
+    papi: Api, frozen_ratelimit_clock: float
+) -> None:
+    payload = body("kota")
+    codes = [papi.post(RELEASE, {"endpoint": payload["endpoint"]}).status_code for _ in range(62)]
+    assert codes[:60] == [204] * 60 and codes[60:] == [429, 429]
+    # Abone olma kotası harcanmadı: 20 isteğin tamamı geçer.
+    assert [papi.post(SUBS, payload).status_code for _ in range(20)] == [201] + [200] * 19
+
+
+def test_release_works_after_flag_is_turned_off(
+    make_api: Callable[..., Api], push_settings: dict[str, Any], admin_conn: psycopg.Connection[Any]
+) -> None:
+    on = make_api(**push_settings)
+    on.signup_and_login("bayrak@example.com")
+    payload = body("bayrak-kapali")
+    assert on.post(SUBS, payload).status_code == 201
+    off = make_api(web_push_enabled=False)
+    assert off.login("bayrak@example.com").status_code == 200
+    assert off.post(RELEASE, {"endpoint": payload["endpoint"]}).status_code == 204
+    assert _revoked(admin_conn) == [True]
+
+
+# --------------------------------------------------------------------------- N2: yeniden bağlamada denetim, N4: sınır
+def _expire_sessions(conn: psycopg.Connection[Any]) -> None:
+    conn.execute("UPDATE sessions SET expires_at = now() - interval '1 minute'")
+
+
+def test_rebind_from_a_new_session_audits_the_revoked_row(
+    make_api: Callable[..., Api], push_settings: dict[str, Any], admin_conn: psycopg.Connection[Any]
+) -> None:
+    s1 = make_api(**push_settings)
+    s1.signup_and_login("rebind@example.com")
+    payload = body("rebind-denetim")
+    first = s1.post(SUBS, payload).json()
+    _expire_sessions(admin_conn)
+    s2 = make_api(**push_settings)
+    assert s2.login("rebind@example.com").status_code == 200
+    second = s2.post(SUBS, payload).json()
+    audits = admin_conn.execute(
+        "SELECT action, target, meta FROM audit_log WHERE action LIKE 'push.%' ORDER BY id"
+    ).fetchall()
+    assert [(a, t, m) for a, t, m in audits] == [
+        ("push.subscribe", first["id"], {"endpoint_host": "fcm.googleapis.com"}),
+        ("push.unsubscribe", first["id"], {"rebind": True, "endpoint_host": "fcm.googleapis.com"}),
+        ("push.subscribe", second["id"], {"endpoint_host": "fcm.googleapis.com"}),
+    ]
+    assert payload["endpoint"] not in json.dumps(audits, default=str)
+
+
+def test_rebind_at_the_limit_from_another_session_revokes_first_so_no_limit_error(
+    make_api: Callable[..., Api], push_settings: dict[str, Any], admin_conn: psycopg.Connection[Any]
+) -> None:
+    s1 = make_api(**push_settings)
+    s1.signup_and_login("sinir@example.com")
+    payloads = [body(f"s{i}") for i in range(10)]
+    for payload in payloads:
+        assert s1.post(SUBS, payload).status_code == 201
+    _expire_sessions(admin_conn)
+    s2 = make_api(**push_settings)
+    assert s2.login("sinir@example.com").status_code == 200
+    again = s2.post(SUBS, payloads[3])  # sınırdayken mevcut cihaz: önce iptal, sonra sayım
+    assert again.status_code == 201
+    assert len(s2.get(SUBS).json()["items"]) == 10
+    assert sum(1 for r in rows(admin_conn) if r[8] is None) == 10
+    # Yeni (11.) cihaz hâlâ sınıra takılır.
+    over = s2.post(SUBS, body("s-yeni"))
+    assert over.status_code == 409 and over.json()["type"].endswith("push-subscription-limit")
+
+
+# --------------------------------------------------------------------------- N4: /check aynı kiracıdaki başka kullanıcı
+def test_check_does_not_confirm_a_colleagues_subscription_in_the_same_tenant(
+    papi: Api,
+    make_api: Callable[..., Api],
+    push_settings: dict[str, Any],
+    admin_conn: psycopg.Connection[Any],
+) -> None:
+    payload = body("meslektas-check")
+    assert papi.post(SUBS, payload).status_code == 201
+    row = admin_conn.execute("SELECT tenant_id FROM push_subscriptions").fetchone()
+    assert row is not None
+    colleague = admin_conn.execute(
+        "INSERT INTO users (email, password_hash, email_verified_at) "
+        "SELECT 'check2@example.com', password_hash, now() FROM users WHERE email = 'a@example.com' "
+        "RETURNING id"
+    ).fetchone()
+    assert colleague is not None
+    admin_conn.execute(
+        "INSERT INTO memberships (user_id, tenant_id, role) VALUES (%s, %s, 'viewer')", (colleague[0], row[0])
+    )
+    mate = make_api(**push_settings)
+    assert mate.login("check2@example.com").status_code == 200
+    assert mate.get("/v1/me").json()["tenant"]["id"] == str(row[0])  # gerçekten aynı kiracı
+    check = f"{SUBS}/check"
+    assert mate.post(check, {"endpoint": payload["endpoint"]}).status_code == 404
+    assert papi.post(check, {"endpoint": payload["endpoint"]}).status_code == 204

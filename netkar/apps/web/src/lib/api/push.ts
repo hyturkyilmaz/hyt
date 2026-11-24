@@ -29,6 +29,13 @@ export const pushApi = {
   subscribe: (body: PushSubscriptionBody) =>
     apiFetch<PushSubscriptionInfo>('/me/push-subscriptions', { method: 'POST', body }),
 
+  /**
+   * Uç noktayla bırakma (çıkış ve kapatma): kendi etkin aboneliğini iptal eder. Yoksa da 204 döner (varlık
+   * sızmaz); abone olma hız kotasını harcamaz ve sahte denetim çifti yazmaz.
+   */
+  release: (endpoint: string) =>
+    apiFetch<void>('/me/push-subscriptions/release', { method: 'POST', body: { endpoint } }),
+
   /** Kendi aboneliğini iptal eder (silme yok); başkasının kimliği 404. */
   unsubscribe: (id: string) =>
     apiFetch<void>(`/me/push-subscriptions/${encodeURIComponent(id)}`, { method: 'DELETE' }),

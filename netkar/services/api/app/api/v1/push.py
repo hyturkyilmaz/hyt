@@ -6,6 +6,8 @@ Uçlar (`/v1` altında, oturum gerekir; üç rol de kullanır):
 - `POST   /me/push-subscriptions`         abonelik (idempotent: aynı uç nokta aynı kullanıcıdan 200 ile aynı satır)
 - `GET    /me/push-subscriptions`         kendi etkin abonelikleri (maskeli)
 - `DELETE /me/push-subscriptions/{id}`    kendi aboneliğini iptal eder (`revoked_at`, silme yok)
+- `POST   /me/push-subscriptions/check`   bu uç noktada kendi etkin aboneliğim var mı (204/404)
+- `POST   /me/push-subscriptions/release` uç noktayla bırakma (çıkış ve kapatma); her durumda 204
 
 Kararlar:
 
@@ -57,6 +59,8 @@ _KEY_READ_PER_MINUTE = 60
 _SUBSCRIBE_PER_HOUR = 20
 _LIST_PER_MINUTE = 60
 _DELETE_PER_HOUR = 60
+# Bırakma ucu abone olma kotasından AYRI anahtar kullanır (çıkış, abone olma hakkını tüketmesin).
+_RELEASE_PER_HOUR = 60
 
 
 def _not_found() -> ProblemError:
@@ -127,6 +131,15 @@ async def subscribe(
         # Aynı cihaz, başka (eski) oturumda açılmış: eski satır iptal edilir, yenisi bu oturuma bağlanır (H11:
         # çıkış yalnız o oturumda açılan abonelikleri iptal eder).
         await svc.revoke_own(db, ctx.tenant_id, ctx.user_id, existing.id)
+        await record_audit(
+            db,
+            ctx.tenant_id,
+            "push.unsubscribe",
+            user_id=ctx.user_id,
+            target=str(existing.id),
+            ip_hash=ip_hash_for(request, settings),
+            meta={"rebind": True, "endpoint_host": existing.endpoint_host},
+        )
     if await svc.count_active(db, ctx.tenant_id, ctx.user_id) >= svc.MAX_ACTIVE_PER_USER:
         raise ProblemError(
             409,
@@ -192,6 +205,37 @@ async def check_subscription(
     digest_value = svc.endpoint_digest(settings.master_key, body.endpoint)
     if await svc.find_active_by_digest(db, ctx.tenant_id, ctx.user_id, digest_value) is None:
         raise _not_found()
+    return Response(status_code=204)
+
+
+@router.post("/me/push-subscriptions/release", status_code=204)
+async def release_subscription(
+    body: PushEndpointIn,
+    request: Request,
+    ctx: AnyRoleDep,
+    db: DbDep,
+    settings: SettingsDep,
+    limiter: RateLimiterDep,
+) -> Response:
+    """Uç noktayla tanımlanan KENDİ etkin aboneliğimi iptal eder (çıkış ve kapatma akışı).
+
+    Her durumda 204: abonelik yoksa, başkasınınsa ya da zaten iptalse de aynı yanıt (varlık sızmaz). Denetim
+    kaydı yalnız gerçekten bir satır iptal edildiyse yazılır. Bayrağa bağlı DEĞİLDİR.
+    """
+    await _limit(limiter, settings, ctx, "push-release", _RELEASE_PER_HOUR, _HOURLY)
+    digest_value = svc.endpoint_digest(settings.master_key, body.endpoint)
+    row = await svc.find_active_by_digest(db, ctx.tenant_id, ctx.user_id, digest_value)
+    if row is not None and await svc.revoke_own(db, ctx.tenant_id, ctx.user_id, row.id):
+        await record_audit(
+            db,
+            ctx.tenant_id,
+            "push.unsubscribe",
+            user_id=ctx.user_id,
+            target=str(row.id),
+            ip_hash=ip_hash_for(request, settings),
+            meta={"endpoint_host": row.endpoint_host},
+        )
+        await db.commit()
     return Response(status_code=204)
 
 

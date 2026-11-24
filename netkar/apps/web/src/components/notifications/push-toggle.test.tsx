@@ -29,8 +29,8 @@ const subscribeOk: Route = (r) =>
   r.method === 'POST' && r.url.pathname === '/api/v1/me/push-subscriptions'
     ? { status: 201, body: SUB_INFO }
     : undefined;
-const unsubscribeOk: Route = (r) =>
-  r.method === 'DELETE' && r.url.pathname === '/api/v1/me/push-subscriptions/sub-1'
+const releaseOk: Route = (r) =>
+  r.method === 'POST' && r.url.pathname === '/api/v1/me/push-subscriptions/release'
     ? { status: 204 }
     : undefined;
 
@@ -177,9 +177,9 @@ describe('PushToggle', () => {
     expect(screen.getByRole('button', { name: 'Bu tarayıcıda anlık bildirimi aç' })).toBeEnabled();
   });
 
-  it('açık abonelikte kapat: kimliği idempotent POST ile bulur, DELETE eder, tarayıcıdan çıkar', async () => {
+  it('açık abonelikte kapat: uç noktayla release çağırır (abone olma POST yok), tarayıcıdan çıkar', async () => {
     stubBrowser({ existing: true });
-    const { requests } = mockRequests(vapid(true), csrf, subscribeOk, unsubscribeOk);
+    const { requests } = mockRequests(vapid(true), csrf, subscribeOk, releaseOk);
     render(<PushToggle />);
     const off = await screen.findByRole('button', { name: 'Bu tarayıcıda anlık bildirimi kapat' });
     expect(screen.getByText('Açık')).toBeVisible();
@@ -187,7 +187,9 @@ describe('PushToggle', () => {
     expect(await screen.findByText('Bu tarayıcıda anlık bildirim kapatıldı.')).toBeVisible();
     expect(
       requests.filter((r) => r.method !== 'GET').map((r) => `${r.method} ${r.url.pathname}`),
-    ).toEqual(['POST /api/v1/me/push-subscriptions', 'DELETE /api/v1/me/push-subscriptions/sub-1']);
+    ).toEqual(['POST /api/v1/me/push-subscriptions/release']);
+    const release = requests.find((r) => r.url.pathname.endsWith('/release'))!;
+    expect(release.body).toEqual({ endpoint: 'https://fcm.googleapis.com/fcm/send/GIZLI' });
     expect(BROWSER_SUB.unsubscribe).toHaveBeenCalledTimes(1);
     await waitFor(() =>
       expect(
@@ -197,8 +199,8 @@ describe('PushToggle', () => {
   });
   it('kapatırken sunucu hatası olsa da tarayıcı aboneliği bırakılır ve hata gösterilir', async () => {
     stubBrowser({ existing: true });
-    mockRequests(vapid(true), csrf, subscribeOk, (r) =>
-      r.method === 'DELETE' ? problemReply(500, 'server-error') : undefined,
+    mockRequests(vapid(true), csrf, (r) =>
+      r.url.pathname.endsWith('/release') ? problemReply(500, 'server-error') : undefined,
     );
     render(<PushToggle />);
     await userEvent.click(
@@ -207,5 +209,21 @@ describe('PushToggle', () => {
     expect(await screen.findByText(/Sunucuya ulaşılamadı|Bir sorun oluştu/)).toBeVisible();
     expect(BROWSER_SUB.unsubscribe).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Bu tarayıcıda anlık bildirimi aç' })).toBeEnabled();
+  });
+
+  it('tarayıcı unsubscribe() false dönerse "kapatıldı" denmez, hata gösterilir ve durum açık kalır', async () => {
+    stubBrowser({ existing: true });
+    BROWSER_SUB.unsubscribe.mockImplementationOnce(() => Promise.resolve(false));
+    mockRequests(vapid(true), csrf, releaseOk);
+    render(<PushToggle />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Bu tarayıcıda anlık bildirimi kapat' }),
+    );
+    expect(await screen.findByText(/Anlık bildirim ayarı değiştirilemedi/)).toBeVisible();
+    expect(screen.queryByText('Bu tarayıcıda anlık bildirim kapatıldı.')).toBeNull();
+    expect(screen.getByText('Açık')).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Bu tarayıcıda anlık bildirimi kapat' }),
+    ).toBeEnabled();
   });
 });

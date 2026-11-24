@@ -5,9 +5,10 @@ import { currentSubscription, pushSupported, toSubscriptionBody } from '@/lib/pu
  * Bu tarayıcının push aboneliğini bırakır: sunucuda iptal, sonra `subscription.unsubscribe()`.
  * Sunucu hatası olsa bile tarayıcı aboneliği HER ZAMAN bırakılır (paylaşılan cihazda sonraki kişi bildirim görmesin).
  *
- * Kimlik, aynı uç noktayla idempotent `POST` ile bulunur: liste maskelidir (uç nokta dönmez), eşleştirme yapılamaz.
- * Sunucu bu çağrıyı geçerli oturuma bağlar (eski oturumda açılmış satır iptal edilip yenilenir), böylece
- * süresi dolmuş eski oturumdan kalan abonelik de bırakılır.
+ * Sunucuda uç noktayla tanımlanan `POST /me/push-subscriptions/release` kullanılır: kimlik aramak için abone
+ * olma çağrısı yapılmaz (sahte denetim çifti ve kota harcaması olmaz). Sunucu uç noktayı kanonikleştirir ve
+ * oturumdan bağımsız yalnız kullanıcının KENDİ etkin satırını iptal eder; yoksa da 204 döner.
+ * `released`: tarayıcı aboneliği gerçekten bırakıldı mı (`unsubscribe()` sonucu).
  */
 export async function releasePushSubscription(): Promise<{ released: boolean; error?: unknown }> {
   if (!pushSupported()) return { released: false };
@@ -17,11 +18,12 @@ export async function releasePushSubscription(): Promise<{ released: boolean; er
   } catch (error) {
     return { released: false, error };
   }
-  if (!subscription) return { released: false };
+  // Bırakılacak tarayıcı aboneliği yok (zaten kapalı): sonuç "bırakıldı" sayılır, sunucuya gidilmez.
+  if (!subscription) return { released: true };
   let failure: unknown;
   try {
-    const existing = await pushApi.subscribe(toSubscriptionBody(subscription));
-    await pushApi.unsubscribe(existing.id);
+    const { endpoint } = toSubscriptionBody(subscription);
+    await pushApi.release(endpoint);
   } catch (error) {
     failure = error;
   }

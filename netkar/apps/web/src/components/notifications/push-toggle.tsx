@@ -110,7 +110,11 @@ export function PushToggle() {
 
   const disable = useCallback(async (vapid: VapidKey) => {
     // Sunucu hatası olsa da tarayıcı aboneliği bırakılır; hata ayrıca gösterilir.
-    const { error } = await releasePushSubscription();
+    const { released, error } = await releasePushSubscription();
+    if (!released) {
+      // Tarayıcı aboneliği bırakılamadı: "kapatıldı" denmez, durum "açık" kalır ve hata gösterilir.
+      throw error ?? new Error('Tarayıcı aboneliği bırakılamadı');
+    }
     setPhase({ kind: 'ready', vapid, subscribed: false });
     if (error !== undefined) throw error;
     setMessage('Bu tarayıcıda anlık bildirim kapatıldı.');
