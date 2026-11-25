@@ -6,14 +6,15 @@
 | Saat | 08:50 TRT (30 günlük plan) |
 | Anahtar kelime | GÜVEN |
 | Yazım hatası | "müşterilerni" (doğrusu: müşterilerini) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Düzeltme | 25 Kasım: "Bu yıl satıcılar da hedefte" ve "basına yansıyan uyarılara göre ... satıcı panellerini de hedefliyor" ikinci kaynakla doğrulanamadı; genel ve doğrulanabilir ifadeye çevrildi. Video açılışında "Bu yıl satıcılar da hedefte" yazısı duruyor. |
+| Doğrulama | 25 Kasım akşamı bakıldı: kampanya döneminde taklit alan adı ve marka adına sahte e-posta uyarıları var (İstiklal, Kaspersky/NTV); 2026'ya özgü satıcı hedefli resmi uyarı bulunamadı. Metinde tek hata: müşterilerni. |
 
 ## Açıklama
 
 ```
-Efsane Cuma'da markanı taklit eden bir site ya da hesap çıkabilir. Bu yıl satıcılar da hedefte.
+Efsane Cuma'da markanı taklit eden bir site ya da hesap çıkabilir. Satıcılar da hedefte.
 
-Basına yansıyan uyarılara göre kampanya döneminde sahte siteler, sahte sosyal medya hesapları ve sahte bağlantılar artıyor; dolandırıcılar artık yalnızca tüketiciyi değil satıcı panellerini de hedefliyor. Müşterine resmi kanallarını bugün duyur: tek resmi web adresin, resmi hesapların ve asla şifre ya da kart bilgisi istemediğin. Bir Story'yi öne çıkanlara sabitlemek yeterli.
+Kampanya dönemlerinde harf değiştirilmiş taklit alan adları, sahte sosyal medya hesapları ve büyük markalar adına gönderilen sahte e-postalar artıyor; aynı tuzaklar satıcı panellerinin giriş bilgilerini de hedef alabiliyor. Müşterine resmi kanallarını bugün duyur: tek resmi web adresin, resmi hesapların ve asla şifre ya da kart bilgisi istemediğin. Bir Story'yi öne çıkanlara sabitlemek yeterli.
 
 Ekip tarafında da kontrol yap. Panel, reklam ve e-posta hesaplarında iki adımlı doğrulama açık olsun; ayrılan çalışanların erişimi kapansın. "Acil ödeme" ya da "hesabınız askıya alınacak" diyen e-postadaki bağlantıya tıklama, önce telefonla teyit et. Taklit bulursan kanıtı al, platformun taklit bildirme formunu kullan ve müşterilerni hemen bilgilendir.
 
