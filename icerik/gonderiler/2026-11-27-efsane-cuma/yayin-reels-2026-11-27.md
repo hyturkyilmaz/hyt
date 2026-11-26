@@ -6,7 +6,7 @@
 | Saat | 21:20 TRT (30 günlük plan) |
 | Anahtar kelime | CANLI |
 | Yazım hatası | "dönşüm" (doğrusu: dönüşüm) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 26 Kasım akşamı bakıldı: haber içermiyor; Efsane Cuma 27 Kasım 2026 (22 Kasım doğrulaması). Metin "bugün" diye yazılmış, 21:20 paylaşımında gece 23.00 notu hâlâ geçerli. Metinde tek hata: dönşüm. |
 
 ## Açıklama
 
