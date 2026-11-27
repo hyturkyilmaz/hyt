@@ -6,7 +6,7 @@
 | Saat | 21:20 TRT (30 günlük plan) |
 | Anahtar kelime | KARGO |
 | Yazım hatası | "Gecikmyi" (doğrusu: Gecikmeyi) |
-| Doğrulama | Gönderim akşamı tekrar bakılır |
+| Doğrulama | 27 Kasım akşamı bakıldı: haber içermiyor; ticari elektronik ileti notu ihtiyatlı ve "hukuki görüş değildir" uyarısı var. Metinde tek hata: Gecikmyi. |
 
 ## Açıklama
 
