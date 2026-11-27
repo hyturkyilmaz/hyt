@@ -1,0 +1,60 @@
+{
+  "id": "2026-12-09-ai-icerik-takvimi",
+  "tarih": "2026-12-09",
+  "gun": "Çarşamba",
+  "sutun": "ai",
+  "anahtar": "TAKVİM",
+  "muzik_tohum": 73,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "AI · İçerik planı", "baslik": "2027'nin ilk 90 gününü _bir saatte_ planla.",
+     "alt": "Claude ile çeyreklik içerik takvimi: **sütunlar, özel günler, formatlar.**",
+     "zaman": [{"t": "Ocak", "s": "Yeni yıl, planlama", "renk": "seo"}, {"t": "Şubat", "s": "Ramazan başlangıcı", "renk": "ecom"}, {"t": "Mart", "s": "Bayram, 8 Mart", "renk": "ads"}, {"t": "Sen", "s": "Takvimin hazır mı?", "renk": "ai"}],
+     "kaynak": "Özel gün tarihleri için resmi takvimi kontrol et."},
+    {"tip": "kural", "num": "01", "kicker": "Prompt", "baslik": "Takvimi _bağlamla_ iste.",
+     "alt": "\"Bana içerik takvimi yap\" yerine dört bilgi ver.",
+     "kod": ["<span class=\"k\">MARKA</span> ne satıyorsun, kime, hangi tonda", "<span class=\"k\">SÜTUN</span> 4 konu başlığı ve oranları", "<span class=\"k\">TARİH</span> kampanya ve özel günler", "<span class=\"k\">FORMAT</span> carousel, Reels, Story dağılımı", "<span class=\"k\">ÇIKTI</span> tablo: tarih, sütun, konu, format, hedef"],
+     "prompt": "Bu bağlamla Ocak-Mart 2027 için haftada 5 gönderilik bir içerik takvimi hazırla. Her satırda tarih, sütun, konu, format ve tek cümlelik hedef olsun. Özel günlerde ticari olmayan bir paylaşım öner.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "matris", "num": "02", "kicker": "Sütunlar", "baslik": "İçeriği _4 sütuna_ böl",
+     "basliklar": ["Sütun", "Pay", "Örnek"],
+     "satirlar": [[["ecom", "E-ticaret"], "%30", "Kampanya hazırlığı, iade, stok"], [["ads", "Reklam"], "%25", "Bütçe, kreatif, ölçüm"], [["ai", "AI"], "%25", "Prompt, ajan, otomasyon"], [["seo", "SEO ve GEO"], "%20", "Ürün sayfası, AI görünürlük"]],
+     "kaynak": "Bu hesabın sütun dağılımı; kendi kitlene göre ayarla."},
+    {"tip": "akis", "kicker": "Akış", "renk": "ai", "baslik": "Takvimden _yayına_",
+     "satirlar": [[{"ad": "Bağlam", "alt": "Marka, sütun, tarih", "ikon": "belge", "renk": "ink"}, {"ad": "Claude", "alt": "90 günlük tablo", "ikon": "sohbet", "renk": "ai"}, {"ad": "Kontrol", "alt": "Tarih ve hassasiyet", "ikon": "kalkan", "renk": "seo"}],
+                   [{"ad": "Haftalık brief", "alt": "Pazar akşamı", "ikon": "saat", "renk": "ecom"}, {"ad": "Üretim", "alt": "Slayt, Reels, Story", "ikon": "kutu", "renk": "ads"}],
+                   [{"ad": "Yayın", "alt": "En iyi saatte", "ikon": "onay", "renk": "ai", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım içerik akışı"},
+    {"tip": "oncesonra", "num": "03", "kicker": "Özel günler", "baslik": "Her özel gün _satış günü_ değildir.",
+     "once": {"dosya": "her_gun_satis", "etiket": "Fırsatçı", "basliklar": ["Gün", "Paylaşım"], "satirlar": [["Ramazan başı", "İndirim kodu"], ["Bayram", "Bayram indirimi!"], ["8 Mart", "Kadınlara özel %20"]]},
+     "sonra": {"dosya": "anlamli_paylasim", "etiket": "Saygılı", "basliklar": ["Gün", "Paylaşım"], "satirlar": [["Ramazan başı", "Kısa tebrik, ticari değil"], ["Bayram", "Tebrik + kargo çalışma saatleri"], ["8 Mart", "Ekipteki kadınların hikâyesi"]]},
+     "kaynak": "Örnek yaklaşım"},
+    {"tip": "ekran", "kicker": "Çıktı", "baslik": "İlk haftanın _takvimi_",
+     "pencere": "Claude · 2027 Q1 takvimi", "istek": "Ocak'ın ilk haftasını tablo olarak ver.",
+     "yanit": "**90 günlük takvim hazır.** İlk hafta aşağıda.",
+     "tablo": {"basliklar": ["Tarih", "Sütun", "Format"], "satirlar": [["4 Ocak", "Reklam", "Carousel"], ["5 Ocak", "AI", "Reels"], ["6 Ocak", "E-ticaret", "Carousel"], ["7 Ocak", "SEO", "Reels"]], "vurgu_sutun": -1},
+     "evet": "Onayla", "hayir": "Düzenle", "aksiyon": "Her pazar bir sonraki haftayı gözden geçir.", "kaynak": "Örnek çıktı"},
+    {"tip": "cta", "anahtar": "TAKVİM", "vaat": "**90 günlük içerik takvimi prompt'unu** ve tablo şablonunu DM'den göndereyim."}
+  ],
+  "aciklama": "2027'nin ilk 90 gününün içerik takvimini Claude ile bir saatte çıkarabilirsin. Yeter ki ona doğru bağlamı ver.\n\n\"Bana içerik takvimi yap\" demek yerine dört bilgi ver: ne sattığın ve kime, dört içerik sütunu ve oranları, kampanya ve özel günler, format dağılımı. Çıktıyı tablo olarak iste: tarih, sütun, konu, format ve tek cümlelik hedef. Sonra takvimni bir kez de sen kontrol et; tarihler ve hassas günler insan gözünden geçmeli.\n\nÖzel günler konusunda bir not: her özel gün satış günü değil. Ramazan'ın başında, bayramda ya da 8 Mart'ta indirim kodu yerine kısa bir tebrik ya da anlamlı bir hikâye paylaşmak markaya daha çok güven kazandırıyor. Bayramda kargo çalışma saatlerini duyurmak ise hem faydalı hem saygılı.\n\nPlan yapmak geleceği bilmek değil, sürprizlere hazırlıklı olmak.\n\nKaydırınca prompt iskeletini, sütun dağılımını ve özel gün yaklaşımını göreceksin.\n\nYorumlara TAKVİM yaz, 90 günlük içerik takvimi prompt'unu DM'den göndereyim.\n\n#icerikpazarlamasi #yapayzeka #claude #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "takvimni", "dogrusu": "takvimini", "paragraf": 2},
+  "dogrulama": ["Diyanet İşleri Başkanlığı dini günler takvimi (2027 tarihleri için kontrol edilecek)", "Danışmanlık içerik planlama notları"],
+  "senaryo": [
+    {"tts": "İki bin yirmi yedinin ilk doksan gününü bir saatte planla.", "altyazi": "2027'nin ilk 90 gününü bir saatte planla."},
+    {"tts": "Bir. Klod'a dört bilgi ver: marka, sütunlar, tarihler ve formatlar.", "altyazi": "1. Claude'a 4 bilgi ver: marka, sütunlar, tarihler ve formatlar."},
+    {"tts": "Çıktıyı tablo olarak iste: tarih, sütun, konu, format ve hedef.", "altyazi": "Çıktıyı tablo olarak iste: tarih, sütun, konu, format ve hedef."},
+    {"tts": "İki. İçeriği dört sütuna böl: e-ticaret, reklam, yapay zekâ ve SEO.", "altyazi": "2. İçeriği 4 sütuna böl: e-ticaret, reklam, AI ve SEO."},
+    {"tts": "Üç. Her özel gün satış günü değildir. Ramazan ve bayramda kısa bir tebrik yeter.", "altyazi": "3. Her özel gün satış günü değildir. Ramazan ve bayramda kısa bir tebrik yeter."},
+    {"tts": "Tarihleri ve hassas günleri bir kez de sen kontrol et.", "altyazi": "Tarihleri ve hassas günleri bir kez de sen kontrol et."},
+    {"tts": "Takvim prompt'unu istiyorsan yorumlara takvim yaz. Di emden göndereyim.", "altyazi": "Takvim prompt'unu istiyorsan yorumlara TAKVİM yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "90 Günlük _İçerik Takvimi_", "kicker": "Prompt + şablon · AI · İçerik",
+    "giris": "Claude ile Ocak-Mart 2027 içerik takvimini çıkar. Özel gün tarihlerini resmi takvimden kontrol et.",
+    "bolumler": [
+      {"ad": "Bağlam", "renk": "ai", "maddeler": [["Marka", "Ne satıyorsun, kime, hangi tonda; 3 örnek cümle."], ["Sütunlar", "4 konu başlığı ve oranları."], ["Tarihler", "Kampanyalar ve özel günler."], ["Formatlar", "Carousel, Reels, Story dağılımı."]]},
+      {"ad": "Çıktı", "renk": "seo", "maddeler": [["Tablo", "Tarih, sütun, konu, format, hedef."], ["Haftalık brief", "Her pazar bir sonraki hafta gözden geçirilir."], ["Esneklik", "Haftada 1 boş slot gündem için."]]},
+      {"ad": "Özel günler", "renk": "ecom", "maddeler": [["Ticari olmayan paylaşım", "Ramazan başı ve bayramda kısa tebrik."], ["Faydalı bilgi", "Bayramda kargo ve müşteri hizmetleri saatleri."], ["Kontrol", "Tarihler resmi takvimden doğrulanır."]]}
+    ]
+  }
+}

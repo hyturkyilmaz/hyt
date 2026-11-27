@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-28-kargo-iletisim",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Efsane Cuma'nın ertesi günü kargo gecikir. Müşteri bunu senden duysun.",
+   "altyazi": "Efsane Cuma'nın ertesi günü kargo gecikir. Müşteri bunu senden duysun."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Dört mesaj: onay, kargoda, gerekirse gecikme ve teslimde teşekkür.",
+   "altyazi": "4 mesaj: onay, kargoda, gerekirse gecikme ve teslimde teşekkür."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Gecikme mesajında açık özür, kısa neden, yeni tarih ve iptal seçeneği olsun.",
+   "altyazi": "1. Gecikme mesajında açık özür, kısa neden, yeni tarih ve iptal seçeneği olsun."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Gecikme belli olduğu anda yaz. Müşteri sormadan.",
+   "altyazi": "2. Gecikme belli olduğu anda yaz. Müşteri sormadan."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Kargo mesajına reklam ve indirim kodu ekleme.",
+   "altyazi": "3. Kargo mesajına reklam ve indirim kodu ekleme."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Önce en uzun gecikmeye ve hediye notlu siparişlere yaz.",
+   "altyazi": "Önce en uzun gecikmeye ve hediye notlu siparişlere yaz."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Mesaj şablonlarını istiyorsan yorumlara kargo yaz. Di emden göndereyim.",
+   "altyazi": "Mesaj şablonlarını istiyorsan yorumlara KARGO yaz. DM'den göndereyim."
+  }
+ ]
+}

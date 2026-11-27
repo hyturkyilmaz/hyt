@@ -1,0 +1,61 @@
+{
+  "id": "2026-11-02-efsane-kasim",
+  "tarih": "2026-11-02",
+  "gun": "Pazartesi",
+  "sutun": "ecom",
+  "anahtar": "KASIM",
+  "muzik_tohum": 36,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Kasım kampanyaları", "baslik": "11.11'e _9 gün_ kaldı.",
+     "alt": "Kampanya günü değil, **önceki 9 gün** satışı belirliyor.",
+     "zaman": [{"t": "2 Kasım", "s": "Hazırlık başlar", "renk": "ink"}, {"t": "11 Kasım", "s": "11.11", "renk": "ecom"}, {"t": "27 Kasım", "s": "Efsane Cuma", "renk": "ads"}, {"t": "30 Kasım", "s": "Siber Pazartesi", "renk": "seo"}],
+     "kaynak": "Takvim: Kasım 2026"},
+    {"tip": "akis", "kicker": "Geri sayım", "renk": "ecom", "baslik": "9 günlük _hazırlık_",
+     "satirlar": [[{"ad": "Gün 1-2", "alt": "Stok ve fiyat kaydı", "ikon": "veri", "renk": "ink"}, {"ad": "Gün 3-4", "alt": "Vitrin ürünleri", "ikon": "magaza", "renk": "ecom"}, {"ad": "Gün 5-6", "alt": "Reklam ön ısınma", "ikon": "hoparlor", "renk": "ads"}],
+                   [{"ad": "Gün 7", "alt": "Mobil test", "ikon": "arama", "renk": "seo"}, {"ad": "Gün 8", "alt": "Hazır yanıtlar", "ikon": "sohbet", "renk": "ai"}],
+                   [{"ad": "Gün 9", "alt": "Son kontrol", "ikon": "onay", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım hazırlık sırası"},
+    {"tip": "matris", "num": "01", "kicker": "Vitrin", "baslik": "Her ürünün _bir görevi_ var.",
+     "alt": "Vitrinde 4 tip ürün olsun; hepsine aynı indirimi verme.",
+     "basliklar": ["Ürün tipi", "Görevi", "Not"],
+     "satirlar": [[["ecom", "Trafik ürünü"], "Ziyaretçi çeker", "Stok derin olmalı"], [["ads", "Sepet büyüten"], "Ortalama sepeti artırır", "Paket ya da aksesuar"], [["seo", "Kâr ürünü"], "Marjı korur", "İndirim düşük"], [["ai", "Stok eritme"], "Nakde çevirir", "Sezon sonu ürünler"]],
+     "kaynak": "Örnek sınıflama; kendi verine göre uyarla."},
+    {"tip": "kural", "num": "02", "kicker": "Reklam", "baslik": "Reklamı _önceden ısıt._",
+     "alt": "Kampanya günü açılan reklam, öğrenme süresini en pahalı günde geçirir.",
+     "kod": ["<span class=\"c\"># ön ısınma · 5 gün önce</span>", "<span class=\"k\">GÜN -5</span> kampanya görselleriyle reklam açılır", "<span class=\"k\">GÜN -3</span> ilk sonuçlar, zayıf görseller kapanır", "<span class=\"k\">GÜN 0</span> bütçe artışı, yeni kampanya yok", "<span class=\"g\">→</span> bütçeyi kademeli artır, bir kerede değil"],
+     "prompt": "11.11 için 4 vitrin ürünümün bilgilerini paylaşıyorum. Her biri için 5 gün önceden açılacak bir reklam metni ve kampanya günü kullanılacak bir güncelleme metni yaz.",
+     "kaynak": "Bütçe artış oranı hesabına ve geçmiş verine göre değişir."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Müşteri hizmetleri", "baslik": "Soruları _önceden_ yanıtla.",
+     "once": {"dosya": "anlik_yanit", "etiket": "Geç ve dağınık", "basliklar": ["Soru", "Yanıt"], "satirlar": [["Kargo ne zaman?", "Bakıp dönüyoruz"], ["İade var mı?", "Bilmiyorum"], ["İndirim sepette mi?", "Yanıt yok"]]},
+     "sonra": {"dosya": "hazir_yanit", "etiket": "Hızlı ve net", "basliklar": ["Soru", "Hazır yanıt"], "satirlar": [["Kargo ne zaman?", "2 iş günü içinde"], ["İade var mı?", "14 gün cayma hakkı"], ["İndirim sepette mi?", "Fiyat sayfada yazılı"]]},
+     "kaynak": "Cayma hakkı: Mesafeli Sözleşmeler Yönetmeliği"},
+    {"tip": "ekran", "kicker": "Mobil test", "baslik": "Kampanya sayfasını _telefonda_ dene.",
+     "pencere": "Claude · sayfa kontrolü", "istek": "Kampanya sayfasını mobilde kontrol et.",
+     "yanit": "**4 sorun buldum.** İkisi satışı doğrudan etkiliyor.",
+     "tablo": {"basliklar": ["Kontrol", "Durum", "Etki"], "satirlar": [["Açılış süresi", "4,8 sn", "Yüksek"], ["Şartlar görselde", "Yok", "Yüksek"], ["Sepete ekle", "Ekran dışında", "Orta"], ["Bitiş saati", "Yazılmamış", "Orta"]], "vurgu_sutun": 2},
+     "evet": "Düzelt", "hayir": "Sonra", "aksiyon": "Kampanyadan 2 gün önce yeniden test et.", "kaynak": "Temsili kontrol"},
+    {"tip": "cta", "anahtar": "KASIM", "vaat": "**9 günlük kampanya hazırlık listesini** DM'den göndereyim."}
+  ],
+  "aciklama": "11.11'e 9 gün kaldı. Kampanya günü değil, önceki 9 gün satışı belirliyor.\n\nKasım'da üç büyük gün var: 11 Kasım, 27 Kasım Efsane Cuma ve 30 Kasım Siber Pazartesi. Çoğu mağaza hazırlığa son hafta başlıyor ve reklamı kampanya günü açıyor. O gün reklam hem öğreniyor hem de en pahalı trafiğe çıkıyor.\n\nBu 9 güne bir sıra ver: önce stok ve fiyat kaydı, sonra vitrin ürünleri, reklam ön ısınması, mobil test ve hazır yanıtlar. Kargo ve lojistk tarafını da bu listeye yaz; gecikme yaşanırsa ilk yorum oradan gelir.\n\nKampanya gecesi panik yaşayan ekip, genelde eksik bilgiyle değil eksik sırayla çalışmıştır.\n\nKaydırınca geri sayımı, vitrin ürün tiplerini ve mobil test tablosunu göreceksin.\n\nYorumlara KASIM yaz, 9 günlük hazırlık listesini DM'den göndereyim.\n\n#eticaret #efsanecuma #kasimindirimi #1111 #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "lojistk", "dogrusu": "lojistik", "paragraf": 3},
+  "dogrulama": ["Takvim: Kasım 2026", "Mesafeli Sözleşmeler Yönetmeliği (14 gün cayma hakkı)", "Ticaret Bakanlığı 10 gün kuralı (AA), 2026"],
+  "senaryo": [
+    {"tts": "On bir on bire dokuz gün kaldı. Satışı kampanya günü değil, önceki dokuz gün belirliyor.", "altyazi": "11.11'e 9 gün kaldı. Satışı kampanya günü değil, önceki 9 gün belirliyor."},
+    {"tts": "Önce stok ve fiyat kaydı, sonra vitrin, reklam, mobil test ve hazır yanıtlar.", "altyazi": "Önce stok ve fiyat kaydı, sonra vitrin, reklam, mobil test ve hazır yanıtlar."},
+    {"tts": "Bir. Vitrinde her ürünün bir görevi olsun. Trafik, sepet, kâr ve stok eritme.", "altyazi": "1. Vitrinde her ürünün bir görevi olsun. Trafik, sepet, kâr ve stok eritme."},
+    {"tts": "İki. Reklamı beş gün önceden aç. Kampanya günü sadece bütçeyi artır.", "altyazi": "2. Reklamı 5 gün önceden aç. Kampanya günü sadece bütçeyi artır."},
+    {"tts": "Üç. Kargo, iade ve indirim sorularına hazır yanıt yaz.", "altyazi": "3. Kargo, iade ve indirim sorularına hazır yanıt yaz."},
+    {"tts": "Son olarak kampanya sayfasını telefonda dene. Açılış süresi ve şartlar görünür mü?", "altyazi": "Son olarak kampanya sayfasını telefonda dene. Açılış süresi ve şartlar görünür mü?"},
+    {"tts": "Hazırlık listesini istiyorsan yorumlara kasım yaz. Di emden göndereyim.", "altyazi": "Hazırlık listesini istiyorsan yorumlara KASIM yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "9 Günlük _Kampanya Hazırlığı_", "kicker": "Kontrol listesi · E-ticaret · Kasım",
+    "giris": "11.11, Efsane Cuma ve Siber Pazartesi için gün gün hazırlık. Fiyat etiketleri için 10 gün kuralını da hesaba kat.",
+    "bolumler": [
+      {"ad": "Ürün ve fiyat", "renk": "ecom", "maddeler": [["Fiyat kaydı", "Her ürünün son 10 günlük fiyatı tabloda."], ["Stok derinliği", "Vitrin ürünlerinde kampanya günü için yeterli stok."], ["Vitrin dağılımı", "Trafik, sepet büyüten, kâr ve stok eritme ürünleri ayrı."], ["Etiket kontrolü", "İndirim oranı son 10 günün en düşük fiyatına göre."]]},
+      {"ad": "Reklam ve sayfa", "renk": "ads", "maddeler": [["Ön ısınma", "Reklamlar kampanyadan 5 gün önce açık."], ["Kademeli bütçe", "Bütçe tek seferde değil, adım adım artar."], ["Mobil test", "Açılış süresi, şartlar, sepete ekle ve bitiş saati kontrol edildi."]]},
+      {"ad": "Hizmet", "renk": "ai", "maddeler": [["Hazır yanıtlar", "Kargo, iade ve indirim soruları için onaylı metinler."], ["Cayma hakkı", "14 günlük cayma hakkı bilgisi sayfada ve yanıtlarda doğru."], ["Kargo planı", "Kargo firmasıyla kampanya günü teslim alma saati konuşuldu."]]}
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-26-dolandiricilik",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Efsane Cuma'da markanı taklit eden bir site çıkabilir. Bu yıl satıcılar da hedefte.",
+   "altyazi": "Efsane Cuma'da markanı taklit eden bir site çıkabilir. Bu yıl satıcılar da hedefte."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Üç tuzak: sahte site, sahte sosyal hesap ve sahte panel e-postası.",
+   "altyazi": "3 tuzak: sahte site, sahte sosyal hesap ve sahte panel e-postası."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Resmi kanallarını bugün duyur. Şifre ve kart bilgisi istemediğini yaz.",
+   "altyazi": "1. Resmi kanallarını bugün duyur. Şifre ve kart bilgisi istemediğini yaz."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Taklit bulursan kanıt al, platforma bildir, müşterini bilgilendir.",
+   "altyazi": "2. Taklit bulursan kanıt al, platforma bildir, müşterini bilgilendir."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Ekipte iki adımlı doğrulama açık olsun. E-postadaki bağlantıdan giriş yok.",
+   "altyazi": "3. Ekipte iki adımlı doğrulama açık olsun. E-postadaki bağlantıdan giriş yok."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Benzer alan adlarını listele, her pazartesi tara.",
+   "altyazi": "Benzer alan adlarını listele, her pazartesi tara."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Güvenlik listesini istiyorsan yorumlara güven yaz. Di emden göndereyim.",
+   "altyazi": "Güvenlik listesini istiyorsan yorumlara GÜVEN yaz. DM'den göndereyim."
+  }
+ ]
+}

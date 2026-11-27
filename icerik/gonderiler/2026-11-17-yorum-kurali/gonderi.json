@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-17-yorum-kurali",
+  "tarih": "2026-11-17",
+  "gun": "Salı",
+  "sutun": "ecom",
+  "anahtar": "YORUM",
+  "muzik_tohum": 51,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Yorum kuralları", "baslik": "Olumsuz yorumu _silemezsin._ Cevaplayabilirsin.",
+     "alt": "1 Ağustos'tan beri yorum kuralları değişti. **Efsane Cuma'dan önce kontrol et.**",
+     "zaman": [{"t": "1 Ağustos", "s": "Yeni kurallar", "renk": "ecom"}, {"t": "Yorum", "s": "Yalnız satın alan", "renk": "seo"}, {"t": "1 yıl", "s": "Erişilebilir kalır", "renk": "ads"}, {"t": "Sen", "s": "Yanıt şablonun hazır mı?", "renk": "ai"}],
+     "kaynak": "Kaynak: NTV · Sözcü · CHIP Online, 2026. Hukuki görüş değildir."},
+    {"tip": "matris", "num": "01", "kicker": "Kurallar", "baslik": "Yorumlarda _ne değişti?_",
+     "basliklar": ["Konu", "Kural", "Senin işin"],
+     "satirlar": [[["ecom", "Kim yorum yapar?"], "Ürünü satın alan", "Doğrulanmış alışveriş"], [["ads", "Olumsuz yorum"], "Yalnız olumsuz diye silinmez", "Cevapla"], [["seo", "Süre"], "En az 1 yıl erişilebilir", "Arşivleme yok"], [["ai", "Sıralama"], "Objektif ölçüt", "Tarih, puan"]],
+     "kaynak": "Ticari Reklam ve Haksız Ticari Uygulamalar Yönetmeliği değişikliği (basın aktarımı)"},
+    {"tip": "akis", "kicker": "Yanıt akışı", "renk": "ecom", "baslik": "Olumsuz yorumdan _güvene_",
+     "satirlar": [[{"ad": "Olumsuz yorum", "alt": "Herkese açık", "ikon": "sohbet", "renk": "ink"}, {"ad": "24 saat", "alt": "İçinde yanıt", "ikon": "saat", "renk": "ecom"}, {"ad": "Özür + çözüm", "alt": "Somut adım", "ikon": "onay", "renk": "ads"}],
+                   [{"ad": "Özel kanal", "alt": "Sipariş detayı", "ikon": "kalkan", "renk": "ai"}, {"ad": "Kök neden", "alt": "Kargo, ürün, sayfa", "ikon": "arama", "renk": "seo"}],
+                   [{"ad": "Düzeltme", "alt": "Aynı sorun tekrar etmez", "ikon": "kutu", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım yanıt akışı"},
+    {"tip": "oncesonra", "num": "02", "kicker": "Yanıt", "baslik": "Yanıt _şablonu_",
+     "once": {"dosya": "savunmaci_yanit", "etiket": "Savunmacı", "basliklar": ["Bölüm", "Metin"], "satirlar": [["Giriş", "Sistemimizde hata yok"], ["Gövde", "Kargo firmasının sorunu"], ["Kapanış", "-"]]},
+     "sonra": {"dosya": "cozumcu_yanit", "etiket": "Çözümcü", "basliklar": ["Bölüm", "Metin"], "satirlar": [["Giriş", "Haklısınız, üzgünüz"], ["Gövde", "Siparişiniz bugün yeniden çıktı"], ["Kapanış", "DM'den takip numarası"]]},
+     "kaynak": "Örnek metin"},
+    {"tip": "kural", "num": "03", "kicker": "Yasaklar", "baslik": "Bunları _yapma._",
+     "alt": "Yapay etkileşim hizmeti sunan adreslere erişim engeli getirildi.",
+     "kod": ["<span class=\"c\"># yorum yasakları</span>", "<span class=\"k\">YOK</span> satın alınmış yorum, puan", "<span class=\"k\">YOK</span> yalnız olumsuz olduğu için silme", "<span class=\"k\">YOK</span> olumluları öne iten sıralama", "<span class=\"k\">YOK</span> çalışana yazdırılan yorum"],
+     "prompt": "Ekteki 50 olumsuz yorumu sınıflandır: kargo, ürün kalitesi, beden, iletişim. Her sınıf için tek bir kök neden ve önleyici aksiyon öner. Yorum sahiplerinin adlarını çıktıya koyma.",
+     "kaynak": "Hukuki görüş değildir; tereddütte uzmana danış."},
+    {"tip": "ekran", "kicker": "Analiz", "baslik": "Olumsuz yorumlar _ne söylüyor?_",
+     "pencere": "Claude · yorum analizi", "istek": "50 olumsuz yorumu sınıflandır.",
+     "yanit": "**Yorumların %46'sı kargo kaynaklı.**",
+     "tablo": {"basliklar": ["Sınıf", "Pay", "Aksiyon"], "satirlar": [["Kargo gecikmesi", "%46", "Teslim süresini güncelle"], ["Beden uyumsuz", "%28", "Beden tablosu ekle"], ["Ürün kalitesi", "%18", "Tedarikçiyle görüş"]], "vurgu_sutun": 1},
+     "evet": "Aksiyon al", "hayir": "Sonra", "aksiyon": "Kök nedeni çöz, yorum azalır.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "YORUM", "vaat": "**Olumsuz yorum yanıt şablonlarını** (5 durum) DM'den göndereyim."}
+  ],
+  "aciklama": "Olumsuz yorumu artık silemezsin. Ama cevaplayabilirsin ve çoğu zaman bu daha çok işe yarar.\n\n1 Ağustos 2026'da yürürlüğe giren yönetmelik değişikliğiyle, basına yansıyan bilgilere göre ürün değerlendirmesi yalnızca ürünü satın alanlara açık. Olumlu ve olumsuz yorumlar ayrım yapılmadan yayınlanıyor ve en az bir yıl erişilebilir kalıyor; bir yorum yalnızca olumsuz olduğu için silinemiyor. Sıralama da tarih ya da puan gibi objektif ölçütlerle yapılmalı. Bu not hukuki görüş değildir.\n\nEfsane Cuma haftasında yorum sayısı artacak. Hazır yanıt şablonu olmadan 24 saat içinde cevaplamk zor. Olumsuz yorumları sınıflandırınca çoğunun aynı kök nedenden geldiğini görüyorsun: kargo, beden ya da ürün sayfası.\n\nBir olumsuz yoruma verilen iyi yanıt, onu okuyan yüz kişiye markanın karakterini gösteriyor.\n\nKaydırınca yeni kuralları, yanıt akışını ve şablonu göreceksin.\n\nYorumlara YORUM yaz, olumsuz yorum yanıt şablonlarını DM'den göndereyim.\n\n#eticaret #musterideneyimi #efsanecuma #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "cevaplamk", "dogrusu": "cevaplamak", "paragraf": 3},
+  "dogrulama": ["NTV: Online alışverişte sahte yoruma erişim engeli", "Sözcü: 1 Ağustos'ta alışveriş yorumlarında yeni dönem", "CHIP Online", "Ticari Reklam ve Haksız Ticari Uygulamalar Yönetmeliği"],
+  "senaryo": [
+    {"tts": "Olumsuz yorumu artık silemezsin. Ama cevaplayabilirsin.", "altyazi": "Olumsuz yorumu artık silemezsin. Ama cevaplayabilirsin."},
+    {"tts": "Yorumu yalnız satın alan yapar, yorumlar en az bir yıl erişilebilir kalır.", "altyazi": "Yorumu yalnız satın alan yapar, yorumlar en az bir yıl erişilebilir kalır."},
+    {"tts": "Bir. Olumsuz yoruma yirmi dört saat içinde yanıt ver: özür, çözüm, özel kanal.", "altyazi": "1. Olumsuz yoruma 24 saat içinde yanıt ver: özür, çözüm, özel kanal."},
+    {"tts": "İki. Savunma değil çözüm yaz. Siparişiniz bugün yeniden çıktı gibi.", "altyazi": "2. Savunma değil çözüm yaz. \"Siparişiniz bugün yeniden çıktı\" gibi."},
+    {"tts": "Üç. Satın alınmış yorum, seçici silme ve yönlendiren sıralama yok.", "altyazi": "3. Satın alınmış yorum, seçici silme ve yönlendiren sıralama yok."},
+    {"tts": "Olumsuz yorumları sınıflandır, kök nedeni çöz. Bu hukuki görüş değildir.", "altyazi": "Olumsuz yorumları sınıflandır, kök nedeni çöz. Hukuki görüş değildir."},
+    {"tts": "Yanıt şablonlarını istiyorsan yorumlara yorum yaz. Di emden göndereyim.", "altyazi": "Yanıt şablonlarını istiyorsan yorumlara YORUM yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Olumsuz Yorum _Yanıt Şablonları_", "kicker": "Şablon · E-ticaret · Müşteri deneyimi",
+    "giris": "1 Ağustos 2026'dan beri olumsuz yorumlar yalnızca olumsuz olduğu için silinemiyor. Bu şablonlar hızlı ve çözümcü yanıt için. Hukuki görüş değildir.",
+    "bolumler": [
+      {"ad": "Şablonlar", "renk": "ecom", "maddeler": [["Kargo gecikmesi", "Özür, yeni teslim tarihi, takip numarası DM'den."], ["Beden uyumsuz", "Ücretsiz değişim yolu ve beden tablosu bağlantısı."], ["Hasarlı ürün", "Fotoğraf isteği özel kanaldan, aynı gün yeni gönderim."], ["İletişim gecikmesi", "Bekleme için özür, sorumlu kişinin adı."], ["Haksız yorum", "Sakin, kanıtlı açıklama; kişisel veri paylaşılmaz."]]},
+      {"ad": "Kurallar", "renk": "ads", "maddeler": [["Süre", "24 saat içinde ilk yanıt."], ["Kişisel veri", "Herkese açık yanıtta sipariş ve adres bilgisi yok."], ["Silme", "Yalnızca olumsuz olduğu için yorum silinmez."]]},
+      {"ad": "Analiz", "renk": "seo", "maddeler": [["Haftalık sınıflama", "Kargo, beden, kalite, iletişim."], ["Kök neden", "Her sınıf için tek önleyici aksiyon."]]}
+    ]
+  }
+}

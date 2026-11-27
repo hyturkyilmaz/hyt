@@ -1,0 +1,48 @@
+{
+ "id": "2026-10-31-indirim-10-gun",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Kasım indiriminde etiketteki oran, son on günün en düşük fiyatına göre hesaplanmalı.",
+   "altyazi": "Kasım indiriminde etiketteki oran, son 10 günün en düşük fiyatına göre hesaplanmalı."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Kampanyadan önce fiyatı artırırsan, yüzde otuz bir yazan etiketin gerçeği yüzde on sekiz çıkabilir.",
+   "altyazi": "Kampanyadan önce fiyatı artırırsan, %31 yazan etiketin gerçeği %18 çıkabilir."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "İdari para cezası, mecraya göre yüz sekiz bin liradan yaklaşık kırk milyon liraya kadar çıkıyor.",
+   "altyazi": "İdari para cezası, mecraya göre 108 bin liradan yaklaşık 40 milyon liraya kadar çıkıyor."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Bir. Fiyat geçmişini her gün kaydet. Denetimde ispat senden istenir.",
+   "altyazi": "1. Fiyat geçmişini her gün kaydet. Denetimde ispat senden istenir."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. Şartları, stok bilgisini ve kampanya süresini açık yaz.",
+   "altyazi": "2. Şartları, stok bilgisini ve kampanya süresini açık yaz."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Etiketleri toplu kontrol et, yanlış oranı yayından önce düzelt.",
+   "altyazi": "3. Etiketleri toplu kontrol et, yanlış oranı yayından önce düzelt."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Kontrol tablosunu istiyorsan yorumlara fiyat yaz. Di emden göndereyim.",
+   "altyazi": "Kontrol tablosunu istiyorsan yorumlara FIYAT yaz. DM'den göndereyim."
+  }
+ ]
+}

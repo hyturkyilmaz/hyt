@@ -1,0 +1,48 @@
+{
+ "id": "2026-12-02-iade-yonetimi",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Kampanyanın ikinci dalgası şimdi geliyor: iadeler.",
+   "altyazi": "Kampanyanın ikinci dalgası şimdi geliyor: iadeler."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "On dört günlük cayma süresi işliyor. Bildirimden sonra on dört gün içinde geri ödeme.",
+   "altyazi": "14 günlük cayma süresi işliyor. Bildirimden sonra 14 gün içinde geri ödeme."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. İadeyi zorlaştırma. Tek sayfa form, anında kargo kodu.",
+   "altyazi": "1. İadeyi zorlaştırma. Tek sayfa form, anında kargo kodu."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Neden seçimini zorunlu yap, haftada bir sınıfla.",
+   "altyazi": "2. Neden seçimini zorunlu yap, haftada bir sınıfla."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Örnek: iadelerin yüzde kırk biri beden, yüzde yirmi üçü görselden farklı.",
+   "altyazi": "Örnek: iadelerin %41'i beden, %23'ü görselden farklı."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Her nedene bir düzeltme: ölçü tablosu, gün ışığında fotoğraf. Bu hukuki görüş değildir.",
+   "altyazi": "3. Her nedene bir düzeltme: ölçü tablosu, gün ışığında fotoğraf. Hukuki görüş değildir."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Analiz tablosunu istiyorsan yorumlara iade yaz. Di emden göndereyim.",
+   "altyazi": "Analiz tablosunu istiyorsan yorumlara İADE yaz. DM'den göndereyim."
+  }
+ ]
+}

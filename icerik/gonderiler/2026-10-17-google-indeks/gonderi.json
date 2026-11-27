@@ -1,0 +1,138 @@
+{
+  "id": "2026-10-17-google-indeks",
+  "tarih": "2026-10-17",
+  "gun": "Cumartesi",
+  "sutun": "seo",
+  "anahtar": "INDEKS",
+  "muzik_tohum": 5,
+  "slaytlar": [
+    {
+      "tip": "kapak",
+      "kicker": "SEO · Google zamanlamaları",
+      "baslik": "Google değişikliğini _ne zaman_ görür?",
+      "alt": "Google'ın kendi verdiği süreler ve **Claude ile kontrol** yöntemi.",
+      "zaman": [
+        {"t": "~20 saat", "s": "Yeni sayfa bulunur", "renk": "ads"},
+        {"t": "~30 gün", "s": "Bilinen sayfa taranır", "renk": "seo"},
+        {"t": "1-3 ay", "s": "Site taşıma", "renk": "ecom"},
+        {"t": "3-6 ay", "s": "Güncelleme toparlanması", "renk": "ai"}
+      ],
+      "kaynak": "Kaynak: Gary Illyes, Search Central Live, Barselona, 2 Ekim 2026"
+    },
+    {
+      "tip": "grafik",
+      "kicker": "Tipik süreler",
+      "renk": "seo",
+      "baslik": "Bekleme _cetveli_",
+      "barlar": [
+        {"ad": "Uçtan uca dizine ekleme", "etiket": "~1,5 saat", "deger": 1.5, "renk": "ads"},
+        {"ad": "Yeni sayfanın bulunması", "etiket": "~20 saat", "deger": 20, "renk": "ads"},
+        {"ad": "Bilinen sayfanın yeniden taranması", "etiket": "~30 gün", "deger": 720, "renk": "seo"},
+        {"ad": "Çekirdek güncelleme toparlanması", "etiket": "3-6 ay", "deger": 3240, "renk": "ai"}
+      ],
+      "not": "Ölçek doğrusal, kısa süreler çizgi kadar. Google 'tipik' kelimesini tanımlamadı; en yavaş durumlar haftalar ile hiçbir zaman arasında.",
+      "kaynak": "Kaynak: ROAST ve PPC Land özetleri, Ekim 2026"
+    },
+    {
+      "tip": "ekran",
+      "kicker": "Nasıl kontrol ederim?",
+      "baslik": "Search Console + _Claude_",
+      "pencere": "Claude · Search Console bağlantısı",
+      "istek": "Gösterimi sıfır olan sayfaları listele.",
+      "yanit": "**4 sayfa buldum.** 2'si henüz dizinde değil.",
+      "tablo": {
+        "basliklar": ["Sayfa", "Gösterim", "Dizin", "Öneri"],
+        "satirlar": [["/kategori/keten-gomlek", "0", "Hayır", "İç bağlantı"], ["/blog/iade-rehberi", "0", "Hayır", "Site haritası"], ["/urun/pamuk-sort-s", "0", "Evet", "Başlık"], ["/kampanya/ekim", "0", "Evet", "Kontrol"]],
+        "vurgu_sutun": 2
+      },
+      "evet": "Raporu kaydet",
+      "hayir": "Sonra",
+      "aksiyon": "Dizin durumu için URL denetimi bağlantısı gerekir.",
+      "kaynak": "Örnek veri"
+    },
+    {
+      "tip": "akis",
+      "kicker": "Ne zaman endişelenmeli?",
+      "renk": "seo",
+      "baslik": "Karar _ağacı_",
+      "satirlar": [
+        [{"ad": "Yeni sayfa", "alt": "Yayınlandı", "ikon": "belge", "renk": "seo"},
+         {"ad": "2 gün", "alt": "Hâlâ bulunmadı mı?", "ikon": "saat", "renk": "ads"},
+         {"ad": "Site haritası", "alt": "Gönder, iç bağlantı ver", "ikon": "veri", "renk": "ecom"}],
+        [{"ad": "30 gün", "alt": "Güncelleme görünmedi mi?", "ikon": "saat", "renk": "ai"},
+         {"ad": "URL denetimi", "alt": "Yeniden tarama iste", "ikon": "arama", "renk": "seo"}],
+        [{"ad": "Güncelleme sonrası", "alt": "3-6 ay sabır", "ikon": "grafik", "renk": "ecom"},
+         {"ad": "İçerik kalitesi", "alt": "Asıl iş", "ikon": "onay", "renk": "ads", "insan": true}]
+      ],
+      "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]],
+      "kaynak": "Eşikler: Illyes'in verdiği tipik sürelerden türetildi"
+    },
+    {
+      "tip": "kural",
+      "num": "01",
+      "kicker": "Prompt",
+      "baslik": "Bu prompt'u _kaydet._",
+      "alt": "Search Console bağlıysa her pazartesi çalıştır.",
+      "kod": [
+        "<span class=\"c\"># haftalık dizin kontrolü</span>",
+        "<span class=\"k\">KAYNAK</span> Search Console, son 28 gün",
+        "<span class=\"k\">FİLTRE</span> gösterim = 0",
+        "<span class=\"g\">→</span> dizin durumunu kontrol et",
+        "<span class=\"g\">→</span> <span class=\"k\">öneri yaz, değiştirme</span>"
+      ],
+      "prompt": "Search Console verimden son 28 günde hiç gösterim almayan sayfaları çıkar. Her biri için dizin durumunu yaz ve tek cümlelik bir öneri ekle. Hiçbir ayarı değiştirme.",
+      "kaynak": "Dizin kontrolü, URL denetimi destekleyen bir bağlayıcı gerektirir."
+    },
+    {
+      "tip": "matris",
+      "num": "02",
+      "kicker": "Beklenti",
+      "baslik": "Değişikliğe göre _beklenti_",
+      "basliklar": ["Değişiklik", "Tipik süre", "Ne yapmalı"],
+      "satirlar": [
+        [["seo", "Yeni blog yazısı"], "~20 saat keşif", "İç bağlantı ver"],
+        [["ecom", "Mevcut sayfa güncellemesi"], "~30 gün", "Yeniden tarama iste"],
+        [["ads", "Site taşıma"], "1-3 ay", "Yönlendirme haritası"],
+        [["ai", "Çekirdek güncelleme"], "3-6 ay", "İçerik kalitesi"]
+      ],
+      "kaynak": "Kaynak: Illyes, 2 Ekim 2026 (üçüncü taraf özetleri)"
+    },
+    {
+      "tip": "cta",
+      "anahtar": "INDEKS",
+      "vaat": "**Haftalık dizin kontrolü** prompt setini DM'den göndereyim."
+    }
+  ],
+  "aciklama": "Google bir değişikliği ne zaman görür? Bu sefer cevabı Google'ın kendisi verdi.\n\n2 Ekim'de Barselona'daki Search Central Live'da Gary Illyes tipik süreleri paylaştı: yeni bir sayfa yaklaşık 20 saatte bulunuyor, bilinen bir sayfa ortalama 30 günde yeniden taranıyor, çekirdek güncelleme sonrası toparlanma 3 ile 6 ay sürüyor.\n\nDanışmanlıkta en sık duyduğum soru \"yazıyı yayınladım, neden görünmüyor?\" Artık elimizde bir ölçü var. İki gün geçtiyse ve sayfa bulunmadıysa bakmak gerekiyor; iki saat geçtiyse beklemek.\n\nBelirsizlik insanı aceleye iter, acele de gereksiz değişiklik yaptırır. Bekleme süresini bilmek bile insanı sakinleştiriyor.\n\nKaydırınca gösterim almayan sayfalrın nasıl bulunacağını ve kaydedeceğin prompt'u göreceksin.\n\nYorumlara INDEKS yaz, haftalık dizin kontrolü prompt setini DM'den göndereyim.\n\n#seo #googleseo #searchconsole #yapayzeka #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "sayfalrın", "dogrusu": "sayfaların", "paragraf": 5},
+  "dogrulama": ["ROAST etkinlik özeti, Ekim 2026", "PPC Land", "Relevant Audience özeti"],
+  "senaryo": [
+    {"tts": "Google bir değişikliği ne zaman görür? Bu sefer cevabı Google'ın kendisi verdi.", "altyazi": "Google bir değişikliği ne zaman görür? Bu sefer cevabı Google'ın kendisi verdi."},
+    {"tts": "Yeni sayfa yaklaşık yirmi saatte bulunuyor. Bilinen sayfa otuz günde yeniden taranıyor. Güncelleme sonrası toparlanma üç ile altı ay.", "altyazi": "Yeni sayfa yaklaşık 20 saatte bulunuyor. Bilinen sayfa 30 günde yeniden taranıyor. Güncelleme sonrası toparlanma 3-6 ay."},
+    {"tts": "Search Console'u Klod'a bağla, gösterim almayan sayfaları listelet.", "altyazi": "Search Console'u Claude'a bağla, gösterim almayan sayfaları listelet."},
+    {"tts": "İki gün geçtiyse ve sayfa bulunmadıysa bak. İki saat geçtiyse bekle.", "altyazi": "İki gün geçtiyse ve sayfa bulunmadıysa bak. İki saat geçtiyse bekle."},
+    {"tts": "Bu promptu kaydet, her pazartesi çalıştır.", "altyazi": "Bu prompt'u kaydet, her pazartesi çalıştır."},
+    {"tts": "Değişikliğin türüne göre beklentini ayarla, gereksiz değişiklik yapma.", "altyazi": "Değişikliğin türüne göre beklentini ayarla, gereksiz değişiklik yapma."},
+    {"tts": "Prompt setini istiyorsan yorumlara indeks yaz. Di emden göndereyim.", "altyazi": "Prompt setini istiyorsan yorumlara INDEKS yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Haftalık _Dizin Kontrolü_",
+    "kicker": "Prompt seti · SEO · Search Console",
+    "giris": "Search Console'u bir yapay zekâ asistanına bağladıysan bu promptları her pazartesi sırayla çalıştır. Hiçbiri ayar değiştirmez, yalnızca rapor ve öneri üretir.",
+    "bolumler": [
+      {"ad": "Bulunma ve dizin", "renk": "seo", "maddeler": [
+        ["Gösterim almayan sayfalar", "Son 28 günde gösterimi 0 olan sayfaları listele; dizin durumunu ve tek cümlelik öneriyi yaz."],
+        ["Yeni sayfalar", "Son 7 günde yayınlanan sayfalardan 48 saati geçip hâlâ bulunmayanları işaretle."],
+        ["Site haritası farkı", "Site haritasında olup dizinde olmayan URL'leri çıkar."],
+        ["İç bağlantı açığı", "Hiç iç bağlantı almayan sayfaları bul, bağlantı verebilecek 3 sayfa öner."]]},
+      {"ad": "Performans", "renk": "ads", "maddeler": [
+        ["Düşen sorgular", "Önceki 28 güne göre tıklaması %30'dan fazla düşen sorguları listele."],
+        ["Fırsat sorguları", "Ortalama sırası 8-20 arası, gösterimi yüksek sorguları çıkar."],
+        ["Başlık önerisi", "Tıklama oranı düşük 5 sayfa için yeni başlık önerisi yaz."]]},
+      {"ad": "Beklenti", "renk": "ai", "maddeler": [
+        ["Süre kontrolü", "Değişiklik yaptığın sayfaları tarih ve tipik süreyle eşleştir (20 saat, 30 gün, 3-6 ay)."],
+        ["Değişiklik günlüğü", "Hangi tarihte neyi değiştirdiğini tek tabloda tut."],
+        ["Karar kuralı", "Tipik süre dolmadan aynı sayfada ikinci değişikliği yapma."]]}
+    ]
+  }
+}

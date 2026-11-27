@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-07-geo-gorunurluk",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Yapay zekâ asistanlar seni öneriyor mu? Ayda bir saatte ölçebilirsin.",
+   "altyazi": "AI asistanlar seni öneriyor mu? Ayda bir saatte ölçebilirsin."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "On soru, dört asistan: Çet Ci Pi Ti, Cemini, Klod ve Pörpleksiti.",
+   "altyazi": "10 soru, 4 asistan: ChatGPT, Gemini, Claude ve Perplexity."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Her yanıtta iki şeye bak: anıldın mı, kaynak oldun mu?",
+   "altyazi": "1. Her yanıtta iki şeye bak: anıldın mı, kaynak oldun mu?"
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Örnek: kırk yanıtın dokuzunda anıldın, dördünde kaynak sendin.",
+   "altyazi": "Örnek: 40 yanıtın 9'unda anıldın, 4'ünde kaynak sendin."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. Hiç anılmadığın sorudan başla, o soruya cevap veren sayfa yaz.",
+   "altyazi": "2. Hiç anılmadığın sorudan başla, o soruya cevap veren sayfa yaz."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Net cevap ilk iki cümlede, kanıt rakamla, güncelleme tarihi görünür.",
+   "altyazi": "3. Net cevap ilk 2 cümlede, kanıt rakamla, güncelleme tarihi görünür."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Ölçüm tablosunu istiyorsan yorumlara ge e o yaz. Di emden göndereyim.",
+   "altyazi": "Ölçüm tablosunu istiyorsan yorumlara GEO yaz. DM'den göndereyim."
+  }
+ ]
+}

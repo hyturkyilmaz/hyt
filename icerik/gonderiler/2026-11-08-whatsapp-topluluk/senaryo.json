@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-08-whatsapp-topluluk",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "İnstagram'da görünürsün, Vatsap Topluluğu'nda konuşursun.",
+   "altyazi": "Instagram'da görünürsün, WhatsApp Topluluğu'nda konuşursun."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Yorum, di em, topluluk. Bir duyuru grubu ve dört konu grubu.",
+   "altyazi": "Yorum, DM, topluluk. Bir duyuru grubu ve 4 konu grubu."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Numaran kime görünür, davet mesajında açıkça yaz. Duyuru grubunda sadece yöneticiler görür.",
+   "altyazi": "1. Numaran kime görünür, davet mesajında açıkça yaz. Duyuru grubunda sadece yöneticiler görür."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Haftada üç mesaj: pazartesi gelişme, çarşamba soru, cuma şablon.",
+   "altyazi": "2. Haftada 3 mesaj: pazartesi gelişme, çarşamba soru, cuma şablon."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Duyuruyu kısa yaz: tek başlık, üç madde, tek bağlantı.",
+   "altyazi": "3. Duyuruyu kısa yaz: tek başlık, 3 madde, tek bağlantı."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Haftanın sorularını özetle, kişi bilgilerini çıkar, cevabı cuma paylaş.",
+   "altyazi": "Haftanın sorularını özetle, kişi bilgilerini çıkar, cevabı cuma paylaş."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Kurulum şablonunu istiyorsan yorumlara topluluk yaz. Di emden göndereyim.",
+   "altyazi": "Kurulum şablonunu istiyorsan yorumlara TOPLULUK yaz. DM'den göndereyim."
+  }
+ ]
+}

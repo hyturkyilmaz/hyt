@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-13-kasim-denetim",
+  "tarih": "2026-11-13",
+  "gun": "Cuma",
+  "sutun": "ecom",
+  "anahtar": "ETIKET",
+  "muzik_tohum": 47,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Kasım denetimi", "baslik": "Bakanlık Kasım boyunca _her kanalda_ bakıyor.",
+     "alt": "Efsane Cuma'dan önce kampanya metnini **4 kalemde** kontrol et.",
+     "zaman": [{"t": "28 Ekim", "s": "Bakanlık açıklaması", "renk": "ink"}, {"t": "Kasım", "s": "Ay boyu inceleme", "renk": "ecom"}, {"t": "27 Kasım", "s": "Efsane Cuma", "renk": "ads"}, {"t": "Sen", "s": "Metnin hazır mı?", "renk": "seo"}],
+     "kaynak": "Kaynak: Ticaret Bakanlığı açıklaması (basın aktarımı), Ekim 2026"},
+    {"tip": "matris", "num": "01", "kicker": "Denetim konuları", "baslik": "Bakanlığın _baktığı_ 4 kalem",
+     "basliklar": ["Kalem", "Sık hata", "Doğrusu"],
+     "satirlar": [[["ecom", "Başlangıç ve bitiş"], "\"Sınırlı süre\"", "Tarih ve saat yaz"], [["ads", "İndirim oranı"], "\"%70'e varan\"", "Tek, ispatlı oran"], [["seo", "Şartlar"], "Küçük yazı", "Okunur, görselde"], [["ai", "Referans fiyat"], "Önceden zam", "Son 10 günün en düşüğü"]],
+     "kaynak": "Hukuki görüş değildir. Resmi metin için Bakanlık duyurusuna bak."},
+    {"tip": "oncesonra", "num": "02", "kicker": "Örnek metin", "baslik": "Aynı kampanya, _iki_ metin",
+     "once": {"dosya": "riskli_banner", "etiket": "Riskli", "basliklar": ["Alan", "Metin"], "satirlar": [["Başlık", "Her şey %70'e varan indirimde"], ["Süre", "Sınırlı süre!"], ["Şart", "(*) Bazı ürünlerde"]]},
+     "sonra": {"dosya": "uyumlu_banner", "etiket": "Uyumlu", "basliklar": ["Alan", "Metin"], "satirlar": [["Başlık", "Seçili 120 üründe %25 indirim"], ["Süre", "23 Kasım 10:00 - 30 Kasım 23:59"], ["Şart", "Sepette 500 TL üzeri, ürün listesi ekte"]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "akis", "kicker": "Onay akışı", "renk": "ecom", "baslik": "Yayından önce _tek_ kontrol",
+     "satirlar": [[{"ad": "Kampanya metni", "alt": "Banner, reklam, e-posta", "ikon": "belge", "renk": "ink"}, {"ad": "4 kalem", "alt": "Tarih, oran, şart, fiyat", "ikon": "kalkan", "renk": "ecom"}, {"ad": "Fiyat kaydı", "alt": "Son 10 gün", "ikon": "veri", "renk": "seo"}],
+                   [{"ad": "Düzelt", "alt": "Eksik varsa", "ikon": "kutu", "renk": "ads"}, {"ad": "Arşivle", "alt": "Ekran görüntüsü + tarih", "ikon": "saat", "renk": "ai"}],
+                   [{"ad": "Yayın", "alt": "Onaylı metin", "ikon": "onay", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım onay akışı"},
+    {"tip": "kural", "num": "03", "kicker": "Prompt", "baslik": "Metni _AI ile_ tara.",
+     "alt": "Son kararı sen ya da hukukçun verirsin; tarama zamanı kazandırır.",
+     "kod": ["<span class=\"c\"># kampanya metni taraması</span>", "<span class=\"k\">ARA</span> tarihsiz süre ifadesi", "<span class=\"k\">ARA</span> \"varan\", \"başlayan\" oranlar", "<span class=\"k\">ARA</span> görselde olmayan şart", "<span class=\"g\">→</span> her bulguya düzeltilmiş metin öner"],
+     "prompt": "Ekteki kampanya metinlerini tara: tarihsiz süre ifadeleri, belirsiz indirim oranları ve gizli şartları işaretle. Her biri için tarih, tek oran ve açık şart içeren düzeltilmiş metin öner.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "ekran", "kicker": "Tarama sonucu", "baslik": "12 metinden _5'i_ düzeltilmeli.",
+     "pencere": "Claude · kampanya metni kontrolü", "istek": "Bu 12 kampanya metnini kontrol et.",
+     "yanit": "**5 metinde eksik var.**",
+     "tablo": {"basliklar": ["Kanal", "Sorun", "Durum"], "satirlar": [["Ana banner", "Bitiş saati yok", "Düzelt"], ["Meta reklamı", "\"%70'e varan\"", "Düzelt"], ["E-posta", "-", "Uygun"], ["Pop-up", "Şart görünmüyor", "Düzelt"]], "vurgu_sutun": 2},
+     "evet": "Düzelt", "hayir": "Bekle", "aksiyon": "Onaylı metnin ekran görüntüsünü arşivle.", "kaynak": "Temsili kontrol"},
+    {"tip": "cta", "anahtar": "ETIKET", "vaat": "**Kampanya metni kontrol listesini** (4 kalem) DM'den göndereyim."}
+  ],
+  "aciklama": "Ticaret Bakanlığı Kasım indirimlerini bu ay her kanalda inceliyor. Efsane Cuma'dan önce kampanya metnine bir kez daha bakmanın tam zamanı.\n\nBasına yansıyan 28 Ekim açıklamasına göre Bakanlık, indirimli satış reklamlarını yayınlandığı platformdan bağımsız olarak ay boyunca takip ediyor; hem kendi başlattığı incelemeler hem şikâyetler değerlendiriliyor. Kampanyanın başlangıç ve bitiş tarihinin yazılmaması ve birden fazla indirim oranının kullanılması da denetim konuları arasında.\n\nPratikte dört kalem yeterli: tarih ve saat, tek ve ispatlı oran, okunur şart, son 10 günün en düşük fiyatına dayanan referans. Onaylanan metnin ekran görüntüsünü tarihiyle arşivlemk de denetimde elindeki en sağlam kanıt olur. Bu liste hukuki görüş değildir.\n\nMüşteri indirime değil, indirimin gerçek olduğuna güvenmek istiyor. Net metin bu güveni kuruyor.\n\nKaydırınca dört kalemi, örnek metinleri ve onay akışını göreceksin.\n\nYorumlara ETIKET yaz, kampanya metni kontrol listesini DM'den göndereyim.\n\n#eticaret #efsanecuma #kasimindirimi #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "arşivlemk", "dogrusu": "arşivlemek", "paragraf": 3},
+  "dogrulama": ["Ticaret Bakanlığı, 28 Ekim 2026 açıklaması (Yeni Ankara, Gzt aktarımı)", "Ticari Reklam ve Haksız Ticari Uygulamalar Yönetmeliği", "Ticaret Bakanlığı (AA), 10 gün kuralı"],
+  "senaryo": [
+    {"tts": "Ticaret Bakanlığı Kasım indirimlerini bu ay her kanalda inceliyor.", "altyazi": "Ticaret Bakanlığı Kasım indirimlerini bu ay her kanalda inceliyor."},
+    {"tts": "Dört kalem: başlangıç ve bitiş, indirim oranı, şartlar ve referans fiyat.", "altyazi": "4 kalem: başlangıç ve bitiş, indirim oranı, şartlar ve referans fiyat."},
+    {"tts": "Bir. Sınırlı süre yerine tarih ve saat yaz. Yüzde yetmişe varan yerine tek ve ispatlı oran.", "altyazi": "1. \"Sınırlı süre\" yerine tarih ve saat yaz. \"%70'e varan\" yerine tek ve ispatlı oran."},
+    {"tts": "İki. Yayından önce tek kontrol: dört kalem, fiyat kaydı, sonra arşiv.", "altyazi": "2. Yayından önce tek kontrol: 4 kalem, fiyat kaydı, sonra arşiv."},
+    {"tts": "Üç. Metinleri yapay zekâyla tara, son kararı sen ver.", "altyazi": "3. Metinleri AI ile tara, son kararı sen ver."},
+    {"tts": "Onaylı metnin ekran görüntüsünü tarihiyle sakla. Bu hukuki görüş değildir.", "altyazi": "Onaylı metnin ekran görüntüsünü tarihiyle sakla. Hukuki görüş değildir."},
+    {"tts": "Kontrol listesini istiyorsan yorumlara etiket yaz. Di emden göndereyim.", "altyazi": "Kontrol listesini istiyorsan yorumlara ETIKET yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Kampanya Metni _Kontrol Listesi_", "kicker": "Kontrol listesi · E-ticaret · Mevzuat",
+    "giris": "Kasım boyunca indirim reklamları her kanalda inceleniyor. Bu liste hukuki görüş değildir; tereddütte resmi metne ve uzmana başvur.",
+    "bolumler": [
+      {"ad": "Metin", "renk": "ecom", "maddeler": [["Başlangıç ve bitiş", "Gün ve saatiyle; \"sınırlı süre\" yerine."], ["Tek oran", "Her ürün için ispatlanabilir tek indirim oranı."], ["Okunur şart", "Sepet tutarı, ürün kapsamı ana görselde."], ["Ürün listesi", "Kampanyaya giren ürünler erişilebilir."]]},
+      {"ad": "Fiyat", "renk": "ads", "maddeler": [["Referans fiyat", "İndirim öncesi son 10 günün en düşük fiyatı."], ["Fiyat kaydı", "Günlük fiyat tablosu saklanıyor."], ["Stok", "Kampanya ürününde gerçek stok bilgisi."]]},
+      {"ad": "Kanıt", "renk": "seo", "maddeler": [["Arşiv", "Onaylanan her metnin tarihli ekran görüntüsü."], ["Kanal listesi", "Banner, reklam, e-posta, sosyal medya, pop-up."], ["Sorumlu", "Son onayı veren kişi belli."]]}
+    ]
+  }
+}

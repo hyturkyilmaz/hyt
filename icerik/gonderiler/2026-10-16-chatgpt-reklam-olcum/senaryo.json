@@ -1,0 +1,48 @@
+{
+ "id": "2026-10-16-chatgpt-reklam-olcum",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Çet Ci Pi Ti reklamları artık ölçülebiliyor. Bütçe ayırmadan önce kurman gereken üç ölçüm katmanı var.",
+   "altyazi": "ChatGPT reklamları artık ölçülebiliyor. Bütçe ayırmadan önce kurman gereken 3 ölçüm katmanı var."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Kullanıcı soruyor, reklam öneri olarak çıkıyor, tıklama sitene geliyor, satış verisi atıf aracına dönüyor.",
+   "altyazi": "Kullanıcı soruyor, reklam öneri olarak çıkıyor, tıklama sitene geliyor, satış verisi atıf aracına dönüyor."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Paylaşılan ilk vakada edinme maliyeti yüzde on beş daha düşük çıktı. Ama bu tek vaka, genelleme yapma.",
+   "altyazi": "Paylaşılan ilk vakada edinme maliyeti %15 daha düşük çıktı. Ama bu tek vaka, genelleme yapma."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Bir. UTM'yi standart yap. Kaynak adı tutarsızsa raporda görünmez.",
+   "altyazi": "1. UTM'yi standart yap. Kaynak adı tutarsızsa raporda görünmez."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. Sunucu tarafı olayları aç. Piksel tek başına eksik kalıyor.",
+   "altyazi": "2. Sunucu tarafı olayları aç. Piksel tek başına eksik kalıyor."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Küçük bütçeyle artış testi yap. Reklam olmasa da satış gelir miydi, bunu ölç.",
+   "altyazi": "3. Küçük bütçeyle artış testi yap. Reklam olmasa da satış gelir miydi, bunu ölç."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Kontrol listesini istiyorsan yorumlara reklam yaz. Di emden göndereyim.",
+   "altyazi": "Kontrol listesini istiyorsan yorumlara REKLAM yaz. DM'den göndereyim."
+  }
+ ]
+}

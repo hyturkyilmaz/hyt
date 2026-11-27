@@ -1,0 +1,48 @@
+{
+ "id": "2026-10-29-google-ai-mode",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Google'ın yapay zekâ cevaplarında bağlantılar yukarı çıkıyor. Reklamın da organiğin de yeri değişiyor.",
+   "altyazi": "Google'ın yapay zekâ cevaplarında bağlantılar yukarı çıkıyor. Reklamın da organiğin de yeri değişiyor."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Cevapta üç yer var: satır içi bağlantılar, resmi site bölümü ve reklam.",
+   "altyazi": "Cevapta üç yer var: satır içi bağlantılar, resmi site bölümü ve reklam."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Reklam için ayrı kampanya yok. Performans Maks, geniş eşleme ve AI Maks oraya çıkabiliyor.",
+   "altyazi": "1. Reklam için ayrı kampanya yok. Performance Max, geniş eşleme ve AI Max oraya çıkabiliyor."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Tercih edilen kaynak kullanımı yılbaşından beri yedi kat artmış. Ama tıklama artışı vaadi yok.",
+   "altyazi": "Tercih edilen kaynak kullanımı yılbaşından beri 7 kat artmış. Ama tıklama artışı vaadi yok."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. Sayfanı alıntılanabilir yap. Net cevap ilk yüz kelimede olsun.",
+   "altyazi": "2. Sayfanı alıntılanabilir yap. Net cevap ilk 100 kelimede olsun."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Resmi sayfanı kontrol et. Marka aramasında doğru sayfa açılıyor mu?",
+   "altyazi": "3. Resmi sayfanı kontrol et. Marka aramasında doğru sayfa açılıyor mu?"
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Hazırlık listesini istiyorsan yorumlara google yaz. Di emden göndereyim.",
+   "altyazi": "Hazırlık listesini istiyorsan yorumlara GOOGLE yaz. DM'den göndereyim."
+  }
+ ]
+}

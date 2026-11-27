@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-03-chatgpt-vitrin",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Çet Ci Pi Ti ürün öneriyor, satış senin sitende bitiyor.",
+   "altyazi": "ChatGPT ürün öneriyor, satış senin sitende bitiyor."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Müşteri soruyor, asistan kıyaslıyor, ödeme senin sitende yapılıyor.",
+   "altyazi": "Müşteri soruyor, asistan kıyaslıyor, ödeme senin sitende yapılıyor."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Asistan başlığı, fiyatı, özellikleri ve yorumları okuyor. Belirsiz bilgi elenir.",
+   "altyazi": "1. Asistan başlığı, fiyatı, özellikleri ve yorumları okuyor. Belirsiz bilgi elenir."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Ürün kartını kıyaslanabilir yaz. Yüzde yüz keten, beden tablosu ekli.",
+   "altyazi": "2. Ürün kartını kıyaslanabilir yaz. %100 keten, beden tablosu ekli."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Ce a dört'te yapay zekâ trafiğini ayrı bir kanalda ölç.",
+   "altyazi": "3. GA4'te AI trafiğini ayrı bir kanalda ölç."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Ayda bir kendi ürününü sor ve sonucu kaydet.",
+   "altyazi": "Ayda bir kendi ürününü sor ve sonucu kaydet."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Ürün kartı şablonunu istiyorsan yorumlara vitrin yaz. Di emden göndereyim.",
+   "altyazi": "Ürün kartı şablonunu istiyorsan yorumlara VITRIN yaz. DM'den göndereyim."
+  }
+ ]
+}

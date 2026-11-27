@@ -1,0 +1,59 @@
+{
+  "id": "2026-12-03-ikinci-siparis",
+  "tarih": "2026-12-03",
+  "gun": "Perşembe",
+  "sutun": "ecom",
+  "anahtar": "İKİNCİ",
+  "muzik_tohum": 67,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Müşteri tutma", "baslik": "Kampanya müşteri getirdi. _İkinci sipariş_ seni büyütür.",
+     "alt": "Yeni müşterinin çoğu bir daha gelmez. **İlk 45 gün belirleyici.**",
+     "zaman": [{"t": "7. gün", "s": "Kullanım ipucu", "renk": "seo"}, {"t": "21. gün", "s": "Tamamlayıcı ürün", "renk": "ecom"}, {"t": "45. gün", "s": "Yeniden hatırlatma", "renk": "ads"}, {"t": "Önce", "s": "İzin", "renk": "ai"}],
+     "kaynak": "Danışmanlıkta kullandığım müşteri tutma akışı"},
+    {"tip": "grafik", "kicker": "Örnek", "renk": "ecom", "baslik": "İkinci siparişin _değeri_",
+     "barlar": [{"ad": "Tek sipariş veren", "etiket": "1x", "deger": 1, "renk": "ink", "alt": "Kampanya müşterisinin çoğu"}, {"ad": "İkinci sipariş veren", "etiket": "3x", "deger": 3, "renk": "ecom", "alt": "Yıllık değer, örnek"}],
+     "not": "Örnek oran. Kendi verinde tek ve tekrar eden müşterinin yıllık değerini karşılaştır.",
+     "kaynak": "Temsili veri"},
+    {"tip": "akis", "kicker": "Akış", "renk": "ecom", "baslik": "Teslimden _ikinci siparişe_",
+     "satirlar": [[{"ad": "Teslim", "alt": "Kısa teşekkür", "ikon": "kutu", "renk": "ink"}, {"ad": "İzin var mı?", "alt": "Ticari ileti onayı", "ikon": "kalkan", "renk": "ai"}, {"ad": "7. gün", "alt": "Kullanım ipucu", "ikon": "belge", "renk": "seo"}],
+                   [{"ad": "21. gün", "alt": "Tamamlayıcı ürün", "ikon": "sepet", "renk": "ecom"}, {"ad": "45. gün", "alt": "Yeniden hatırlatma", "ikon": "saat", "renk": "ads"}],
+                   [{"ad": "İkinci sipariş", "alt": "Müşteri karar verir", "ikon": "onay", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "İzin yoksa yalnızca reklam kitlesi ve organik içerik."},
+    {"tip": "matris", "num": "01", "kicker": "İçerik", "baslik": "Her mesajın _bir işi_ var",
+     "basliklar": ["Gün", "Mesaj", "Amaç"],
+     "satirlar": [[["seo", "7. gün"], "Ürünü nasıl kullanırsın, nasıl bakarsın", "Memnuniyet"], [["ecom", "21. gün"], "Bununla iyi giden 3 ürün", "Sepet genişletme"], [["ads", "45. gün"], "Yenileme zamanı ya da yeni sezon", "Geri dönüş"]],
+     "kaynak": "Örnek akış"},
+    {"tip": "kural", "num": "02", "kicker": "İzin", "baslik": "İzin yoksa _e-posta yok._",
+     "alt": "İzin olmadan da ikinci siparişe giden yollar var.",
+     "kod": ["<span class=\"c\"># izinsiz müşteri için</span>", "<span class=\"k\">REKLAM</span> müşteri kitlesi değil, site ziyaretçisi kitlesi", "<span class=\"k\">PAKET</span> kutuya kullanım kartı", "<span class=\"k\">SAYFA</span> sipariş sayfasında tamamlayıcı ürün", "<span class=\"k\">İZİN</span> teslim sonrası izin rica et, zorlama"],
+     "prompt": "Ekteki ürün listesinde her ürün için birlikte alınabilecek 3 tamamlayıcı ürün öner ve 21. gün e-postası için 60 kelimeyi geçmeyen bir metin yaz.",
+     "kaynak": "Hukuki görüş değildir. Müşteri listesi reklam platformuna yüklenecekse KVKK aydınlatma ve açık rıza koşullarını kontrol et."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Paket", "baslik": "Kutunun içi de _bir kanal_",
+     "once": {"dosya": "bos_kutu", "etiket": "Sadece ürün", "basliklar": ["İçerik", "Durum"], "satirlar": [["Ürün", "Var"], ["Kart", "Yok"], ["Sonraki adım", "Yok"]]},
+     "sonra": {"dosya": "kartli_kutu", "etiket": "Kullanım kartı", "basliklar": ["İçerik", "Durum"], "satirlar": [["Ürün", "Var"], ["Kart", "Bakım ipucu + QR"], ["Sonraki adım", "Topluluk ve izin daveti"]]},
+     "kaynak": "Örnek uygulama"},
+    {"tip": "cta", "anahtar": "İKİNCİ", "vaat": "**İkinci sipariş akışı şablonunu** (7-21-45. gün) DM'den göndereyim."}
+  ],
+  "aciklama": "Kampanya sana yeni müşteri getirdi. Seni asıl büyütecek olan, bu müşterinin ikinci siparişi.\n\nKampanyayla gelen müşterinin çoğu bir daha gelmiyor; ilk 45 gün belirleyici. İzin vermiş müşteri için üç mesaj yeterli: 7. gün ürünü nasıl kullanacağını anlatan bir ipucu, 21. gün onunla iyi giden tamamlayıcı ürünler, 45. gün yenileme zamanı ya da yeni sezon hatırlatması.\n\nİzin yoksa e-posta yok. Ama başka yollar var: kutunun içine bakım ipucu ve QR kodlu bir kart, sipariş sayfasında tamamlayıcı ürünler ve site ziyaretçilerine yönelik reklam. Teslimden sonra kibarca izin istemek de olur, zorlamak olmaz. Müşteri listesini reklam platformuna yükleyeceksen KVKK koşullarını kontrol et; bu not hukuki görüş değildir.\n\nYeni müşteryi kazanmak bir kampanyanın işi. Onu tutmak, markanın karakterinin işi.\n\nKaydırınca akışı, mesaj içeriklerini ve izin olmadan yapılabilecekleri göreceksin.\n\nYorumlara İKİNCİ yaz, ikinci sipariş akışı şablonunu DM'den göndereyim.\n\n#eticaret #musteriyonetimi #emailpazarlama #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "müşteryi", "dogrusu": "müşteriyi", "paragraf": 4},
+  "dogrulama": ["6563 sayılı Kanun ve İYS (ticari ileti onayı)", "6698 sayılı KVKK", "Danışmanlık müşteri tutma notları"],
+  "senaryo": [
+    {"tts": "Kampanya yeni müşteri getirdi. Seni büyütecek olan ikinci sipariş.", "altyazi": "Kampanya yeni müşteri getirdi. Seni büyütecek olan ikinci sipariş."},
+    {"tts": "İlk kırk beş gün belirleyici. İkinci sipariş veren müşteri çok daha değerli.", "altyazi": "İlk 45 gün belirleyici. İkinci sipariş veren müşteri çok daha değerli."},
+    {"tts": "Bir. İzinli müşteriye üç mesaj: yedinci gün ipucu, yirmi birinci gün tamamlayıcı ürün, kırk beşinci gün hatırlatma.", "altyazi": "1. İzinli müşteriye 3 mesaj: 7. gün ipucu, 21. gün tamamlayıcı ürün, 45. gün hatırlatma."},
+    {"tts": "İki. İzin yoksa e-posta yok. Kutuya kart, sipariş sayfasında öneri.", "altyazi": "2. İzin yoksa e-posta yok. Kutuya kart, sipariş sayfasında öneri."},
+    {"tts": "Üç. Kutunun içi de bir kanal: bakım ipucu ve QR kodu.", "altyazi": "3. Kutunun içi de bir kanal: bakım ipucu ve QR kodu."},
+    {"tts": "Müşteri listesini reklama yükleyeceksen KVKK'yı kontrol et. Bu hukuki görüş değildir.", "altyazi": "Müşteri listesini reklama yükleyeceksen KVKK'yı kontrol et. Hukuki görüş değildir."},
+    {"tts": "Akış şablonunu istiyorsan yorumlara ikinci yaz. Di emden göndereyim.", "altyazi": "Akış şablonunu istiyorsan yorumlara İKİNCİ yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "İkinci Sipariş _Akışı_", "kicker": "Şablon · E-ticaret · Müşteri tutma",
+    "giris": "Kampanya müşterisini ilk 45 günde ikinci siparişe taşı. İzinli iletişim ve izinsiz yollar ayrı. Hukuki görüş değildir.",
+    "bolumler": [
+      {"ad": "İzinli müşteri", "renk": "ecom", "maddeler": [["7. gün", "Kullanım ve bakım ipucu, ürün fotoğrafıyla."], ["21. gün", "Bununla iyi giden 3 ürün."], ["45. gün", "Yenileme zamanı ya da yeni sezon."], ["Ret bağlantısı", "Her mesajda."]]},
+      {"ad": "İzinsiz müşteri", "renk": "ads", "maddeler": [["Kutu kartı", "Bakım ipucu ve QR kodu."], ["Sipariş sayfası", "Tamamlayıcı ürün önerisi."], ["Reklam", "Site ziyaretçisi kitlesi."]]},
+      {"ad": "Ölçü", "renk": "seo", "maddeler": [["Tekrar oranı", "45 gün içinde ikinci sipariş verenlerin oranı."], ["Yıllık değer", "Tek ve tekrar eden müşterinin karşılaştırması."], ["İzin oranı", "Teslim sonrası izin verenlerin oranı."]]}
+    ]
+  }
+}

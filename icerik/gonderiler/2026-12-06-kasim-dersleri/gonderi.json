@@ -1,0 +1,59 @@
+{
+  "id": "2026-12-06-kasim-dersleri",
+  "tarih": "2026-12-06",
+  "gun": "Pazar",
+  "sutun": "ads",
+  "anahtar": "DERS",
+  "muzik_tohum": 70,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "Haftalık özet · Kasım dersleri", "baslik": "Kasım bitti. _5 ders_ gelecek yıla kalsın.",
+     "alt": "Notları şimdi yazmazsan gelecek Kasım **aynı hataları** yeniden yaşarsın.",
+     "zaman": [{"t": "Ölçüm", "s": "Gerçek sipariş", "renk": "ads"}, {"t": "Operasyon", "s": "Stok ve kargo", "renk": "ecom"}, {"t": "Metin", "s": "Tarih ve oran", "renk": "seo"}, {"t": "Müşteri", "s": "İade ve ikinci sipariş", "renk": "ai"}],
+     "kaynak": "Kaynak: Kasım ayı gönderileri ve kampanya notları"},
+    {"tip": "matris", "num": "01", "kicker": "5 ders", "baslik": "Kasım'ın _5 dersi_",
+     "basliklar": ["Ders", "Gelecek yıl"],
+     "satirlar": [[["ads", "Platform raporu ≠ kasa"], "Baz çizgisini kampanyadan 2 hafta önce al"], [["ecom", "Stok ve kargo satıştan önce"], "Kargo anlaşması 1 Kasım'da"], [["seo", "Metin denetlenir"], "Tarih, tek oran, okunur şart"], [["ai", "AI taslak, insan karar"], "Destek havuzu Ekim'de hazır"], [["ink", "Kâr, ciro değil"], "Ürün bazında katkı payı"]],
+     "kaynak": "Örnek ders listesi; kendi notlarınla doldur."},
+    {"tip": "oncesonra", "num": "02", "kicker": "Not", "baslik": "Ders _kararla_ biter.",
+     "once": {"dosya": "genel_not", "etiket": "Unutulur", "basliklar": ["Konu", "Not"], "satirlar": [["Kargo", "Yoğundu"], ["Reklam", "Pahalıydı"], ["Stok", "Bazı ürünler bitti"]]},
+     "sonra": {"dosya": "karar_notu", "etiket": "Uygulanır", "basliklar": ["Konu", "Karar"], "satirlar": [["Kargo", "Yedek firma 1 Kasım'da"], ["Reklam", "Isınma 5 gün önce"], ["Stok", "Vitrin ürününde +%30"]]},
+     "kaynak": "Örnek değerler"},
+    {"tip": "akis", "kicker": "Ders toplantısı", "renk": "ads", "baslik": "45 dakikalık _ders toplantısı_",
+     "satirlar": [[{"ad": "Günlük notlar", "alt": "23-30 Kasım", "ikon": "belge", "renk": "ink"}, {"ad": "Rakamlar", "alt": "Kâr, iade, yeni müşteri", "ikon": "grafik", "renk": "seo"}, {"ad": "Ekip", "alt": "Herkes 1 ders", "ikon": "kisi", "renk": "ai"}],
+                   [{"ad": "Karar", "alt": "Her derse 1 karar", "ikon": "onay", "renk": "ads"}, {"ad": "Takvim", "alt": "Gelecek yıl tarihi", "ikon": "saat", "renk": "ecom"}],
+                   [{"ad": "Dosya", "alt": "Kampanya el kitabı", "ikon": "kutu", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım değerlendirme toplantısı"},
+    {"tip": "kural", "num": "03", "kicker": "Suçlama yok", "baslik": "Kişiyi değil, _süreci_ konuş.",
+     "alt": "Ders toplantısı suçlu bulma toplantısı olursa kimse doğruyu söylemez.",
+     "kod": ["<span class=\"c\"># ders toplantısı kuralı</span>", "<span class=\"k\">SOR</span> ne oldu, neden oldu", "<span class=\"k\">SORMA</span> kim yaptı", "<span class=\"k\">YAZ</span> süreçteki boşluk", "<span class=\"g\">→</span> boşluğa bir kural, kurala bir sahip"],
+     "prompt": "Ekteki kampanya haftası günlük notlarından tekrar eden sorunları çıkar. Her sorun için kişiyi değil süreci tarif et ve gelecek yıl uygulanacak tek bir kural öner.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "grafik", "kicker": "Takvim", "renk": "ecom", "baslik": "Sıradaki _tarihler_",
+     "barlar": [{"ad": "Yıl sonu hediye son siparişi", "etiket": "~20 gün", "deger": 20, "renk": "ecom", "alt": "Ürün tipine göre değişir"}, {"ad": "2027 ilk çeyrek planı", "etiket": "~7 gün", "deger": 7, "renk": "ai"}, {"ad": "Gelecek Kasım hazırlığı", "etiket": "~330 gün", "deger": 330, "renk": "ink", "alt": "El kitabı bugün yazılır"}],
+     "not": "Değerler yaklaşık. El kitabını bugün yazmak gelecek Kasım'ın ilk haftasını kazandırır.",
+     "kaynak": "6 Aralık 2026 itibarıyla"},
+    {"tip": "cta", "anahtar": "DERS", "vaat": "**Kampanya el kitabı şablonunu** (5 ders + karar) DM'den göndereyim."}
+  ],
+  "aciklama": "Kasım bitti. Notları şimdi yazmazsan gelecek Kasım aynı hataları yeniden yaşarsın.\n\nBu ayın beş dersi şunlar oldu: platform raporu kasayla aynı şey değil, stok ve kargo satıştan önce planlanır, kampanya metni denetlenir, AI taslak yazar ama kararı insan verir, kampanya ciroyla değil kârla değerlendirilir. Kendi listen farklı olabilir; önemli olan her dersin bir kararla bitmesi.\n\nBu hafta 45 dakikalık bir ders toplantısı yap. Günlük notları ve rakamları masaya koy, ekipten herkes bir ders getirsin, her derse bir karar ve bir tarih yazılsın. Kuralı da baştan koy: kişiyi değil süreci konuşuyoruz. Suçlu aranan toplantıda kimse doğruyu söylemez. Sonuçları tek bir kampanya el kitabına topla ve gelecek Ekim'de ilk iş onu aç; notlarnı ilk okuyan yine sen olacaksın.\n\nTecrübe yaşadıklarımız değil, yaşadıklarımızdan çıkardığımız kurallar.\n\nKaydırınca beş dersi, toplantı akışını ve sıradaki tarihleri göreceksin.\n\nYorumlara DERS yaz, kampanya el kitabı şablonunu DM'den göndereyim.\n\n#dijitalpazarlama #eticaret #performanspazarlama #yonetim",
+  "yazim_hatasi": {"kelime": "notlarnı", "dogrusu": "notlarını", "paragraf": 3},
+  "dogrulama": ["Kasım ayı gönderilerinin kaynakları", "Danışmanlık değerlendirme notları"],
+  "senaryo": [
+    {"tts": "Kasım bitti. Notları şimdi yazmazsan gelecek Kasım aynı hataları yaşarsın.", "altyazi": "Kasım bitti. Notları şimdi yazmazsan gelecek Kasım aynı hataları yaşarsın."},
+    {"tts": "Beş ders: rapor kasa değil, operasyon önce, metin denetlenir, yapay zekâ taslak yazar, kâr ciro değil.", "altyazi": "5 ders: rapor kasa değil, operasyon önce, metin denetlenir, AI taslak yazar, kâr ciro değil."},
+    {"tts": "Bir. Her ders bir kararla bitsin. Kargo yoğundu değil, yedek firma bir Kasım'da.", "altyazi": "1. Her ders bir kararla bitsin. \"Kargo yoğundu\" değil, \"yedek firma 1 Kasım'da\"."},
+    {"tts": "İki. Kırk beş dakikalık ders toplantısı. Herkes bir ders getirir.", "altyazi": "2. 45 dakikalık ders toplantısı. Herkes bir ders getirir."},
+    {"tts": "Üç. Kişiyi değil süreci konuş. Boşluğa bir kural, kurala bir sahip.", "altyazi": "3. Kişiyi değil süreci konuş. Boşluğa bir kural, kurala bir sahip."},
+    {"tts": "Sonuçları kampanya el kitabına topla.", "altyazi": "Sonuçları kampanya el kitabına topla."},
+    {"tts": "El kitabı şablonunu istiyorsan yorumlara ders yaz. Di emden göndereyim.", "altyazi": "El kitabı şablonunu istiyorsan yorumlara DERS yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Kampanya _El Kitabı_", "kicker": "Şablon · Pazarlama · Değerlendirme",
+    "giris": "Kasım kampanyalarından çıkan dersleri kararlara çevir ve gelecek yıl ilk iş açacağın tek dosyada topla.",
+    "bolumler": [
+      {"ad": "Dersler", "renk": "ads", "maddeler": [["Ölçüm", "Platform raporu ile gerçek sipariş farkı."], ["Operasyon", "Stok, depo ve kargo kapasitesi."], ["Metin", "Tarih, oran ve şart kontrolü."], ["Müşteri", "İade nedenleri ve ikinci sipariş oranı."]]},
+      {"ad": "Toplantı", "renk": "seo", "maddeler": [["Süre", "45 dakika, notlar ve rakamlar hazır."], ["Kural", "Kişi değil süreç konuşulur."], ["Çıktı", "Her derse bir karar, bir sahip, bir tarih."]]},
+      {"ad": "El kitabı", "renk": "ecom", "maddeler": [["Takvim", "Gelecek yılın hazırlık tarihleri."], ["Şablonlar", "Metin, bütçe, panel ve mesaj şablonları."], ["Açılış", "Gelecek Ekim'in ilk iş günü okunur."]]}
+    ]
+  }
+}

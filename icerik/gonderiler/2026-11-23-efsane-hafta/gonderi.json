@@ -1,0 +1,60 @@
+{
+  "id": "2026-11-23-efsane-hafta",
+  "tarih": "2026-11-23",
+  "gun": "Pazartesi",
+  "sutun": "ecom",
+  "anahtar": "HAZIR",
+  "muzik_tohum": 57,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "E-ticaret · Efsane hafta", "baslik": "Efsane hafta başladı. _Sitende_ her şey çalışıyor mu?",
+     "alt": "Bugün 30 dakikada **5 test.** Cuma günü bulmaktan iyidir.",
+     "zaman": [{"t": "Bugün", "s": "5 test", "renk": "ecom"}, {"t": "Perşembe", "s": "Tekrar test", "renk": "seo"}, {"t": "Cuma", "s": "Efsane Cuma", "renk": "ads"}, {"t": "Sen", "s": "Kim test ediyor?", "renk": "ai"}],
+     "kaynak": "Takvim: Kasım 2026"},
+    {"tip": "matris", "num": "01", "kicker": "5 test", "baslik": "Bugün _bunları_ dene",
+     "basliklar": ["Test", "Nasıl", "Geçme ölçütü"],
+     "satirlar": [[["ecom", "Ödeme"], "Gerçek kartla küçük sipariş", "Onay e-postası geldi"], [["ads", "Mobil hız"], "Telefonla kampanya sayfası", "3 saniyede açılıyor"], [["seo", "İndirim"], "Sepette fiyat kontrolü", "Etiketle aynı"], [["ai", "Stok"], "Son 1 ürünü sepete ekle", "Stok düşüyor"], [["ink", "Destek"], "DM ve e-postaya soru", "1 saatte yanıt"]],
+     "kaynak": "Örnek test listesi"},
+    {"tip": "akis", "kicker": "Test sırası", "renk": "ecom", "baslik": "Müşteri gibi _alışveriş_ yap",
+     "satirlar": [[{"ad": "Reklam", "alt": "Telefondan tıkla", "ikon": "hoparlor", "renk": "ink"}, {"ad": "Kampanya sayfası", "alt": "Hız, şart, tarih", "ikon": "magaza", "renk": "ecom"}, {"ad": "Sepet", "alt": "İndirim doğru mu?", "ikon": "sepet", "renk": "seo"}],
+                   [{"ad": "Ödeme", "alt": "Kart, 3D, onay", "ikon": "kalkan", "renk": "ads"}, {"ad": "E-posta", "alt": "Sipariş onayı", "ikon": "belge", "renk": "ai"}],
+                   [{"ad": "Not", "alt": "Hata, saat, ekran", "ikon": "onay", "renk": "ecom", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+     "kaynak": "Danışmanlıkta kullandığım test akışı"},
+    {"tip": "kural", "num": "02", "kicker": "Sorumlu", "baslik": "Her testin _bir sahibi_ olsun.",
+     "alt": "\"Biri bakmıştır\" en pahalı cümle.",
+     "kod": ["<span class=\"c\"># test sahipliği</span>", "<span class=\"k\">ÖDEME</span> operasyon sorumlusu", "<span class=\"k\">HIZ</span> geliştirici", "<span class=\"k\">İNDİRİM</span> kampanya sorumlusu", "<span class=\"k\">STOK + DESTEK</span> müşteri hizmetleri"],
+     "prompt": "Efsane Cuma öncesi e-ticaret sitesi için 20 maddelik bir test listesi yaz; her maddeyi sorumlu rol, test adımı ve geçme ölçütüyle tablo olarak ver.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Bulgu", "baslik": "Pazartesi bulunan hata _ucuzdur._",
+     "once": {"dosya": "cuma_bulundu", "etiket": "Cuma 14.00", "basliklar": ["Hata", "Bedel"], "satirlar": [["Sepette indirim yok", "Yüzlerce kayıp sipariş"], ["Mobil yavaş", "Reklam bütçesi boşa"], ["Onay e-postası yok", "Yüzlerce DM"]]},
+     "sonra": {"dosya": "pazartesi_bulundu", "etiket": "Pazartesi 10.00", "basliklar": ["Hata", "Bedel"], "satirlar": [["Sepette indirim yok", "1 saatlik düzeltme"], ["Mobil yavaş", "Görsel sıkıştırma"], ["Onay e-postası yok", "Ayar düzeltme"]]},
+     "kaynak": "Örnek senaryo"},
+    {"tip": "ekran", "kicker": "Test raporu", "baslik": "5 testten _2'si_ kaldı.",
+     "pencere": "Claude · test özeti", "istek": "Bugünkü test notlarını özetle.",
+     "yanit": "**2 test başarısız.** Perşembe tekrar test et.",
+     "tablo": {"basliklar": ["Test", "Sonuç", "Sorumlu"], "satirlar": [["Ödeme", "Geçti", "Operasyon"], ["Mobil hız", "4,6 sn", "Geliştirici"], ["İndirim", "Geçti", "Kampanya"], ["Destek", "3 saat", "Müşteri hizm."]], "vurgu_sutun": 1},
+     "evet": "Atama yap", "hayir": "Sonra", "aksiyon": "Perşembe aynı testleri tekrarla.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "HAZIR", "vaat": "**Efsane Cuma 20 maddelik site test listesini** DM'den göndereyim."}
+  ],
+  "aciklama": "Efsane hafta başladı. Sitende her şeyin çalıştığından emin misin?\n\nBugün 30 dakikanı ayır ve müşteri gibi alışveriş yap: reklama telefondan tıkla, kampanya sayfasının hızına ve şartlarına bak, sepette indirimin etiketle aynı olduğunu kontrol et, gerçek kartla küçük bir ödeme yap ve onay e-postasının geldiğini gör. Son bir ürünü sepete ekleyip stokun düştüğünü, DM'e soru yazıp yanıt süresini de dene.\n\nHer testin bir sahibi olsun. \"Biri bakmıştır\" kampanya haftasının en pahalı cümlesi. Pazartesi bulunan hata bir saatte düzelir; aynı hatayı cuma öğlen bulmak yüzlerce kayıp sipariş demek. Perşembe aynı testleri tekrar et, özellikle ödmeyi.\n\nHazırlık sıkıcı görünür ama kampanya gününün sakinliği tam olarak oradan geliyor.\n\nKaydırınca beş testi, test akışını ve sorumluluk dağılımını göreceksin.\n\nYorumlara HAZIR yaz, 20 maddelik site test listesini DM'den göndereyim.\n\n#efsanecuma #eticaret #kasimindirimi #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "ödmeyi", "dogrusu": "ödemeyi", "paragraf": 3},
+  "dogrulama": ["Takvim: Kasım 2026", "Danışmanlık test notları"],
+  "senaryo": [
+    {"tts": "Efsane hafta başladı. Sitende her şey çalışıyor mu?", "altyazi": "Efsane hafta başladı. Sitende her şey çalışıyor mu?"},
+    {"tts": "Bugün otuz dakikada beş test: ödeme, mobil hız, indirim, stok ve destek.", "altyazi": "Bugün 30 dakikada 5 test: ödeme, mobil hız, indirim, stok ve destek."},
+    {"tts": "Bir. Müşteri gibi alışveriş yap: reklamdan sepete, sepetten ödemeye.", "altyazi": "1. Müşteri gibi alışveriş yap: reklamdan sepete, sepetten ödemeye."},
+    {"tts": "İki. Her testin bir sahibi olsun. Biri bakmıştır en pahalı cümle.", "altyazi": "2. Her testin bir sahibi olsun. \"Biri bakmıştır\" en pahalı cümle."},
+    {"tts": "Üç. Pazartesi bulunan hata bir saatte düzelir. Cuma bulunan hata siparişe mal olur.", "altyazi": "3. Pazartesi bulunan hata bir saatte düzelir. Cuma bulunan hata siparişe mal olur."},
+    {"tts": "Perşembe aynı testleri tekrarla.", "altyazi": "Perşembe aynı testleri tekrarla."},
+    {"tts": "Test listesini istiyorsan yorumlara hazır yaz. Di emden göndereyim.", "altyazi": "Test listesini istiyorsan yorumlara HAZIR yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "Efsane Cuma _Site Test Listesi_", "kicker": "Kontrol listesi · E-ticaret · Efsane hafta",
+    "giris": "Kampanya haftasının pazartesi ve perşembe günü, müşteri gibi alışveriş yaparak uygula. Her maddenin bir sahibi olsun.",
+    "bolumler": [
+      {"ad": "Satın alma", "renk": "ecom", "maddeler": [["Ödeme", "Gerçek kartla küçük sipariş, 3D doğrulama, onay e-postası."], ["İndirim", "Sepette fiyat etiketle aynı."], ["Kupon ve şart", "Sepet tutarı şartı doğru çalışıyor."], ["Stok", "Son ürün satılınca stok sıfırlanıyor."]]},
+      {"ad": "Sayfa", "renk": "ads", "maddeler": [["Mobil hız", "Kampanya sayfası 3 saniyede açılıyor."], ["Tarih ve şart", "Başlangıç, bitiş ve şart görünür."], ["Bağlantılar", "Reklam ve e-posta bağlantıları doğru sayfaya gidiyor."]]},
+      {"ad": "Destek", "renk": "seo", "maddeler": [["DM ve e-posta", "1 saat içinde yanıt."], ["Hazır yanıtlar", "Kargo, iade, beden kayıtlı."], ["Acil hat", "Ödeme hatası için geliştiriciye ulaşma yolu."]]}
+    ]
+  }
+}

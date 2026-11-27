@@ -1,0 +1,61 @@
+{
+  "id": "2026-11-12-ai-mode-reklam",
+  "tarih": "2026-11-12",
+  "gun": "Perşembe",
+  "sutun": "seo",
+  "anahtar": "ARAMA",
+  "muzik_tohum": 46,
+  "slaytlar": [
+    {"tip": "kapak", "kicker": "SEO · Reklam · Google AI Mode", "baslik": "Reklamın artık _ikinci soruda_ da çıkıyor.",
+     "alt": "Google AI Mode'da reklamları genişletiyor. **Kapatma düğmesi yok.**",
+     "zaman": [{"t": "28 Ekim", "s": "10 yeni ülke", "renk": "seo"}, {"t": "ABD", "s": "Takip sorularında reklam", "renk": "ads"}, {"t": "Etiket", "s": "Sponsorlu", "renk": "ecom"}, {"t": "Sen", "s": "Hangi soruda görünüyorsun?", "renk": "ai"}],
+     "kaynak": "Kaynak: PPC Land · Google duyurusu (basın özetleri), Ekim 2026"},
+    {"tip": "akis", "kicker": "Nasıl çalışıyor?", "renk": "seo", "baslik": "Sohbet uzadıkça _reklam_ da uzar",
+     "satirlar": [[{"ad": "İlk soru", "alt": "Kış montu öner", "ikon": "arama", "renk": "ink"}, {"ad": "AI cevabı", "alt": "Özet + reklam", "ikon": "sohbet", "renk": "seo"}, {"ad": "Takip sorusu", "alt": "Su geçirmez olanlar?", "ikon": "arama", "renk": "ink"}],
+                   [{"ad": "Yeni reklam", "alt": "Bağlama göre", "ikon": "hoparlor", "renk": "ads"}, {"ad": "Mevcut kampanya", "alt": "Search, Shopping, PMax", "ikon": "kutu", "renk": "ecom"}],
+                   [{"ad": "Tıklama", "alt": "Kullanıcı seçer", "ikon": "onay", "renk": "ads", "insan": true}]],
+     "baglar": [[0, 1], [1, 2], [2, 3], [4, 3], [3, 5]],
+     "kaynak": "Şema: Google'ın 28 Ekim duyurusundan sadeleştirildi"},
+    {"tip": "matris", "num": "01", "kicker": "Kontrol", "baslik": "Kapatamıyorsan _yönet._",
+     "alt": "AI Mode için ayrı hariç tutma yok; kontrol arama terimlerinde ve varlıklarda.",
+     "basliklar": ["Alan", "Risk", "Ne yap"],
+     "satirlar": [[["ads", "Geniş eşleme"], "Alakasız soru", "Negatif listeyi güncelle"], [["ecom", "Ürün feed'i"], "Eksik özellik", "Başlık + özellik dolu"], [["seo", "Açılış sayfası"], "Soruya cevap yok", "Net cevap üstte"], [["ai", "Bütçe"], "Yeni trafik, yeni maliyet", "Günlük üst sınır"]],
+     "kaynak": "Kaynak: PPC Land (opt-out yok), Ekim 2026"},
+    {"tip": "kural", "num": "02", "kicker": "Haftalık iş", "baslik": "Arama terimlerini _soru gibi_ oku.",
+     "alt": "AI Mode'dan gelen sorgular uzun ve konuşma dilinde.",
+     "kod": ["<span class=\"c\"># arama terimi taraması</span>", "<span class=\"k\">FİLTRE</span> 6 kelimeden uzun sorgular", "<span class=\"k\">SOR</span> bu soruya sayfam cevap veriyor mu?", "&nbsp;&nbsp;<span class=\"g\">→</span> evet: kelimeyi koru", "&nbsp;&nbsp;<span class=\"g\">→</span> hayır: negatif ya da yeni içerik"],
+     "prompt": "Ekteki arama terimleri raporunda 6 kelimeden uzun sorguları ayır. Her biri için niyeti (bilgi, karşılaştırma, satın alma) yaz ve hangilerinin negatif listeye girmesi gerektiğini öner.",
+     "kaynak": "Prompt herhangi bir sohbet modelinde çalışır."},
+    {"tip": "oncesonra", "num": "03", "kicker": "Açılış sayfası", "baslik": "Sayfa _takip sorusunu_ da cevaplasın.",
+     "once": {"dosya": "kategori.html", "etiket": "Tek cevap", "basliklar": ["Bölüm", "İçerik"], "satirlar": [["Başlık", "Kış montları"], ["Filtre", "Fiyat, renk"], ["Soru", "Yok"]]},
+     "sonra": {"dosya": "kategori_yeni.html", "etiket": "Takip soruları", "basliklar": ["Bölüm", "İçerik"], "satirlar": [["Başlık", "Kış montları"], ["Filtre", "Su geçirmez, dolgu, beden"], ["Soru", "5 SSS, kısa cevap"]]},
+     "kaynak": "Örnek yapı"},
+    {"tip": "ekran", "kicker": "Örnek tarama", "baslik": "Uzun sorgular _ne diyor?_",
+     "pencere": "Claude · arama terimi analizi", "istek": "Uzun sorguları niyete göre ayır.",
+     "yanit": "**42 uzun sorgunun 9'u alakasız.**",
+     "tablo": {"basliklar": ["Sorgu", "Niyet", "Öneri"], "satirlar": [["su geçirmez mont 2000 tl altı", "Satın alma", "Koru"], ["mont makinede yıkanır mı", "Bilgi", "Negatif"], ["kaz tüyü mü sentetik mi", "Karşılaştırma", "İçerik yaz"]], "vurgu_sutun": 2},
+     "evet": "Negatif ekle", "hayir": "Sonra", "aksiyon": "Her pazartesi 15 dakika.", "kaynak": "Örnek veri"},
+    {"tip": "cta", "anahtar": "ARAMA", "vaat": "**AI Mode reklam kontrol listesini** ve tarama prompt'unu DM'den göndereyim."}
+  ],
+  "aciklama": "Google reklamı artık ikinci soruda da gösteriyor. Ve bunu kapatacak bir düğme yok.\n\n28 Ekim'de Google, AI Mode'daki reklamları 10 ülkeye daha genişlettiğini ve ABD'de takip sorularında da reklam göstermeye başladığını açıkladı. Reklamlar \"Sponsorlu\" etiketiyle çıkıyor. Ayrı bir kampanya türü yok; mevcut Search, Shopping ve Performance Max kampanyaları uygun ve AI Mode'u ayrıca hariç tutma seçeneği bulunmuyor.\n\nKapatamadığın şeyi yönetmen gerekiyor. Kontrol üç yerde: arama terimleri, ürün feed'i ve açılış sayfası. AI Mode'dan gelen sorgular uzun ve konuşma dilinde; haftada bir bunları soru gibi okumak, bütçenin alakasız sohbetlere gitmesni engelliyor.\n\nİnsanlar arama kutusuna artık kelime değil cümle yazıyor. Reklamın da o cümleye cevap vermesi gerekiyor.\n\nKaydırınca sohbet içinde reklamın nasıl çıktığını, kontrol tablosunu ve tarama yöntemini göreceksin.\n\nYorumlara ARAMA yaz, AI Mode reklam kontrol listesini DM'den göndereyim.\n\n#googleads #seo #yapayzeka #dijitalpazarlama",
+  "yazim_hatasi": {"kelime": "gitmesni", "dogrusu": "gitmesini", "paragraf": 3},
+  "dogrulama": ["Google duyurusu, 28 Ekim 2026 (basın özetleri)", "PPC Land: 10 ülkede AI Mode reklamlarından çıkış yok", "Google Ads Yardım"],
+  "senaryo": [
+    {"tts": "Google reklamı artık ikinci soruda da gösteriyor. Ve bunu kapatacak bir düğme yok.", "altyazi": "Google reklamı artık ikinci soruda da gösteriyor. Ve bunu kapatacak bir düğme yok."},
+    {"tts": "Sohbet uzadıkça reklam da uzuyor. Mevcut Search, Shopping ve Performans Maks kampanyaları oraya çıkabiliyor.", "altyazi": "Sohbet uzadıkça reklam da uzuyor. Mevcut Search, Shopping ve Performance Max kampanyaları oraya çıkabiliyor."},
+    {"tts": "Bir. Kapatamıyorsan yönet: negatif liste, ürün feed'i, açılış sayfası ve bütçe.", "altyazi": "1. Kapatamıyorsan yönet: negatif liste, ürün feed'i, açılış sayfası ve bütçe."},
+    {"tts": "İki. Arama terimlerini soru gibi oku. Altı kelimeden uzun sorguları ayır.", "altyazi": "2. Arama terimlerini soru gibi oku. 6 kelimeden uzun sorguları ayır."},
+    {"tts": "Üç. Açılış sayfan takip sorusunu da cevaplasın. Beş kısa soru, beş kısa cevap.", "altyazi": "3. Açılış sayfan takip sorusunu da cevaplasın. 5 kısa soru, 5 kısa cevap."},
+    {"tts": "Her pazartesi on beş dakika yeter.", "altyazi": "Her pazartesi 15 dakika yeter."},
+    {"tts": "Kontrol listesini istiyorsan yorumlara arama yaz. Di emden göndereyim.", "altyazi": "Kontrol listesini istiyorsan yorumlara ARAMA yaz. DM'den göndereyim."}
+  ],
+  "lead": {
+    "baslik": "AI Mode _Reklam Kontrolü_", "kicker": "Kontrol listesi · Reklam · Google",
+    "giris": "Google AI Mode'daki reklamları ayrıca kapatamıyorsun. Bu liste, mevcut kampanyalarının orada doğru görünmesi için.",
+    "bolumler": [
+      {"ad": "Kampanya", "renk": "ads", "maddeler": [["Uygun kampanyaları listele", "Search, Shopping ve Performance Max."], ["Negatif liste", "Bilgi amaçlı ve alakasız uzun sorgular."], ["Günlük üst sınır", "Yeni trafik için bütçe tavanı."]]},
+      {"ad": "Feed ve sayfa", "renk": "ecom", "maddeler": [["Ürün başlığı", "Tip, malzeme, renk, kullanım."], ["Özellik alanları", "Beden, ölçü, garanti dolu."], ["Açılış sayfası", "Net cevap üstte, 5 SSS."], ["Fiyat ve stok", "Feed ile sayfa aynı."]]},
+      {"ad": "Haftalık", "renk": "seo", "maddeler": [["Uzun sorgu taraması", "6 kelimeden uzun sorguları niyete göre ayır."], ["İçerik fırsatı", "Karşılaştırma sorgularından yeni içerik çıkar."], ["Not", "Değişiklikleri tarihle kaydet."]]}
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-13-kasim-denetim",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Ticaret Bakanlığı Kasım indirimlerini bu ay her kanalda inceliyor.",
+   "altyazi": "Ticaret Bakanlığı Kasım indirimlerini bu ay her kanalda inceliyor."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Dört kalem: başlangıç ve bitiş, indirim oranı, şartlar ve referans fiyat.",
+   "altyazi": "4 kalem: başlangıç ve bitiş, indirim oranı, şartlar ve referans fiyat."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Sınırlı süre yerine tarih ve saat yaz. Yüzde yetmişe varan yerine tek ve ispatlı oran.",
+   "altyazi": "1. \"Sınırlı süre\" yerine tarih ve saat yaz. \"%70'e varan\" yerine tek ve ispatlı oran."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Yayından önce tek kontrol: dört kalem, fiyat kaydı, sonra arşiv.",
+   "altyazi": "2. Yayından önce tek kontrol: 4 kalem, fiyat kaydı, sonra arşiv."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Metinleri yapay zekâyla tara, son kararı sen ver.",
+   "altyazi": "3. Metinleri AI ile tara, son kararı sen ver."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Onaylı metnin ekran görüntüsünü tarihiyle sakla. Bu hukuki görüş değildir.",
+   "altyazi": "Onaylı metnin ekran görüntüsünü tarihiyle sakla. Hukuki görüş değildir."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Kontrol listesini istiyorsan yorumlara etiket yaz. Di emden göndereyim.",
+   "altyazi": "Kontrol listesini istiyorsan yorumlara ETIKET yaz. DM'den göndereyim."
+  }
+ ]
+}

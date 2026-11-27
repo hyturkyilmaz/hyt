@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-05-carousel-reels",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Karusel geri döndü mü? Takipçi etkileşimine bakınca cevap evet gibi.",
+   "altyazi": "Carousel geri döndü mü? Takipçi etkileşimine bakınca cevap evet gibi."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Karusel yüzde sıfır virgül elli, Rils yüzde sıfır virgül kırk sekiz, tek görsel yüzde sıfır virgül otuz üç.",
+   "altyazi": "Carousel %0,50, Reels %0,48, tek görsel %0,33."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Müzik eklenen karuseller bazı hesaplarda Rils akışında da görünebiliyor.",
+   "altyazi": "Müzik eklenen carousel'ler bazı hesaplarda Reels akışında da görünebiliyor."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "Bir. Kapak tek iş yapar: durdurur. En fazla sekiz kelime, bir rakam.",
+   "altyazi": "1. Kapak tek iş yapar: durdurur. En fazla 8 kelime, 1 rakam."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "İki. Başkasının listesini değil, kendi örneğini ve ekran görüntünü kullan.",
+   "altyazi": "2. Başkasının listesini değil, kendi örneğini ve ekran görüntünü kullan."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Üç. Paylaşmadan önce beş kontrol: kapak, akış, okunurluk, müzik ve çağrı.",
+   "altyazi": "3. Paylaşmadan önce 5 kontrol: kapak, akış, okunurluk, müzik ve çağrı."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Kontrol listesini istiyorsan yorumlara kaydır yaz. Di emden göndereyim.",
+   "altyazi": "Kontrol listesini istiyorsan yorumlara KAYDIR yaz. DM'den göndereyim."
+  }
+ ]
+}

@@ -1,0 +1,48 @@
+{
+ "id": "2026-11-12-ai-mode-reklam",
+ "dil": "tr",
+ "bolumler": [
+  {
+   "id": "01",
+   "slayt": "slayt-01",
+   "tts": "Google reklamı artık ikinci soruda da gösteriyor. Ve bunu kapatacak bir düğme yok.",
+   "altyazi": "Google reklamı artık ikinci soruda da gösteriyor. Ve bunu kapatacak bir düğme yok."
+  },
+  {
+   "id": "02",
+   "slayt": "slayt-02",
+   "tts": "Sohbet uzadıkça reklam da uzuyor. Mevcut Search, Shopping ve Performans Maks kampanyaları oraya çıkabiliyor.",
+   "altyazi": "Sohbet uzadıkça reklam da uzuyor. Mevcut Search, Shopping ve Performance Max kampanyaları oraya çıkabiliyor."
+  },
+  {
+   "id": "03",
+   "slayt": "slayt-03",
+   "tts": "Bir. Kapatamıyorsan yönet: negatif liste, ürün feed'i, açılış sayfası ve bütçe.",
+   "altyazi": "1. Kapatamıyorsan yönet: negatif liste, ürün feed'i, açılış sayfası ve bütçe."
+  },
+  {
+   "id": "04",
+   "slayt": "slayt-04",
+   "tts": "İki. Arama terimlerini soru gibi oku. Altı kelimeden uzun sorguları ayır.",
+   "altyazi": "2. Arama terimlerini soru gibi oku. 6 kelimeden uzun sorguları ayır."
+  },
+  {
+   "id": "05",
+   "slayt": "slayt-05",
+   "tts": "Üç. Açılış sayfan takip sorusunu da cevaplasın. Beş kısa soru, beş kısa cevap.",
+   "altyazi": "3. Açılış sayfan takip sorusunu da cevaplasın. 5 kısa soru, 5 kısa cevap."
+  },
+  {
+   "id": "06",
+   "slayt": "slayt-06",
+   "tts": "Her pazartesi on beş dakika yeter.",
+   "altyazi": "Her pazartesi 15 dakika yeter."
+  },
+  {
+   "id": "07",
+   "slayt": "slayt-07",
+   "tts": "Kontrol listesini istiyorsan yorumlara arama yaz. Di emden göndereyim.",
+   "altyazi": "Kontrol listesini istiyorsan yorumlara ARAMA yaz. DM'den göndereyim."
+  }
+ ]
+}
